@@ -447,9 +447,9 @@
     <string name="doh_saved">已儲存</string>
     <string name="doh_test">測試解析</string>
     <string name="doh_test_failure">解析失敗（%1$s）</string>
-    <string name="doh_limits_title">它只管 DNS 這一層</string>
+    <string name="doh_limits_title">加密 DNS 與 ECH</string>
     <string name="doh_limits_encrypted_only_hint">這台裝置上，開著的時候解析不出來就是解析不出來，不會退回明文 DNS；系統裡已經配了加密 DNS 的話，以系統那份為準。</string>
-    <string name="doh_limits_hint">網域被劫持、被汙染，換成 DoH 解析就能直連。但如果目標 IP 本身被封、交握時按 SNI 阻斷或者被回 RST，換什麼 DNS 都沒用，那種情況還得掛代理。</string>
+    <string name="doh_limits_hint">DoH 可避免 DNS 汙染。Android 17 及以上還會讀取 HTTPS 記錄中的 ECH 設定，在伺服器支援時加密交握網域，可能解決按 SNI 阻斷的問題。ECH 無法解決目標 IP 被封或其他連線故障；解析成功也不代表一定能連線。</string>
     <string name="doh_proxy_hint">開著代理的時候，網域交給代理那邊解析，這裡的設定對走代理的請求不起作用。</string>
     <string name="doh_webview_hint">登入用的是系統 WebView，它走自己的網路和系統的私人 DNS，不受這裡影響。</string>
     <string name="settings_network_check_entry">網路自檢</string>
@@ -493,6 +493,21 @@
     <string name="network_check_section_forum">論壇</string>
     <string name="network_check_section_updates">更新來源</string>
     <string name="network_check_status">結果</string>
+    <string name="network_check_stage">最遠連線階段</string>
+    <string name="network_check_stage_start">準備請求</string>
+    <string name="network_check_stage_request">已傳送請求</string>
+    <string name="network_check_stage_response">已收到回應標頭</string>
+    <string name="network_check_stage_complete">已完成下載</string>
+    <string name="network_check_dns_records">DNS 記錄</string>
+    <string name="network_check_dns_answer">%1$s → %2$s；HTTPS=%3$d；ECH=%4$d B（%5$s）</string>
+    <string name="network_check_ech_valid">設定有效</string>
+    <string name="network_check_ech_invalid">設定無效</string>
+    <string name="network_check_ech_unchecked">未驗證設定</string>
+    <string name="network_check_native_ech">系統 TLS 支援 ECH</string>
+    <string name="network_check_ech_policy">系統 ECH 策略</string>
+    <string name="network_check_tls_implementation">TLS 實作</string>
+    <string name="network_check_connection_events">連線過程</string>
+    <string name="network_check_failure_codes">底層錯誤</string>
     <string name="network_check_dns">DNS 解析</string>
     <string name="network_check_connect">建立連線</string>
     <string name="network_check_tls">TLS 交握</string>

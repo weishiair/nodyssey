@@ -97,11 +97,9 @@ private const val CUSTOM_ID_PREFIX = "custom-"
 /**
  * 加密 DNS — how the app's own HTTP clients turn a hostname into an address.
  *
- * The one thing this changes is where the answer comes from: a DoH server over HTTPS instead of
- * whatever resolver the network handed the device. That is enough for a domain the local resolver
- * lies about or refuses, and it is *not* enough for anything further down — an address that is
- * blackholed, a TLS handshake cut off by its SNI, a connection reset on sight. Those need a tunnel,
- * and 代理设置 is where one is configured.
+ * Answers come from a DoH server over HTTPS instead of whatever resolver the network handed the
+ * device. Android 17's transport also uses ECH from HTTPS records to hide SNI when the server
+ * supports it. Neither encrypted DNS nor ECH can fix a blocked IP or other connection failures.
  *
  * Every one of the app's clients resolves through this, the login WebView through none of it: that is
  * Chromium's network stack, with its own resolver and the system's 私人 DNS setting above it.

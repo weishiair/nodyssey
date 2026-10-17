@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <!-- targetSdk 36 defaults to disabled, even on Android 17. Opt in explicitly. -->
+        <domainEncryption mode="enabled" />
+    </base-config>
+</network-security-config>

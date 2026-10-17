@@ -22,6 +22,10 @@ val keystoreKeyPassword = providers.environmentVariable("NODYSSEY_KEY_PASSWORD")
 val hasReleaseSigning =
     keystoreFile != null && keystorePassword != null && keystoreKeyAlias != null && keystoreKeyPassword != null
 
+// Opt-in personal distribution: retain the test app's ID so a release APK can replace it in place.
+// The build type remains release, so debug-only tools such as LeakCanary are not packaged.
+val echRelease = providers.gradleProperty("nodyssey.echRelease").orNull == "true"
+
 android {
     namespace = "io.github.nodyssey"
     defaultConfig {
@@ -56,6 +60,10 @@ android {
             // `plaza.android.application` because the config it names is declared just above, which
             // is after the convention plugin has already run.
             signingConfig = signingConfigs.findByName("release")
+            if (echRelease) {
+                applicationIdSuffix = ".debug"
+                isDebuggable = false
+            }
 
             /*
              * The two ABIs a phone can actually be. Everything else in this file ships on every
@@ -89,6 +97,7 @@ android {
     // The helper looks the schemas up through the debug `AssetManager`, so this points at the
     // directory rather than keeping a second copy of it, for the same reason as the line below.
     sourceSets["debug"].assets.directories.add(project(":shared").projectDir.resolve("schemas").path)
+    if (echRelease) sourceSets["release"].res.directories.add("src/ech/res")
 
     // The captured pages moved to `:shared` with the parsers that read them, and a handful of tests
     // left here — the challenge detector, two repositories, the reply composer — still read the same

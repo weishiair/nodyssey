@@ -3,7 +3,7 @@
     Debug-only overrides of the app's own name.
 
     A build-type resource wins over the same name in `main`, so the launcher entry and the task
-    switcher read Nodyssey·D without the release build knowing this file exists. The 关于 screen reads
+    switcher read Nodyssey·ECH without the release build knowing this file exists. The 关于 screen reads
     it too, one step removed: since step D1 that screen is in `:ui` and its strings are Compose
     Resources, which have no build types — so it prints `AppVersion.label`, which is this label as the
     package manager reports it.
@@ -13,5 +13,5 @@
     installed at the same time. See `app/build.gradle.kts`.
 -->
 <resources>
-    <string name="app_name" translatable="false">Nodyssey·D</string>
+    <string name="app_name" translatable="false">Nodyssey·ECH</string>
 </resources>

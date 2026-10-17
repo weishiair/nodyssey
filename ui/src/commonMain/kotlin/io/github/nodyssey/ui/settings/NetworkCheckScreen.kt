@@ -37,7 +37,9 @@ import io.github.nodyssey.data.diagnostics.DeviceIdentity
 import io.github.nodyssey.data.diagnostics.NetworkEnvironment
 import io.github.nodyssey.data.diagnostics.NetworkTransport
 import io.github.nodyssey.data.diagnostics.ProbeResult
+import io.github.nodyssey.data.diagnostics.ProbeStage
 import io.github.nodyssey.data.diagnostics.ProbeTiming
+import io.github.nodyssey.data.diagnostics.ProbeTrace
 import io.github.nodyssey.data.diagnostics.ProxySummary
 import io.github.nodyssey.data.diagnostics.SessionSummary
 import io.github.nodyssey.data.diagnostics.bodyBytesPerSecond
@@ -53,6 +55,7 @@ import io.github.nodyssey.ui.resources.network_check_app_none
 import io.github.nodyssey.ui.resources.network_check_app_version
 import io.github.nodyssey.ui.resources.network_check_clearance
 import io.github.nodyssey.ui.resources.network_check_connect
+import io.github.nodyssey.ui.resources.network_check_connection_events
 import io.github.nodyssey.ui.resources.network_check_cookie_names
 import io.github.nodyssey.ui.resources.network_check_cookie_names_none
 import io.github.nodyssey.ui.resources.network_check_copied
@@ -61,17 +64,25 @@ import io.github.nodyssey.ui.resources.network_check_custom_tab_app
 import io.github.nodyssey.ui.resources.network_check_default_browser
 import io.github.nodyssey.ui.resources.network_check_device
 import io.github.nodyssey.ui.resources.network_check_dns
+import io.github.nodyssey.ui.resources.network_check_dns_answer
+import io.github.nodyssey.ui.resources.network_check_dns_records
 import io.github.nodyssey.ui.resources.network_check_doh
 import io.github.nodyssey.ui.resources.network_check_doh_off
 import io.github.nodyssey.ui.resources.network_check_download
 import io.github.nodyssey.ui.resources.network_check_download_value
+import io.github.nodyssey.ui.resources.network_check_ech_invalid
+import io.github.nodyssey.ui.resources.network_check_ech_policy
+import io.github.nodyssey.ui.resources.network_check_ech_unchecked
+import io.github.nodyssey.ui.resources.network_check_ech_valid
 import io.github.nodyssey.ui.resources.network_check_failed
+import io.github.nodyssey.ui.resources.network_check_failure_codes
 import io.github.nodyssey.ui.resources.network_check_first_byte
 import io.github.nodyssey.ui.resources.network_check_hint_custom_tab
 import io.github.nodyssey.ui.resources.network_check_hint_layers
 import io.github.nodyssey.ui.resources.network_check_hint_scope
 import io.github.nodyssey.ui.resources.network_check_hint_title
 import io.github.nodyssey.ui.resources.network_check_metered
+import io.github.nodyssey.ui.resources.network_check_native_ech
 import io.github.nodyssey.ui.resources.network_check_no
 import io.github.nodyssey.ui.resources.network_check_os
 import io.github.nodyssey.ui.resources.network_check_pending
@@ -89,6 +100,11 @@ import io.github.nodyssey.ui.resources.network_check_section_environment
 import io.github.nodyssey.ui.resources.network_check_section_forum
 import io.github.nodyssey.ui.resources.network_check_section_updates
 import io.github.nodyssey.ui.resources.network_check_session
+import io.github.nodyssey.ui.resources.network_check_stage
+import io.github.nodyssey.ui.resources.network_check_stage_complete
+import io.github.nodyssey.ui.resources.network_check_stage_request
+import io.github.nodyssey.ui.resources.network_check_stage_response
+import io.github.nodyssey.ui.resources.network_check_stage_start
 import io.github.nodyssey.ui.resources.network_check_status
 import io.github.nodyssey.ui.resources.network_check_status_code
 import io.github.nodyssey.ui.resources.network_check_summary_failed
@@ -96,6 +112,7 @@ import io.github.nodyssey.ui.resources.network_check_summary_ok
 import io.github.nodyssey.ui.resources.network_check_summary_updates
 import io.github.nodyssey.ui.resources.network_check_title
 import io.github.nodyssey.ui.resources.network_check_tls
+import io.github.nodyssey.ui.resources.network_check_tls_implementation
 import io.github.nodyssey.ui.resources.network_check_transport
 import io.github.nodyssey.ui.resources.network_check_transport_cellular
 import io.github.nodyssey.ui.resources.network_check_transport_ethernet
@@ -490,11 +507,61 @@ private fun probeSection(
                     ),
                     alert = true,
                 ),
-            ),
+            ) + traceLines(result.trace),
         )
 
-        is ProbeResult.Answered -> CheckSection(title = title, lines = timingLines(result))
+        is ProbeResult.Answered -> CheckSection(title = title, lines = timingLines(result) + traceLines(result.trace))
     }
+
+@Composable
+private fun traceLines(trace: ProbeTrace?): List<CheckLine> {
+    if (trace == null) return emptyList()
+    val stage = stringResource(
+        when (trace.stage) {
+            ProbeStage.START -> Res.string.network_check_stage_start
+            ProbeStage.DNS -> Res.string.network_check_dns
+            ProbeStage.CONNECT -> Res.string.network_check_connect
+            ProbeStage.TLS -> Res.string.network_check_tls
+            ProbeStage.REQUEST -> Res.string.network_check_stage_request
+            ProbeStage.RESPONSE -> Res.string.network_check_stage_response
+            ProbeStage.COMPLETE -> Res.string.network_check_stage_complete
+        },
+    )
+    return buildList {
+        add(CheckLine(stringResource(Res.string.network_check_stage), stage))
+        for (answer in trace.dnsAnswers) {
+            val valid = stringResource(
+                when (answer.echConfigValid) {
+                    true -> Res.string.network_check_ech_valid
+                    false -> Res.string.network_check_ech_invalid
+                    null -> Res.string.network_check_ech_unchecked
+                },
+            )
+            add(
+                CheckLine(
+                    stringResource(Res.string.network_check_dns_records),
+                    stringResource(
+                        Res.string.network_check_dns_answer,
+                        answer.hostname,
+                        answer.addresses.joinToString(", "),
+                        answer.httpsRecords,
+                        answer.echConfigBytes,
+                        valid,
+                    ),
+                ),
+            )
+        }
+        add(CheckLine(stringResource(Res.string.network_check_native_ech), yesNo(trace.nativeEchSupported)))
+        add(CheckLine(stringResource(Res.string.network_check_ech_policy), trace.echPolicy))
+        add(CheckLine(stringResource(Res.string.network_check_tls_implementation), trace.tlsImplementation))
+        if (trace.connectionEvents.isNotEmpty()) {
+            add(CheckLine(stringResource(Res.string.network_check_connection_events), trace.connectionEvents.joinToString("\n")))
+        }
+        if (trace.failureCodes.isNotEmpty()) {
+            add(CheckLine(stringResource(Res.string.network_check_failure_codes), trace.failureCodes.joinToString(" / ")))
+        }
+    }
+}
 
 @Composable
 private fun timingLines(result: ProbeResult.Answered): List<CheckLine> {
@@ -564,6 +631,7 @@ private fun failureText(failure: ProxyConnectionFailure): String =
             ProxyConnectionFailure.Kind.TLS -> Res.string.proxy_test_failure_tls
             ProxyConnectionFailure.Kind.OTHER -> Res.string.proxy_test_failure_other
         },
+        failure.exceptionName,
     )
 
 @Preview

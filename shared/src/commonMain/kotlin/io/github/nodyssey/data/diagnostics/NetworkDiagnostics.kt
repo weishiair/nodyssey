@@ -42,7 +42,9 @@ interface NetworkDiagnostics {
 /**
  * The two hosts worth measuring, and they are worth measuring *together*.
  *
- * Both are hosts the app already talks to, so neither adds a third party to the privacy story. The
+ * Both measured targets are hosts the app already talks to. On Android, a failed forum probe also
+ * checks Cloudflare's public ECH trace endpoint without cookies or forum headers to distinguish a
+ * server-specific failure from a TLS stack that did not negotiate ECH. The
  * pair is chosen for the comparison it draws rather than for either number alone: they are different
  * networks, different CDNs and — where the reader picked `ProxyScope.FORUM_ONLY` — different routes.
  * Forum slow with updates fast says the route to the forum is the problem; both slow says it is the
@@ -176,15 +178,39 @@ data class ProxySummary(
 )
 
 sealed interface ProbeResult {
-    data class Answered(val statusCode: Int, val timing: ProbeTiming) : ProbeResult
+    data class Answered(val statusCode: Int, val timing: ProbeTiming, val trace: ProbeTrace? = null) : ProbeResult
 
     /**
      * Reuses 代理设置's failure vocabulary rather than inventing a second one: the distinctions a
      * failed probe wants to draw — DNS, timeout, connection, TLS — are the same distinctions, and
      * that classifier already avoids putting an exception message on screen.
      */
-    data class Failed(val failure: ProxyConnectionFailure) : ProbeResult
+    data class Failed(val failure: ProxyConnectionFailure, val trace: ProbeTrace? = null) : ProbeResult
 }
+
+/** Public target addresses and bounded transport events, never cookies or exception messages. */
+data class ProbeTrace(
+    val stage: ProbeStage,
+    val dnsAnswers: List<ProbeDnsAnswer>,
+    val connectionEvents: List<String>,
+    val tlsImplementation: String,
+    val nativeEchSupported: Boolean,
+    val echPolicy: String,
+    val failureCodes: List<String>,
+)
+
+/** The furthest boundary reached, even if a later address attempt fails earlier. */
+enum class ProbeStage { START, DNS, CONNECT, TLS, REQUEST, RESPONSE, COMPLETE }
+
+data class ProbeDnsAnswer(
+    val hostname: String,
+    val addresses: List<String>,
+    val httpsRecords: Int,
+    /** Only configs whose hostname matches the address records, as required by OkHttp routing. */
+    val echConfigBytes: Int,
+    /** Null on a platform without the native ECH parser, or when no config was returned. */
+    val echConfigValid: Boolean?,
+)
 
 /**
  * Where the time went, split at the boundaries that point at different culprits.

@@ -12,6 +12,7 @@ import okhttp3.Dns
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.dnsoverhttps.DnsOverHttps
+import java.io.IOException
 import java.net.InetAddress
 import java.net.UnknownHostException
 
@@ -39,7 +40,7 @@ import java.net.UnknownHostException
  *   address the old resolvers gave keeps carrying requests, so [onResolverChanged] empties the pool.
  */
 class AppDns(
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     config: Flow<DohConfig>,
     /**
      * Builds the resolver for one server, or answers null when it cannot — a URL that no longer
@@ -116,6 +117,38 @@ class AppDns(
         return system.lookup(hostname)
     }
 
+    /**
+     * OkHttp 5.5 connects using this API, including HTTPS records carrying ECH configuration.
+     * Delegating through lookup() strips those records and silently disables Android 17 ECH.
+     */
+    override fun newCall(request: Dns.Request): Dns.Call {
+        val active = active ?: return system.newCall(request)
+        if (!isResolvableName(request.hostname)) return system.newCall(request)
+        return AppDnsCall(scope, request) {
+            val now = clock.nowMillis()
+            val order = active.chain.sortedBy { (now - it.passedOverAt) in 0 until RECENT_FAILURE_MILLIS }
+            val failed = mutableListOf<Built>()
+            var failure: IOException? = null
+            for (server in order) {
+                try {
+                    // Keep records from one resolver together: a failed server's HTTPS records
+                    // must not be combined with another server's IP addresses or ECH config.
+                    val answer = server.dns.newCall(request).awaitRecords()
+                    val answeredAt = clock.nowMillis()
+                    failed.forEach { it.passedOverAt = answeredAt }
+                    server.passedOverAt = NEVER
+                    return@AppDnsCall answer
+                } catch (e: IOException) {
+                    failed += server
+                    val first = failure
+                    if (first == null) failure = e else first.addSuppressed(e)
+                }
+            }
+            if (!active.fallbackToSystem) throw failure ?: UnknownHostException(request.hostname)
+            system.newCall(request).awaitRecords()
+        }
+    }
+
     private fun apply(config: DohConfig) {
         val previous = active
         val next =
@@ -179,6 +212,7 @@ fun dnsOverHttpsResolvers(client: () -> OkHttpClient): (DohResolverSpec) -> Dns?
             .client(client())
             .url(url)
             .includeIPv6(spec.includeIPv6)
+            .includeServiceMetadata(true)
             .apply {
                 val bootstrap = spec.bootstrap.mapNotNull { address ->
                     // A literal, so this parses rather than resolves; anything the shared validator

@@ -12,12 +12,15 @@ import io.github.plaza.core.runCatchingExceptCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import okhttp3.Authenticator
 import okhttp3.CacheControl
 import okhttp3.Call
 import okhttp3.Connection
 import okhttp3.ConnectionPool
+import okhttp3.CookieJar
 import okhttp3.EventListener
 import okhttp3.Handshake
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
@@ -28,6 +31,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The two packages 网络自检 names — see [AppIdentity], where the reason they are named is written
@@ -100,11 +104,15 @@ class OkHttpNetworkDiagnostics(
                     ProbeTarget.FORUM -> "${NodeSeekSite.BASE_URL}/"
                     ProbeTarget.UPDATES -> updatesUrl
                 }
-            val recorder = ProbeRecorder()
+            val trace = runCatchingExceptCancellation {
+                ProbeTraceRecorder.forClient(url.toHttpUrl().host, client)
+            }.getOrElse { return@withContext ProbeResult.Failed(it.toProxyConnectionFailure()) }
+            val recorder = ProbeRecorder(trace)
             val probeClient =
                 client
                     .newBuilder()
                     .connectionPool(probeConnectionPool())
+                    .dns(trace.observe(client.dns))
                     .eventListener(recorder)
                     .build()
             val request =
@@ -124,13 +132,51 @@ class OkHttpNetworkDiagnostics(
                     // the gap between the first byte and the last, and the last one has not been
                     // received until the stream is drained.
                     val bytes = response.body.source().readAll(blackholeSink())
+                    trace.reached(ProbeStage.COMPLETE)
                     ProbeResult.Answered(
                         statusCode = response.code,
                         timing = recorder.timing(bytes),
+                        trace = trace.snapshot(),
                     )
                 }
-            }.getOrElse { failure -> ProbeResult.Failed(failure.toProxyConnectionFailure()) }
+            }.getOrElse { failure ->
+                // A config on a route proves it was offered, not that TLS negotiated it. Only
+                // when the forum fails, ask Cloudflare's public trace endpoint for that distinction.
+                if (target == ProbeTarget.FORUM) trace.echControl(checkEchControl(client))
+                ProbeResult.Failed(failure.toProxyConnectionFailure(), trace.snapshot(failure))
+            }
         }
+
+    private fun checkEchControl(client: OkHttpClient): String {
+        val routeEchBytes = AtomicInteger()
+        return runCatchingExceptCancellation {
+            val control = client.newBuilder()
+                .apply {
+                    // Keep the same DNS, TLS and proxy, but send no session or forum headers to
+                    // this third party and never write its cookies into the sign-in WebView.
+                    interceptors().clear()
+                    networkInterceptors().clear()
+                }
+                .cookieJar(CookieJar.NO_COOKIES)
+                .authenticator(Authenticator.NONE)
+                .connectionPool(probeConnectionPool())
+                .cache(null)
+                .followRedirects(false)
+                .callTimeout(8, TimeUnit.SECONDS)
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
+                .eventListener(object : EventListener() {
+                    override fun connectionAcquired(call: Call, connection: Connection) {
+                        routeEchBytes.set(connection.route().echConfigList?.size ?: 0)
+                    }
+                })
+                .build()
+            val request = Request.Builder().url("https://cloudflare-ech.com/cdn-cgi/trace").build()
+            control.newCall(request).execute().use { response ->
+                echControlSummary(response.code, response.peekBody(4_096).string(), routeEchBytes.get())
+            }
+        }.getOrElse { safeFailureCodes(it).joinToString(" / ") }
+    }
 
     private fun ProxyConfig.summarise(): ProxySummary =
         ProxySummary(
@@ -161,6 +207,17 @@ class OkHttpNetworkDiagnostics(
     }
 }
 
+/** Keep only Cloudflare's fixed ECH result, never the client's public IP or other trace fields. */
+internal fun echControlSummary(status: Int, body: String, routeEchBytes: Int): String {
+    val sni = if (status in 200..299) {
+        body.lineSequence().map(String::trim).singleOrNull { it.startsWith("sni=") }
+            ?.substringAfter("=")?.takeIf { it in setOf("encrypted", "plaintext", "off") }
+    } else {
+        null
+    }
+    return "HTTP $status; sni=${sni ?: "unknown"}; route_ech_bytes=$routeEchBytes"
+}
+
 /**
  * Records the boundaries of one call.
  *
@@ -169,7 +226,7 @@ class OkHttpNetworkDiagnostics(
  * therefore attached to a client built for this one probe, which is the only way the fields below can
  * be plain `var`s describing a single request.
  */
-private class ProbeRecorder : EventListener() {
+private class ProbeRecorder(private val trace: ProbeTraceRecorder) : EventListener() {
     private var callStart = 0L
     private var dnsStart = 0L
     private var dnsEnd = 0L
@@ -185,6 +242,7 @@ private class ProbeRecorder : EventListener() {
     }
 
     override fun dnsStart(call: Call, domainName: String) {
+        trace.reached(ProbeStage.DNS)
         dnsStart = System.nanoTime()
     }
 
@@ -193,14 +251,17 @@ private class ProbeRecorder : EventListener() {
     }
 
     override fun connectStart(call: Call, inetSocketAddress: InetSocketAddress, proxy: Proxy) {
+        trace.connectStart(inetSocketAddress, proxy)
         connectStart = System.nanoTime()
     }
 
     override fun secureConnectStart(call: Call) {
+        trace.secureConnectStart()
         secureStart = System.nanoTime()
     }
 
     override fun secureConnectEnd(call: Call, handshake: Handshake?) {
+        trace.secureConnectEnd()
         secureEnd = System.nanoTime()
     }
 
@@ -220,12 +281,20 @@ private class ProbeRecorder : EventListener() {
         protocol: Protocol?,
         ioe: IOException,
     ) {
+        trace.connectFailed(inetSocketAddress, proxy, ioe)
         connectEnd = System.nanoTime()
     }
 
-    override fun connectionAcquired(call: Call, connection: Connection) = Unit
+    override fun connectionAcquired(call: Call, connection: Connection) {
+        trace.connectionAcquired(connection.route().echConfigList?.size ?: 0)
+    }
+
+    override fun requestHeadersEnd(call: Call, request: Request) {
+        trace.reached(ProbeStage.REQUEST)
+    }
 
     override fun responseHeadersEnd(call: Call, response: Response) {
+        trace.reached(ProbeStage.RESPONSE)
         headersEnd = System.nanoTime()
     }
 
