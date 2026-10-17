@@ -78,6 +78,8 @@ fun PlazaTheme(
      * for the generator or the system palette to do with it. See [PlazaCharacterPalette].
      */
     characterPalette: PlazaCharacterPalette? = null,
+    /** White reading surfaces in light mode; dark mode and e-ink retain their own palettes. */
+    pureWhite: Boolean = false,
     /**
      * 使用系统调色板 — take the OS's own Monet scheme rather than generating one.
      *
@@ -112,11 +114,12 @@ fun PlazaTheme(
     einkMode: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val whiteSurfaces = pureWhite && !darkTheme && !einkMode
     // Asked for only when it could win: 角色预设 beats it, and building a scheme that is about to be
     // discarded is work on every recomposition of the whole app. Null means this platform — or this
     // Android version — has no system palette; see [platformSystemColorScheme].
     val systemColorScheme =
-        if (useSystemPalette && characterPalette == null && !einkMode) {
+        if (useSystemPalette && characterPalette == null && !einkMode && !whiteSurfaces) {
             platformSystemColorScheme(darkTheme)
         } else {
             null
@@ -124,6 +127,8 @@ fun PlazaTheme(
     val baseScheme =
         when {
             einkMode -> EInkColorScheme
+
+            whiteSurfaces -> PureWhiteColorScheme
 
             characterPalette != null -> characterPalette.colorScheme(darkTheme)
 
@@ -136,9 +141,10 @@ fun PlazaTheme(
                     plazaSeedColorScheme(seedColor, darkTheme, paletteStyle)
                 }
         }
-    val layers = remember(baseScheme, darkTheme, einkMode) { plazaLayers(baseScheme, darkTheme, einkMode) }
-    // `background` is what `Scaffold` fills with by default and what nothing else in Material reads,
-    // so pointing it at the page layer is the one edit that moves every screen onto the grey page.
+    val layers = remember(baseScheme, darkTheme, einkMode, whiteSurfaces) {
+        plazaLayers(baseScheme, darkTheme, einkMode, pureWhite = whiteSurfaces)
+    }
+    // Scaffold reads background, so every screen follows the chosen page layer.
     val colorScheme = remember(baseScheme, layers) { baseScheme.copy(background = layers.page) }
 
     // The amber board-tag pair has no Material role, so it rides alongside the scheme rather than
@@ -158,7 +164,8 @@ fun PlazaTheme(
         // Tonal elevation is a colour difference, and 墨水屏模式's container ladder has none left to
         // make. Turning it off here means a `Surface` handed a `tonalElevation` by some caller does
         // not go and compute one anyway — the scheme's intent holds even where a call site disagrees.
-        LocalTonalElevationEnabled provides !einkMode,
+        // Keep white surfaces white even when a component asks for tonal elevation.
+        LocalTonalElevationEnabled provides (!einkMode && !whiteSurfaces),
         // A ripple is a translucent 300ms spread: a panel can draw neither the translucency nor the
         // spread, and pays a refresh for trying. Null removes the node outright, which reaches every
         // Material component — they all go through the theme-aware `ripple()`. It does not reach a

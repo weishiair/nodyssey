@@ -36,6 +36,7 @@ import io.github.nodyssey.ui.settings.ProvideAppLanguage
 import io.github.nodyssey.ui.settings.rememberAppLinkHandlingEnabled
 import io.github.nodyssey.ui.settings.rememberAppLinkSettingsLauncher
 import io.github.nodyssey.ui.settings.theme.activeCharacterPalette
+import io.github.nodyssey.ui.settings.theme.activePreset
 import io.github.nodyssey.ui.settings.theme.rememberActiveSeed
 import io.github.nodyssey.ui.settings.theme.toPlaza
 import io.github.nodyssey.ui.sticker.LocalStickerLibrary
@@ -188,6 +189,7 @@ internal fun NodysseyChrome(
             // 角色预设 is the one answer that is not a seed at all: five whole schemes written by hand,
             // which is why they win over both of the lines above.
             characterPalette = activeCharacterPalette(settings),
+            pureWhite = activePreset(settings)?.pureWhite == true,
             useSystemPalette =
             settings.colorSource == ColorSource.WALLPAPER && settings.wallpaperSystemPalette,
             fontScale = settings.fontScale,

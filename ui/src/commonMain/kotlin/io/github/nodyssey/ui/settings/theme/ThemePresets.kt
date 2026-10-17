@@ -12,38 +12,42 @@ import io.github.nodyssey.ui.resources.preset_avatar_twins
 import io.github.nodyssey.ui.resources.settings_preset_graphite
 import io.github.nodyssey.ui.resources.settings_preset_marisa
 import io.github.nodyssey.ui.resources.settings_preset_miku
+import io.github.nodyssey.ui.resources.settings_preset_pure_white
 import io.github.nodyssey.ui.resources.settings_preset_reimu
 import io.github.nodyssey.ui.resources.settings_preset_tianyi
 import io.github.nodyssey.ui.resources.settings_preset_twins
 import io.github.plaza.designsys.theme.PlazaCharacterPalette
+import io.github.plaza.designsys.theme.PlazaDefaultSeed
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 
+/** The warm half of the graphite preset's swatch; a sample colour rather than a theme token. */
+internal val GraphiteCompanion = Color(0xFF7E5700)
+
 /**
- * The six 预设, as j2 lays them out: three columns, 石墨青 first, five characters after it.
+ * Three columns: 石墨青, pure white, then the five character palettes.
  *
- * 石墨青 leads and stays the factory default because it is the app's own colour — picking it is the
- * closest thing to "put it back". It is also the only one of the six that is still a seed: the other
- * five are whole hand-written schemes (see [PlazaCharacterPalette]), which is the point of them. A
- * character is a combination of colours, and the generator only ever gets handed one.
- *
- * The five that j1 offered — 暖石墨, 靛蓝, 苔绿, 玫紫, 落日橙 — are gone rather than pushed to a
- * second plate. They were seeds with names, and the section one below this one is where a reader
- * makes exactly that: 自定义 takes any colour at all and 我的主题 keeps it.
+ * 石墨青 remains the default and the only generated seed. Pure white uses fixed neutral surfaces;
+ * the characters use hand-written schemes (see [PlazaCharacterPalette]). Those fixed palettes do
+ * not use 色彩风格. Custom seeds belong in 自定义 and 我的主题.
  */
 internal data class ThemePreset(
     /** What the store holds. Stable across releases — the label is not. */
     val id: String,
     /**
-     * The one line under the dot: 石墨青's name, or one of the five schemes' three-colour summary —
-     * 青×灰×粉 and the rest.
+     * The name under a swatch, or a character scheme's three-colour summary.
      */
     val label: StringResource,
-    /** The hand-written scheme, or null for 石墨青 — the one preset still expanded from a seed. */
+    /** A character scheme; graphite uses a seed and pure white is selected separately. */
     val palette: PlazaCharacterPalette?,
-    /** The flat portrait, or null for 石墨青, which is a two-tone dot rather than a face. */
+    /** The flat portrait, or null for presets represented by a two-tone swatch. */
     val avatar: DrawableResource?,
-)
+    val pureWhite: Boolean = false,
+    val swatch: Color = PlazaDefaultSeed,
+    val companion: Color = GraphiteCompanion,
+) {
+    val hasFixedColors: Boolean get() = palette != null || pureWhite
+}
 
 internal val ThemePresets =
     listOf(
@@ -52,6 +56,15 @@ internal val ThemePresets =
             label = Res.string.settings_preset_graphite,
             palette = null,
             avatar = null,
+        ),
+        ThemePreset(
+            id = "pure_white",
+            label = Res.string.settings_preset_pure_white,
+            palette = null,
+            avatar = null,
+            pureWhite = true,
+            swatch = Color.White,
+            companion = Color(0xFF0866D9),
         ),
         ThemePreset(
             id = "miku",
@@ -88,15 +101,6 @@ internal val ThemePresets =
 /** The preset a stored id names, or 石墨青 when the store holds one this build no longer ships. */
 internal fun presetById(id: String): ThemePreset =
     ThemePresets.firstOrNull { it.id == id } ?: ThemePresets.first()
-
-/**
- * 石墨青's other half — the dot's warm side, split on the 135° diagonal.
- *
- * A literal rather than the seed's generated `tertiary`: it is a sample colour, not a theme token,
- * and a dot that moved with 色彩风格 and the mode would stop being a stable thing to point at. j2
- * marks it the same way — "字面色值例外".
- */
-internal val GraphiteCompanion = Color(0xFF7E5700)
 
 /** `#RRGGBB`, upper case — the form the hex field reads back and the form the labels print. */
 internal fun Color.toHexString(): String =

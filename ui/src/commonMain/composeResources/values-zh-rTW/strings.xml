@@ -301,6 +301,7 @@
     <string name="settings_color_source_custom">自訂</string>
 
     <string name="settings_preset_graphite">石墨青</string>
+    <string name="settings_preset_pure_white">純白</string>
     <string name="settings_preset_miku">青×灰×粉</string>
     <string name="settings_preset_twins">黃×橙×黑灰</string>
     <string name="settings_preset_tianyi">藍×白×粉</string>

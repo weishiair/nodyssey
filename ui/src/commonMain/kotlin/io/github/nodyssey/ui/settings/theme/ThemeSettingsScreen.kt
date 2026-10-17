@@ -216,7 +216,7 @@ fun ThemeSettingsScreen(
                 PaletteStyleRow(
                     selected = settings.paletteStyle,
                     onSelect = onPaletteStyleChange,
-                    enabled = activeCharacterPalette(settings) == null,
+                    enabled = activePreset(settings)?.hasFixedColors != true,
                 )
             }
 
@@ -293,7 +293,7 @@ private fun ColorSourceHeader(
 }
 
 /**
- * The six presets: three columns, two rows.
+ * The presets in three columns, with an incomplete final row kept on the same grid.
  *
  * Rows rather than a `LazyVerticalGrid`, because the grid would be the second scrolling container
  * inside the screen's own scroll — which either measures to zero height or eats the drag that was
@@ -301,7 +301,7 @@ private fun ColorSourceHeader(
  */
 @Composable
 private fun PresetGrid(
-    /** The grid is only on screen while 预设 is the source, so one of the six is always the answer. */
+    /** The grid is only on screen while 预设 is the source. */
     selected: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -352,6 +352,8 @@ private fun PresetCell(
             avatar = preset.avatar,
             selected = selected,
             plate = LocalPlazaLayers.current.card,
+            color = preset.swatch,
+            companion = preset.companion,
         )
         Text(
             stringResource(preset.label),

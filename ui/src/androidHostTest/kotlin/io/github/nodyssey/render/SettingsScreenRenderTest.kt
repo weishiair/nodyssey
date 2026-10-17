@@ -29,10 +29,10 @@ class SettingsScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean) {
-        PlazaTheme(darkTheme = darkTheme) {
+    private fun Screen(darkTheme: Boolean, pureWhite: Boolean = false) {
+        PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite) {
             SettingsScreen(
-                state = STATE,
+                state = if (pureWhite) STATE.copy(settings = STATE.settings.copy(presetId = "pure_white")) else STATE,
                 appLinkHandlingEnabled = true,
                 onOpenAppLinkSettings = {},
                 onBack = {},
@@ -64,6 +64,13 @@ class SettingsScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("settings-dark")
+    }
+
+    @Test
+    fun `the settings list in pure white`() {
+        composeRule.setContent { Screen(darkTheme = false, pureWhite = true) }
+
+        composeRule.onRoot().captureRender("settings-pure-white")
     }
 
     /** The whole list at once, so every group can be compared with 6a / 6b without scrolling. */

@@ -133,6 +133,8 @@ internal fun PresetDot(
     modifier: Modifier = Modifier,
     /** What the ring's gap is painted with: whatever the dot is sitting on. */
     plate: Color = MaterialTheme.colorScheme.surfaceContainer,
+    color: Color = PlazaDefaultSeed,
+    companion: Color = GraphiteCompanion,
 ) {
     val scheme = MaterialTheme.colorScheme
     val ringColor = scheme.primary
@@ -162,9 +164,9 @@ internal fun PresetDot(
         if (avatar == null) {
             val two =
                 if (selected) {
-                    swatchBrush(PlazaDefaultSeed, GraphiteCompanion)
+                    swatchBrush(color, companion)
                 } else {
-                    swatchBrush(PlazaDefaultSeed.desaturated(), GraphiteCompanion.desaturated())
+                    swatchBrush(color.desaturated(), companion.desaturated())
                 }
             Box(face.background(two))
         } else {

@@ -51,7 +51,7 @@ fun themeSummary(settings: UserSettings): String {
                     ?.takeIf { it.isNotBlank() }
                     ?: Color(settings.seedColor).toHexString()
         }
-    if (activeCharacterPalette(settings) != null) return colour
+    if (activePreset(settings)?.hasFixedColors == true) return colour
     return colour + " · " + stringResource(paletteStyleLabel(settings.paletteStyle))
 }
 

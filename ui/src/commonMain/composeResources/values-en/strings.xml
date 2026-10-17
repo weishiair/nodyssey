@@ -307,6 +307,7 @@
     <string name="settings_color_source_custom">Custom</string>
 
     <string name="settings_preset_graphite">Graphite teal</string>
+    <string name="settings_preset_pure_white">Pure white</string>
     <string name="settings_preset_miku">Teal × grey × pink</string>
     <string name="settings_preset_twins">Yellow × orange × charcoal</string>
     <string name="settings_preset_tianyi">Blue × white × pink</string>

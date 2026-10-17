@@ -12,6 +12,7 @@ import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.SavedTheme
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.settings.theme.ThemeSettingsScreen
+import io.github.nodyssey.ui.settings.theme.activePreset
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Before
 import org.junit.Rule
@@ -37,7 +38,8 @@ class ThemeSettingsScreenRenderTest {
         darkTheme: Boolean,
         settings: UserSettings = UserSettings(savedThemes = SAVED),
     ) {
-        PlazaTheme(darkTheme = darkTheme) {
+        val preset = activePreset(settings)
+        PlazaTheme(darkTheme = darkTheme, pureWhite = preset?.pureWhite == true, characterPalette = preset?.palette) {
             ThemeSettingsScreen(
                 settings = settings,
                 onBack = {},
@@ -63,6 +65,16 @@ class ThemeSettingsScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("theme-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1500dp")
+    fun `the theme picker in pure white`() {
+        composeRule.setContent {
+            Screen(darkTheme = false, settings = UserSettings(presetId = "pure_white", savedThemes = SAVED))
+        }
+
+        composeRule.onRoot().captureRender("theme-pure-white")
     }
 
     /** 6c3's card: 自定义 in force, named after the saved theme it matches. */

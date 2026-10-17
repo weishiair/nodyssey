@@ -392,6 +392,7 @@
 
     <!-- 主题 · 预设与我的主题 -->
     <string name="settings_preset_graphite">石墨青</string>
+    <string name="settings_preset_pure_white">纯白</string>
     <string name="settings_preset_miku">青×灰×粉</string>
     <string name="settings_preset_twins">黄×橙×黑灰</string>
     <string name="settings_preset_tianyi">蓝×白×粉</string>

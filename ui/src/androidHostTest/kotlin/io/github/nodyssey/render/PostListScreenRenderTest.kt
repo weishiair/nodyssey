@@ -47,8 +47,8 @@ class PostListScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean) {
-        PlazaTheme(darkTheme = darkTheme) {
+    private fun Screen(darkTheme: Boolean, pureWhite: Boolean = false) {
+        PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite) {
             val feed =
                 remember {
                     flowOf(
@@ -88,6 +88,13 @@ class PostListScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("post-list-dark")
+    }
+
+    @Test
+    fun `the feed in pure white`() {
+        composeRule.setContent { Screen(darkTheme = false, pureWhite = true) }
+
+        composeRule.onRoot().captureRender("post-list-pure-white")
     }
 
     /** The two menus of the header, open over the feed; each marks its current entry. */

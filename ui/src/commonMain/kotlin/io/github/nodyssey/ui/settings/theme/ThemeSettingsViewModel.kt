@@ -156,7 +156,10 @@ internal fun rememberActiveSeed(settings: UserSettings): Int {
  * around, so it is the answer for every source but one.
  */
 internal fun activeCharacterPalette(settings: UserSettings): PlazaCharacterPalette? =
-    if (settings.colorSource == ColorSource.PRESET) presetById(settings.presetId).palette else null
+    activePreset(settings)?.palette
+
+internal fun activePreset(settings: UserSettings): ThemePreset? =
+    if (settings.colorSource == ColorSource.PRESET) presetById(settings.presetId) else null
 
 /** `:designsys` cannot see this module's enum, so the two meet here. */
 internal fun PaletteStyle.toPlaza(): PlazaPaletteStyle =

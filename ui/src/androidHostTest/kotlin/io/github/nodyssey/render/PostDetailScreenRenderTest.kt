@@ -44,8 +44,13 @@ class PostDetailScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean, state: PostDetailUiState = STATE, fontScale: Float = 1f) {
-        PlazaTheme(darkTheme = darkTheme, fontScale = fontScale) {
+    private fun Screen(
+        darkTheme: Boolean,
+        state: PostDetailUiState = STATE,
+        fontScale: Float = 1f,
+        pureWhite: Boolean = false,
+    ) {
+        PlazaTheme(darkTheme = darkTheme, fontScale = fontScale, pureWhite = pureWhite) {
             PostDetailScreen(
                 state = state,
                 postUrl = "https://www.nodeseek.com/post-100-1",
@@ -105,6 +110,21 @@ class PostDetailScreenRenderTest {
     }
 
     @Test
+    fun `a short thread in pure white`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SHORT_STATE, pureWhite = true) }
+
+        composeRule.onRoot().captureRender("post-detail-pure-white")
+    }
+
+    @Test
+    fun `the replies in pure white`() {
+        composeRule.setContent { Screen(darkTheme = false, pureWhite = true) }
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(1)
+
+        composeRule.onRoot().captureRender("post-detail-replies-pure-white")
+    }
+
+    @Test
     @Config(qualifiers = "w320dp-h900dp")
     fun `a narrow thread at the largest reading size`() {
         composeRule.setContent { Screen(darkTheme = false, state = SHORT_STATE, fontScale = 1.3f) }
@@ -119,7 +139,7 @@ class PostDetailScreenRenderTest {
     @Test
     fun `the floor panel in dark`() = floorPanel(darkTheme = true)
 
-    /** 9d — the page-jump sheet, opened from the rail's page key. */
+    /** The page-jump sheet, opened from the bottom bar's page key. */
     @Test
     fun `the page jump in light`() = pageJump(darkTheme = false)
 
@@ -128,8 +148,7 @@ class PostDetailScreenRenderTest {
 
     private fun floorPanel(darkTheme: Boolean) {
         composeRule.setContent { Screen(darkTheme = darkTheme) }
-        // The action rather than a tap: at this height the reply FAB sits over that ⋯, and a tap
-        // would land on the FAB.
+        // Open through its semantics action so this capture does not depend on scroll placement.
         composeRule.onAllNodesWithContentDescription("楼层操作")[1].performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitForIdle()
 
