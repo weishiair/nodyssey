@@ -26,6 +26,11 @@ val hasReleaseSigning =
 // The build type remains release, so debug-only tools such as LeakCanary are not packaged.
 val echRelease = providers.gradleProperty("nodyssey.echRelease").orNull == "true"
 
+// Local JVM tests need the desktop JNI binary, not the Android AAR's copy of the same classes.
+configurations.matching { it.name.endsWith("UnitTestRuntimeClasspath") }.configureEach {
+    exclude(group = "org.conscrypt", module = "conscrypt-android")
+}
+
 android {
     namespace = "io.github.nodyssey"
     defaultConfig {
@@ -224,6 +229,10 @@ dependencies {
     implementation(libs.okhttp)
     // 加密 DNS: the `Dns` implementation behind `AppDns`. See `core/net/AppDns.kt`.
     implementation(libs.okhttp.dnsoverhttps)
+    // Standalone ECH for Android 8–16; Android 17 retains its native TLS implementation.
+    implementation(libs.conscrypt.android)
+    testImplementation(libs.conscrypt.openjdk)
+    testImplementation(libs.okhttp.tls)
 
     implementation(libs.kotlinx.serialization.json)
 

@@ -17,6 +17,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.transitionFactory
 import coil3.svg.SvgDecoder
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.core.net.BundledEch
 import io.github.nodyssey.data.offline.AndroidOfflineFileStore
 import io.github.nodyssey.data.offline.OfflineImageInterceptor
 import io.github.nodyssey.data.offline.OfflineWork
@@ -91,6 +92,7 @@ open class NodysseyApp :
 
     override fun onCreate() {
         super.onCreate()
+        BundledEch.install()
         container = DefaultAppContainer(this)
 
         // Installed before anything that could crash gets to run. Chained onto whatever handler was

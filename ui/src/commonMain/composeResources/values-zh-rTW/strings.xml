@@ -450,7 +450,7 @@
     <string name="doh_test_failure">解析失敗（%1$s）</string>
     <string name="doh_limits_title">加密 DNS 與 ECH</string>
     <string name="doh_limits_encrypted_only_hint">這台裝置上，開著的時候解析不出來就是解析不出來，不會退回明文 DNS；系統裡已經配了加密 DNS 的話，以系統那份為準。</string>
-    <string name="doh_limits_hint">DoH 可避免 DNS 汙染。Android 17 及以上還會讀取 HTTPS 記錄中的 ECH 設定，在伺服器支援時加密交握網域，可能解決按 SNI 阻斷的問題。ECH 無法解決目標 IP 被封或其他連線故障；解析成功也不代表一定能連線。</string>
+    <string name="doh_limits_hint">DoH 可避免 DNS 汙染。App 在 Android 8–16 內建支援 ECH 的 TLS 函式庫，Android 17 及以上使用系統實作；讀取 HTTPS 記錄中的 ECH 設定，在伺服器支援時加密交握網域，可能解決按 SNI 阻斷的問題。ECH 無法解決目標 IP 被封或其他連線故障；解析成功也不代表一定能連線。</string>
     <string name="doh_proxy_hint">開著代理的時候，網域交給代理那邊解析，這裡的設定對走代理的請求不起作用。</string>
     <string name="doh_webview_hint">登入用的是系統 WebView，它走自己的網路和系統的私人 DNS，不受這裡影響。</string>
     <string name="settings_network_check_entry">網路自檢</string>
@@ -504,8 +504,8 @@
     <string name="network_check_ech_valid">設定有效</string>
     <string name="network_check_ech_invalid">設定無效</string>
     <string name="network_check_ech_unchecked">未驗證設定</string>
-    <string name="network_check_native_ech">系統 TLS 支援 ECH</string>
-    <string name="network_check_ech_policy">系統 ECH 策略</string>
+    <string name="network_check_native_ech">目前 TLS 支援 ECH</string>
+    <string name="network_check_ech_policy">目前 ECH 策略</string>
     <string name="network_check_tls_implementation">TLS 實作</string>
     <string name="network_check_connection_events">連線過程</string>
     <string name="network_check_failure_codes">底層錯誤</string>

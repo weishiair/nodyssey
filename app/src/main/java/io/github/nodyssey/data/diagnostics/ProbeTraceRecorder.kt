@@ -8,6 +8,7 @@ import android.security.NetworkSecurityPolicy
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okio.ByteString
+import org.conscrypt.Conscrypt
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -129,7 +130,11 @@ internal class ProbeTraceRecorder(
         private const val MAX_ADDRESSES = 16
 
         fun forClient(hostname: String, client: OkHttpClient): ProbeTraceRecorder {
-            val policy = if (Build.VERSION.SDK_INT >= 37) {
+            val socket = client.sslSocketFactory.createSocket()
+            val bundled = socket is SSLSocket && Conscrypt.isConscrypt(socket)
+            val policy = if (bundled) {
+                "app-bundled enabled"
+            } else if (Build.VERSION.SDK_INT >= 37) {
                 when (NetworkSecurityPolicy.getInstance().getDomainEncryptionMode(hostname)) {
                     NetworkSecurityPolicy.DOMAIN_ENCRYPTION_MODE_ENABLED -> "enabled"
                     NetworkSecurityPolicy.DOMAIN_ENCRYPTION_MODE_OPPORTUNISTIC -> "opportunistic"
@@ -139,13 +144,12 @@ internal class ProbeTraceRecorder(
             } else {
                 "unavailable (API ${Build.VERSION.SDK_INT})"
             }
-            val socket = client.sslSocketFactory.createSocket()
             val implementation = socket.javaClass.name
             val supported = socket.use {
-                Build.VERSION.SDK_INT >= 37 && it is SSLSocket && SSLSockets.isSupportedSocket(it)
+                bundled || (Build.VERSION.SDK_INT >= 37 && it is SSLSocket && SSLSockets.isSupportedSocket(it))
             }
             return ProbeTraceRecorder(hostname, implementation, supported, policy) { config ->
-                if (Build.VERSION.SDK_INT >= 37) {
+                if (!bundled && Build.VERSION.SDK_INT >= 37) {
                     try {
                         EchConfigList.fromBytes(config.toByteArray())
                         true

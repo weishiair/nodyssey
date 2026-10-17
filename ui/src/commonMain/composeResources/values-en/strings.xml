@@ -456,7 +456,7 @@
     <string name="doh_test_failure">Lookup failed (%1$s)</string>
     <string name="doh_limits_title">Encrypted DNS and ECH</string>
     <string name="doh_limits_encrypted_only_hint">On this device, a lookup that fails while this is on simply fails — it never drops back to plaintext DNS. Where the system already has encrypted DNS configured, the system setting is the one in force.</string>
-    <string name="doh_limits_hint">DoH can avoid DNS poisoning. On Android 17 and later, HTTPS records also supply ECH configuration to encrypt the handshake hostname when supported by the server, which may help with SNI filtering. ECH cannot fix a blocked IP or other connection failures; successful DNS resolution does not guarantee a connection.</string>
+    <string name="doh_limits_hint">DoH can avoid DNS poisoning. On Android 8–16 the app bundles an ECH-capable TLS library; Android 17 and later use the system implementation. ECH configuration from HTTPS records encrypts the handshake hostname when supported by the server, which may help with SNI filtering. ECH cannot fix a blocked IP or other connection failures; successful DNS resolution does not guarantee a connection.</string>
     <string name="doh_proxy_hint">While a proxy is on, hostnames are resolved at the proxy and nothing here applies to those requests.</string>
     <string name="doh_webview_hint">Signing in uses the system WebView, which has its own networking and the system private DNS, untouched by this.</string>
     <string name="settings_network_check_entry">Network check</string>
@@ -510,8 +510,8 @@
     <string name="network_check_ech_valid">valid config</string>
     <string name="network_check_ech_invalid">invalid config</string>
     <string name="network_check_ech_unchecked">config not validated</string>
-    <string name="network_check_native_ech">System TLS supports ECH</string>
-    <string name="network_check_ech_policy">System ECH policy</string>
+    <string name="network_check_native_ech">Current TLS supports ECH</string>
+    <string name="network_check_ech_policy">Current ECH policy</string>
     <string name="network_check_tls_implementation">TLS implementation</string>
     <string name="network_check_connection_events">Connection events</string>
     <string name="network_check_failure_codes">Transport errors</string>
