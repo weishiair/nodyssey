@@ -44,10 +44,10 @@ class PostDetailScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean) {
-        PlazaTheme(darkTheme = darkTheme) {
+    private fun Screen(darkTheme: Boolean, state: PostDetailUiState = STATE, fontScale: Float = 1f) {
+        PlazaTheme(darkTheme = darkTheme, fontScale = fontScale) {
             PostDetailScreen(
-                state = STATE,
+                state = state,
                 postUrl = "https://www.nodeseek.com/post-100-1",
                 onBack = {},
                 onOpenBrowser = {},
@@ -80,6 +80,36 @@ class PostDetailScreenRenderTest {
         composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(1)
 
         composeRule.onRoot().captureRender("post-detail-replies-light")
+    }
+
+    @Test
+    fun `the replies in dark`() {
+        composeRule.setContent { Screen(darkTheme = true) }
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(1)
+
+        composeRule.onRoot().captureRender("post-detail-replies-dark")
+    }
+
+    @Test
+    fun `a short thread in light`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SHORT_STATE) }
+
+        composeRule.onRoot().captureRender("post-detail-short-light")
+    }
+
+    @Test
+    fun `a short thread in dark`() {
+        composeRule.setContent { Screen(darkTheme = true, state = SHORT_STATE) }
+
+        composeRule.onRoot().captureRender("post-detail-short-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h900dp")
+    fun `a narrow thread at the largest reading size`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SHORT_STATE, fontScale = 1.3f) }
+
+        composeRule.onRoot().captureRender("post-detail-narrow-large-text")
     }
 
     /** 1c — the first reply's panel, opened from its ⋯ (the opening post's is the first one). */
@@ -227,5 +257,11 @@ class PostDetailScreenRenderTest {
                 // So the jump sheet has both of 9d's destinations to draw.
                 resumePosition = ReadingPosition(page = 3, floor = "#25"),
             )
+
+        val SHORT_STATE = STATE.copy(
+            body = BODY.copy(nodes = paragraphs("折腾 NAS 一年，最想提醒大家的是：RAID 不是备份，重要数据一定要留一份异地冷备。")),
+            authorLevel = 4,
+            authorJoinedDays = 388,
+        )
     }
 }
