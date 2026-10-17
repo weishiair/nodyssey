@@ -56,7 +56,7 @@ jobs:
           api-level: ${{ matrix.api }}
           arch: x86_64
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: "./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=io.github.nodyssey.BundledEchDeviceTest -Pandroid.testInstrumentationRunnerArguments.liveEch=true '-Pandroid.testInstrumentationRunnerArguments.dohEndpoint=${{ matrix.doh }}' || { mkdir -p ech-device-log; adb logcat -d > ech-device-log/logcat.txt; exit 1; }"
+          script: "bash .github/scripts/test-legacy-ech.sh '${{ matrix.doh }}'"
       - name: Upload ECH test reports
         if: always()
         uses: actions/upload-artifact@v7

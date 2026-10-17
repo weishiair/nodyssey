@@ -1,5 +1,6 @@
 package io.github.nodyssey.core.net
 
+import android.annotation.SuppressLint
 import androidx.annotation.Keep
 import org.conscrypt.DomainEncryptionMode
 import org.conscrypt.NetworkSecurityPolicy
@@ -21,6 +22,9 @@ import javax.net.ssl.X509TrustManager
  * Conscrypt Platform also finds the socket/engine validation overloads below by reflection.
  */
 @Keep
+// This is a policy adapter, not a new certificate validator: every check delegates to the
+// original manager. Real TLS regression tests reject untrusted and mismatched certificates.
+@SuppressLint("CustomX509TrustManager")
 internal class EchTrustManager(private val delegate: X509TrustManager) : X509TrustManager {
     fun getNetworkSecurityPolicy(): NetworkSecurityPolicy = EchPolicy
 

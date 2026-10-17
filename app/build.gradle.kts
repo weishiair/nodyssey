@@ -35,6 +35,9 @@ android {
     namespace = "io.github.nodyssey"
     defaultConfig {
         applicationId = "io.github.nodyssey"
+        // Select the JUnit 4 runner explicitly on every supported Android version.
+        // The ECH workflow also rejects successful invocations that discover zero tests.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Declared in `gradle.properties`; see the note there for why not here. Read through
         // `providers` so the configuration cache records the property as an input.
         versionCode = providers.gradleProperty("nodyssey.versionCode").get().toInt()

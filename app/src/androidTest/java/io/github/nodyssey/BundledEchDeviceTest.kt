@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nodyssey.data.diagnostics.ProbeTraceRecorder
 import okhttp3.CookieJar
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -32,6 +33,9 @@ class BundledEchDeviceTest {
         appClient.sslSocketFactory.createSocket().use { socket ->
             assertTrue("App must load standalone Conscrypt on API ${Build.VERSION.SDK_INT}", Conscrypt.isConscrypt(socket as SSLSocket))
         }
+        val report = ProbeTraceRecorder.forClient("cloudflare-ech.com", appClient).snapshot()
+        assertTrue("Diagnostics must detect the bundled TLS backend", report.nativeEchSupported)
+        assertEquals("app-bundled enabled", report.echPolicy)
         val bootstrap = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
         val dns = DnsOverHttps.Builder()
             .client(bootstrap)
