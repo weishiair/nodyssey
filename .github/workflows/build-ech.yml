@@ -1,0 +1,122 @@
+name: Build ECH APK
+run-name: ECH APK ${{ inputs.version_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: APK version name
+        required: true
+        default: '1.2.22-ech.3'
+        type: string
+      version_code:
+        description: Android version code (increase to upgrade an installed build)
+        required: true
+        default: '53'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ech-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BUILD_VERSION: ${{ inputs.version_name }}
+      BUILD_CODE: ${{ inputs.version_code }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate version inputs
+        shell: bash
+        run: |
+          [[ "$BUILD_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z.+_-]*$ ]]
+          [[ "$BUILD_CODE" =~ ^[1-9][0-9]*$ ]]
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Same cache provider as CI; see ci.yml for why this remains v5.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
+
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest testAndroidHostTest jvmTest
+
+      - name: Android lint
+        run: ./gradlew :app:lintDebug :app:lintRelease
+
+      # No signing credentials leave the local machine. Sign the downloaded APK with the same
+      # local key as earlier ECH builds so Android can upgrade them without removing their data.
+      - name: Build the unsigned Release APK
+        run: |
+          ./gradlew :app:assembleRelease \
+            -Pnodyssey.echRelease=true \
+            "-Pnodyssey.versionName=$BUILD_VERSION" \
+            "-Pnodyssey.versionCode=$BUILD_CODE"
+
+      - name: Verify and collect the APK
+        shell: bash
+        run: |
+          apk=app/build/outputs/apk/release/app-release-unsigned.apk
+          test -f "$apk"
+          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "name='io.github.nodyssey.debug'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "versionName='$BUILD_VERSION'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "versionCode='$BUILD_CODE'" "$RUNNER_TEMP/apk-badging.txt"
+          if grep -q 'application-debuggable' "$RUNNER_TEMP/apk-badging.txt"; then
+            echo '::error::The Release APK must not be debuggable.'
+            exit 1
+          fi
+          "$tools/aapt" dump xmltree "$apk" AndroidManifest.xml > "$RUNNER_TEMP/apk-manifest.txt"
+          if grep -iEq 'leakcanary|LeakActivity|LeakCanary' "$RUNNER_TEMP/apk-manifest.txt"; then
+            echo '::error::LeakCanary components were packaged.'
+            exit 1
+          fi
+          if grep -Eq '^(leakcanary|shark)\.' app/build/outputs/mapping/release/mapping.txt; then
+            echo '::error::LeakCanary classes reached the Release build.'
+            exit 1
+          fi
+          mkdir -p dist
+          cp "$apk" "dist/nodyssey-$BUILD_VERSION-unsigned.apk"
+          cp app/build/outputs/mapping/release/mapping.txt dist/mapping.txt
+          printf '%s\n' "$GITHUB_SHA" > dist/source-commit.txt
+          cd dist
+          sha256sum ./*.apk > SHA256SUMS.txt
+
+      - name: Upload the unsigned APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: nodyssey-ech-${{ github.run_id }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ech-reports-${{ github.run_id }}
+          path: |
+            */build/reports/
+            */build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop Gradle
+        if: always()
+        run: ./gradlew --stop
