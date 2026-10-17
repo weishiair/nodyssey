@@ -33,7 +33,7 @@ jobs:
         include:
           - api: 26
             target: google_apis
-            doh: https://cloudflare-dns.com/dns-query
+            doh: https://edge.1molchuan.top/linuxdo
           - api: 36
             target: default
             doh: https://edge.1molchuan.top/linuxdo

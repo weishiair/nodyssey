@@ -37,6 +37,11 @@ native ECH retry behavior.
 The login WebView has its own networking stack; these settings and the bundled provider apply to
 the app's OkHttp clients, including forum requests, images and background work.
 
+Certificate trust still comes from Android's installed CA store. A resolver whose current certificate
+chains to a newer root may be rejected by an old Android image, independently of ECH support.
+The device tests use the configured custom DoH endpoint on both versions, rather than disabling
+certificate checks to accommodate an alternative resolver's certificate chain.
+
 ## Verification
 
 `BundledEchTest` uses real desktop Conscrypt 2.7 JNI and local sockets. It reads the actual
