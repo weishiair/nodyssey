@@ -5,6 +5,7 @@ set -euo pipefail
 mkdir -p ech-device-log
 capture_log() { adb logcat -d > ech-device-log/logcat.txt || true; }
 trap capture_log EXIT
+adb shell dumpsys webviewupdate > ech-device-log/webview.txt
 
 ./gradlew :app:connectedDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.class=io.github.nodyssey.BundledEchDeviceTest \
