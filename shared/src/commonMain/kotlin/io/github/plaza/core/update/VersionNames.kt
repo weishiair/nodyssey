@@ -49,8 +49,11 @@ fun isNewerVersionName(candidate: String, current: String): Boolean =
 fun isPreReleaseVersionName(versionName: String): Boolean {
     val suffix = splitVersionName(versionName).second
     // ech.N identifies this fork's stable releases; ech-test.N still belongs to the test channel.
-    return suffix.isNotEmpty() && !Regex("ech\\.[0-9]+").matches(suffix)
+    val ech = ECH_SUFFIX.matchEntire(suffix)
+    return if (ech != null) ech.groupValues[1].isNotEmpty() else suffix.isNotEmpty()
 }
+
+private val ECH_SUFFIX = Regex("ech(-test)?\\.([0-9]+)")
 
 /** `v1.2.0` is the tag, `1.2.0` is the version inside the APK. This is the one difference. */
 fun versionNameOfTag(tag: String): String = tag.trim().removePrefix("v").removePrefix("V")
@@ -63,9 +66,19 @@ private fun splitVersionName(raw: String): Pair<List<Int>, String> {
         preRelease
 }
 
-private fun comparePreRelease(left: String, right: String): Int =
-    when {
+private fun comparePreRelease(left: String, right: String): Int {
+    val leftEch = ECH_SUFFIX.matchEntire(left)
+    val rightEch = ECH_SUFFIX.matchEntire(right)
+    return when {
         left == right -> 0
+
+        // ECH revisions count across both channels. A stable build supersedes its test build,
+        // and a later revision supersedes either: ech.12 must update ech-test.11.
+        leftEch != null && rightEch != null ->
+            compareIdentifiers(
+                listOf(leftEch.groupValues[2], if (leftEch.groupValues[1].isEmpty()) "1" else "0"),
+                listOf(rightEch.groupValues[2], if (rightEch.groupValues[1].isEmpty()) "1" else "0"),
+            )
 
         // Absent beats present: 1.2.0 is the release that 1.2.0-rc1 was leading up to.
         left.isEmpty() -> 1
@@ -74,6 +87,7 @@ private fun comparePreRelease(left: String, right: String): Int =
 
         else -> compareIdentifiers(left.split('.'), right.split('.'))
     }
+}
 
 /** Semver's pre-release rule: numeric identifiers compare as numbers and sort below alphanumeric ones. */
 private fun compareIdentifiers(left: List<String>, right: List<String>): Int {

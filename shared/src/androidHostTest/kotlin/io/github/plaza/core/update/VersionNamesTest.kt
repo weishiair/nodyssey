@@ -15,6 +15,15 @@ class VersionNamesTest {
     }
 
     @Test
+    fun `a stable ECH release can replace a test build without downgrading its revision`() {
+        assertTrue(isNewerVersionName("1.2.22-ech.11", "1.2.22-ech-test.11"))
+        assertTrue(isNewerVersionName("1.2.22-ech.12", "1.2.22-ech-test.11"))
+        assertTrue(isNewerVersionName("1.2.22-ech-test.11", "1.2.22-ech.10"))
+        assertFalse(isNewerVersionName("1.2.22-ech.10", "1.2.22-ech-test.11"))
+        assertFalse(isNewerVersionName("1.2.22-ech-test.11", "1.2.22-ech.11"))
+    }
+
+    @Test
     fun `the tag and the versionName inside the APK compare equal`() {
         assertEquals(0, compareVersionNames("v1.1.0", "1.1.0"))
         assertEquals("1.1.0", versionNameOfTag("v1.1.0"))
