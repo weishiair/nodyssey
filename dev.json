@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "channel": "dev",
-  "versionName": "1.2.22",
-  "tag": "v1.2.22",
-  "publishedOn": "2026-10-09",
-  "notes": "### 新增\n\n- 长按图标可随机或固定签到（Android）。\n- 再进帖子直达新回复，并标出分界线。\n- 可给用户写备注，名字旁显示。\n- 可按标题关键词或正则屏蔽帖子。\n- 新帖标题含关键词时通知（Android）。\n- 可追踪帖子，有新回复时通知（Android）。\n- 加密 DNS 可多选服务商，依次回退（Android）。\n- 首页卡片显示最后回复人。\n- 网络出错时可直达网络自检。\n- iOS 支持全屏滑动返回。\n- 测评报告可加入对比，并排比较。\n- 选中文字可在 NodeSeek 搜索（Android）。\n- 长按图标可直达搜索、发帖、通知（Android）。\n- 其他 App 可分享文字图片来发帖（Android）。\n- 剪贴板有帖子链接时提示打开（Android）。\n- 楼层可分享为图片。\n- 可自建表情库，长按图片收藏、订阅、备份。\n- 关注、搜索等页可左右滑动切换 tab。\n- 编辑器可从图床选图插入。\n\n### 改进\n\n- 全新卡片式界面，各页面统一改版。\n- 首页版块编辑分出「未加入首页」。\n- 首页版块条按版块分色。\n- 编辑器工具栏改回单行，右侧渐隐。\n- 楼层更多操作收进底部面板。\n- 推荐阅读改为连续滚动，可跳页。\n- iOS 改用原生底栏，液态玻璃效果。\n- 互动通知按今天、昨天、本周分组。\n- 正文选中点任意处取消，不再闪全选。\n- 首页版块条随滑动实时切换高亮。\n- 编辑框里的表情直接显示成图片。\n- 列表和楼层时间去掉 ago 后缀。\n- NodeImage 可查看和删除已传图片。\n- 添加表情改为独立页面。\n\n### 变更\n\n- 私信去掉 Markdown 开关，始终开启。\n- 首页列表不再显示「已读」字样。\n- 「我的」去掉资产分组，数字直达流水。\n- 正文字号、表情大小滑块改回默认样式。\n- 收藏自动补新回复改为每 6 小时一次。\n- 楼层只点头像和名字才进个人主页。\n\n### 修复\n\n- 自定义图床断开后仍在使用。\n- 图床密钥没存上仍报「已保存」。\n- iOS 自签安装存不住图床和代理密钥。\n- 按下链接时偶发应用无响应。\n- 点指向本帖的链接像没反应。\n- 未登录时通知页大标题收不起来。\n- 测评报告表格行高与对齐错乱。\n- HEIC 原图上传后图床显示不出来。\n- 通知页标题栏收起时会变色。\n- 回复框跳页后返回卡住。\n\n\n**Full Changelog**: https://github.com/5151561/nodyssey/compare/v1.2.22-dev.7...v1.2.22",
+  "versionName": "1.2.22-ech.4",
+  "tag": "ech-1.2.22.4",
+  "notes": "基于 Nodyssey 1.2.22 的 ECH 增强版，可与官方版共存。\n\n### 本版更新\n\n- Android 8–16 使用内置 Conscrypt 2.7.0 提供 ECH，不再依赖 Android 17 的系统 ECH；Android 17 及以上继续沿用系统实现。\n- 保留纯白主题和新版帖子阅读布局。\n- Release 构建，不含 LeakCanary / Leaks。\n\n### 下载与安装\n\n下载下方 Assets 中的 `nodyssey-1.2.22-ech.4-release.apk`。最低支持 Android 8.0（API 26）。\n\n包名：`io.github.nodyssey.debug`，应用名称：`Nodyssey·ECH`，版本号：54。\n沿用之前 ECH 版的包名和签名，可直接覆盖 `1.2.22-ech.3`，保留原数据。现有 DoH 设置继续使用。\n\n### 已验证\n\n- GitHub Actions 构建；全量单元测试、Android lint、设备导航测试和压缩版启动检查通过。\n- Android 8 和 Android 16 模拟器使用自定义 DoH 完成真实 ECH 协商，服务端均返回 `HTTP 200`、`sni=encrypted`。\n- 保留证书链及域名校验；签名和 16 KB 对齐检查通过。\n\n登录 WebView 使用自己的网络栈；本次 DoH/ECH 适配作用于 App 的 OkHttp 请求。解析成功和 ECH 支持不能保证所有网络环境下目标 IP 都可连接。\n\n### 校验与来源\n\nSHA-256：\n```\n84ea777150337cbab32c685f28f6a1a32f643541deb130acd9ac622b78c0948a  nodyssey-1.2.22-ech.4-release.apk\n```\n\n源码：[提交 e1717b7](https://github.com/weishiair/nodyssey/commit/e1717b72f3ba88f6a7ad9ca4cc54a85155dc7429)\n构建：[GitHub Actions](https://github.com/weishiair/nodyssey/actions/runs/39050643929)\n回归：[CI](https://github.com/weishiair/nodyssey/actions/runs/39050623841)\n\n### 开源许可与修改声明\n\n本版本是基于 [5151561/nodyssey](https://github.com/5151561/nodyssey) 的非官方衍生版本，由 weishiair 分发，未经上游作者背书。\n\n本衍生作品继续以 **GNU GPL v3.0（GPL-3.0）** 发布，并保留上游源码已有的版权、许可及免责声明。第三方组件保留各自适用的许可证。\n\n修改日期：**2026 年 10 月 18 日**。修改包括 ECH 兼容实现、帖子阅读布局和纯白主题；具体差异可在源码提交历史中查看。\n\n- 与此 APK 对应的源码：[ech-1.2.22.4 标签](https://github.com/weishiair/nodyssey/tree/ech-1.2.22.4)，固定提交 `e1717b72f3ba88f6a7ad9ca4cc54a85155dc7429`。\n- [下载对应源码 ZIP](https://github.com/weishiair/nodyssey/archive/refs/tags/ech-1.2.22.4.zip)，包含源码、依赖锁文件、构建脚本及 `.github/workflows/build-ech.yml` 中的构建命令。\n- GPL 完整文本：[LICENSE.txt](https://github.com/weishiair/nodyssey/releases/download/ech-1.2.22.4/LICENSE.txt)，也包含于源码包的 `LICENSE` 文件。\n\n在遵守 GPL-3.0 条款的前提下，接收者可以继续使用、修改和再分发本版本。本软件按原许可证的免责条款提供。",
+  "publishedOn": "2026-10-18",
+  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/ech-1.2.22.4",
   "apk": {
-    "name": "nodyssey-v1.2.22.apk",
-    "url": "https://github.com/5151561/nodyssey/releases/download/v1.2.22/nodyssey-v1.2.22.apk",
-    "sizeBytes": 6268387,
-    "sha256": "4d0137e18835135b8811f3c8199ee683949ae7e07e618a4c401c37db786576c1"
+    "name": "nodyssey-1.2.22-ech.4-release.apk",
+    "url": "https://github.com/weishiair/nodyssey/releases/download/ech-1.2.22.4/nodyssey-1.2.22-ech.4-release.apk",
+    "sizeBytes": 11009263,
+    "sha256": "84ea777150337cbab32c685f28f6a1a32f643541deb130acd9ac622b78c0948a"
   },
-  "releaseUrl": "https://github.com/5151561/nodyssey/releases/tag/v1.2.22"
+  "channel": "dev"
 }
