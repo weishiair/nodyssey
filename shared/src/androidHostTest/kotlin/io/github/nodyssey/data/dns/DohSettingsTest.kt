@@ -5,6 +5,8 @@ import io.github.nodyssey.data.PreferenceStoreScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 
@@ -59,6 +61,37 @@ class DohSettingsTest {
         settings.save(saved)
 
         assertEquals(saved, settings.config.first())
+    }
+
+    /** Old endpoint overrides must not bypass DNS changes after upgrading the domain-only preset. */
+    @Test
+    fun `a domain-only preset discards its old bootstrap without changing other servers`() = runTest {
+        writeRaw(
+            "servers" to """[
+                {"id":"WEISHIAIR","preset":"WEISHIAIR","bootstrap":"203.0.113.7","checked":true},
+                {"id":"custom-1","url":"https://doh.example/dns-query","bootstrap":"192.0.2.53","checked":true},
+                {"id":"GOOGLE","preset":"GOOGLE","bootstrap":"8.8.8.8","checked":false}
+            ]""",
+        )
+
+        val config = settings.config.first()
+        val preset = config.servers.first()
+        assertNull(preset.bootstrapOverride)
+        assertEquals(emptyList<String>(), preset.bootstrap)
+        assertEquals(listOf("WEISHIAIR", "custom-1"), config.servers.filter { it.checked }.map { it.id })
+        assertEquals(listOf("192.0.2.53"), config.servers[1].bootstrap)
+        assertEquals(listOf("8.8.8.8"), config.servers[2].bootstrap)
+    }
+
+    /** A caller holding the old config cannot write the retired address back into storage. */
+    @Test
+    fun `saving a stale domain-only preset cannot persist its retired bootstrap`() = runTest {
+        val stale = DohServer.preset(DohProvider.WEISHIAIR, checked = true).copy(bootstrapOverride = "203.0.113.7")
+        assertEquals(emptyList<String>(), stale.bootstrap)
+        settings.save(DohConfig(enabled = true, servers = listOf(stale) + DefaultDohServers.drop(1)))
+        val stored = store.dataStore.data.first()[stringPreferencesKey("servers")].orEmpty()
+        assertFalse(stored.contains("203.0.113.7"))
+        assertEquals(DohConfig(enabled = true), settings.config.first())
     }
 
     /**

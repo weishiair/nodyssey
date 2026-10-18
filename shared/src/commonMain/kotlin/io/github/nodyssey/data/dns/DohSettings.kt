@@ -16,12 +16,10 @@ import okio.IOException
 /**
  * A DoH server the app offers by name, and the addresses that server's own hostname is reached at.
  *
- * [bootstrap] is the part that makes a preset worth having. Resolving `dns.alidns.com` is itself a
- * DNS lookup, and the only resolver available for it is the one this feature exists to stop
- * trusting — so the addresses are carried here instead, and the first lookup needs no resolver at
- * all. They are the providers' own documented addresses, verified against a public resolver on
- * 2026-08-23; a provider that moves leaves them stale, which is why each preset's can be overridden
- * from its row ([DohServer.bootstrapOverride]).
+ * Public providers carry their documented [bootstrap] addresses so their first lookup needs no
+ * resolver. These were verified against a public resolver on 2026-08-23 and can be overridden from
+ * the provider's row ([DohServer.bootstrapOverride]). [WEISHIAIR] instead follows its endpoint's DNS
+ * records, without a fixed origin address or an override that could bypass later DNS changes.
  *
  * The order is the order a fresh install lists them in: [WEISHIAIR] supplies ECH and preferred
  * Cloudflare addresses for this fork. [ALIDNS] and [DNSPOD] answer from inside
@@ -34,8 +32,9 @@ import okio.IOException
 enum class DohProvider(
     val url: String,
     val bootstrap: List<String>,
+    val supportsBootstrapOverride: Boolean = true,
 ) {
-    WEISHIAIR("https://doh.weishiair.de/dns-query", emptyList()),
+    WEISHIAIR("https://doh.weishiair.de/dns-query", emptyList(), supportsBootstrapOverride = false),
     ALIDNS("https://dns.alidns.com/dns-query", listOf("223.5.5.5", "223.6.6.6", "2400:3200::1")),
     DNSPOD("https://doh.pub/dns-query", listOf("1.12.12.12", "120.53.53.53")),
     CLOUDFLARE("https://cloudflare-dns.com/dns-query", listOf("1.1.1.1", "1.0.0.1", "2606:4700:4700::1111")),
@@ -67,7 +66,11 @@ data class DohServer(
 
     /** The addresses [url]'s own host is reached at without asking a resolver. May be empty. */
     val bootstrap: List<String>
-        get() = bootstrapOverride?.let { parseBootstrapAddresses(it).orEmpty() } ?: preset?.bootstrap.orEmpty()
+        get() = if (preset?.supportsBootstrapOverride == false) {
+            emptyList()
+        } else {
+            bootstrapOverride?.let { parseBootstrapAddresses(it).orEmpty() } ?: preset?.bootstrap.orEmpty()
+        }
 
     val isUsable: Boolean get() = isDohUrl(url)
 
@@ -305,7 +308,15 @@ private val serversJson = Json { ignoreUnknownKeys = true }
 
 private fun encodeServers(servers: List<DohServer>): String =
     serversJson.encodeToString(
-        servers.map { StoredDohServer(it.id, it.preset?.name, it.customUrl, it.bootstrapOverride, it.checked) },
+        servers.map { server ->
+            StoredDohServer(
+                server.id,
+                server.preset?.name,
+                server.customUrl,
+                server.bootstrapOverride.takeUnless { server.preset?.supportsBootstrapOverride == false },
+                server.checked,
+            )
+        },
     )
 
 /**
@@ -325,7 +336,12 @@ private fun decodeServers(text: String): List<DohServer> {
                 null -> DohServer(row.id, customUrl = row.url, bootstrapOverride = row.bootstrap.orEmpty(), checked = row.checked)
 
                 else -> DohProvider.entries.firstOrNull { it.name == row.preset }?.let { provider ->
-                    DohServer(provider.name, provider, bootstrapOverride = row.bootstrap, checked = row.checked)
+                    DohServer(
+                        provider.name,
+                        provider,
+                        bootstrapOverride = row.bootstrap.takeIf { provider.supportsBootstrapOverride },
+                        checked = row.checked,
+                    )
                 }
             }
         }.distinctBy { it.id }

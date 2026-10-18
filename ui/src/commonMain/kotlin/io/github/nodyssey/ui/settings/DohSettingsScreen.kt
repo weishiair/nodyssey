@@ -599,7 +599,7 @@ private fun DragHandle(modifier: Modifier = Modifier) {
 
 /**
  * One server's details: the address — typed, for one the user added; shown, for a preset — and the
- * bootstrap addresses, which a preset lets be overridden and put back ([onResetBootstrap]).
+ * bootstrap addresses, where the provider supports overriding and resetting them ([onResetBootstrap]).
  *
  * @param server the row being edited, or null while adding one.
  */
@@ -657,26 +657,28 @@ private fun DohServerSheet(
                     keyboardType = KeyboardType.Uri,
                 )
             }
-            SettingsTextField(
-                value = draft.bootstrapInput,
-                onValueChange = onBootstrapChange,
-                label = stringResource(Res.string.doh_bootstrap_label),
-                placeholder = stringResource(Res.string.doh_bootstrap_placeholder),
-                isError = draft.problem == DohServerProblem.INVALID_BOOTSTRAP,
-                supportingText =
-                if (draft.problem == DohServerProblem.INVALID_BOOTSTRAP) {
-                    stringResource(Res.string.doh_bootstrap_invalid)
-                } else {
-                    null
-                },
-                keyboardType = KeyboardType.Uri,
-            )
+            if (preset?.supportsBootstrapOverride != false) {
+                SettingsTextField(
+                    value = draft.bootstrapInput,
+                    onValueChange = onBootstrapChange,
+                    label = stringResource(Res.string.doh_bootstrap_label),
+                    placeholder = stringResource(Res.string.doh_bootstrap_placeholder),
+                    isError = draft.problem == DohServerProblem.INVALID_BOOTSTRAP,
+                    supportingText =
+                    if (draft.problem == DohServerProblem.INVALID_BOOTSTRAP) {
+                        stringResource(Res.string.doh_bootstrap_invalid)
+                    } else {
+                        null
+                    },
+                    keyboardType = KeyboardType.Uri,
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
-                    preset != null ->
+                    preset?.supportsBootstrapOverride == true ->
                         TextButton(onClick = onResetBootstrap) { Text(stringResource(Res.string.doh_bootstrap_reset)) }
 
-                    server != null ->
+                    preset == null && server != null ->
                         TextButton(
                             onClick = onDelete,
                             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),

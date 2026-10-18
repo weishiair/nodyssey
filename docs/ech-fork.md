@@ -9,7 +9,7 @@
 
 ## 内置 DoH
 
-`https://doh.weishiair.de/dns-query` 在加密 DNS 列表中显示为 **Weishiair DoH（ECH）**，通过域名连接。
+`https://doh.weishiair.de/dns-query` 在加密 DNS 列表中显示为 **Weishiair DoH（ECH）**。此预设只使用域名，不内置或展示固定服务器 IP；旧版本为此预设保存的引导 IP 覆盖也不再使用，以便连接跟随域名解析的变化。
 
 首次启用加密 DNS 时默认选择此服务。覆盖安装会保留已保存的开关、服务器选择和排序，新服务补入列表后不自动改动选择。
 

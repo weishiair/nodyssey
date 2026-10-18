@@ -198,6 +198,28 @@ class DohSettingsViewModelTest {
     }
 
     @Test
+    fun `editing a domain-only preset does not restore a hidden bootstrap override`() = runTest(dispatcher) {
+        settings.saved.value = DohConfig(
+            enabled = true,
+            servers = listOf(DohServer.preset(DohProvider.WEISHIAIR, checked = true).copy(bootstrapOverride = "203.0.113.7")),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openServer("WEISHIAIR")
+        assertEquals("", viewModel.uiState.value.editing?.bootstrapInput)
+        viewModel.updateEditorBootstrap("192.0.2.53")
+        viewModel.confirmEditor()
+        viewModel.save()
+        advanceUntilIdle()
+
+        val saved = settings.saved.value.chain.single()
+        assertNull(saved.bootstrapOverride)
+        assertEquals(emptyList<String>(), saved.bootstrap)
+        assertEquals(true, settings.saved.value.enabled)
+    }
+
+    @Test
     fun `保存 with nothing ticked is refused`() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()

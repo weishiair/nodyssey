@@ -7,12 +7,12 @@ on:
       version_name:
         description: APK version name
         required: true
-        default: '1.2.22-ech.5'
+        default: '1.2.22-ech.6'
         type: string
       version_code:
         description: Android version code (increase to upgrade an installed build)
         required: true
-        default: '55'
+        default: '56'
         type: string
 
 permissions:

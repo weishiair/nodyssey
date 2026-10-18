@@ -108,7 +108,11 @@ class DohSettingsViewModel(
                     id = server.id,
                     preset = server.preset,
                     urlInput = server.customUrl,
-                    bootstrapInput = server.bootstrapOverride ?: server.preset?.bootstrap.orEmpty().joinToString(", "),
+                    bootstrapInput = if (server.preset?.supportsBootstrapOverride == false) {
+                        ""
+                    } else {
+                        server.bootstrapOverride ?: server.preset?.bootstrap.orEmpty().joinToString(", ")
+                    },
                 ),
             )
         }
@@ -118,7 +122,10 @@ class DohSettingsViewModel(
 
     fun updateEditorUrl(value: String) = editDraft { it.copy(urlInput = value.trim(), problem = null) }
 
-    fun updateEditorBootstrap(value: String) = editDraft { it.copy(bootstrapInput = value, problem = null) }
+    fun updateEditorBootstrap(value: String) =
+        editDraft {
+            if (it.preset?.supportsBootstrapOverride == false) it else it.copy(bootstrapInput = value, problem = null)
+        }
 
     /** A preset's bootstrap addresses, back to the ones it ships with. */
     fun resetEditorBootstrap() =
@@ -131,12 +138,12 @@ class DohSettingsViewModel(
     /** 确定: checks the sheet, and puts what it holds into the list. */
     fun confirmEditor() {
         val draft = _uiState.value.editing ?: return
-        val problem = dohServerProblem(url = draft.urlInput.takeIf { draft.preset == null }, bootstrap = draft.bootstrapInput)
+        val bootstrap = if (draft.preset?.supportsBootstrapOverride == false) "" else draft.bootstrapInput.trim()
+        val problem = dohServerProblem(url = draft.urlInput.takeIf { draft.preset == null }, bootstrap = bootstrap)
         if (problem != null) {
             editDraft { it.copy(problem = problem) }
             return
         }
-        val bootstrap = draft.bootstrapInput.trim()
         editList { servers ->
             when {
                 draft.preset != null -> servers.map { server ->
