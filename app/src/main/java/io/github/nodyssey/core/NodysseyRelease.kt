@@ -5,11 +5,10 @@ package io.github.nodyssey.core
  *
  * Kept apart from [NodeSeekSite] for that reason, and out of `:core` because where an app publishes
  * is a fact about that app — `:core` is copied into https://github.com/5151561/plaza, which
- * publishes somewhere else entirely. `.github/workflows/release.yml` is what fills the releases page
- * this points at.
+ * publishes somewhere else entirely. This fork publishes signed ECH builds on its own releases page.
  */
 object NodysseyRelease {
-    const val REPOSITORY = "5151561/nodyssey"
+    const val REPOSITORY = "weishiair/nodyssey"
 
     /**
      * What this app's APK is called on a release, so the update check downloads that file and not
@@ -21,8 +20,7 @@ object NodysseyRelease {
      * has no default, and naming the asset is worth doing anyway: a release also carries a mapping
      * file and a checksum, and `.apk` alone is not specific enough.
      *
-     * `release.yml`'s "Name the APK after the release" step is the other end of this string; the two
-     * have to be changed together, and that step's comment says so.
+     * `build-ech-update-manifests.py` validates the signed ECH APK names before publishing updates.
      */
     const val ASSET_NAME_PREFIX = "nodyssey-"
 
@@ -44,7 +42,7 @@ object NodysseyRelease {
      * on that same connection. **Pages has to stay enabled for the `updates` branch in the repository
      * settings**; with it off these files 404 and the app says so rather than reporting 已是最新.
      *
-     * `.github/workflows/release.yml` writes the three files; `UpdateManifestSource` reads them.
+     * `.github/workflows/ech-updates.yml` writes the three files; `UpdateManifestSource` reads them.
      */
-    const val UPDATES_BASE_URL = "https://5151561.github.io/nodyssey/"
+    const val UPDATES_BASE_URL = "https://weishiair.github.io/nodyssey/"
 }

@@ -138,6 +138,13 @@ class UpdateManifestTest {
         assertEquals(false, isTrustedDownloadUrl("not a url", repo))
     }
 
+    @Test
+    fun `the fork accepts its signed ECH APK and refuses an upstream APK`() {
+        val url = "https://github.com/weishiair/nodyssey/releases/download/ech-1.2.22.5/nodyssey-1.2.22-ech.5-release.apk"
+        assertEquals(true, isTrustedDownloadUrl(url, "weishiair/nodyssey"))
+        assertEquals(false, isTrustedDownloadUrl(url.replace("weishiair", "5151561"), "weishiair/nodyssey"))
+    }
+
     /**
      * The fixture — the workflow's real output — passes whole, and blanking any one claim fails it.
      * The blank-digest case is the acceptance the review asked for: a manifest that states no sha256

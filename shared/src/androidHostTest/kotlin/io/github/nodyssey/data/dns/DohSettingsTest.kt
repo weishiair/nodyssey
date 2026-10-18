@@ -50,6 +50,7 @@ class DohSettingsTest {
                 DohServer.preset(DohProvider.ALIDNS),
                 DohServer.preset(DohProvider.DNSPOD),
                 DohServer.preset(DohProvider.CLOUDFLARE),
+                DohServer.preset(DohProvider.WEISHIAIR),
             ),
             includeIPv6 = false,
             fallbackToSystem = true,
@@ -73,7 +74,7 @@ class DohSettingsTest {
 
         val servers = settings.config.first().servers
 
-        assertEquals(listOf("DNSPOD", "ALIDNS", "CLOUDFLARE", "GOOGLE"), servers.map { it.id })
+        assertEquals(listOf("DNSPOD", "WEISHIAIR", "ALIDNS", "CLOUDFLARE", "GOOGLE"), servers.map { it.id })
         assertEquals(listOf("DNSPOD"), servers.filter { it.checked }.map { it.id })
     }
 

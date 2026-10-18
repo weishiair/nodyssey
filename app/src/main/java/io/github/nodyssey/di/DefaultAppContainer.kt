@@ -776,6 +776,7 @@ class DefaultAppContainer(
             // The cache: an APK that has been installed is dead weight, and one that never got
             // installed is not worth keeping across a system cleanup either.
             downloadDirectory = File(appContext.cacheDir, "updates"),
+            sourceId = NodysseyRelease.REPOSITORY,
         )
     }
 

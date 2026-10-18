@@ -427,6 +427,7 @@
     <string name="doh_master_hint">The app resolves hostnames over DoH; every other app on the phone carries on as before</string>
     <string name="doh_provider_title">Resolver</string>
     <string name="doh_provider_alidns">AliDNS</string>
+    <string name="doh_provider_weishiair">Weishiair DoH (ECH)</string>
     <string name="doh_provider_custom_hint">Your own DoH server, or any other</string>
     <string name="doh_servers_title_ordered">Servers · tried in order</string>
     <string name="doh_rank_first">Primary</string>

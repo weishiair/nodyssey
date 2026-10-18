@@ -510,6 +510,7 @@ class SettingsRepository(
         return UpdateCheckRecord(
             checkedAtMillis = preferences[KEY_UPDATE_CHECKED_AT] ?: 0L,
             devChannel = preferences[KEY_UPDATE_RECORD_DEV_CHANNEL] ?: false,
+            sourceId = preferences[KEY_UPDATE_SOURCE] ?: "",
             release =
             preferences[KEY_UPDATE_RELEASE]?.let { stored ->
                 runCatching { json.decodeFromString<AppRelease>(stored) }.getOrNull()
@@ -523,6 +524,7 @@ class SettingsRepository(
             // The channel the answer came from, not the setting: the setting can change between two
             // checks, and that is exactly the case this field lets the repository notice.
             preferences[KEY_UPDATE_RECORD_DEV_CHANNEL] = record.devChannel
+            preferences[KEY_UPDATE_SOURCE] = record.sourceId
             val release = record.release
             if (release == null) {
                 preferences.remove(KEY_UPDATE_RELEASE)
@@ -694,6 +696,7 @@ class SettingsRepository(
         private val KEY_UPDATE_CHECK_ON_LAUNCH = booleanPreferencesKey("update_check_on_launch")
         private val KEY_UPDATE_DEV_CHANNEL = booleanPreferencesKey("update_dev_channel")
         private val KEY_UPDATE_RECORD_DEV_CHANNEL = booleanPreferencesKey("update_checked_dev_channel")
+        private val KEY_UPDATE_SOURCE = stringPreferencesKey("update_source")
 
         private const val RECENT_SEARCH_SEPARATOR = '\u001F'
         private const val MAX_RECENT_SEARCHES = 8

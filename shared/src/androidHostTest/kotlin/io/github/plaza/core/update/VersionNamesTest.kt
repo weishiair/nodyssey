@@ -7,6 +7,14 @@ import org.junit.Test
 
 class VersionNamesTest {
     @Test
+    fun `ECH releases stay stable and their revision compares numerically`() {
+        assertFalse(isPreReleaseVersionName("1.2.22-ech.5"))
+        assertTrue(isPreReleaseVersionName("1.2.22-ech-test.5"))
+        assertTrue(isNewerVersionName("1.2.22-ech.10", "1.2.22-ech.9"))
+        assertFalse(isNewerVersionName("1.2.22-ech.9", "1.2.22-ech.10"))
+    }
+
+    @Test
     fun `the tag and the versionName inside the APK compare equal`() {
         assertEquals(0, compareVersionNames("v1.1.0", "1.1.0"))
         assertEquals("1.1.0", versionNameOfTag("v1.1.0"))

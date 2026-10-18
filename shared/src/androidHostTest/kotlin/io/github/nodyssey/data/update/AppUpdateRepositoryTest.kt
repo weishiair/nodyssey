@@ -31,6 +31,27 @@ class AppUpdateRepositoryTest {
     val downloads = TemporaryFolder()
 
     @Test
+    fun `a cached upstream reminder is retired when switching to the fork feed`() = runTest {
+        val store = FakeUpdateCheckStore(
+            UpdateCheckRecord(NOW, release("1.9.0"), sourceId = "5151561/nodyssey"),
+        )
+        val source = FakeReleaseSource(release("1.2.22-ech.5"))
+        val repository = repository(
+            source,
+            store,
+            currentVersionName = "1.2.22-ech.4",
+            sourceId = "weishiair/nodyssey",
+        )
+
+        repository.checkOnLaunch()
+        advanceUntilIdle()
+
+        assertEquals(1, source.calls)
+        assertEquals("1.2.22-ech.5", repository.launchReminder.value?.versionName)
+        assertEquals("weishiair/nodyssey", store.updateCheckRecord().sourceId)
+    }
+
+    @Test
     fun `a newer release is offered, an older one is not`() =
         runTest {
             val source = FakeReleaseSource(release("1.2.0"))
@@ -343,6 +364,7 @@ class AppUpdateRepositoryTest {
         store: UpdateCheckStore = FakeUpdateCheckStore(),
         clock: MutableClock = MutableClock(NOW),
         currentVersionName: String = "1.1.0",
+        sourceId: String = "",
     ): DefaultAppUpdateRepository {
         val dispatcher = StandardTestDispatcher(testScheduler)
         return DefaultAppUpdateRepository(
@@ -353,6 +375,7 @@ class AppUpdateRepositoryTest {
             scope = this,
             currentVersionName = currentVersionName,
             downloadDirectory = downloads.root,
+            sourceId = sourceId,
         )
     }
 

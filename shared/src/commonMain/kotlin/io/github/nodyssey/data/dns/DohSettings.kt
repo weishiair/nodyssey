@@ -23,7 +23,8 @@ import okio.IOException
  * 2026-08-23; a provider that moves leaves them stale, which is why each preset's can be overridden
  * from its row ([DohServer.bootstrapOverride]).
  *
- * The order is the order a fresh install lists them in: [ALIDNS] and [DNSPOD] answer from inside
+ * The order is the order a fresh install lists them in: [WEISHIAIR] supplies ECH and preferred
+ * Cloudflare addresses for this fork. [ALIDNS] and [DNSPOD] answer from inside
  * mainland China, which is where most of this forum reads from — they end an ISP hijacking the
  * answer, which is what this setting is usually reached for. [CLOUDFLARE] and [GOOGLE] resolve from
  * outside it, which is the only thing that helps when the *record* is what has been poisoned rather
@@ -34,6 +35,7 @@ enum class DohProvider(
     val url: String,
     val bootstrap: List<String>,
 ) {
+    WEISHIAIR("https://doh.weishiair.de/dns-query", emptyList()),
     ALIDNS("https://dns.alidns.com/dns-query", listOf("223.5.5.5", "223.6.6.6", "2400:3200::1")),
     DNSPOD("https://doh.pub/dns-query", listOf("1.12.12.12", "120.53.53.53")),
     CLOUDFLARE("https://cloudflare-dns.com/dns-query", listOf("1.1.1.1", "1.0.0.1", "2606:4700:4700::1111")),
@@ -76,12 +78,12 @@ data class DohServer(
 }
 
 /**
- * What a fresh install lists: every preset, the two mainland ones ticked. Two rather than one because
- * a second server is the whole point of an ordered list: the first one being unreachable is the
- * failure a single server has no answer to.
+ * A fresh install offers this fork's ECH resolver first. Other providers remain available, but an
+ * ordinary resolver's successful answer without ECH is not equivalent to this service's answer.
+ * Existing saved lists gain the new provider unticked, preserving the user's selected resolvers.
  */
 val DefaultDohServers: List<DohServer> =
-    DohProvider.entries.map { DohServer.preset(it, checked = it == DohProvider.ALIDNS || it == DohProvider.DNSPOD) }
+    DohProvider.entries.map { DohServer.preset(it, checked = it == DohProvider.WEISHIAIR) }
 
 /** An id no row in this list has yet, for a custom server about to join it. */
 fun List<DohServer>.nextCustomId(): String {
@@ -98,8 +100,9 @@ private const val CUSTOM_ID_PREFIX = "custom-"
  * 加密 DNS — how the app's own HTTP clients turn a hostname into an address.
  *
  * Answers come from a DoH server over HTTPS instead of whatever resolver the network handed the
- * device. Android 17's transport also uses ECH from HTTPS records to hide SNI when the server
- * supports it. Neither encrypted DNS nor ECH can fix a blocked IP or other connection failures.
+ * device. The Android transport also uses ECH from HTTPS records to hide SNI when the server
+ * supports it: bundled Conscrypt on Android 8–16, system TLS on Android 17 and later. Neither
+ * encrypted DNS nor ECH can fix a blocked IP or other connection failures.
  *
  * Every one of the app's clients resolves through this, the login WebView through none of it: that is
  * Chromium's network stack, with its own resolver and the system's 私人 DNS setting above it.

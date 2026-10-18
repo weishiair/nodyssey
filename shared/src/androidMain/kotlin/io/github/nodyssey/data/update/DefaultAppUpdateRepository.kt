@@ -38,6 +38,7 @@ class DefaultAppUpdateRepository(
     private val scope: CoroutineScope,
     private val currentVersionName: String,
     private val downloadDirectory: File,
+    private val sourceId: String = "",
 ) : AppUpdateRepository {
     private val mutableState = MutableStateFlow(AppUpdateState())
     override val state: StateFlow<AppUpdateState> = mutableState.asStateFlow()
@@ -87,7 +88,8 @@ class DefaultAppUpdateRepository(
                 val fresh =
                     record.checkedAtMillis > 0L &&
                         age in 0 until CHECK_INTERVAL_MILLIS &&
-                        record.devChannel == devChannel
+                        record.devChannel == devChannel &&
+                        record.sourceId == sourceId
                 if (!force && fresh) {
                     publish(record.release)
                 } else {
@@ -95,7 +97,7 @@ class DefaultAppUpdateRepository(
                     try {
                         val release = source.latestRelease(includePreRelease = devChannel)
                         store.setUpdateCheckRecord(
-                            UpdateCheckRecord(clock.nowMillis(), release, devChannel),
+                            UpdateCheckRecord(clock.nowMillis(), release, devChannel, sourceId),
                         )
                         publish(release)
                     } catch (e: AppUpdateException) {

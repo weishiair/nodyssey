@@ -1,6 +1,7 @@
 package io.github.nodyssey.data.settings
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import io.github.plaza.core.update.UpdateCheckRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -20,6 +21,18 @@ import java.nio.file.Files
  * halves of it: a test build follows the dev channel on its own, and saying no still means no.
  */
 class UpdateDevChannelDefaultTest {
+    @Test
+    fun `the update feed identity survives storage and replacing an empty answer`() =
+        runTest {
+            val repository = repository(devChannelDefault = false)
+            assertEquals("", repository.updateCheckRecord().sourceId)
+
+            val record = UpdateCheckRecord(1234L, null, sourceId = "weishiair/nodyssey")
+            repository.setUpdateCheckRecord(record)
+
+            assertEquals(record, repository.updateCheckRecord())
+        }
+
     @Test
     fun `a release build only hears about releases`() =
         runTest {

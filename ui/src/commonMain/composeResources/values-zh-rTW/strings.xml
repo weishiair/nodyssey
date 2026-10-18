@@ -421,6 +421,7 @@
     <string name="doh_master_hint">App 內的請求改用 DoH 解析網域；手機上的其它 App 照常</string>
     <string name="doh_provider_title">解析服務商</string>
     <string name="doh_provider_alidns">阿里 DNS</string>
+    <string name="doh_provider_weishiair">Weishiair DoH（ECH）</string>
     <string name="doh_provider_custom_hint">填自建或其它 DoH 伺服器</string>
     <string name="doh_servers_title_ordered">服務商 · 依序嘗試</string>
     <string name="doh_rank_first">首選</string>

@@ -46,8 +46,11 @@ fun isNewerVersionName(candidate: String, current: String): Boolean =
  * number, so a test build checking the stable channel reports 已是最新 for as long as it takes the
  * next release to ship — which is not a wrong answer to the question asked, only the wrong question.
  */
-fun isPreReleaseVersionName(versionName: String): Boolean =
-    splitVersionName(versionName).second.isNotEmpty()
+fun isPreReleaseVersionName(versionName: String): Boolean {
+    val suffix = splitVersionName(versionName).second
+    // ech.N identifies this fork's stable releases; ech-test.N still belongs to the test channel.
+    return suffix.isNotEmpty() && !Regex("ech\\.[0-9]+").matches(suffix)
+}
 
 /** `v1.2.0` is the tag, `1.2.0` is the version inside the APK. This is the one difference. */
 fun versionNameOfTag(tag: String): String = tag.trim().removePrefix("v").removePrefix("V")

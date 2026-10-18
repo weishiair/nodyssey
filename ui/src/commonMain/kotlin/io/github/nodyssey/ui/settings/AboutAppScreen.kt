@@ -589,7 +589,7 @@ private const val UPDATE_NOTES_MAX_LINES = 8
 internal object AppLinks {
     const val PROJECT_HOME = "https://github.com/5151561/nodyssey"
     const val ISSUES = "https://github.com/5151561/nodyssey/issues"
-    const val RELEASES = "https://github.com/5151561/nodyssey/releases"
+    const val RELEASES = "https://github.com/weishiair/nodyssey/releases"
 
     /**
      * The project's own Telegram channel — where `release.yml` posts every build.

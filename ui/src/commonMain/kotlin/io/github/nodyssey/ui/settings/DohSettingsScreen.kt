@@ -103,6 +103,7 @@ import io.github.nodyssey.ui.resources.doh_provider_custom_hint
 import io.github.nodyssey.ui.resources.doh_provider_dnspod
 import io.github.nodyssey.ui.resources.doh_provider_google
 import io.github.nodyssey.ui.resources.doh_provider_title
+import io.github.nodyssey.ui.resources.doh_provider_weishiair
 import io.github.nodyssey.ui.resources.doh_proxy_hint
 import io.github.nodyssey.ui.resources.doh_rank_backup
 import io.github.nodyssey.ui.resources.doh_rank_first
@@ -700,6 +701,7 @@ internal fun dohServerLabel(server: DohServer): String =
 private fun dohProviderLabel(provider: DohProvider): String =
     stringResource(
         when (provider) {
+            DohProvider.WEISHIAIR -> Res.string.doh_provider_weishiair
             DohProvider.ALIDNS -> Res.string.doh_provider_alidns
             DohProvider.DNSPOD -> Res.string.doh_provider_dnspod
             DohProvider.CLOUDFLARE -> Res.string.doh_provider_cloudflare

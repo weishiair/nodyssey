@@ -531,6 +531,7 @@
     <string name="doh_master_hint">App 内的请求改用 DoH 解析域名；手机上的其它 App 照常</string>
     <string name="doh_provider_title">解析服务商</string>
     <string name="doh_provider_alidns">阿里 DNS</string>
+    <string name="doh_provider_weishiair">Weishiair DoH（ECH）</string>
     <string name="doh_provider_dnspod">DNSPod</string>
     <string name="doh_provider_cloudflare">Cloudflare</string>
     <string name="doh_provider_google">Google</string>

@@ -94,7 +94,7 @@ class DohSettingsViewModelTest {
         viewModel.save()
         advanceUntilIdle()
 
-        assertEquals(listOf("CLOUDFLARE", "ALIDNS", "DNSPOD"), settings.saved.value.chain.map { it.id })
+        assertEquals(listOf("CLOUDFLARE", "WEISHIAIR"), settings.saved.value.chain.map { it.id })
         assertEquals(true, settings.saved.value.fallbackToSystem)
         assertNull(viewModel.uiState.value.problem)
     }
@@ -109,11 +109,11 @@ class DohSettingsViewModelTest {
         advanceUntilIdle()
 
         viewModel.toggleServer("GOOGLE")
-        assertEquals(listOf("ALIDNS", "DNSPOD", "GOOGLE", "CLOUDFLARE"), viewModel.ids())
+        assertEquals(listOf("WEISHIAIR", "GOOGLE", "ALIDNS", "DNSPOD", "CLOUDFLARE"), viewModel.ids())
 
-        viewModel.toggleServer("ALIDNS")
-        assertEquals(listOf("DNSPOD", "GOOGLE", "ALIDNS", "CLOUDFLARE"), viewModel.ids())
-        assertEquals(listOf("DNSPOD", "GOOGLE"), viewModel.ticked())
+        viewModel.toggleServer("WEISHIAIR")
+        assertEquals(listOf("GOOGLE", "WEISHIAIR", "ALIDNS", "DNSPOD", "CLOUDFLARE"), viewModel.ids())
+        assertEquals(listOf("GOOGLE"), viewModel.ticked())
     }
 
     /** Dragged past the last ticked row, a server would be untried without having been unticked. */
@@ -122,11 +122,12 @@ class DohSettingsViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.moveServer("ALIDNS", 3)
-        assertEquals(listOf("DNSPOD", "ALIDNS", "CLOUDFLARE", "GOOGLE"), viewModel.ids())
+        viewModel.toggleServer("ALIDNS")
+        viewModel.moveServer("WEISHIAIR", 3)
+        assertEquals(listOf("ALIDNS", "WEISHIAIR", "DNSPOD", "CLOUDFLARE", "GOOGLE"), viewModel.ids())
 
         viewModel.moveServer("GOOGLE", 0)
-        assertEquals(listOf("DNSPOD", "ALIDNS", "CLOUDFLARE", "GOOGLE"), viewModel.ids())
+        assertEquals(listOf("ALIDNS", "WEISHIAIR", "DNSPOD", "CLOUDFLARE", "GOOGLE"), viewModel.ids())
     }
 
     /** A stored list from anywhere but this screen is shown ticked-first, so a drag means what it shows. */
@@ -156,8 +157,8 @@ class DohSettingsViewModelTest {
         viewModel.updateEditorBootstrap("10.0.0.53")
         viewModel.confirmEditor()
 
-        val added = viewModel.uiState.value.servers[2]
-        assertEquals(listOf("ALIDNS", "DNSPOD", added.id), viewModel.ticked())
+        val added = viewModel.uiState.value.servers[1]
+        assertEquals(listOf("WEISHIAIR", added.id), viewModel.ticked())
         assertEquals("https://doh.example/dns-query", added.url)
         assertEquals(listOf("10.0.0.53"), added.bootstrap)
         assertNull(viewModel.uiState.value.editing)
@@ -202,8 +203,7 @@ class DohSettingsViewModelTest {
         advanceUntilIdle()
 
         viewModel.setEnabled(true)
-        viewModel.toggleServer("ALIDNS")
-        viewModel.toggleServer("DNSPOD")
+        viewModel.toggleServer("WEISHIAIR")
         viewModel.save()
         advanceUntilIdle()
 
@@ -214,14 +214,13 @@ class DohSettingsViewModelTest {
     }
 
     /**
-     * Apple takes one server. The defaults tick two, so the screen there opens with the one already in
-     * use — the first — and picking another unpicks it without moving any row.
+     * Apple takes one server. Picking another unpicks the existing choice without moving any row.
      */
     @Test
     fun `where one server is all there can be picking one unpicks the rest`() = runTest(dispatcher) {
         val viewModel = viewModel(ordered = false)
         advanceUntilIdle()
-        assertEquals(listOf("ALIDNS"), viewModel.ticked())
+        assertEquals(listOf("WEISHIAIR"), viewModel.ticked())
 
         viewModel.toggleServer("GOOGLE")
         viewModel.setEnabled(true)
@@ -246,7 +245,7 @@ class DohSettingsViewModelTest {
         viewModel.openServer(added)
         viewModel.deleteEditorServer()
 
-        assertEquals(listOf("ALIDNS"), viewModel.ticked())
+        assertEquals(listOf("WEISHIAIR"), viewModel.ticked())
         assertEquals(DefaultDohServers.map { it.id }, viewModel.ids())
     }
 
@@ -261,7 +260,7 @@ class DohSettingsViewModelTest {
         viewModel.test()
         advanceUntilIdle()
 
-        assertEquals(listOf("ALIDNS", "DNSPOD", "GOOGLE"), settings.saved.value.chain.map { it.id })
+        assertEquals(listOf("WEISHIAIR", "GOOGLE"), settings.saved.value.chain.map { it.id })
         assertEquals(1, tester.calls)
         assertEquals(false, viewModel.uiState.value.testing)
         assertEquals(listOf("104.21.32.1"), viewModel.uiState.value.resolution?.addresses)

@@ -1,0 +1,50 @@
+name: ECH update manifests
+
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: ech-update-manifests
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'weishiair/nodyssey' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'ech-'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Verify manifest generation
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+      - name: Build this fork's manifests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/build-ech-update-manifests.py --repository "$GITHUB_REPOSITORY" --out "$RUNNER_TEMP/ech-feed"
+      - name: Update the Pages branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          checkout="$RUNNER_TEMP/updates"
+          git fetch origin updates:refs/remotes/origin/updates
+          git worktree add "$checkout" origin/updates
+          cp "$RUNNER_TEMP/ech-feed/"*.json "$checkout/"
+          cp "$RUNNER_TEMP/ech-feed/index.html" "$checkout/index.html"
+          touch "$checkout/.nojekyll"
+          git -C "$checkout" config user.name 'github-actions[bot]'
+          git -C "$checkout" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$checkout" add stable.json dev.json changelog.json index.html .nojekyll
+          if ! git -C "$checkout" diff --cached --quiet; then
+            git -C "$checkout" commit -m 'Update ECH release manifests'
+            git -C "$checkout" push origin HEAD:updates
+          fi
+          # GITHUB_TOKEN pushes do not trigger a legacy Pages build; request one explicitly.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent

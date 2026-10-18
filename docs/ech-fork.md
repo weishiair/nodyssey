@@ -1,0 +1,24 @@
+# Nodyssey·ECH
+
+基于 [Nodyssey](https://github.com/5151561/nodyssey) 的非官方 Android 分支，用于在支持的网络中配合 DoH 与 ECH 直连 NodeSeek。协议继续使用 GPL-3.0，感谢上游作者。
+
+- 下载：[weishiair/nodyssey Releases](https://github.com/weishiair/nodyssey/releases)。
+- 包名 `io.github.nodyssey.debug`，应用名 `Nodyssey·ECH`，可与官方版共存。ECH 正式版沿用同一签名，可直接覆盖升级。
+- Android 8–16 使用内置 Conscrypt，Android 17 及以上使用系统 ECH。
+- 保留纯白主题和帖子阅读布局，Release 包不包含 LeakCanary。
+
+## 内置 DoH
+
+`https://doh.weishiair.de/dns-query` 在加密 DNS 列表中显示为 **Weishiair DoH（ECH）**，通过域名连接。
+
+首次启用加密 DNS 时默认选择此服务。覆盖安装会保留已保存的开关、服务器选择和排序，新服务补入列表后不自动改动选择。
+
+服务基于 [edge-smart-doh](https://github.com/1molchuan/edge-smart-doh)，提供优选 Cloudflare 地址并补充 ECH 配置；还需要客户端支持 ECH，且目标地址在当前网络中可达。登录 WebView 使用独立的网络栈。
+
+## 分支更新
+
+应用只从 `https://weishiair.github.io/nodyssey/` 的静态清单获取更新和更新日志，下载地址仅允许 `weishiair/nodyssey` 的 GitHub Release，下载后验证 SHA-256。
+
+升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。`1.2.22-ech.5` 等 ECH 修订版按数字比较，属于本分支正式版；`ech-test` 属于测试版。
+
+发布包含签名 APK 的 `ech-*` GitHub Release 后，`ECH update manifests` 工作流生成并发布本分支的清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。

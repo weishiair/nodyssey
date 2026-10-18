@@ -195,4 +195,6 @@ data class UpdateCheckRecord(
      * to invalidate the record rather than wait out the six hours.
      */
     val devChannel: Boolean = false,
+    /** The feed this answer belongs to; switching repositories must retire the old reminder. */
+    val sourceId: String = "",
 )
