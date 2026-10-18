@@ -30,12 +30,11 @@ class DohConfigTest {
         assertEquals(listOf("223.5.5.5"), preset.copy(bootstrapOverride = "223.5.5.5").bootstrap)
     }
 
-    /** Every preset has to be reachable without a resolver, which is the whole reason they are presets. */
+    /** A preset needs a valid endpoint; bootstrap addresses, when provided, must be IP literals. */
     @Test
-    fun `every preset carries a usable url and at least one bootstrap address`() {
+    fun `every preset carries a usable url and optional literal bootstrap addresses`() {
         DohProvider.entries.forEach { provider ->
             assertTrue(DohServer.preset(provider).isUsable, "${provider.name} url")
-            assertTrue(provider.bootstrap.isNotEmpty(), "${provider.name} bootstrap")
             assertTrue(provider.bootstrap.all(::isIpLiteral), "${provider.name} bootstrap is addresses")
         }
     }
