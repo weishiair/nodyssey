@@ -52,6 +52,7 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
                             categoryTitle = post.summary.categoryTitle,
                             categorySlug = post.summary.categorySlug,
                             isAwarded = post.summary.isAwarded,
+                            replyCount = post.summary.commentCount,
                         ),
                     ),
                 )

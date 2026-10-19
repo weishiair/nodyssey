@@ -2,6 +2,7 @@ package io.github.nodyssey.ui.postdetail
 
 import io.github.nodyssey.ThreadPreview
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.core.html.PostDetailParser
 import io.github.nodyssey.data.FakePostRemoteDataSource
 import io.github.nodyssey.data.MutableClock
 import io.github.nodyssey.data.NoReadingPositions
@@ -64,6 +65,197 @@ class PostDetailViewModelTest {
     }
 
     private val session = MutableStateFlow(SessionState())
+
+    @Test
+    fun `cached HTML replies are read in numeric floor order without a refetch`() = runTest(dispatcher) {
+        val html = javaClass.classLoader!!.getResourceAsStream("fixtures/post-703863-1.html")!!.bufferedReader().use { it.readText() }
+        val detail = PostDetailParser.parse(html, postId = 42, page = 1)
+        assertEquals("#4", detail.comments.first().floor)
+        remote.detailResult = { _, _ -> detail }
+        repository.refreshThread(postId = 42, page = 1)
+        val requests = remote.detailRequests.size
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals((1..10).map { "#$it" }, vm.uiState.value.comments.map { it.floor })
+        assertEquals(requests, remote.detailRequests.size)
+        assertEquals(detail.comments.map { it.commentId }.toSet(), vm.uiState.value.comments.map { it.commentId }.toSet())
+    }
+
+    @Test
+    fun `sorting across loaded pages keeps reply source pages and author filtering aligned`() = runTest(dispatcher) {
+        val serverFloors = listOf(listOf(10, 13, 1, 2, 3, 4, 5, 6, 7, 8), listOf(9, 11, 12, 14, 15, 16, 17))
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 2).copy(
+                body = FakePostRemoteDataSource.content("body").copy(authorUid = 7),
+                comments = serverFloors[page - 1].map { floor ->
+                    FakePostRemoteDataSource.content("floor $floor").copy(
+                        floor = "#$floor",
+                        authorUid = if (floor % 2 == 0) 7 else 8,
+                    )
+                },
+            )
+        }
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertEquals(serverFloors[0].sorted().map { "#$it" }, vm.uiState.value.comments.map { it.floor })
+        vm.loadNextPage()
+        advanceUntilIdle()
+
+        val expectedPages = (1..17).map { if (it in serverFloors[0]) 1 else 2 }
+        assertEquals((1..17).map { "#$it" }, vm.uiState.value.comments.map { it.floor })
+        assertEquals(expectedPages, vm.uiState.value.commentPages)
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        assertEquals((2..16 step 2).map { "#$it" }, vm.uiState.value.comments.map { it.floor })
+        assertEquals((2..16 step 2).map { expectedPages[it - 1] }, vm.uiState.value.commentSourcePages)
+        assertEquals(17, vm.uiState.value.readerLastFloor())
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        assertEquals((1..17).map { "#$it" }, vm.uiState.value.comments.map { it.floor })
+        assertEquals(expectedPages, vm.uiState.value.commentPages)
+    }
+
+    private fun givenAuthorReplies() {
+        remote.detailResult = { postId, page ->
+            val detail = FakePostRemoteDataSource.detail(postId, page, commentCount = 10, totalPages = 3)
+            detail.copy(
+                body = detail.body?.copy(authorUid = 7, isOriginalPoster = true).takeIf { page == 1 },
+                comments = detail.comments.mapIndexed { index, comment ->
+                    val floor = (page - 1) * 10 + index + 1
+                    comment.copy(commentId = floor.toLong(), floor = "#$floor", authorUid = if (index % 3 == 0) 7 else 8, isOriginalPoster = index % 3 == 0)
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `author filter finds replies outside the current window and preserves their source pages`() = runTest(dispatcher) {
+        givenAuthorReplies()
+        val vm = viewModel(initialPage = 2)
+        advanceUntilIdle()
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.onlyAuthor)
+        assertFalse(state.isScanningAuthor)
+        assertEquals(listOf(2, 1, 3), remote.detailRequests.map { it.second })
+        assertEquals(listOf(1, 4, 7, 10, 11, 14, 17, 20, 21, 24, 27, 30).map { "#$it" }, state.comments.map { it.floor })
+        assertEquals(List(4) { 1 } + List(4) { 2 } + List(4) { 3 }, state.commentSourcePages)
+        assertEquals(List(10) { 1 } + List(2) { 2 }, state.commentPages)
+        assertEquals(2, state.totalPages)
+        assertEquals(12, state.replyCount)
+        assertEquals(30, state.readerLastFloor())
+    }
+
+    @Test
+    fun `leaving author filter restores the unfiltered floor and does not record filtered page numbers`() = runTest(dispatcher) {
+        givenAuthorReplies()
+        val positions = FakeReadingPositions()
+        val vm = viewModel(initialPage = 2, readingPositions = positions)
+        advanceUntilIdle()
+        vm.recordReadingPosition(2, "#14")
+        advanceUntilIdle()
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        vm.recordReadingPosition(1, "#24")
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.onlyAuthor)
+        assertEquals(PendingScroll(2, "#14"), vm.uiState.value.pendingScroll)
+        assertEquals(30, vm.uiState.value.comments.size)
+        assertEquals(listOf(ReadingPosition(2, "#14")), positions.writes)
+    }
+
+    @Test
+    fun `leaving author filter cancels outstanding scans`() = runTest(dispatcher) {
+        givenAuthorReplies()
+        val vm = viewModel(initialPage = 2)
+        advanceUntilIdle()
+        remote.gate = CompletableDeferred()
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.isScanningAuthor)
+        vm.toggleOnlyAuthor()
+        remote.gate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.onlyAuthor)
+        assertFalse(vm.uiState.value.isScanningAuthor)
+        assertEquals(listOf(2, 1), remote.detailRequests.map { it.second })
+        assertEquals(2..2, repository.cachedPages(42))
+    }
+
+    @Test
+    fun `failed author scan keeps matching replies and retry finishes the rest`() = runTest(dispatcher) {
+        givenAuthorReplies()
+        val vm = viewModel(initialPage = 2)
+        advanceUntilIdle()
+        remote.detailError = SiteException(SiteError.Network)
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        assertEquals(4, vm.uiState.value.comments.size)
+        assertEquals(SiteError.Network, vm.uiState.value.authorScanError)
+        assertNull(vm.uiState.value.readerLastFloor())
+        remote.detailError = null
+        vm.refresh()
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.authorScanError)
+        assertEquals(12, vm.uiState.value.comments.size)
+    }
+
+    @Test
+    fun `quoted original floor leaves author filter instead of using filtered pagination`() = runTest(dispatcher) {
+        givenAuthorReplies()
+        val vm = viewModel(initialPage = 2)
+        advanceUntilIdle()
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        val requests = remote.detailRequests.size
+        vm.jumpToFloor("#12")
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.onlyAuthor)
+        assertEquals(PendingScroll(2, "#12"), vm.uiState.value.pendingScroll)
+        assertEquals(requests, remote.detailRequests.size)
+    }
+
+    @Test
+    fun `same thread link exits author filter and uses the original site page`() = runTest(dispatcher) {
+        givenAuthorReplies()
+        val vm = viewModel(initialPage = 2)
+        advanceUntilIdle()
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        assertEquals(2, vm.uiState.value.totalPages)
+
+        assertTrue(vm.openLinkInPlace("https://www.nodeseek.com/post-42-3"))
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.onlyAuthor)
+        assertEquals(PendingScroll(3), vm.uiState.value.pendingScroll)
+    }
+
+    @Test
+    fun `empty author results on an uncached opening post still allow leaving the filter`() = runTest(dispatcher) {
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, body = null, commentCount = 10, totalPages = 3)
+        }
+        val vm = viewModel(initialPage = 2)
+        advanceUntilIdle()
+        remote.detailError = SiteException(SiteError.Network)
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.comments.isEmpty())
+        assertTrue(vm.uiState.value.hasContent)
+        vm.toggleOnlyAuthor()
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.onlyAuthor)
+        assertEquals(10, vm.uiState.value.comments.size)
+    }
 
     private fun viewModel(
         postId: Long = 42,
@@ -206,6 +398,83 @@ class PostDetailViewModelTest {
             advanceUntilIdle()
 
             assertEquals(before, remote.detailRequests.size)
+        }
+
+    @Test
+    fun `prepending keeps later pages and refuses duplicate and opposite direction loads`() =
+        runTest(dispatcher) {
+            remote.detailResult = { postId, page ->
+                FakePostRemoteDataSource.detail(postId, page, commentCount = 2, totalPages = 5)
+            }
+            val vm = viewModel(initialPage = 3)
+            advanceUntilIdle()
+            val original = vm.uiState.value.comments
+            val gate = CompletableDeferred<Unit>()
+            remote.gate = gate
+
+            vm.loadPreviousPage()
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.isPrepending)
+            assertFalse(vm.uiState.value.isAppending)
+            vm.loadPreviousPage()
+            vm.loadNextPage()
+            vm.refreshTail()
+            vm.extendToPage(4)
+            advanceUntilIdle()
+            assertEquals(listOf(42L to 3, 42L to 2), remote.detailRequests)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(2, vm.uiState.value.firstLoadedPage)
+            assertEquals(3, vm.uiState.value.lastLoadedPage)
+            assertEquals(listOf(2, 2, 3, 3), vm.uiState.value.commentPages)
+            assertEquals(original, vm.uiState.value.comments.takeLast(2))
+            assertFalse(vm.uiState.value.isPrepending)
+        }
+
+    @Test
+    fun `a failed prepend leaves the read intact and can be retried`() =
+        runTest(dispatcher) {
+            remote.detailResult = { postId, page ->
+                FakePostRemoteDataSource.detail(postId, page, commentCount = 2, totalPages = 3)
+            }
+            val vm = viewModel(initialPage = 3)
+            advanceUntilIdle()
+            val original = vm.uiState.value.comments
+            remote.detailError = SiteException(SiteError.Network)
+
+            vm.loadPreviousPage()
+            advanceUntilIdle()
+            assertEquals(SiteError.Network, vm.uiState.value.error)
+            assertEquals(original, vm.uiState.value.comments)
+            assertEquals(3, vm.uiState.value.firstLoadedPage)
+            assertFalse(vm.uiState.value.isPrepending)
+
+            remote.detailError = null
+            vm.loadPreviousPage()
+            advanceUntilIdle()
+            assertNull(vm.uiState.value.error)
+            assertEquals(2, vm.uiState.value.firstLoadedPage)
+            assertEquals(original, vm.uiState.value.comments.takeLast(2))
+        }
+
+    @Test
+    fun `backward loading stops at page one without discarding later replies`() =
+        runTest(dispatcher) {
+            remote.detailResult = { postId, page ->
+                FakePostRemoteDataSource.detail(postId, page, commentCount = 2, totalPages = 3)
+            }
+            val vm = viewModel(initialPage = 3)
+            advanceUntilIdle()
+            repeat(3) {
+                vm.loadPreviousPage()
+                advanceUntilIdle()
+            }
+
+            assertEquals(listOf(42L to 3, 42L to 2, 42L to 1), remote.detailRequests)
+            assertEquals(listOf(1, 1, 2, 2, 3, 3), vm.uiState.value.commentPages)
+            assertEquals(1, vm.uiState.value.firstLoadedPage)
+            assertEquals(3, vm.uiState.value.lastLoadedPage)
         }
 
     /**

@@ -5,11 +5,13 @@
 - 下载：[weishiair/nodyssey Releases](https://github.com/weishiair/nodyssey/releases)。
 - 包名 `io.github.nodyssey.debug`，应用名 `Nodyssey·ECH`，可与官方版共存。ECH 正式版沿用同一签名，可直接覆盖升级。
 - Android 8–16 使用内置 Conscrypt，Android 17 及以上使用系统 ECH。
-- 保留纯白主题和帖子阅读布局，Release 包不包含 LeakCanary。
+- 提供纯白及清爽蓝、薄荷绿、暖米色、柔雾紫主题；帖子使用主帖卡片、回复气泡与连续阅读布局。Release 包不包含 LeakCanary。
 
 ## 内置 DoH
 
-`https://doh.weishiair.de/dns-query` 在加密 DNS 列表中显示为 **Weishiair DoH（ECH）**。此预设只使用域名，不内置或展示固定服务器 IP；旧版本为此预设保存的引导 IP 覆盖也不再使用，以便连接跟随域名解析的变化。
+`https://resolver.weishiair.de/dns-query` 在加密 DNS 列表中显示为 **Weishiair DoH（ECH）**。此预设只使用域名，不内置或展示固定服务器 IP；旧版本为此预设保存的引导 IP 覆盖也不再使用，以便连接跟随域名解析的变化。
+
+从 `1.2.22-ech.7` 起，内置预设使用新的 resolver 域名，避开原域名在部分直连网络上的 TLS 重置。已选择此预设的用户升级后自动使用新入口，自定义 DoH 地址保持原设置。
 
 首次启用加密 DNS 时默认选择此服务。覆盖安装会保留已保存的开关、服务器选择和排序，新服务补入列表后不自动改动选择。
 

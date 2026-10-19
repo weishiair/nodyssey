@@ -94,6 +94,23 @@ class DohSettingsTest {
         assertEquals(DohConfig(enabled = true), settings.config.first())
     }
 
+    @Test
+    fun `a preset endpoint change applies to saved selections without rewriting custom addresses`() = runTest {
+        val previousUrl = "https://doh.weishiair.de/dns-query"
+        writeRaw(
+            "servers" to """[
+                {"id":"WEISHIAIR","preset":"WEISHIAIR","url":"$previousUrl","checked":true},
+                {"id":"custom-1","url":"$previousUrl","bootstrap":"","checked":false}
+            ]""",
+        )
+
+        val config = settings.config.first()
+        assertEquals(listOf(DohProvider.WEISHIAIR.url), config.chain.map { it.url })
+        assertEquals(previousUrl, config.servers.single { it.id == "custom-1" }.url)
+        assertFalse(config.servers.single { it.id == "custom-1" }.checked)
+        assertFalse(config.fallbackToSystem)
+    }
+
     /**
      * A preset this build no longer ships reads as gone rather than as a crash, and one it ships that
      * the stored list has never seen is offered unticked at the end rather than silently asked.

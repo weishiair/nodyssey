@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -18,8 +19,10 @@ import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.model.PostReactions
 import io.github.nodyssey.ui.postdetail.PostDetailScreen
 import io.github.nodyssey.ui.postdetail.PostDetailUiState
+import io.github.nodyssey.ui.postdetail.readingView
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
+import io.github.plaza.designsys.theme.PlazaSoftPalette
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Before
 import org.junit.Rule
@@ -49,8 +52,9 @@ class PostDetailScreenRenderTest {
         state: PostDetailUiState = STATE,
         fontScale: Float = 1f,
         pureWhite: Boolean = false,
+        softPalette: PlazaSoftPalette? = null,
     ) {
-        PlazaTheme(darkTheme = darkTheme, fontScale = fontScale, pureWhite = pureWhite) {
+        PlazaTheme(darkTheme = darkTheme, fontScale = fontScale, pureWhite = pureWhite, softPalette = softPalette) {
             PostDetailScreen(
                 state = state,
                 postUrl = "https://www.nodeseek.com/post-100-1",
@@ -125,11 +129,111 @@ class PostDetailScreenRenderTest {
     }
 
     @Test
+    fun `a later page with a cached opening post`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE, pureWhite = true) }
+
+        composeRule.onRoot().captureRender("post-detail-later-page")
+    }
+
+    @Test
+    fun `a later page in dark`() {
+        composeRule.setContent { Screen(darkTheme = true, state = LATER_PAGE) }
+
+        composeRule.onRoot().captureRender("post-detail-later-page-dark")
+    }
+
+    @Test
+    fun `bubble replies in mist violet`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE, softPalette = PlazaSoftPalette.VIOLET) }
+        composeRule.onRoot().captureRender("post-detail-bubbles-violet")
+    }
+
+    @Test
+    fun `bubble replies in mist violet dark`() {
+        composeRule.setContent { Screen(darkTheme = true, state = LATER_PAGE, softPalette = PlazaSoftPalette.VIOLET) }
+        composeRule.onRoot().captureRender("post-detail-bubbles-violet-dark")
+    }
+
+    @Test
+    fun `reading tools in mist violet`() = readingTools(darkTheme = false)
+
+    @Test
+    fun `reading tools in mist violet dark`() = readingTools(darkTheme = true)
+
+    @Test
+    @Config(qualifiers = "w320dp-h900dp")
+    fun `reading tools on a narrow screen`() = readingTools(darkTheme = false, narrow = true)
+
+    private fun readingTools(darkTheme: Boolean, narrow: Boolean = false) {
+        composeRule.setContent { Screen(darkTheme = darkTheme, state = LATER_PAGE, softPalette = PlazaSoftPalette.VIOLET) }
+        composeRule.onNodeWithContentDescription("更多").performClick()
+        composeRule.onNodeWithText("阅读工具").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+        composeRule.onRoot().captureRender("post-detail-reading-tools-${if (darkTheme) "dark" else "light"}${if (narrow) "-narrow" else ""}")
+    }
+
+    @Test
+    fun `bubble replies in breeze blue`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE, softPalette = PlazaSoftPalette.BLUE) }
+        composeRule.onRoot().captureRender("post-detail-bubbles-blue")
+    }
+
+    @Test
+    fun `bubble replies in mint green`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE, softPalette = PlazaSoftPalette.MINT) }
+        composeRule.onRoot().captureRender("post-detail-bubbles-mint")
+    }
+
+    @Test
+    fun `bubble replies in warm sand`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE, softPalette = PlazaSoftPalette.SAND) }
+        composeRule.onRoot().captureRender("post-detail-bubbles-sand")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h900dp")
+    fun `mist violet bubbles at the largest reading size`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE, fontScale = 1.3f, softPalette = PlazaSoftPalette.VIOLET) }
+        composeRule.onRoot().captureRender("post-detail-bubbles-violet-large-text")
+    }
+
+    @Test
+    fun `the boundary between two loaded pages`() {
+        composeRule.setContent {
+            Screen(
+                darkTheme = false,
+                pureWhite = true,
+                state = LATER_PAGE.copy(
+                    comments = COMMENTS + LATER_PAGE.comments,
+                    commentPages = List(COMMENTS.size) { 12 } + LATER_PAGE.commentPages,
+                    firstLoadedPage = 12,
+                ),
+            )
+        }
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(COMMENTS.size + 1)
+
+        composeRule.onRoot().captureRender("post-detail-page-boundary")
+    }
+
+    @Test
     @Config(qualifiers = "w320dp-h900dp")
     fun `a narrow thread at the largest reading size`() {
         composeRule.setContent { Screen(darkTheme = false, state = SHORT_STATE, fontScale = 1.3f) }
 
         composeRule.onRoot().captureRender("post-detail-narrow-large-text")
+    }
+
+    @Test
+    fun `author replies keep original floors and quote sources`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE.copy(onlyAuthor = true).readingView()) }
+        composeRule.onRoot().captureRender("post-detail-author-replies")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h900dp")
+    fun `a later page with quotes at the largest reading size`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE, fontScale = 1.3f) }
+        composeRule.onRoot().captureRender("post-detail-later-narrow-large-text")
     }
 
     /** 1c — the first reply's panel, opened from its ⋯ (the opening post's is the first one). */
@@ -139,7 +243,7 @@ class PostDetailScreenRenderTest {
     @Test
     fun `the floor panel in dark`() = floorPanel(darkTheme = true)
 
-    /** The page-jump sheet, opened from the bottom bar's page key. */
+    /** The floor-jump sheet, opened from the floating reading position. */
     @Test
     fun `the page jump in light`() = pageJump(darkTheme = false)
 
@@ -157,7 +261,7 @@ class PostDetailScreenRenderTest {
 
     private fun pageJump(darkTheme: Boolean) {
         composeRule.setContent { Screen(darkTheme = darkTheme) }
-        composeRule.onNodeWithContentDescription("第 1 / 3 页").performClick()
+        composeRule.onNodeWithContentDescription("正在读第 0 楼，点击跳楼").performClick()
         composeRule.waitForIdle()
 
         captureWindows("post-detail-jump-${if (darkTheme) "dark" else "light"}")
@@ -281,6 +385,44 @@ class PostDetailScreenRenderTest {
             body = BODY.copy(nodes = paragraphs("折腾 NAS 一年，最想提醒大家的是：RAID 不是备份，重要数据一定要留一份异地冷备。")),
             authorLevel = 4,
             authorJoinedDays = 388,
+        )
+
+        val LATER_PAGE = STATE.copy(
+            replyCount = 396,
+            comments = (121..130).map { number ->
+                floor(
+                    id = number.toLong(),
+                    author = if (number % 2 == 0) "homelab_er" else "轻舟",
+                    floor = "#$number",
+                    createdAt = "10分钟前",
+                    text = listOf("继续补充一个细节：重要数据建议定期验证备份能否恢复，真正需要时才安心。"),
+                    isOp = number % 2 == 0,
+                    reactions = PostReactions(upvoteCount = number % 5),
+                ).let { reply ->
+                    if (number == 122) {
+                        reply.copy(
+                            nodes = listOf(
+                                RichNode.Quote(
+                                    listOf(
+                                        RichNode.Paragraph(
+                                            listOf(
+                                                InlineNode.QuoteRef("轻舟", "#121", "/post-100-13#121"),
+                                                InlineNode.Text("补充一点：备份之后也要定期检查能否恢复。"),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ) + reply.nodes,
+                        )
+                    } else {
+                        reply
+                    }
+                }
+            },
+            commentPages = List(10) { 13 },
+            firstLoadedPage = 13,
+            lastLoadedPage = 13,
+            totalPages = 40,
         )
     }
 }

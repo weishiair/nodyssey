@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,10 +28,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ThumbUp
@@ -43,6 +42,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingToolbarDefaults.floatingToolbarVerticalNestedScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +54,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -73,7 +74,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -113,17 +113,15 @@ import io.github.nodyssey.model.countOf
 import io.github.nodyssey.model.hasSpent
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.common.BottomPullToRefreshBox
-import io.github.nodyssey.ui.common.JumpDestination
 import io.github.nodyssey.ui.common.LocalUserNotes
 import io.github.nodyssey.ui.common.NodeSeekIcons
-import io.github.nodyssey.ui.common.NumberEntry
-import io.github.nodyssey.ui.common.PageJumpSheet
 import io.github.nodyssey.ui.common.PlazaSheet
 import io.github.nodyssey.ui.common.RoleBadgeRow
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.describedAsLoading
+import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.rememberShareText
 import io.github.nodyssey.ui.common.sharedThreadAuthor
 import io.github.nodyssey.ui.common.sharedThreadAvatar
@@ -150,15 +148,12 @@ import io.github.nodyssey.ui.resources.chicken_dialog_title
 import io.github.nodyssey.ui.resources.dislike_dialog_body
 import io.github.nodyssey.ui.resources.dislike_dialog_confirm
 import io.github.nodyssey.ui.resources.dislike_dialog_title
-import io.github.nodyssey.ui.resources.page_jump_at_page
-import io.github.nodyssey.ui.resources.page_jump_at_page_floor
-import io.github.nodyssey.ui.resources.page_jump_latest
-import io.github.nodyssey.ui.resources.page_jump_next
-import io.github.nodyssey.ui.resources.page_jump_page_of
-import io.github.nodyssey.ui.resources.page_jump_previous
-import io.github.nodyssey.ui.resources.page_jump_resume_title
+import io.github.nodyssey.ui.resources.post_all_replies
+import io.github.nodyssey.ui.resources.post_author_empty
 import io.github.nodyssey.ui.resources.post_author_joined_days
-import io.github.nodyssey.ui.resources.post_auto_paging
+import io.github.nodyssey.ui.resources.post_author_replies
+import io.github.nodyssey.ui.resources.post_author_scan
+import io.github.nodyssey.ui.resources.post_author_scan_retry
 import io.github.nodyssey.ui.resources.post_badge_awarded
 import io.github.nodyssey.ui.resources.post_badge_original_poster
 import io.github.nodyssey.ui.resources.post_body_copied
@@ -168,17 +163,18 @@ import io.github.nodyssey.ui.resources.post_collected_action
 import io.github.nodyssey.ui.resources.post_comment_blocked
 import io.github.nodyssey.ui.resources.post_comment_blocked_show
 import io.github.nodyssey.ui.resources.post_comments_empty
-import io.github.nodyssey.ui.resources.post_comments_empty_hint
-import io.github.nodyssey.ui.resources.post_comments_header
 import io.github.nodyssey.ui.resources.post_copy_body
 import io.github.nodyssey.ui.resources.post_edit_action
 import io.github.nodyssey.ui.resources.post_edited
 import io.github.nodyssey.ui.resources.post_edited_at
 import io.github.nodyssey.ui.resources.post_floor_actions
+import io.github.nodyssey.ui.resources.post_floor_number
 import io.github.nodyssey.ui.resources.post_link_copied
+import io.github.nodyssey.ui.resources.post_loading_earlier
 import io.github.nodyssey.ui.resources.post_new_replies_divider
+import io.github.nodyssey.ui.resources.post_only_author
 import io.github.nodyssey.ui.resources.post_open_original
-import io.github.nodyssey.ui.resources.post_page_progress
+import io.github.nodyssey.ui.resources.post_quote_action
 import io.github.nodyssey.ui.resources.post_quote_floor
 import io.github.nodyssey.ui.resources.post_reaction_chicken
 import io.github.nodyssey.ui.resources.post_reaction_cost
@@ -188,11 +184,14 @@ import io.github.nodyssey.ui.resources.post_reaction_free_today
 import io.github.nodyssey.ui.resources.post_reaction_irreversible
 import io.github.nodyssey.ui.resources.post_reaction_like
 import io.github.nodyssey.ui.resources.post_reaction_spent
+import io.github.nodyssey.ui.resources.post_reading_end
+import io.github.nodyssey.ui.resources.post_reading_tools
 import io.github.nodyssey.ui.resources.post_reply_action
 import io.github.nodyssey.ui.resources.post_reply_to
 import io.github.nodyssey.ui.resources.post_share_image
 import io.github.nodyssey.ui.resources.post_share_image_failed
 import io.github.nodyssey.ui.resources.post_share_image_generating
+import io.github.nodyssey.ui.resources.post_sort_ascending
 import io.github.nodyssey.ui.resources.post_track_full
 import io.github.nodyssey.ui.resources.post_track_thread
 import io.github.nodyssey.ui.resources.post_tracked
@@ -220,6 +219,7 @@ import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberClipboardCopy
+import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Sizes
@@ -228,10 +228,8 @@ import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.asSignature
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.readableWidth
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -282,9 +280,10 @@ fun PostDetailRoute(
         onPullRefresh = viewModel::pullRefresh,
         onRefreshPage = viewModel::refreshPage,
         onLoadMore = viewModel::loadNextPage,
+        onLoadPrevious = viewModel::loadPreviousPage,
+        onToggleOnlyAuthor = viewModel::toggleOnlyAuthor,
         onRefreshTail = viewModel::refreshTail,
         onLoadPage = viewModel::loadPage,
-        onExtendToPage = viewModel::extendToPage,
         onJumpToFloor = viewModel::jumpToFloor,
         onScrollHandled = viewModel::onScrollHandled,
         onReadingPositionChange = viewModel::recordReadingPosition,
@@ -355,11 +354,9 @@ fun PostDetailScreen(
     /** Re-fetches the given page in place — the 刷新 menu item, aimed at the page on screen. */
     onRefreshPage: (Int) -> Unit = { onRetry() },
     onLoadPage: (Int) -> Unit = { onLoadMore() },
-    /**
-     * Fetches a page adjoining the loaded ones without moving the reader — the step controls scroll
-     * into it themselves. See [PostDetailViewModel.extendToPage].
-     */
-    onExtendToPage: (Int) -> Unit = onLoadPage,
+    /** Joins the previous page onto the list while keeping the current floor in place. */
+    onLoadPrevious: () -> Unit = {},
+    onToggleOnlyAuthor: () -> Unit = {},
     /** Scrolls to a floor, fetching its page first when that floor is not loaded. */
     onJumpToFloor: (String) -> Unit = {},
     onScrollHandled: () -> Unit = {},
@@ -413,6 +410,8 @@ fun PostDetailScreen(
     shareImage: (suspend (ImageBitmap, String?) -> Boolean)? = null,
 ) {
     val listState = rememberLazyListState()
+    var isScrollbarDragging by remember { mutableStateOf(false) }
+    var readingToolsExpanded by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var confirmTarget by remember { mutableStateOf<ReactionConfirm?>(null) }
 
@@ -423,6 +422,13 @@ fun PostDetailScreen(
     /** The floor 分享为图片 is drawing, from the panel's tap until the share sheet has it. */
     var shareImageOf by remember { mutableStateOf<PostContent?>(null) }
     var showPageSheet by remember { mutableStateOf(false) }
+    var highlightedFloor by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(highlightedFloor) {
+        if (highlightedFloor != null) {
+            delay(1800)
+            highlightedFloor = null
+        }
+    }
     val density = LocalDensity.current
 
     // Measure the title's actual bottom so a multiline title only enters the bar after it leaves
@@ -444,8 +450,8 @@ fun PostDetailScreen(
     // `canScrollBackward` is the predicate itself, already maintained by LazyListState as plain
     // state — no derivedStateOf and no per-frame read of the two scroll fields.
     val atListTop = !listState.canScrollBackward
-    LaunchedEffect(shouldLoadMore, state.comments.size) {
-        if (shouldLoadMore) onLoadMore()
+    LaunchedEffect(shouldLoadMore, state.comments.size, isScrollbarDragging) {
+        if (shouldLoadMore && !isScrollbarDragging) onLoadMore()
     }
 
     // The page the reader is looking at, not the furthest page fetched. Pages already in the list
@@ -485,48 +491,46 @@ fun PostDetailScreen(
     // coroutine holding it would never see the floors it is waiting for.
     val latestState by rememberUpdatedState(state)
 
-    /** Set while 到最新 is waiting for the last page it just asked for. */
-    var pendingBottom by remember { mutableStateOf(false) }
-
-    /**
-     * 上一页 / 下一页 on a thread that is also one continuous scroll, in the same three cases the feed
-     * has: scroll where it can, read on where the page adjoins, and jump only where it does not.
-     *
-     * The page next to the loaded ones was the teleport. It is fetched without replacing anything —
-     * that part was always right — but the landing went through [PostDetailUiState.pendingScroll],
-     * which snaps, because that path exists for *arriving*: a notification about floor #127 should
-     * put the reader on it, not scroll them there from wherever they were. Stepping a page is the
-     * opposite gesture, so it asks for the floors without a pending scroll and walks into them.
-     */
-    fun goToPage(target: Int) {
-        scope.launch {
-            val index = state.firstIndexOfPage(target)
-            if (index != null && target in state.firstLoadedPage..state.lastLoadedPage) {
-                listState.animateScrollToItem(index)
-                return@launch
-            }
-            val adjoins = target == state.lastLoadedPage + 1 || target == state.firstLoadedPage - 1
-            if (adjoins && target in 1..state.totalPages) {
-                // Asked for first, then walked to: the fetch and the scroll to the end the new floors
-                // will join are the same half-second, and ordering them the other way spends the
-                // animation before the request has left.
-                onExtendToPage(target)
-                listState.animateScrollToItem(if (target > state.lastLoadedPage) state.lastItemIndex else 0)
-                val arrived =
-                    withTimeoutOrNull(PAGE_WAIT_MILLIS) {
-                        snapshotFlow {
-                            latestState.firstIndexOfPage(target)
-                                ?.takeIf { target in latestState.firstLoadedPage..latestState.lastLoadedPage }
-                        }.filterNotNull().first()
-                    }
-                if (arrived != null) {
-                    listState.animateScrollToItem(arrived)
-                    return@launch
-                }
-            }
-            onLoadPage(target)
+    var prependAnchor by remember { mutableStateOf<PrependAnchor?>(null) }
+    fun loadPrevious() {
+        if (isScrollbarDragging) return
+        if (!state.hasContent || state.firstLoadedPage <= 1) return
+        if (state.isLoading || state.isAppending || state.isPrepending || state.isRefreshingTail) return
+        if (prependAnchor != null) return
+        // Stable lazy-item keys preserve a visible reply automatically. When a header is first,
+        // LazyColumn would preserve that header instead, leaving the new replies below the reader.
+        // Anchor the first visible reply with requestScrollToItem for that case only.
+        if (listState.firstVisibleItemIndex < state.headerItemCount) {
+            listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index in state.headerItemCount until state.headerItemCount + state.comments.size }
+                ?.let { item -> prependAnchor = PrependAnchor(state.firstLoadedPage, item.key, item.offset) }
+        }
+        onLoadPrevious()
+    }
+    val shouldLoadPrevious by remember {
+        derivedStateOf {
+            listState.isScrollInProgress && listState.lastScrolledBackward &&
+                listState.firstVisibleItemIndex <= THREAD_HEADER_ITEMS + 1
         }
     }
+    LaunchedEffect(shouldLoadPrevious, state.firstLoadedPage, isScrollbarDragging) {
+        if (shouldLoadPrevious && !isScrollbarDragging && state.pendingScroll == null && state.error == null) loadPrevious()
+    }
+    LaunchedEffect(state.firstLoadedPage, state.error) {
+        val anchor = prependAnchor ?: return@LaunchedEffect
+        if (state.firstLoadedPage < anchor.page) {
+            val index = state.comments.indices.firstOrNull { state.comments[it].lazyKey(it) == anchor.key }
+            if (index != null && state.pendingScroll == null) {
+                listState.requestScrollToItem(state.headerItemCount + index, -anchor.offset)
+            }
+            prependAnchor = null
+        } else if (state.error != null) {
+            prependAnchor = null
+        }
+    }
+
+    /** Set while 到最新 is waiting for the last page it just asked for. */
+    var pendingBottom by remember { mutableStateOf(false) }
 
     /**
      * 到最新 — the newest floor, which is the foot of the last page rather than its head.
@@ -555,23 +559,12 @@ fun PostDetailScreen(
     /**
      * 点标题看正文 — the way back to the opening post from a read that started past it.
      *
-     * Offered only when the body is genuinely absent, which is a thread opened straight onto a later
-     * page and never cached before: NodeSeek serves the opening post on page 1 alone. Page 1 is then
-     * fetched like any other page, and [firstIndexOfPage] lands the scroll on the top of the list
-     * rather than on that page's first floor, because the post is what was asked for.
-     *
-     * "Genuinely absent" means floors arrived and the post was not among them — not merely that
-     * nothing has arrived yet. A thread still loading has no body either, and this used to offer the
-     * button to it; nobody saw that until the loading state started drawing the real header, at
-     * which point the button appeared for the length of the fetch and then vanished, dropping
-     * everything under it — including an avatar still settling out of its flight — by its own
-     * height.
-     *
-     * Same answer the site gives — its title is a link to `/post-703863-1` — rather than a control of
-     * our own, so a reader who knows the web knows this one.
+     * A cached opening post is retained for its metadata and actions, but only page 1 displays it.
+     * A later-page window always offers the way back, even when that body was cached previously.
+     * Loading a thread is not such a window, so the link waits until there is content to navigate.
      */
     val openOriginalPost: (() -> Unit)? =
-        if (state.body == null && state.comments.isNotEmpty()) ({ goToPage(1) }) else null
+        if ((state.firstLoadedPage > 1 || state.onlyAuthor) && state.hasContent) ({ onJumpToFloor("#0") }) else null
 
     // Keyed on the pages themselves rather than on how many comments there are: a jump swaps one page
     // of ten floors for another page of ten floors, so a count would not change and the effect would
@@ -590,10 +583,11 @@ fun PostDetailScreen(
         // The floor when the site named one and it is on the page; otherwise the page's own start.
         // A floor can be missing from the page it was computed for — it was deleted, or the thread
         // was renumbered under it — and landing on the right page beats not moving at all.
-        val index = target.floor?.let { state.indexOfFloor(it) }
+        val index = target.floor?.let { state.indexAtOrAfterFloor(it) }
             ?: state.firstIndexOfPage(target.page)
             ?: (state.headerItemCount + state.comments.size - 1).coerceAtLeast(0)
         listState.scrollToItem(index)
+        highlightedFloor = target.floor
         onScrollHandled()
     }
     /**
@@ -623,20 +617,59 @@ fun PostDetailScreen(
     val imageActions = rememberImageActionsState()
     ImageActionsSheet(imageActions, snackbarHostState)
 
+    val currentFloor by remember(state.comments, state.firstLoadedPage, state.onlyAuthor) {
+        derivedStateOf {
+            val index = listState.layoutInfo.readingCommentIndex(
+                state.headerItemCount,
+                state.comments.size,
+                atEnd = listState.canScrollBackward && !listState.canScrollForward,
+            )
+            NodeSeekSite.parseFloorNumber(index?.let { state.comments.getOrNull(it)?.floor })
+                ?: if (state.firstLoadedPage > 1 || state.onlyAuthor) NodeSeekSite.parseFloorNumber(state.comments.firstOrNull()?.floor) ?: 0 else 0
+        }
+    }
+    val lastFloor = state.readerLastFloor()
+    val shareThread = rememberShareText()
+    val shareThreadLabel = stringResource(Res.string.action_share)
+    val readingItemKeys = remember(state.comments, state.isAppending, state.showReadingEnd) {
+        buildList<Any> {
+            add("body")
+            add("comments-header")
+            state.comments.forEachIndexed { index, comment -> add(comment.lazyKey(index)) }
+            if (state.isAppending) {
+                add("appending")
+            } else if (state.showReadingEnd) {
+                add("thread-end")
+            }
+        }
+    }
+    fun jumpToFloor(floor: String) {
+        readingToolsExpanded = false
+        val index = if (floor == "#0" && state.firstLoadedPage == 1 && !state.onlyAuthor) 0 else state.indexOfFloor(floor)
+        if (index != null) {
+            scope.launch {
+                listState.animateScrollToItem(index)
+                highlightedFloor = floor
+            }
+        } else {
+            onJumpToFloor(floor)
+        }
+    }
+
     Scaffold(
         modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            if (state.hasContent && !replyOpen) {
-                DetailBottomActions(
-                    page = visiblePage,
-                    totalPages = state.totalPages,
-                    onPrevious = { goToPage((visiblePage - 1).coerceAtLeast(1)) },
-                    onNext = { goToPage((visiblePage + 1).coerceAtMost(state.totalPages)) },
-                    onPageClick = { showPageSheet = true },
-                    onReply = { onReply(null) },
-                )
-            }
+        containerColor = threadPageColor(),
+        snackbarHost = {
+            SnackbarHost(
+                snackbarHostState,
+                Modifier.padding(
+                    bottom = if (state.hasContent && !replyOpen) {
+                        if (readingToolsExpanded) 152.dp else 80.dp
+                    } else {
+                        0.dp
+                    },
+                ),
+            )
         },
         topBar = {
             DetailTopBar(
@@ -650,10 +683,17 @@ fun PostDetailScreen(
                 showBackButton = showBackButton,
                 tracked = state.tracked,
                 onToggleTrack = onToggleTrack,
+                onReadingTools = { readingToolsExpanded = !readingToolsExpanded },
             )
         },
     ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            Modifier.padding(padding).fillMaxSize().floatingToolbarVerticalNestedScroll(
+                expanded = readingToolsExpanded,
+                onExpand = { if (!isScrollbarDragging) readingToolsExpanded = true },
+                onCollapse = { readingToolsExpanded = false },
+            ),
+        ) {
             // First in the Box, though it is never drawn: see [FloorShareCapture].
             val sharing = shareImageOf
             if (sharing != null && shareImage != null) {
@@ -709,8 +749,8 @@ fun PostDetailScreen(
 
                 else ->
                     PullToRefreshBox(
-                        isRefreshing = state.isRefreshing,
-                        onRefresh = onPullRefresh,
+                        isRefreshing = state.isRefreshing || state.isPrepending,
+                        onRefresh = { if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh() },
                     ) {
                         // The same gesture at the foot of a thread the site has no more pages of:
                         // where auto-append stops, dragging on re-reads the last page and brings in
@@ -719,9 +759,8 @@ fun PostDetailScreen(
                         BottomPullToRefreshBox(
                             isRefreshing = state.isRefreshingTail,
                             onRefresh = onRefreshTail,
-                            enabled = state.hasContent && !state.hasNextPage && !state.isAppending,
-                            // The bottom bar has its own Scaffold inset; keep some space around the spinner.
-                            indicatorBottomPadding = Spacing.lg,
+                            enabled = state.hasContent && !state.hasNextPage && !state.isAppending && !state.isPrepending,
+                            indicatorBottomPadding = 80.dp,
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             // Which thread a report on these floors came from, for 测评对比's basket;
@@ -735,18 +774,13 @@ fun PostDetailScreen(
                                     state = state,
                                     listState = listState,
                                     onOpenOriginalPost = openOriginalPost,
+                                    onLoadPrevious = ::loadPrevious,
+                                    onToggleOnlyAuthor = onToggleOnlyAuthor,
+                                    onRetryAuthor = onRetry,
+                                    highlightedFloor = highlightedFloor,
                                     onOpenBrowser = onLinkClick,
                                     onImageClick = onImageClick,
-                                    onJumpToFloor = { floor ->
-                                        // A quote can point anywhere in the thread, including pages nobody
-                                        // has opened. Scroll when it is here, fetch its page when it is not.
-                                        val index = state.indexOfFloor(floor)
-                                        if (index != null) {
-                                            scope.launch { listState.animateScrollToItem(index) }
-                                        } else {
-                                            onJumpToFloor(floor)
-                                        }
-                                    },
+                                    onJumpToFloor = ::jumpToFloor,
                                     onReact = reactTo,
                                     onOpenFloorActions = { floorActions = it },
                                     onReplyToFloor = onReply,
@@ -767,6 +801,37 @@ fun PostDetailScreen(
                             }
                         }
                     }
+            }
+
+            if (state.hasContent && state.comments.isNotEmpty()) {
+                LoadedReadingScrollbar(
+                    listState = listState,
+                    itemKeys = readingItemKeys,
+                    currentFloor = currentFloor,
+                    onDraggingChanged = {
+                        isScrollbarDragging = it
+                        if (it) readingToolsExpanded = false
+                    },
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
+            }
+
+            if (state.hasContent && !replyOpen) {
+                ThreadReadingControls(
+                    currentFloor = currentFloor,
+                    lastFloor = lastFloor,
+                    expanded = readingToolsExpanded,
+                    onlyAuthor = state.onlyAuthor,
+                    collected = state.collected,
+                    collectPending = state.collectPending,
+                    onJump = { showPageSheet = true },
+                    onOriginal = { jumpToFloor("#0") },
+                    onToggleOnlyAuthor = onToggleOnlyAuthor,
+                    onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
+                    onShare = { shareThread("${state.title}\n$postUrl", shareThreadLabel) },
+                    onReply = { onReply(null) },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
 
             // A jump replaces the whole list, so the append spinner at its foot would be pointing at
@@ -859,104 +924,39 @@ fun PostDetailScreen(
     }
 
     if (showPageSheet) {
-        val loadedFloors = state.comments.size + if (state.body != null) 1 else 0
-        // "上次阅读" is the place a previous visit left behind when there is one, and otherwise the
-        // far end of this session's own reading. Both are "where I had got to"; only the first
-        // survives closing the thread, and a thread opened for the first time has neither until it
-        // has been scrolled.
-        val resume = state.resumePosition
-        PageJumpSheet(
-            page = visiblePage,
-            totalPages = state.totalPages,
-            note = stringResource(Res.string.post_page_progress, loadedFloors),
+        ThreadFloorJumpSheet(
+            currentFloor = currentFloor,
+            maxFloor = maxOf(lastFloor ?: 0, state.totalPages * NodeSeekSite.COMMENTS_PER_PAGE),
             onDismiss = { showPageSheet = false },
-            onGo = { target ->
+            onGo = { floor ->
                 showPageSheet = false
-                goToPage(target.coerceIn(1, state.totalPages.coerceAtLeast(1)))
+                jumpToFloor("#$floor")
             },
-            // Clamped so a place left in a thread that has since lost pages still resolves to a
-            // chip that goes somewhere — the ViewModel lands it on the last page for the same reason.
-            resume =
-            (resume?.page ?: state.lastLoadedPage)
-                .coerceIn(1, state.totalPages.coerceAtLeast(1))
-                .takeIf { it != visiblePage }
-                ?.let { target ->
-                    JumpDestination(
-                        label = stringResource(Res.string.page_jump_resume_title),
-                        detail =
-                        resume?.floor?.let { stringResource(Res.string.page_jump_at_page_floor, target, it) }
-                            ?: stringResource(Res.string.page_jump_at_page, target),
-                        icon = PlazaIcons.Bookmark,
-                        onGo = {
-                            showPageSheet = false
-                            if (resume != null) onResumeReading() else goToPage(state.lastLoadedPage)
-                        },
-                    )
-                },
-            // The thread's newest is the foot of its last page, which is not where 最后一页 lands.
-            newest =
-            JumpDestination(
-                label = stringResource(Res.string.page_jump_latest),
-                detail = stringResource(Res.string.page_jump_at_page, state.totalPages.coerceAtLeast(1)),
-                icon = PlazaIcons.VerticalAlignBottom,
-                onGo = {
-                    showPageSheet = false
-                    goToLatest()
-                },
-            ),
-            numberEntry = NumberEntry.Floor,
-            // The floor's page is arithmetic the site fixes — see NodeSeekSite.COMMENTS_PER_PAGE —
-            // and [onJumpToFloor] already fetches that page and lands on the floor, which is the same
-            // trip a notification about it makes.
-            onGoToFloor = { floor ->
+            onOriginal = {
                 showPageSheet = false
-                onJumpToFloor("#$floor")
+                jumpToFloor("#0")
+            },
+            onLatest = {
+                showPageSheet = false
+                readingToolsExpanded = false
+                goToLatest()
+            },
+            onResume = state.resumePosition?.takeUnless { state.onlyAuthor }?.let {
+                {
+                    showPageSheet = false
+                    readingToolsExpanded = false
+                    onResumeReading()
+                }
             },
         )
     }
 }
 
-/** Navigation has its own inset in Scaffold, so neither text nor per-floor actions sit beneath it. */
+/** A quiet page surface keeps the individual reply bubbles legible. */
 @Composable
-private fun DetailBottomActions(
-    page: Int,
-    totalPages: Int,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onPageClick: () -> Unit,
-    onReply: () -> Unit,
-) {
-    Column(Modifier.background(MaterialTheme.colorScheme.background).navigationBarsPadding()) {
-        HorizontalDivider(color = LocalPlazaLayers.current.divider)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-        ) {
-            IconButton(onClick = onPrevious, enabled = page > 1) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.page_jump_previous))
-            }
-            val pageDescription = stringResource(Res.string.page_jump_page_of, page, totalPages)
-            TextButton(
-                onClick = onPageClick,
-                modifier = Modifier.weight(1f).semantics { contentDescription = pageDescription },
-            ) {
-                Text(
-                    text = "$page / $totalPages",
-                    style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            IconButton(onClick = onNext, enabled = page < totalPages) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(Res.string.page_jump_next))
-            }
-            FilledTonalButton(onClick = onReply, shape = CircleShape) {
-                Icon(PlazaIcons.Reply, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(stringResource(Res.string.post_reply_action), modifier = Modifier.padding(start = Spacing.sm))
-            }
-        }
-    }
+private fun threadPageColor(): Color {
+    val layers = LocalPlazaLayers.current
+    return if (layers.page == layers.card && !LocalEinkMode.current) layers.inset else layers.page
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -974,6 +974,7 @@ private fun DetailTopBar(
     /** Null hides 追踪新回复: this build has nowhere to keep the list. */
     tracked: Boolean? = null,
     onToggleTrack: () -> Unit = {},
+    onReadingTools: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val shareText = rememberShareText()
@@ -1032,6 +1033,13 @@ private fun DetailTopBar(
                     )
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.post_reading_tools)) },
+                        onClick = {
+                            menuOpen = false
+                            onReadingTools()
+                        },
+                    )
                     // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
                     // not about to scroll back up to pull.
                     DropdownMenuItem(
@@ -1069,11 +1077,11 @@ private fun DetailTopBar(
                 }
             }
         },
-        // Flush with the page: the bar is part of the grey the cards sit on, not a band of its own.
+        // The controls and the reading column share one paper surface.
         colors =
         TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
-            scrolledContainerColor = MaterialTheme.colorScheme.background,
+            containerColor = threadPageColor(),
+            scrolledContainerColor = threadPageColor(),
         ),
         // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
         // has scrolled away, one line of it. The buttons keep their 48dp targets.
@@ -1088,8 +1096,8 @@ private val TopBarIconSize = 20.dp
 /**
  * The thread as one scroll.
  *
- * The site paginates comments; this does not. Later pages append into the same list, so the reader
- * never meets a "page 2" boundary — which is the single biggest difference from the mobile web.
+ * The site's pages join one continuous scroll in both directions. The footer carries page numbers,
+ * keeping page boundaries out of the reply text and the opening post on its own first page.
  *
  * Title and tags form the thread header; the opening post and replies follow as full-width floors.
  * Keep the header and opening post in one lazy item so page and floor indices stay stable.
@@ -1100,6 +1108,10 @@ private fun ThreadList(
     listState: LazyListState,
     /** See [PostDetailScreen]'s own — null when the opening post is already in the list. */
     onOpenOriginalPost: (() -> Unit)?,
+    onLoadPrevious: () -> Unit,
+    onToggleOnlyAuthor: () -> Unit,
+    onRetryAuthor: () -> Unit,
+    highlightedFloor: String?,
     onOpenBrowser: (String) -> Unit,
     onImageClick: (String) -> Unit,
     onJumpToFloor: (String) -> Unit,
@@ -1120,7 +1132,7 @@ private fun ThreadList(
     LazyColumn(
         state = listState,
         contentPadding =
-        PaddingValues(top = Spacing.sm, bottom = Spacing.lg),
+        PaddingValues(top = Spacing.sm, bottom = 160.dp),
         modifier = modifier
             .fillMaxHeight()
             .readableWidth(),
@@ -1181,12 +1193,13 @@ private fun ThreadList(
                 voteContent = voteContent,
                 stardustContent = stardustContent,
                 onTitleBottom = onTitleBottom,
+                showOpeningPost = state.firstLoadedPage == 1 && !state.onlyAuthor,
             )
         }
 
         if (state.hasContent) {
             item(key = "comments-header") {
-                CommentsHeader(count = state.comments.size)
+                CommentsHeader(state = state, onLoadPrevious = onLoadPrevious, onToggleOnlyAuthor = onToggleOnlyAuthor, onRetryAuthor = onRetryAuthor)
             }
         } else {
             // "共 0 条回复" would be a claim, and nobody has counted yet.
@@ -1195,7 +1208,7 @@ private fun ThreadList(
 
         itemsIndexed(
             items = state.comments,
-            key = { index, comment -> comment.commentId ?: -index.toLong() - 1 },
+            key = { index, comment -> comment.lazyKey(index) },
         ) { index, comment ->
             // The site page this floor came from, which is the only page whose `__config__` carries
             // its Markdown. Read from the index rather than derived from the floor number: the list
@@ -1209,7 +1222,7 @@ private fun ThreadList(
                             PostEditTarget(
                                 postId = state.postId,
                                 commentId = id,
-                                page = state.commentPages.getOrNull(index) ?: state.lastLoadedPage,
+                                page = state.commentSourcePages.getOrNull(index) ?: state.commentPages.getOrNull(index) ?: state.lastLoadedPage,
                                 isOpeningPost = false,
                             ),
                         )
@@ -1221,26 +1234,45 @@ private fun ThreadList(
             // Inside this floor's own item rather than an item of its own, so every index helper
             // below that mirrors the list's order stays one comment, one row.
             if (state.startsNewReplies(index)) NewRepliesDivider()
-            BlockAware(content = comment, revealed = state.showBlockedContent) {
-                CommentRow(
-                    comment = comment,
-                    onOpenBrowser = onOpenBrowser,
-                    onImageClick = onImageClick,
-                    onJumpToFloor = onJumpToFloor,
-                    pendingReaction = state.pendingReactionFor(comment),
-                    onReact = { action -> onReact(comment, action) },
-                    onReply = onReply,
-                    onEdit = onEdit,
-                    onMore = { onOpenFloorActions(FloorActions(comment, onReply, onQuote, onEdit)) },
-                    onAuthorClick = onAuthorClick,
-                    voteContent = voteContent,
-                    stardustContent = stardustContent,
-                )
+            val shape = RoundedCornerShape(topStart = 7.dp, topEnd = 19.dp, bottomStart = 19.dp, bottomEnd = 19.dp)
+            Surface(
+                modifier = Modifier.padding(start = 12.dp, end = 16.dp, bottom = 9.dp).fillMaxWidth(),
+                shape = shape,
+                color = if (comment.floor == highlightedFloor && highlightedFloor != null) MaterialTheme.colorScheme.primaryContainer else LocalPlazaLayers.current.card,
+            ) {
+                BlockAware(content = comment, revealed = state.showBlockedContent) {
+                    CommentRow(
+                        comment = comment,
+                        onOpenBrowser = onOpenBrowser,
+                        onImageClick = onImageClick,
+                        onJumpToFloor = onJumpToFloor,
+                        pendingReaction = state.pendingReactionFor(comment),
+                        onReact = { action -> onReact(comment, action) },
+                        onReply = onReply,
+                        onQuote = onQuote,
+                        onEdit = onEdit,
+                        showDivider = false,
+                        onMore = { onOpenFloorActions(FloorActions(comment, onReply, onQuote, onEdit)) },
+                        onAuthorClick = onAuthorClick,
+                        voteContent = voteContent,
+                        stardustContent = stardustContent,
+                    )
+                }
             }
         }
 
         if (state.isAppending) {
             item(key = "appending") { AppendSpinner() }
+        } else if (state.showReadingEnd) {
+            item(key = "thread-end") {
+                Text(
+                    stringResource(Res.string.post_reading_end),
+                    Modifier.fillMaxWidth().padding(vertical = Spacing.lg),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
@@ -1317,7 +1349,7 @@ private fun TextStyle.hangLeadingPunctuation(text: String): TextStyle =
         this
     }
 
-/** The thread title leads; board and award tags provide context underneath it. */
+/** Board tags introduce the title, which keeps the feed's reading size through navigation. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ThreadHeader(
@@ -1338,21 +1370,12 @@ private fun ThreadHeader(
     Column(
         modifier =
         modifier.then(if (onOpenOriginalPost != null) Modifier.clickable(onClick = onOpenOriginalPost) else Modifier),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium.let {
-                it.copy(fontSize = it.fontSize * (22f / 15f), lineHeight = it.lineHeight * (30f / 21f))
-            }.hangLeadingPunctuation(title),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier
-                .sharedThreadTitle(postId)
-                .onPlaced(onTitlePlaced),
-        )
         val category = body?.categoryTitle ?: preview?.categoryTitle
-        if (category != null || isAwarded) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             FlowRow(
+                modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(Spacing.xs),
                 itemVerticalAlignment = Alignment.CenterVertically,
@@ -1377,28 +1400,21 @@ private fun ThreadHeader(
                     )
                 }
             }
-        }
-        if (onOpenOriginalPost != null) {
-            // The title alone carries no affordance on a phone — no hover, no underline, nothing to
-            // say it goes anywhere — and this is a screen the reader landed on knowing nothing about
-            // where the post went. So the tap is spelled out, and the title stays tappable too.
-            TextButton(
-                onClick = onOpenOriginalPost,
-                contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = 0.dp),
-                modifier = Modifier.offset(x = -Spacing.sm),
-            ) {
-                Icon(
-                    PlazaIcons.Article,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = stringResource(Res.string.post_open_original),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(start = Spacing.xs),
-                )
+            if (onOpenOriginalPost != null) {
+                TextButton(onClick = onOpenOriginalPost, contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)) {
+                    Text(stringResource(Res.string.post_open_original), style = MaterialTheme.typography.labelSmall)
+                    Icon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.padding(start = 3.dp).size(13.dp))
+                }
             }
         }
+        Text(
+            text = title,
+            style = postCardTitleStyle().hangLeadingPunctuation(title),
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .sharedThreadTitle(postId)
+                .onPlaced(onTitlePlaced),
+        )
     }
 }
 
@@ -1501,6 +1517,8 @@ private fun ThreadOpeningPost(
     stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)?,
     /** Where the title ends inside this lazy item, in px, each time the two are laid out. */
     onTitleBottom: (Int) -> Unit = {},
+    /** A retained body belongs to page 1; it must never be repeated above a later-page window. */
+    showOpeningPost: Boolean = true,
 ) {
     // [BlockAware]'s job, done here rather than around this composable: a wrapper that swapped the
     // whole opening post out would take the shared elements with it, which is the thing this
@@ -1509,12 +1527,15 @@ private fun ThreadOpeningPost(
     // thread's, not the author's.
     var revealedHere by rememberSaveable(body?.commentId) { mutableStateOf(false) }
     val blocked = body != null && body.isBlocked && !showBlockedContent && !revealedHere
-    val longPress = onMore.takeUnless { blocked }
+    val longPress = onMore.takeIf { showOpeningPost && !blocked }
     // Read in the title's placement callback, never in composition; the opening item is placed first.
     val opening = remember { OpeningCoordinates() }
 
     Column(
         modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(LocalPlazaLayers.current.card)
             .fillMaxWidth()
             .onPlaced { opening.coordinates = it }
             .floorLongPressSemantics(longPress),
@@ -1533,12 +1554,12 @@ private fun ThreadOpeningPost(
                 }
             },
             modifier = Modifier
-                .padding(horizontal = ThreadContentInset, vertical = Spacing.xl)
+                .padding(horizontal = ThreadContentInset, vertical = Spacing.lg)
                 .floorLongPress(longPress),
         )
-        HorizontalDivider(color = LocalPlazaLayers.current.divider)
+        if (!showOpeningPost) return@Column
         Column(
-            modifier = Modifier.padding(horizontal = ThreadContentInset, vertical = Spacing.lg),
+            modifier = Modifier.padding(start = ThreadContentInset, end = ThreadContentInset, bottom = Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) opening@{
             if (body != null && blocked) {
@@ -1635,7 +1656,6 @@ private fun ThreadOpeningPost(
                 modifier = Modifier.floorLongPress(longPress),
             )
         }
-        HorizontalDivider(color = LocalPlazaLayers.current.divider)
     }
 }
 
@@ -1646,62 +1666,74 @@ private class OpeningCoordinates {
 
 /** Names stay readable above the smaller badges and timestamps. */
 @Composable
-internal fun floorNameStyle(): TextStyle = MaterialTheme.typography.titleMedium
+internal fun floorNameStyle(): TextStyle = MaterialTheme.typography.titleSmall.copy(fontSize = MaterialTheme.typography.bodySmall.fontSize, fontWeight = FontWeight.SemiBold)
 
 /**
  * Main text uses the same reading size in the opening post and every reply.
  */
 @Composable
-internal fun replyBodyStyle(): TextStyle = MaterialTheme.typography.bodyLarge
+internal fun replyBodyStyle(): TextStyle = MaterialTheme.typography.bodyMedium
 
 private val ThreadContentInset = Spacing.lg
 
-private val ThreadAvatarSize = 40.dp
+private val ThreadAvatarSize = 32.dp
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CommentsHeader(count: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = ThreadContentInset, vertical = Spacing.sm)
-            .heightIn(min = 40.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun CommentsHeader(
+    state: PostDetailUiState,
+    onLoadPrevious: () -> Unit,
+    onToggleOnlyAuthor: () -> Unit,
+    onRetryAuthor: () -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
+        val count = state.replyCount?.let { " $it" }.orEmpty() + if (state.onlyAuthor && (state.isScanningAuthor || state.authorScanError != null)) "+" else ""
         Text(
-            text = stringResource(Res.string.post_comments_header, count),
-            style = MaterialTheme.typography.titleSmall.copy(
-                fontWeight = FontWeight.Bold,
-                fontFeatureSettings = TABULAR_FIGURES,
-            ),
-            modifier = Modifier.weight(1f),
+            stringResource(if (state.onlyAuthor) Res.string.post_author_replies else Res.string.post_all_replies) + count,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
         )
-        // Where 1b draws a 从早到晚 order control. NodeSeek has no comment order to choose — floors
-        // come oldest first and nothing else — so the slot keeps saying how the list continues.
-        Text(
-            text = stringResource(Res.string.post_auto_paging),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(
+                onClick = onToggleOnlyAuthor,
+                shape = CircleShape,
+                colors = ButtonDefaults.textButtonColors(containerColor = if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, contentColor = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
+                contentPadding = PaddingValues(horizontal = 8.dp),
+            ) {
+                Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelSmall)
+            }
+            Text(stringResource(Res.string.post_sort_ascending), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+        }
     }
-    if (count == 0) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.lg, vertical = Spacing.xl),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-        ) {
+    if (state.isScanningAuthor || state.isPrepending) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlazaSpinner(size = 14.dp, strokeWidth = 1.5.dp)
             Text(
-                text = stringResource(Res.string.post_comments_empty),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = stringResource(Res.string.post_comments_empty_hint),
+                if (state.isScanningAuthor) {
+                    stringResource(Res.string.post_author_scan, state.authorScanChecked, state.authorScanTotal)
+                } else {
+                    stringResource(Res.string.post_loading_earlier)
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    } else if (state.authorScanError != null || (state.firstLoadedPage > 1 && state.error != null)) {
+        TextButton(onClick = if (state.onlyAuthor) onRetryAuthor else onLoadPrevious, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(Res.string.post_author_scan_retry), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+    if (state.comments.isEmpty() && !state.isScanningAuthor && !state.isLoading) {
+        Text(
+            stringResource(if (state.onlyAuthor) Res.string.post_author_empty else Res.string.post_comments_empty),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -1712,8 +1744,8 @@ private fun CommentsHeader(count: Int) {
  * stands beside the name and badges, with time and floor at the far end. The body starts below
  * the whole header so images, quotes and long text can use the full reading width.
  *
- * The foot carries only what a reader does on most floors — 点赞, 投喂, 回复 — and a ⋯ for the rest
- * of the site's set (点踩, 引用), which [FloorActionSheet] lays out with their prices. A long press on
+ * The foot carries 点赞, 引用 and 回复, with a ⋯ for the priced reactions and the remaining
+ * actions, which [FloorActionSheet] lays out with their prices. A long press on
  * the header or the foot opens the same panel; on the text it selects, as it always has — see
  * [floorLongPress] for why the row as a whole does not listen.
  */
@@ -1728,13 +1760,15 @@ private fun CommentRow(
     onReact: (ReactionAction) -> Unit,
     /** Null on this account's own floor, where [onEdit] takes its place. */
     onReply: (() -> Unit)?,
+    onQuote: () -> Unit,
     onEdit: (() -> Unit)?,
+    showDivider: Boolean = true,
     onMore: () -> Unit,
     onAuthorClick: (Long) -> Unit,
     voteContent: @Composable (Long) -> Unit,
     stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)?,
 ) {
-    FloorRow(modifier = Modifier.floorLongPressSemantics(onMore)) {
+    FloorRow(modifier = Modifier.floorLongPressSemantics(onMore), showDivider = showDivider) {
         Row(
             modifier = Modifier.fillMaxWidth().floorLongPress(onMore),
             verticalAlignment = Alignment.Top,
@@ -1750,9 +1784,11 @@ private fun CommentRow(
                     // The name beside it is the same way in, and the one a screen reader is told about.
                     .clearAndSetSemantics {},
             )
-            Column(
+            FlowRow(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = comment.authorName,
@@ -1761,16 +1797,11 @@ private fun CommentRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.authorClickable(comment.authorUid, onAuthorClick),
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FloorBadges(comment)
-                    UserNoteTag(comment.authorUid)
-                }
+                FloorBadges(comment)
+                FloorTimeLine(comment)
+                UserNoteTag(comment.authorUid)
             }
-            FloorMetadata(comment)
+            comment.floor?.let { FloorLabel(it) }
         }
         ReportOriginFloor(comment.floor) {
             ImageActionsFrom(comment.authorName, comment.floor) {
@@ -1797,6 +1828,7 @@ private fun CommentRow(
             pending = pendingReaction,
             onReact = onReact,
             onReply = onReply,
+            onQuote = onQuote,
             onEdit = onEdit,
             onMore = onMore,
             modifier = Modifier.floorLongPress(onMore),
@@ -1805,13 +1837,14 @@ private fun CommentRow(
 }
 
 /**
- * A floor on the page rather than in a card: the gutter's inset, and a hairline under it that does
- * the separating a gap between cards used to.
+ * Shared floor content and gutters. Reply bubbles provide their own separation; standalone rows
+ * and shared-image captures can retain the optional divider.
  */
 @Composable
 private fun FloorRow(
     modifier: Modifier = Modifier,
-    verticalPadding: Dp = Spacing.lg,
+    verticalPadding: Dp = 14.dp,
+    showDivider: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier.fillMaxWidth()) {
@@ -1819,10 +1852,10 @@ private fun FloorRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = ThreadContentInset, vertical = verticalPadding),
-            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
             content = content,
         )
-        HorizontalDivider(color = LocalPlazaLayers.current.divider)
+        if (showDivider) HorizontalDivider(color = LocalPlazaLayers.current.divider.copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = ThreadContentInset))
     }
 }
 
@@ -1983,24 +2016,28 @@ private fun CommentFoot(
     pending: ReactionAction?,
     onReact: (ReactionAction) -> Unit,
     onReply: (() -> Unit)?,
+    onQuote: () -> Unit,
     onEdit: (() -> Unit)?,
     onMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FlowRow(
+    Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.End),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-        itemVerticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        listOf(ReactionAction.Upvote, ReactionAction.ChickenLeg).forEach { action ->
-            ReactionPill(action, reactions, pending, onReact)
+        ReactionPill(ReactionAction.Upvote, reactions, pending, onReact)
+        FlowRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.End),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            FloorActionButton(PlazaIcons.FormatQuote, Res.string.post_quote_action, onClick = onQuote)
+            when {
+                onEdit != null -> FloorActionButton(Icons.Default.Edit, Res.string.post_edit_action, onClick = onEdit)
+                onReply != null -> FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply)
+            }
+            FloorMoreButton(onMore)
         }
-        when {
-            onEdit != null -> FloorActionButton(Icons.Default.Edit, Res.string.post_edit_action, onClick = onEdit)
-            onReply != null -> FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply)
-        }
-        FloorMoreButton(onMore)
     }
 }
 
@@ -2023,7 +2060,7 @@ private fun FloorActionButton(
 ) {
     val scheme = MaterialTheme.colorScheme
     val accented = spent || selected
-    val container = if (accented) scheme.primaryContainer else scheme.surfaceContainerHigh.copy(alpha = 0.55f)
+    val container = if (accented) scheme.primaryContainer else Color.Transparent
     val content = if (accented) scheme.onPrimaryContainer else scheme.onSurfaceVariant
     val description = stringResource(label)
     FilledTonalButton(
@@ -2036,7 +2073,7 @@ private fun FloorActionButton(
             disabledContainerColor = container,
             disabledContentColor = if (accented || pending) content else content.copy(alpha = 0.45f),
         ),
-        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
         modifier = Modifier
             .height(36.dp)
             .widthIn(min = 44.dp)
@@ -2049,6 +2086,8 @@ private fun FloorActionButton(
         }
         if (count.isNotEmpty()) {
             Text(count, style = footLabelStyle(), modifier = Modifier.padding(start = Spacing.xs))
+        } else if (label == Res.string.post_reply_action || label == Res.string.post_quote_action || label == Res.string.post_edit_action) {
+            Text(description, style = footLabelStyle(), modifier = Modifier.padding(start = 4.dp))
         }
     }
 }
@@ -2520,27 +2559,25 @@ private fun List<InlineNode>.plainText(): String = joinToString("") { inline ->
 @Composable
 internal fun FloorLabel(floor: String) {
     Text(
-        text = floor,
+        text = stringResource(Res.string.post_floor_number, floor.removePrefix("#")),
         style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = TABULAR_FIGURES),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
-/**
- * How long a page step waits at the end of the list for the page it asked for.
- *
- * Long, for the reason the feed's own wait is long: giving up means a jump that replaces the window,
- * and the append spinner is saying what is happening the whole time.
- */
-private const val PAGE_WAIT_MILLIS = 15_000L
+private const val THREAD_HEADER_ITEMS = 2
+
+private data class PrependAnchor(val page: Int, val key: Any, val offset: Int)
+
+/** A floor without a comment id still needs a key that survives insertion of earlier pages. */
+private fun PostContent.lazyKey(index: Int): Any = commentId ?: floor?.let { "floor:$it" } ?: "unlabelled:$index"
 
 /**
- * Items in [ThreadList] before the first comment: the comments header, and the opening item
- * when there is a body. One less than before the title moved into that card, in both cases — the
- * count for a bodyless thread is exactly as it was relative to the items the list draws.
+ * The title/opening item and the comments header exist even on a page without an opening post.
+ * Counting only a non-null body misplaces every floor jump on an uncached later page by one.
  */
 private val PostDetailUiState.headerItemCount: Int
-    get() = 1 + (if (body != null) 1 else 0)
+    get() = THREAD_HEADER_ITEMS
 
 /** The floor with [commentId] among what is loaded, the opening post included. */
 private fun PostDetailUiState.contentWithId(commentId: Long?): PostContent? =
@@ -2553,6 +2590,9 @@ private fun PostDetailUiState.pendingReactionFor(content: PostContent): Reaction
 /** The last row of the list — the newest floor when the last page is loaded. */
 private val PostDetailUiState.lastItemIndex: Int
     get() = (headerItemCount + comments.size - 1).coerceAtLeast(0)
+
+private val PostDetailUiState.showReadingEnd: Boolean
+    get() = comments.isNotEmpty() && !hasNextPage && !isLoading && !isScanningAuthor && authorScanError == null && error == null
 
 /**
  * Whether 以下是新回复 belongs above the comment at [index]: the first loaded floor at or past
@@ -2608,6 +2648,16 @@ private fun NewRepliesDivider() {
         )
         wave()
     }
+}
+
+/** A deleted floor lands on the next surviving reply instead of the start of its server page. */
+private fun PostDetailUiState.indexAtOrAfterFloor(floor: String): Int? {
+    val number = NodeSeekSite.parseFloorNumber(floor) ?: return null
+    if (number == 0) return 0.takeIf { firstLoadedPage == 1 && !onlyAuthor }
+    val exact = indexOfFloor(floor)
+    if (exact != null) return exact
+    val next = comments.indexOfFirst { (NodeSeekSite.parseFloorNumber(it.floor) ?: -1) >= number }
+    return if (next >= 0) headerItemCount + next else null
 }
 
 /** Mirrors [ThreadList]'s item order so a quote reference can scroll to the floor it points at. */

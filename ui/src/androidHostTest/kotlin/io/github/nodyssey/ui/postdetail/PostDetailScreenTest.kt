@@ -4,8 +4,15 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -13,7 +20,11 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import io.github.nodyssey.ThreadPreview
 import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.model.PostReactions
@@ -71,6 +82,10 @@ class PostDetailScreenTest {
         onReact: (Long, ReactionAction) -> Unit = { _, _ -> },
         onLoadPage: (Int) -> Unit = {},
         onCollect: () -> Unit = {},
+        onLoadMore: () -> Unit = {},
+        onLoadPrevious: () -> Unit = {},
+        onJumpToFloor: (String) -> Unit = {},
+        onReadingPositionChange: (Int, String?) -> Unit = { _, _ -> },
     ) {
         composeRule.setContent {
             PlazaTheme {
@@ -81,8 +96,11 @@ class PostDetailScreenTest {
                     onOpenBrowser = {},
                     onImageClick = {},
                     onRetry = onRetry,
-                    onLoadMore = {},
+                    onLoadMore = onLoadMore,
                     onLoadPage = onLoadPage,
+                    onLoadPrevious = onLoadPrevious,
+                    onJumpToFloor = onJumpToFloor,
+                    onReadingPositionChange = onReadingPositionChange,
                     onSignIn = onSignIn,
                     onVerify = {},
                     onReact = onReact,
@@ -100,6 +118,96 @@ class PostDetailScreenTest {
             categoryTitle = "技术",
             categorySlug = "tech",
         )
+
+    @Test
+    fun `jumping to a loaded floor scrolls locally without requesting its server page`() {
+        val requested = mutableListOf<String>()
+        var position: Pair<Int, String?>? = null
+        setScreen(
+            jumpedState(),
+            onJumpToFloor = { requested += it },
+            onReadingPositionChange = { page, floor -> position = page to floor },
+        )
+        composeRule.onNodeWithContentDescription("正在读第 121 楼，点击跳楼").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("127")
+        composeRule.onNodeWithText("前往").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("floor 127").assertIsDisplayed()
+        assertEquals(13 to "#127", position)
+        assertEquals(emptyList<String>(), requested)
+    }
+
+    @Test
+    fun `the reading scrollbar spans the loaded replies across server page boundaries`() {
+        var position: Pair<Int, String?>? = null
+        val requested = mutableListOf<Int>()
+        setScreen(
+            jumpedState(floors = (111..140).toList(), page = 12).copy(
+                commentPages = List(10) { 12 } + List(10) { 13 } + List(10) { 14 },
+                lastLoadedPage = 14,
+            ),
+            onLoadPage = { requested += it },
+            onReadingPositionChange = { page, floor -> position = page to floor },
+        )
+        val list = composeRule.onNode(hasScrollToIndexAction())
+        list.performScrollToIndex(12)
+        readingScrollbar().performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
+        composeRule.waitForIdle()
+        assertEquals(14, position?.first)
+        composeRule.onNodeWithText("floor 140").assertIsDisplayed()
+
+        list.performScrollToIndex(22)
+        readingScrollbar().performSemanticsAction(SemanticsActions.SetProgress) { it(0f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("floor 111").assertIsDisplayed()
+        assertEquals(12, position?.first)
+        assertEquals(emptyList<Int>(), requested)
+    }
+
+    @Test
+    fun `dragging the scrollbar to the loaded bottom waits for release before loading more`() {
+        var requests = 0
+        setScreen(jumpedState(floors = (121..140).toList()), onLoadMore = { requests++ })
+        composeRule.waitForIdle()
+        assertEquals(0, requests)
+        val scrollbar = readingScrollbar()
+        scrollbar.performTouchInput {
+            down(Offset(centerX, top + 10f))
+            moveTo(Offset(centerX, bottom - 1f), delayMillis = 100)
+        }
+        composeRule.runOnIdle { assertEquals(0, requests) }
+        scrollbar.performTouchInput { up() }
+        composeRule.waitForIdle()
+        assertEquals(1, requests)
+    }
+
+    private fun readingScrollbar() = composeRule.onNode(
+        SemanticsMatcher("loaded-reply scrollbar") {
+            it.config.getOrNull(SemanticsProperties.ProgressBarRangeInfo)?.range == 0f..1f
+        },
+    )
+
+    @Test
+    fun `quote source names its author and routes to an unloaded original floor`() {
+        var requested: String? = null
+        val reply = content("reply", floor = "#121").copy(
+            nodes = listOf(
+                RichNode.Quote(
+                    listOf(
+                        RichNode.Paragraph(
+                            listOf(
+                                InlineNode.QuoteRef("轻舟", "#8", "/post-1-1#8"),
+                                InlineNode.Text("quoted text"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        setScreen(jumpedState().copy(comments = listOf(reply), commentPages = listOf(13)), onJumpToFloor = { requested = it })
+        composeRule.onNodeWithText("轻舟 · 8楼").assertIsDisplayed().performClick()
+        assertEquals("#8", requested)
+    }
 
     /** Renders a thread opened from a feed row, still loading. */
     private fun setThreadArriving(): MutableState<PostDetailUiState> {
@@ -381,44 +489,124 @@ class PostDetailScreenTest {
         composeRule.onNodeWithText("网络开小差了").assertDoesNotExist()
     }
 
-    /**
-     * A thread opened on page 13 is on page 13, and the toolbar has to say so. It read the first
-     * *loaded* comment's page as page 1 while the slice always started there, and would have gone on
-     * claiming page 1 of 40 for a reader who had jumped.
-     */
     @Test
-    fun `the toolbar reads the page the reader jumped to`() {
+    fun `a later page never repeats the cached opening post above its replies`() {
         setScreen(jumpedState())
 
-        composeRule.onNodeWithContentDescription("第 13 / 40 页").assertIsDisplayed()
+        composeRule.onNodeWithText("the opening post").assertDoesNotExist()
+        composeRule.onNodeWithText("floor 121").assertIsDisplayed()
     }
 
-    /** Paging on from a jumped-to slice asks for the page after it, not for page 2. */
     @Test
-    fun `the next page button asks for the page after the loaded slice`() {
-        var requested: Int? = null
-        setScreen(
-            jumpedState(),
-            onLoadPage = { requested = it },
-        )
-
-        composeRule.onNodeWithContentDescription("下一页").performClick()
-
-        assertEquals(14, requested)
+    fun `a cached opening post can be reached from a later page`() {
+        var requested: String? = null
+        setScreen(jumpedState(), onJumpToFloor = { requested = it })
+        composeRule.onNodeWithText("查看正文").performClick()
+        assertEquals("#0", requested)
     }
 
-    /** And back the other way: the page before the slice, which is not on screen either. */
     @Test
-    fun `the previous page button asks for the page before the loaded slice`() {
-        var requested: Int? = null
+    fun `a floor jump without a cached body records the actual target floor`() {
+        var position: Pair<Int, String?>? = null
         setScreen(
-            jumpedState(),
-            onLoadPage = { requested = it },
+            jumpedState(body = null, pendingScroll = PendingScroll(page = 13, floor = "#124")),
+            onReadingPositionChange = { page, floor -> position = page to floor },
         )
 
-        composeRule.onNodeWithContentDescription("上一页").performClick()
+        composeRule.onNodeWithText("floor 124").assertIsDisplayed()
+        assertEquals(13 to "#124", position)
+    }
 
-        assertEquals(12, requested)
+    @Test
+    fun `scrolling back towards the start requests the preceding page without doing so on open`() {
+        var requests = 0
+        var state by mutableStateOf(jumpedState())
+        composeRule.setContent {
+            PlazaTheme {
+                PostDetailScreen(
+                    state = state,
+                    postUrl = "https://www.nodeseek.com/post-1-13",
+                    onBack = {},
+                    onOpenBrowser = {},
+                    onImageClick = {},
+                    onRetry = {},
+                    onLoadMore = {},
+                    onLoadPrevious = {
+                        requests++
+                        state = state.copy(isPrepending = true)
+                    },
+                    onVerify = {},
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        assertEquals(0, requests)
+
+        val list = composeRule.onNode(hasScrollToIndexAction())
+        list.performScrollToIndex(5)
+        list.performTouchInput { swipeDown() }
+        composeRule.waitForIdle()
+
+        assertEquals(1, requests)
+    }
+
+    /** This compares the scroll anchor, not the layout: the same floor must not jump after insertion. */
+    @Test
+    fun `prepending while the header is visible keeps the current reply at its reading position`() =
+        assertHeaderPrependKeepsReply(page = 13, firstFloor = 121)
+
+    @Test
+    fun `joining page one does not move the reader onto the opening post`() =
+        assertHeaderPrependKeepsReply(page = 2, firstFloor = 11)
+
+    private fun assertHeaderPrependKeepsReply(page: Int, firstFloor: Int) {
+        var state by mutableStateOf(jumpedState(page = page, floors = (firstFloor until firstFloor + 10).toList()))
+        composeRule.setContent {
+            PlazaTheme {
+                PostDetailScreen(
+                    state = state,
+                    postUrl = "https://www.nodeseek.com/post-1-13",
+                    onBack = {},
+                    onOpenBrowser = {},
+                    onImageClick = {},
+                    onRetry = {},
+                    onLoadMore = {},
+                    onLoadPrevious = { state = state.copy(isPrepending = true) },
+                    onVerify = {},
+                )
+            }
+        }
+        val before = composeRule.onNodeWithText("floor $firstFloor").fetchSemanticsNode().positionInRoot.y
+        composeRule.onNode(hasScrollToIndexAction()).performTouchInput {
+            swipeDown(startY = top + 40f, endY = top + 360f)
+        }
+        composeRule.runOnIdle { assertEquals(true, state.isPrepending) }
+        composeRule.runOnIdle {
+            state = state.copy(
+                isPrepending = false,
+                firstLoadedPage = page - 1,
+                comments = (firstFloor - 10 until firstFloor).map { content("floor $it", floor = "#$it") } + state.comments,
+                commentPages = List(10) { page - 1 } + state.commentPages,
+            )
+        }
+        composeRule.waitForIdle()
+
+        val after = composeRule.onNodeWithText("floor $firstFloor").fetchSemanticsNode().positionInRoot.y
+        assertEquals("the reply moved when the preceding page arrived", before, after, 1f)
+        composeRule.onNodeWithText("the opening post").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a pending jump to a deleted floor lands on the next surviving reply`() {
+        setScreen(jumpedState(floors = listOf(121, 123) + (129..140), pendingScroll = PendingScroll(page = 13, floor = "#124")))
+        composeRule.onNodeWithText("floor 129").assertIsDisplayed()
+        composeRule.onNodeWithText("floor 121").assertDoesNotExist()
+    }
+
+    @Test
+    fun `returning to floor zero lands on the opening post instead of the first reply`() {
+        setScreen(jumpedState(page = 1, floors = (1..10).toList(), pendingScroll = PendingScroll(page = 1, floor = "#0")))
+        composeRule.onNodeWithText("the opening post").assertIsDisplayed()
     }
 
     /**
@@ -537,14 +725,12 @@ class PostDetailScreenTest {
      * gated on that body, which left this read with no control that could go back for page 1.
      */
     @Test
-    fun `a thread opened past page one keeps its page bar without the opening post`() {
-        var requested: Int? = null
-        setScreen(jumpedState(body = null), onLoadPage = { requested = it })
-
-        composeRule.onNodeWithContentDescription("第 13 / 40 页").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("上一页").performClick()
-
-        assertEquals(12, requested)
+    fun `a later-page read without a cached body can jump back to the opening post`() {
+        var requested: String? = null
+        setScreen(jumpedState(body = null), onJumpToFloor = { requested = it })
+        composeRule.onNodeWithContentDescription("正在读第 121 楼，点击跳楼").performClick()
+        composeRule.onAllNodesWithText("查看正文")[1].performClick()
+        assertEquals("#0", requested)
     }
 
     /** A spent mark says so on its tile, and the tile no longer spends. */
@@ -587,7 +773,7 @@ class PostDetailScreenTest {
         composeRule.waitForIdle()
         composeRule.onAllNodesWithText("复制正文").assertCountEquals(0)
 
-        composeRule.onNodeWithText("#12").performTouchInput { longClick() }
+        composeRule.onNodeWithText("12楼").performTouchInput { longClick() }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("回复 nssk").assertIsDisplayed()
     }

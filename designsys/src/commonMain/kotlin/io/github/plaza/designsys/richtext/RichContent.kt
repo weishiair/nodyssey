@@ -125,6 +125,7 @@ import io.github.plaza.designsys.resources.richtext_image_load_failed
 import io.github.plaza.designsys.resources.richtext_image_loading
 import io.github.plaza.designsys.resources.richtext_image_view_full
 import io.github.plaza.designsys.resources.richtext_quote_reply
+import io.github.plaza.designsys.resources.richtext_quote_source
 import io.github.plaza.designsys.resources.richtext_sticker_description
 import io.github.plaza.designsys.resources.richtext_sticker_fallback
 import io.github.plaza.designsys.theme.CodeStyle
@@ -391,49 +392,54 @@ private fun RichBlock(
 
         is RichNode.CodeBlock -> codeBlockContent(node)
 
-        is RichNode.Quote ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    Modifier
-                        .width(3.dp)
-                        .heightIn(min = 20.dp)
-// A washed-out primary rather than outlineVariant: the bar is the one mark
-                        // that says "quoted", and at outline contrast it read as a stray divider.
-                        // On paper there is no washing out — 45% of black is a grey the panel has to
-                        // dither — so it goes solid and keeps its width to stay distinct from a rule.
-                        .background(
-                            if (LocalEinkMode.current) {
-                                MaterialTheme.colorScheme.outline
-                            } else {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-                            },
-                            RoundedCornerShape(2.dp),
-                        ),
-                )
-                Column(
-                    modifier = Modifier.padding(start = Spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    node.children.forEach {
-                        RichBlock(
-                            node = it,
-                            onLinkClick = onLinkClick,
-                            onImageClick = onImageClick,
-                            onQuoteRefClick = onQuoteRefClick,
-                            // One step down in size and contrast, which is the whole signal that
-                            // this text is someone else's.
-                            textStyle =
-                            textStyle.copy(
-                                fontSize = textStyle.fontSize * 0.94f,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            ),
-                            voteContent = voteContent,
-                            codeBlockContent = codeBlockContent,
-                            stardustContent = stardustContent,
+        is RichNode.Quote -> {
+            val source = node.children.filterIsInstance<RichNode.Paragraph>()
+                .firstOrNull()?.inlines?.firstOrNull() as? InlineNode.QuoteRef
+            Column(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .background(LocalPlazaLayers.current.inset).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (source != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onQuoteRefClick(source) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(Res.string.richtext_quote_source, source.name, source.floor.removePrefix("#")),
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
                         )
+                        Icon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+                node.children.forEach { child ->
+                    val quoted = if (source != null && child is RichNode.Paragraph) {
+                        child.copy(inlines = child.inlines.filterNot { it == source })
+                    } else {
+                        child
+                    }
+                    if (quoted is RichNode.Paragraph && quoted.inlines.isEmpty()) return@forEach
+                    RichBlock(
+                        node = quoted,
+                        onLinkClick = onLinkClick,
+                        onImageClick = onImageClick,
+                        onQuoteRefClick = onQuoteRefClick,
+                        // One step down in size and contrast, which is the whole signal that
+                        // this text is someone else's.
+                        textStyle =
+                        textStyle.copy(
+                            fontSize = textStyle.fontSize * 0.94f,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                        voteContent = voteContent,
+                        codeBlockContent = codeBlockContent,
+                        stardustContent = stardustContent,
+                    )
+                }
             }
+        }
 
         is RichNode.ListBlock ->
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {

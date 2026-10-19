@@ -78,6 +78,8 @@ fun PlazaTheme(
      * for the generator or the system palette to do with it. See [PlazaCharacterPalette].
      */
     characterPalette: PlazaCharacterPalette? = null,
+    /** Fixed reading palettes, selected through the same preset picker as character schemes. */
+    softPalette: PlazaSoftPalette? = null,
     /** White reading surfaces in light mode; dark mode and e-ink retain their own palettes. */
     pureWhite: Boolean = false,
     /**
@@ -119,7 +121,7 @@ fun PlazaTheme(
     // discarded is work on every recomposition of the whole app. Null means this platform — or this
     // Android version — has no system palette; see [platformSystemColorScheme].
     val systemColorScheme =
-        if (useSystemPalette && characterPalette == null && !einkMode && !whiteSurfaces) {
+        if (useSystemPalette && characterPalette == null && softPalette == null && !einkMode && !whiteSurfaces) {
             platformSystemColorScheme(darkTheme)
         } else {
             null
@@ -132,6 +134,8 @@ fun PlazaTheme(
 
             characterPalette != null -> characterPalette.colorScheme(darkTheme)
 
+            softPalette != null -> softPalette.colorScheme(darkTheme)
+
             systemColorScheme != null -> systemColorScheme
 
             // Remembered because generating one is real work — an HCT solve per role — and it would
@@ -141,8 +145,13 @@ fun PlazaTheme(
                     plazaSeedColorScheme(seedColor, darkTheme, paletteStyle)
                 }
         }
-    val layers = remember(baseScheme, darkTheme, einkMode, whiteSurfaces) {
-        plazaLayers(baseScheme, darkTheme, einkMode, pureWhite = whiteSurfaces)
+    val layers = remember(baseScheme, darkTheme, einkMode, whiteSurfaces, softPalette, characterPalette) {
+        val layers = plazaLayers(baseScheme, darkTheme, einkMode, pureWhite = whiteSurfaces)
+        if (softPalette != null && characterPalette == null && !einkMode && !whiteSurfaces) {
+            layers.copy(inset = softPalette.inset(darkTheme))
+        } else {
+            layers
+        }
     }
     // Scaffold reads background, so every screen follows the chosen page layer.
     val colorScheme = remember(baseScheme, layers) { baseScheme.copy(background = layers.page) }

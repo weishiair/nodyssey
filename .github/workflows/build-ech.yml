@@ -7,12 +7,12 @@ on:
       version_name:
         description: APK version name
         required: true
-        default: '1.2.22-ech.6'
+        default: '1.2.22-ech.7'
         type: string
       version_code:
         description: Android version code (increase to upgrade an installed build)
         required: true
-        default: '56'
+        default: '63'
         type: string
 
 permissions:
@@ -33,10 +33,10 @@ jobs:
         include:
           - api: 26
             target: google_apis
-            doh: https://doh.weishiair.de/dns-query
+            doh: https://resolver.weishiair.de/dns-query
           - api: 36
             target: default
-            doh: https://doh.weishiair.de/dns-query
+            doh: https://resolver.weishiair.de/dns-query
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v5

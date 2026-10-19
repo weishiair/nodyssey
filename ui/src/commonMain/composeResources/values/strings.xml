@@ -147,7 +147,7 @@
     <string name="composer_emoji_stickers_pending">站内贴图素材尚未接入，先用下面两组 emoji</string>
 
     <!-- Post detail -->
-    <string name="post_comments_header">评论 · %1$d</string>
+    <string name="post_comments_header">已载入 %1$d 条回复</string>
     <string name="post_body_empty">这个帖子没有正文</string>
     <string name="post_open_original">查看正文</string>
     <string name="post_comments_empty">还没有人回复</string>
@@ -155,7 +155,9 @@
     <string name="post_link_copied">链接已复制</string>
     <string name="post_code_copied">代码已复制</string>
     <string name="post_quote_reply">@%1$s %2$s</string>
-    <string name="post_auto_paging">自动续页</string>
+    <string name="post_auto_paging">双向自动续页</string>
+    <string name="post_load_previous">加载上一页 · 第 %1$d 页</string>
+    <string name="post_loading_previous">正在加载第 %1$d 页…</string>
     <!-- 帖子里上次读到的地方和新回复之间的分隔线 -->
     <string name="post_new_replies_divider">以下是新回复</string>
     <string name="post_reply_action">回复</string>
@@ -1900,4 +1902,25 @@
     <string name="messages_scam_warning_low_level">对方等级较低（Lv.%1$d）。近期私信诈骗频发，请勿轻信先款、口令红包或站外私聊交易，大额交易请务必使用论坛中介。</string>
     <string name="messages_scam_warning_new_account">对方注册时间不足 100 天（%1$d 天）。近期私信诈骗频发，请勿轻信先款、口令红包或站外私聊交易，大额交易请务必使用论坛中介。</string>
     <string name="messages_scam_caution_general">近期私信诈骗频发，高等级或老账号亦可能存在被盗风险。请勿轻信先款、口令红包或站外私聊交易，大额交易请务必使用论坛中介。</string>
+    <string name="post_only_author">只看楼主</string>
+    <string name="post_author_replies">楼主回复</string>
+    <string name="post_all_replies">全部回复</string>
+    <string name="post_sort_ascending">↕ 正序</string>
+    <string name="post_author_scan">正在查找楼主回复 · 已检查 %1$d / %2$d 页</string>
+    <string name="post_author_scan_retry">加载未完成，点此重试</string>
+    <string name="post_author_empty">暂无楼主回复</string>
+    <string name="post_floor_number">%1$s楼</string>
+    <string name="post_quote_action">引用</string>
+    <string name="settings_preset_breeze_blue">清爽蓝</string>
+    <string name="settings_preset_mint_green">薄荷绿</string>
+    <string name="settings_preset_warm_sand">暖米色</string>
+    <string name="settings_preset_mist_violet">柔雾紫</string>
+    <string name="post_floor_position">正在读第 %1$d 楼，点击跳楼</string>
+    <string name="post_floor_jump">跳到楼层</string>
+    <string name="post_floor_entry">楼层号</string>
+    <string name="post_reading_tools">阅读工具</string>
+    <string name="post_loading_earlier">正在加载更早的回复…</string>
+    <string name="post_loaded_scroll_position">已加载回复的滚动位置</string>
+    <string name="post_floor_range">楼层范围：0–%1$d</string>
+    <string name="post_reading_end">已读到最后一条回复</string>
 </resources>

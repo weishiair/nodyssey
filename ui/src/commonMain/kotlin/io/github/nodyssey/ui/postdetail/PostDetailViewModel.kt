@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -85,20 +86,32 @@ class PostDetailViewModel(
     private val profiles: ProfileRepository? = null,
     private val clock: AppClock = AppClock.System,
 ) : ViewModel() {
-    private val _uiState =
+    private val sourceState =
         MutableStateFlow(
             PostDetailUiState(
                 postId = postId,
                 title = preview?.title.orEmpty(),
                 isAwarded = preview?.isAwarded == true,
                 preview = preview,
+                replyCount = preview?.replyCount,
+                lastFloor = preview?.replyCount,
             ),
         )
+    private val _uiState = MutableStateFlow(sourceState.value)
     val uiState: StateFlow<PostDetailUiState> = _uiState.asStateFlow()
+
+    /** Publish the filtered projection in the same turn as flags, without another content store. */
+    private inline fun updateState(transform: (PostDetailUiState) -> PostDetailUiState) {
+        sourceState.update(transform)
+        _uiState.value = sourceState.value.readingView()
+    }
 
     private var loadJob: Job? = null
     private var authorProfileJob: Job? = null
     private var fetchedAuthorUid: Long? = null
+    private var authorScanJob: Job? = null
+    private var authorScanGeneration = 0
+    private var unfilteredPosition: ReadingPosition? = null
 
     /** Where the reader is *now*, reported by the screen as it scrolls. See [recordReadingPosition]. */
     private val readingPosition = MutableStateFlow<ReadingPosition?>(null)
@@ -118,6 +131,8 @@ class PostDetailViewModel(
             openThread(seenReplies = repository.seenRepliesIfUnread(postId))
             repository.thread(postId).collect { thread ->
                 if (thread == null) {
+                    authorScanGeneration++
+                    authorScanJob?.cancel()
                     // Logout deletes the Room row while this Navigation 3 entry can remain alive in a
                     // background tab. Clear the mirrored UI state as well or the composable would keep
                     // rendering the last authenticated snapshot after its owner was removed.
@@ -129,7 +144,7 @@ class PostDetailViewModel(
                     // before the floors it named could possibly have arrived.
                     fetchedAuthorUid = null
                     authorProfileJob?.cancel()
-                    _uiState.update {
+                    updateState {
                         it.copy(
                             title = preview?.title.orEmpty(),
                             body = null,
@@ -144,12 +159,17 @@ class PostDetailViewModel(
                             isAwarded = preview?.isAwarded == true,
                             authorLevel = null,
                             authorJoinedDays = null,
+                            onlyAuthor = false,
+                            isScanningAuthor = false,
+                            authorScanError = null,
+                            replyCount = preview?.replyCount,
+                            lastFloor = preview?.replyCount,
                         )
                     }
                     return@collect
                 }
 
-                _uiState.update { state ->
+                updateState { state ->
                     state.copy(
                         title = thread.title,
                         body = thread.body,
@@ -159,6 +179,8 @@ class PostDetailViewModel(
                         lastLoadedPage = thread.lastLoadedPage,
                         totalPages = thread.totalPages,
                         hasNextPage = thread.hasNextPage,
+                        replyCount = thread.lastFloorNumberIfComplete() ?: state.replyCount,
+                        lastFloor = thread.lastFloorNumberIfComplete() ?: state.lastFloor,
                         collected = thread.collected,
                         collectionCount = thread.collectionCount,
                         // Unknown collapses to false here, unlike [collected]: an unlit star and an
@@ -176,27 +198,27 @@ class PostDetailViewModel(
                 // Marking read on *opening* instead looked equivalent and was not: opening an
                 // uncached post offline shows nothing but an error, and the thread still ended up
                 // dimmed in the list as though it had been read.
-                repository.markThreadRead(postId)
+                if (!sourceState.value.onlyAuthor) repository.markThreadRead(postId)
                 // Reading the last page is being told about every reply on it, so a followed thread
                 // must not announce those replies later. Only the last page: floor #10 on page 1 of
                 // forty says nothing about how many replies the thread has.
-                thread.lastFloorNumberIfComplete()?.let { trackedThreads?.advance(postId, it) }
+                if (!sourceState.value.onlyAuthor) thread.lastFloorNumberIfComplete()?.let { trackedThreads?.advance(postId, it) }
             }
         }
 
         trackedThreads
             ?.isTracked(postId)
-            ?.onEach { tracked -> _uiState.update { it.copy(tracked = tracked) } }
+            ?.onEach { tracked -> updateState { it.copy(tracked = tracked) } }
             ?.launchIn(viewModelScope)
 
         showBlockedContent
-            .onEach { show -> _uiState.update { it.copy(showBlockedContent = show) } }
+            .onEach { show -> updateState { it.copy(showBlockedContent = show) } }
             .launchIn(viewModelScope)
 
         // The reply editor is the only thing here that needs an account, and it needs to know before
         // it opens rather than after a failed publish.
         session
-            .onEach { sessionState -> _uiState.update { it.copy(isSignedIn = sessionState.isSignedIn) } }
+            .onEach { sessionState -> updateState { it.copy(isSignedIn = sessionState.isSignedIn) } }
             .launchIn(viewModelScope)
 
         // Coming back from the WebView signed in, or with a challenge cleared, is the one case where a
@@ -213,7 +235,7 @@ class PostDetailViewModel(
                     )
                 if (sessionState.isSignedIn && !cleared) repository.invalidateCaches()
                 refresh()
-                loadAuthorProfileIfNeeded(_uiState.value.body?.authorUid)
+                loadAuthorProfileIfNeeded(sourceState.value.body?.authorUid)
             }.launchIn(viewModelScope)
 
         // The stored place is read *before* this read starts writing over it, and then held for the
@@ -222,7 +244,7 @@ class PostDetailViewModel(
         // gone by the time the reader could reach for it.
         viewModelScope.launch {
             val resume = readingPositions.readingPosition(postId)
-            _uiState.update { it.copy(resumePosition = resume) }
+            updateState { it.copy(resumePosition = resume) }
             readingPosition
                 .filterNotNull()
                 .distinctUntilChanged()
@@ -242,7 +264,7 @@ class PostDetailViewModel(
             viewModelScope.launch {
                 runCatchingExceptCancellation { repo.profile(uid) }
                     .onSuccess { profile ->
-                        _uiState.update {
+                        updateState {
                             it.copy(
                                 authorLevel = profile.rank,
                                 authorJoinedDays = joinedDays(profile.createdAt, clock.nowMillis()),
@@ -266,7 +288,7 @@ class PostDetailViewModel(
         // Zero seen is a thread opened before any reply existed: every floor is new, so there is no
         // line to draw between old and new, and the top is already where they start.
         val firstNewFloor = seenReplies?.takeIf { it > 0 }?.plus(1)
-        _uiState.update { it.copy(firstNewFloor = firstNewFloor) }
+        updateState { it.copy(firstNewFloor = firstNewFloor) }
         // Opening on a notification's floor, or on the page a `/post-703863-4` link named, starts
         // the thread there. Page 1 is only the default, not where every read begins — and a thread
         // the reader has been through before opens where they have not, unless something named a
@@ -275,7 +297,7 @@ class PostDetailViewModel(
         val floor = initialFloor ?: firstNewFloor?.takeIf { !named }?.let { "#$it" }
         val start = startPage(floor)
         if (floor != null || start > 1) {
-            _uiState.update { it.copy(pendingScroll = PendingScroll(start, floor)) }
+            updateState { it.copy(pendingScroll = PendingScroll(start, floor)) }
         }
         // A thread read moments ago needs no request — but only if the page being asked for is
         // one of the pages it cached; freshness says nothing about a page nobody has fetched.
@@ -293,7 +315,71 @@ class PostDetailViewModel(
             ?: initialPage?.coerceAtLeast(1)
             ?: 1
 
-    fun refresh() = load(page = _uiState.value.firstLoadedPage, replacesWindow = true)
+    fun refresh() {
+        if (sourceState.value.onlyAuthor) {
+            scanAuthorPages(refresh = true)
+        } else {
+            load(page = sourceState.value.firstLoadedPage, replacesWindow = true)
+        }
+    }
+
+    /** Filtering is a projection of Room, including pages fetched by the cancellable scan. */
+    fun toggleOnlyAuthor() {
+        if (sourceState.value.onlyAuthor) {
+            leaveAuthorFilter()
+            val position = unfilteredPosition ?: ReadingPosition(1, null)
+            updateState { it.copy(pendingScroll = PendingScroll(position.page, position.floor)) }
+        } else {
+            unfilteredPosition = readingPosition.value ?: ReadingPosition(sourceState.value.firstLoadedPage, null)
+            loadJob?.cancel()
+            updateState {
+                it.copy(
+                    onlyAuthor = true,
+                    isLoading = false,
+                    isAppending = false,
+                    isPrepending = false,
+                    isRefreshingTail = false,
+                    pendingScroll = PendingScroll(1),
+                )
+            }
+            scanAuthorPages(refresh = false)
+        }
+    }
+
+    private fun leaveAuthorFilter() {
+        authorScanGeneration++
+        authorScanJob?.cancel()
+        updateState { it.copy(onlyAuthor = false, isScanningAuthor = false, authorScanError = null, isRefreshing = false) }
+    }
+
+    private fun scanAuthorPages(refresh: Boolean) {
+        val generation = ++authorScanGeneration
+        authorScanJob?.cancel()
+        updateState { it.copy(isScanningAuthor = true, authorScanError = null) }
+        authorScanJob = viewModelScope.launch {
+            runCatchingExceptCancellation {
+                val cached = repository.cachedPages(postId) ?: (1..1)
+                var first = cached.first
+                var last = cached.last
+                var total = sourceState.value.totalPages
+                updateState { it.copy(authorScanChecked = last - first + 1, authorScanTotal = total) }
+                suspend fun fetch(page: Int) {
+                    repository.extendThread(postId, page)
+                    first = minOf(first, page)
+                    last = maxOf(last, page)
+                    total = repository.thread(postId).first { it != null && page in it.firstLoadedPage..it.lastLoadedPage }!!.totalPages
+                    updateState { it.copy(authorScanChecked = last - first + 1, authorScanTotal = total) }
+                }
+                // Extend adjacent pages so the normal reading window and reaction updates keep one source of truth.
+                if (refresh) for (page in cached) fetch(page)
+                while (first > 1) fetch(first - 1)
+                while (last < total) fetch(last + 1)
+            }.onFailure { error ->
+                if (generation == authorScanGeneration) updateState { it.copy(authorScanError = error.toSiteError()) }
+            }
+            if (generation == authorScanGeneration) updateState { it.copy(isScanningAuthor = false, isRefreshing = false) }
+        }
+    }
 
     /**
      * [refresh], with the pull indicator owning the feedback instead of the bar under the app bar.
@@ -302,7 +388,7 @@ class PostDetailViewModel(
      * drawing the jump-style progress bar would show one gesture as two loads.
      */
     fun pullRefresh() {
-        _uiState.update { it.copy(isRefreshing = true) }
+        updateState { it.copy(isRefreshing = true) }
         refresh()
     }
 
@@ -313,16 +399,28 @@ class PostDetailViewModel(
      * in a thread is asking for the newest state of what they are looking at — at the thread's end,
      * the replies that arrived since — not to be carried back to where the window began.
      */
-    fun refreshPage(page: Int) = load(page = page.coerceAtLeast(1), replacesWindow = true)
+    fun refreshPage(page: Int) {
+        if (sourceState.value.onlyAuthor) refresh() else load(page = page.coerceAtLeast(1), replacesWindow = true)
+    }
 
     /**
      * Comments are paginated on the site but read as one thread on a phone, so the next page is
      * appended to the same list rather than replacing it. The append itself happens in the database.
      */
     fun loadNextPage() {
-        val state = _uiState.value
-        if (state.isLoading || state.isAppending || !state.hasNextPage) return
+        val state = sourceState.value
+        if (state.onlyAuthor) return
+        if (state.isLoading || state.isAppending || state.isPrepending || state.isRefreshingTail || !state.hasNextPage) return
         load(page = state.lastLoadedPage + 1, replacesWindow = false)
+    }
+
+    /** Joins the preceding page onto this read without replacing the floors already on screen. */
+    fun loadPreviousPage() {
+        val state = sourceState.value
+        if (state.onlyAuthor) return
+        if (state.isLoading || state.isAppending || state.isPrepending || state.isRefreshingTail) return
+        if (!state.hasContent || state.firstLoadedPage <= 1) return
+        load(page = state.firstLoadedPage - 1, replacesWindow = false)
     }
 
     /**
@@ -336,10 +434,11 @@ class PostDetailViewModel(
      * refetched last page says so and the ordinary append picks it up from there.
      */
     fun refreshTail() {
-        val state = _uiState.value
-        if (state.isLoading || state.isAppending || state.isRefreshingTail) return
+        val state = sourceState.value
+        if (state.onlyAuthor) return
+        if (state.isLoading || state.isAppending || state.isPrepending || state.isRefreshingTail) return
         if (state.hasNextPage || !state.hasContent) return
-        _uiState.update { it.copy(isRefreshingTail = true) }
+        updateState { it.copy(isRefreshingTail = true) }
         load(page = state.lastLoadedPage, replacesWindow = false, tail = true)
     }
 
@@ -368,6 +467,7 @@ class PostDetailViewModel(
     fun openLinkInPlace(url: String): Boolean {
         val route = NodeSeekSite.parseInternalRoute(url) as? NodeSeekSite.InternalRoute.Post ?: return false
         if (route.postId != postId) return false
+        if (sourceState.value.onlyAuthor) leaveAuthorFilter()
         loadPage(route.page)
         return true
     }
@@ -382,8 +482,9 @@ class PostDetailViewModel(
      * window.
      */
     fun extendToPage(page: Int) {
-        val state = _uiState.value
-        if (state.isLoading || state.isAppending) return
+        val state = sourceState.value
+        if (state.onlyAuthor) return
+        if (state.isLoading || state.isAppending || state.isPrepending || state.isRefreshingTail) return
         if (page !in 1..state.totalPages) return
         if (page != state.lastLoadedPage + 1 && page != state.firstLoadedPage - 1) return
         load(page = page, replacesWindow = false)
@@ -397,6 +498,7 @@ class PostDetailViewModel(
      */
     fun jumpToFloor(floor: String) {
         val number = NodeSeekSite.parseFloorNumber(floor) ?: return
+        if (sourceState.value.onlyAuthor) leaveAuthorFilter()
         bringIntoView(NodeSeekSite.pageOfFloor(number), floor = floor)
     }
 
@@ -415,11 +517,12 @@ class PostDetailViewModel(
      * somebody else's reply.
      */
     fun showPublishedReply(floor: Int?) {
+        if (sourceState.value.onlyAuthor) leaveAuthorFilter()
         if (floor == null) {
             refresh()
             return
         }
-        val state = _uiState.value
+        val state = sourceState.value
         val page = NodeSeekSite.pageOfFloor(floor)
         val scroll = PendingScroll(page, "#$floor")
         when {
@@ -441,7 +544,8 @@ class PostDetailViewModel(
      * otherwise. A no-op when nothing was: the control that offers this hides itself in that case.
      */
     fun resumeReading() {
-        val state = _uiState.value
+        if (sourceState.value.onlyAuthor) leaveAuthorFilter()
+        val state = sourceState.value
         val resume = state.resumePosition ?: return
         val lastPage = state.totalPages.coerceAtLeast(1)
         // A thread can lose pages between visits — floors get deleted and everything after them moves
@@ -460,6 +564,7 @@ class PostDetailViewModel(
         page: Int,
         floor: String?,
     ) {
+        if (sourceState.value.onlyAuthor) return
         readingPosition.value = ReadingPosition(page, floor)
     }
 
@@ -467,12 +572,16 @@ class PostDetailViewModel(
         page: Int,
         floor: String?,
     ) {
-        val state = _uiState.value
+        val state = sourceState.value
         val target = page.coerceAtLeast(1)
+        if (state.onlyAuthor) {
+            if (target <= state.readingView().totalPages) updateState { it.copy(pendingScroll = PendingScroll(target, floor)) }
+            return
+        }
         if (target > state.totalPages) return
         val scroll = PendingScroll(target, floor)
         if (target in state.firstLoadedPage..state.lastLoadedPage) {
-            _uiState.update { it.copy(pendingScroll = scroll) }
+            updateState { it.copy(pendingScroll = scroll) }
             return
         }
         // Deliberately *not* guarded on [PostDetailUiState.isAppending]. The page control lives in the
@@ -485,7 +594,7 @@ class PostDetailViewModel(
 
     /** The screen has scrolled to [PostDetailUiState.pendingScroll]; stop asking it to. */
     fun onScrollHandled() {
-        _uiState.update { it.copy(pendingScroll = null) }
+        updateState { it.copy(pendingScroll = null) }
     }
 
     /**
@@ -503,13 +612,13 @@ class PostDetailViewModel(
         commentId: Long,
         action: ReactionAction,
     ) {
-        if (_uiState.value.pendingReaction != null) return
-        _uiState.update { it.copy(pendingReaction = PendingReaction(commentId, action), reactionFailure = null) }
+        if (sourceState.value.pendingReaction != null) return
+        updateState { it.copy(pendingReaction = PendingReaction(commentId, action), reactionFailure = null) }
         viewModelScope.launch {
             runCatchingExceptCancellation { repository.react(postId, commentId, action) }
-                .onSuccess { _uiState.update { it.copy(pendingReaction = null) } }
+                .onSuccess { updateState { it.copy(pendingReaction = null) } }
                 .onFailure { throwable ->
-                    _uiState.update {
+                    updateState {
                         it.copy(
                             pendingReaction = null,
                             reactionFailure =
@@ -527,7 +636,7 @@ class PostDetailViewModel(
 
     /** The failure has been shown; stop holding it. */
     fun onReactionFailureShown() {
-        _uiState.update { it.copy(reactionFailure = null) }
+        updateState { it.copy(reactionFailure = null) }
     }
 
     /**
@@ -543,15 +652,15 @@ class PostDetailViewModel(
      * greys the star for the round trip instead, which says the same thing without lying about it.
      */
     fun toggleCollect() {
-        val state = _uiState.value
+        val state = sourceState.value
         val current = state.collected ?: return
         if (state.collectPending) return
-        _uiState.update { it.copy(collectPending = true, collectFailure = null) }
+        updateState { it.copy(collectPending = true, collectFailure = null) }
         viewModelScope.launch {
             runCatchingExceptCancellation { repository.setCollected(postId, !current) }
-                .onSuccess { _uiState.update { it.copy(collectPending = false) } }
+                .onSuccess { updateState { it.copy(collectPending = false) } }
                 .onFailure { throwable ->
-                    _uiState.update {
+                    updateState {
                         it.copy(
                             collectPending = false,
                             collectFailure =
@@ -571,7 +680,7 @@ class PostDetailViewModel(
      */
     fun toggleTrack() {
         val store = trackedThreads ?: return
-        val state = _uiState.value
+        val state = sourceState.value
         viewModelScope.launch {
             if (state.tracked == true) {
                 store.untrack(postId)
@@ -588,17 +697,17 @@ class PostDetailViewModel(
                     categoryTitle = state.body?.categoryTitle ?: state.preview?.categoryTitle,
                     categorySlug = state.preview?.categorySlug,
                 )
-            _uiState.update { it.copy(trackMessage = if (added) TrackMessage.TRACKED else TrackMessage.FULL) }
+            updateState { it.copy(trackMessage = if (added) TrackMessage.TRACKED else TrackMessage.FULL) }
         }
     }
 
     fun onTrackMessageShown() {
-        _uiState.update { it.copy(trackMessage = null) }
+        updateState { it.copy(trackMessage = null) }
     }
 
     /** The collection failure has been shown; stop holding it. */
     fun onCollectFailureShown() {
-        _uiState.update { it.copy(collectFailure = null) }
+        updateState { it.copy(collectFailure = null) }
     }
 
     /**
@@ -608,10 +717,10 @@ class PostDetailViewModel(
      * per thread read that only ever changes a sentence, and most reads never open the dialog.
      */
     fun loadFreeChickenLegs() {
-        if (_uiState.value.freeChickenLegs != null) return
+        if (sourceState.value.freeChickenLegs != null) return
         viewModelScope.launch {
             val quota = runCatchingExceptCancellation { repository.freeChickenLegs() }.getOrNull()
-            _uiState.update { it.copy(freeChickenLegs = quota) }
+            updateState { it.copy(freeChickenLegs = quota) }
         }
     }
 
@@ -626,12 +735,14 @@ class PostDetailViewModel(
         tail: Boolean = false,
     ) {
         loadJob?.cancel()
+        val prepending = !replacesWindow && !tail && page < sourceState.value.firstLoadedPage
         // A tail refresh announces itself through its own indicator, the way a pull-to-refresh does,
         // so neither the top progress bar nor the append spinner should claim the same load.
-        _uiState.update {
+        updateState {
             it.copy(
                 isLoading = replacesWindow && !tail,
-                isAppending = !replacesWindow && !tail,
+                isAppending = !replacesWindow && !tail && !prepending,
+                isPrepending = prepending,
                 error = null,
             )
         }
@@ -646,20 +757,22 @@ class PostDetailViewModel(
                 }.onSuccess {
                     // Neither content nor the read mark is applied here: both follow from the Room
                     // observation above, so there is exactly one path by which either can happen.
-                    _uiState.update {
+                    updateState {
                         it.copy(
                             isLoading = false,
                             isAppending = false,
+                            isPrepending = false,
                             isRefreshing = false,
                             isRefreshingTail = false,
                             pendingScroll = scrollTo ?: it.pendingScroll,
                         )
                     }
                 }.onFailure { throwable ->
-                    _uiState.update {
+                    updateState {
                         it.copy(
                             isLoading = false,
                             isAppending = false,
+                            isPrepending = false,
                             isRefreshing = false,
                             isRefreshingTail = false,
                             error = throwable.toSiteError(),
@@ -669,7 +782,7 @@ class PostDetailViewModel(
             }
     }
 
-    fun postUrl(): String = NodeSeekSite.BASE_URL + NodeSeekSite.postPath(postId, _uiState.value.lastLoadedPage)
+    fun postUrl(): String = NodeSeekSite.BASE_URL + NodeSeekSite.postPath(postId, sourceState.value.lastLoadedPage)
 
     companion object {
         fun factory(
@@ -728,6 +841,8 @@ data class PostDetailUiState(
     val hasNextPage: Boolean = false,
     val isLoading: Boolean = false,
     val isAppending: Boolean = false,
+    /** An earlier page is joining the window; announced at the top rather than at the thread's foot. */
+    val isPrepending: Boolean = false,
     /** The load is a pull-to-refresh; its own indicator shows it, so no other progress bar should. */
     val isRefreshing: Boolean = false,
     /** The same, for the pull past the foot of a thread that has no next page. See [PostDetailViewModel.refreshTail]. */
@@ -778,6 +893,16 @@ data class PostDetailUiState(
     val authorLevel: Int? = null,
     /** Whole days since the original poster registered, when known. */
     val authorJoinedDays: Int? = null,
+    val replyCount: Int? = null,
+    /** Original thread floor extent, retained when only-author replaces the reply count. */
+    val lastFloor: Int? = null,
+    val onlyAuthor: Boolean = false,
+    val isScanningAuthor: Boolean = false,
+    val authorScanChecked: Int = 0,
+    val authorScanTotal: Int = 1,
+    val authorScanError: SiteError? = null,
+    /** Original site pages survive the filtered view's own pagination, for editing. */
+    val commentSourcePages: List<Int> = emptyList(),
 ) {
     /**
      * Whether there is a thread on screen to read and act on.
@@ -787,7 +912,46 @@ data class PostDetailUiState(
      * floors and no body until page 1 is fetched. Gating the screen's furniture on the body left
      * that read with no page bar, which is the one control that could have gone back for it.
      */
-    val hasContent: Boolean get() = body != null || comments.isNotEmpty()
+    val hasContent: Boolean get() = body != null || comments.isNotEmpty() || onlyAuthor
+}
+
+/** The counter must never turn original floor 121 into filtered reply 3, or invent missing totals. */
+internal fun PostDetailUiState.readerLastFloor(): Int? {
+    val loaded = lastFloorNumber(comments)
+    val known = lastFloor ?: replyCount.takeUnless { onlyAuthor }
+    return when {
+        known != null -> maxOf(known, loaded)
+        !onlyAuthor && !hasNextPage && lastLoadedPage >= totalPages -> loaded
+        else -> null
+    }
+}
+
+/**
+ * The site's DOM can put later floors ahead of earlier ones. Order the reading view numerically,
+ * including cached replies, while carrying each reply's source page through the same permutation.
+ */
+internal fun PostDetailUiState.readingView(): PostDetailUiState {
+    val ordered = comments.indices.sortedBy { NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE }
+    if (!onlyAuthor) {
+        if (ordered.withIndex().all { (index, original) -> index == original }) return this
+        return copy(
+            comments = ordered.map(comments::get),
+            commentPages = ordered.map { commentPages.getOrNull(it) ?: firstLoadedPage },
+        )
+    }
+    val matching = ordered.filter { comments[it].isOriginalPoster || (body?.authorUid != null && comments[it].authorUid == body.authorUid) }
+    val pages = ((matching.size + NodeSeekSite.COMMENTS_PER_PAGE - 1) / NodeSeekSite.COMMENTS_PER_PAGE).coerceAtLeast(1)
+    return copy(
+        comments = matching.map(comments::get),
+        commentSourcePages = matching.map { commentPages.getOrNull(it) ?: firstLoadedPage },
+        commentPages = matching.indices.map { it / NodeSeekSite.COMMENTS_PER_PAGE + 1 },
+        firstLoadedPage = 1,
+        lastLoadedPage = pages,
+        totalPages = pages,
+        hasNextPage = false,
+        replyCount = matching.size,
+        lastFloor = copy(onlyAuthor = false).readerLastFloor(),
+    )
 }
 
 enum class TrackMessage { TRACKED, FULL }

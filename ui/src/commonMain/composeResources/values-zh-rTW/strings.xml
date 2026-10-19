@@ -124,14 +124,16 @@
     <string name="composer_emoji_group_chick">小黃雞</string>
     <string name="composer_emoji_stickers_pending">站內貼圖素材尚未接入，先用下面兩組 emoji</string>
 
-    <string name="post_comments_header">評論 · %1$d</string>
+    <string name="post_comments_header">已載入 %1$d 則回覆</string>
     <string name="post_body_empty">這篇文章沒有內文</string>
     <string name="post_open_original">檢視內文</string>
     <string name="post_comments_empty">還沒有人回覆</string>
     <string name="post_comments_empty_hint">來當第一個吧——不過 v1 還是唯讀的</string>
     <string name="post_link_copied">連結已複製</string>
     <string name="post_code_copied">程式碼已複製</string>
-    <string name="post_auto_paging">自動續頁</string>
+    <string name="post_auto_paging">雙向自動續頁</string>
+    <string name="post_load_previous">載入上一頁 · 第 %1$d 頁</string>
+    <string name="post_loading_previous">正在載入第 %1$d 頁…</string>
     <string name="post_new_replies_divider">以下是新回覆</string>
     <string name="post_reply_action">回覆</string>
     <string name="post_edit_action">編輯</string>
@@ -1624,4 +1626,25 @@
     <string name="messages_scam_warning_low_level">對方等級較低（Lv.%1$d）。近期私訊詐騙頻發，請勿輕信先款、口令紅包或站外私聊交易，大額交易請務必使用論壇中介。</string>
     <string name="messages_scam_warning_new_account">對方註冊時間不足 100 天（%1$d 天）。近期私訊詐騙頻發，請勿輕信先款、口令紅包或站外私聊交易，大額交易請務必使用論壇中介。</string>
     <string name="messages_scam_caution_general">近期私訊詐騙頻發，高等級或老帳號亦可能存在被盜風險。請勿輕信先款、口令紅包或站外私聊交易，大額交易請務必使用論壇中介。</string>
+    <string name="post_only_author">只看樓主</string>
+    <string name="post_author_replies">樓主回覆</string>
+    <string name="post_all_replies">全部回覆</string>
+    <string name="post_sort_ascending">↕ 正序</string>
+    <string name="post_author_scan">正在尋找樓主回覆 · 已檢查 %1$d / %2$d 頁</string>
+    <string name="post_author_scan_retry">載入未完成，點此重試</string>
+    <string name="post_author_empty">暫無樓主回覆</string>
+    <string name="post_floor_number">%1$s樓</string>
+    <string name="post_quote_action">引用</string>
+    <string name="settings_preset_breeze_blue">清爽藍</string>
+    <string name="settings_preset_mint_green">薄荷綠</string>
+    <string name="settings_preset_warm_sand">暖米色</string>
+    <string name="settings_preset_mist_violet">柔霧紫</string>
+    <string name="post_floor_position">正在讀第 %1$d 樓，點擊跳樓</string>
+    <string name="post_floor_jump">跳到樓層</string>
+    <string name="post_floor_entry">樓層號</string>
+    <string name="post_reading_tools">閱讀工具</string>
+    <string name="post_loading_earlier">正在載入較早的回覆…</string>
+    <string name="post_loaded_scroll_position">已載入回覆的捲動位置</string>
+    <string name="post_floor_range">樓層範圍：0–%1$d</string>
+    <string name="post_reading_end">已讀到最後一則回覆</string>
 </resources>

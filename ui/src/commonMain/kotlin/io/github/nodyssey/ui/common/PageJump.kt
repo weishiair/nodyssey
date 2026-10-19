@@ -37,6 +37,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
@@ -45,6 +46,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -322,6 +324,7 @@ fun PageJumpSheet(
      */
     numberEntry: NumberEntry = NumberEntry.Page,
     onGoToFloor: ((Int) -> Unit)? = null,
+    progressSlider: Boolean = false,
 ) {
     val lastPage = totalPages.coerceAtLeast(1)
     val current = page.coerceIn(1, lastPage)
@@ -350,7 +353,24 @@ fun PageJumpSheet(
             }
 
             if (lastPage > 1) {
-                PageKeys(current = current, lastPage = lastPage, onGo = onGo)
+                if (progressSlider) {
+                    var preview by remember(current, lastPage) { mutableStateOf(current.toFloat()) }
+                    Text(
+                        stringResource(Res.string.page_jump_page_of, preview.toInt(), lastPage),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                    )
+                    Slider(
+                        value = preview,
+                        onValueChange = { preview = kotlin.math.round(it) },
+                        onValueChangeFinished = { onGo(preview.toInt()) },
+                        valueRange = 1f..lastPage.toFloat(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    )
+                } else {
+                    PageKeys(current = current, lastPage = lastPage, onGo = onGo)
+                }
             }
 
             PageNumberField(

@@ -9,15 +9,20 @@ import io.github.nodyssey.ui.resources.preset_avatar_miku
 import io.github.nodyssey.ui.resources.preset_avatar_reimu
 import io.github.nodyssey.ui.resources.preset_avatar_tianyi
 import io.github.nodyssey.ui.resources.preset_avatar_twins
+import io.github.nodyssey.ui.resources.settings_preset_breeze_blue
 import io.github.nodyssey.ui.resources.settings_preset_graphite
 import io.github.nodyssey.ui.resources.settings_preset_marisa
 import io.github.nodyssey.ui.resources.settings_preset_miku
+import io.github.nodyssey.ui.resources.settings_preset_mint_green
+import io.github.nodyssey.ui.resources.settings_preset_mist_violet
 import io.github.nodyssey.ui.resources.settings_preset_pure_white
 import io.github.nodyssey.ui.resources.settings_preset_reimu
 import io.github.nodyssey.ui.resources.settings_preset_tianyi
 import io.github.nodyssey.ui.resources.settings_preset_twins
+import io.github.nodyssey.ui.resources.settings_preset_warm_sand
 import io.github.plaza.designsys.theme.PlazaCharacterPalette
 import io.github.plaza.designsys.theme.PlazaDefaultSeed
+import io.github.plaza.designsys.theme.PlazaSoftPalette
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 
@@ -25,10 +30,10 @@ import org.jetbrains.compose.resources.StringResource
 internal val GraphiteCompanion = Color(0xFF7E5700)
 
 /**
- * Three columns: 石墨青, pure white, then the five character palettes.
+ * Three columns: 石墨青, pure white, four soft palettes, then the five character palettes.
  *
  * 石墨青 remains the default and the only generated seed. Pure white uses fixed neutral surfaces;
- * the characters use hand-written schemes (see [PlazaCharacterPalette]). Those fixed palettes do
+ * the soft and character palettes use hand-written schemes. Those fixed palettes do
  * not use 色彩风格. Custom seeds belong in 自定义 and 我的主题.
  */
 internal data class ThemePreset(
@@ -45,8 +50,9 @@ internal data class ThemePreset(
     val pureWhite: Boolean = false,
     val swatch: Color = PlazaDefaultSeed,
     val companion: Color = GraphiteCompanion,
+    val softPalette: PlazaSoftPalette? = null,
 ) {
-    val hasFixedColors: Boolean get() = palette != null || pureWhite
+    val hasFixedColors: Boolean get() = palette != null || softPalette != null || pureWhite
 }
 
 internal val ThemePresets =
@@ -65,6 +71,42 @@ internal val ThemePresets =
             pureWhite = true,
             swatch = Color.White,
             companion = Color(0xFF0866D9),
+        ),
+        ThemePreset(
+            id = "breeze_blue",
+            label = Res.string.settings_preset_breeze_blue,
+            palette = null,
+            avatar = null,
+            swatch = Color(0xFF3969CE),
+            companion = Color(0xFFEDF3FF),
+            softPalette = PlazaSoftPalette.BLUE,
+        ),
+        ThemePreset(
+            id = "mint_green",
+            label = Res.string.settings_preset_mint_green,
+            palette = null,
+            avatar = null,
+            swatch = Color(0xFF267358),
+            companion = Color(0xFFE0F0E6),
+            softPalette = PlazaSoftPalette.MINT,
+        ),
+        ThemePreset(
+            id = "warm_sand",
+            label = Res.string.settings_preset_warm_sand,
+            palette = null,
+            avatar = null,
+            swatch = Color(0xFF875731),
+            companion = Color(0xFFF0E2CE),
+            softPalette = PlazaSoftPalette.SAND,
+        ),
+        ThemePreset(
+            id = "mist_violet",
+            label = Res.string.settings_preset_mist_violet,
+            palette = null,
+            avatar = null,
+            swatch = Color(0xFF79539F),
+            companion = Color(0xFFECE2F5),
+            softPalette = PlazaSoftPalette.VIOLET,
         ),
         ThemePreset(
             id = "miku",

@@ -247,6 +247,7 @@ data class ThreadPreview(
      * flight — would step down as it re-wrapped.
      */
     val isAwarded: Boolean = false,
+    val replyCount: Int? = null,
 )
 
 /**

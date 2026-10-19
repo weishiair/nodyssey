@@ -130,14 +130,16 @@
     <string name="composer_emoji_group_chick">Little Yellow Chick</string>
     <string name="composer_emoji_stickers_pending">The forum stickers are not wired up yet — the two emoji groups below are what there is</string>
 
-    <string name="post_comments_header">Comments · %1$d</string>
+    <string name="post_comments_header">%1$d replies loaded</string>
     <string name="post_body_empty">This post has no body</string>
     <string name="post_open_original">See the body</string>
     <string name="post_comments_empty">Nobody has replied yet</string>
     <string name="post_comments_empty_hint">Be the first — though v1 is still read-only</string>
     <string name="post_link_copied">Link copied</string>
     <string name="post_code_copied">Code copied</string>
-    <string name="post_auto_paging">Keep loading pages</string>
+    <string name="post_auto_paging">Auto-load both ways</string>
+    <string name="post_load_previous">Load previous · Page %1$d</string>
+    <string name="post_loading_previous">Loading page %1$d…</string>
     <string name="post_new_replies_divider">New replies</string>
     <string name="post_reply_action">Reply</string>
     <string name="post_edit_action">Edit</string>
@@ -1632,4 +1634,25 @@
     <string name="messages_scam_warning_low_level">This account has a low level (Lv.%1$d). Private message scams are common — avoid advance payments, off-site chats, or unverified transfers, and use an official forum escrow for large trades.</string>
     <string name="messages_scam_warning_new_account">This account registered less than 100 days ago (%1$d d). Private message scams are common — avoid advance payments, off-site chats, or unverified transfers, and use an official forum escrow for large trades.</string>
     <string name="messages_scam_caution_general">Private message scams are common, and even high-level or older accounts may be compromised. Avoid advance payments, off-site chats, or unverified transfers, and use an official forum escrow for large trades.</string>
+    <string name="post_only_author">Author only</string>
+    <string name="post_author_replies">Author replies</string>
+    <string name="post_all_replies">All replies</string>
+    <string name="post_sort_ascending">↕ Oldest</string>
+    <string name="post_author_scan">Finding author replies · %1$d / %2$d pages checked</string>
+    <string name="post_author_scan_retry">Loading incomplete. Tap to retry</string>
+    <string name="post_author_empty">No author replies</string>
+    <string name="post_floor_number">#%1$s</string>
+    <string name="post_quote_action">Quote</string>
+    <string name="settings_preset_breeze_blue">Breeze Blue</string>
+    <string name="settings_preset_mint_green">Mint Green</string>
+    <string name="settings_preset_warm_sand">Warm Sand</string>
+    <string name="settings_preset_mist_violet">Mist Violet</string>
+    <string name="post_floor_position">Reading floor %1$d. Tap to jump.</string>
+    <string name="post_floor_jump">Jump to floor</string>
+    <string name="post_floor_entry">Floor number</string>
+    <string name="post_reading_tools">Reading tools</string>
+    <string name="post_loading_earlier">Loading earlier replies…</string>
+    <string name="post_loaded_scroll_position">Scroll position in loaded replies</string>
+    <string name="post_floor_range">Floor range: 0–%1$d</string>
+    <string name="post_reading_end">You have reached the last reply</string>
 </resources>

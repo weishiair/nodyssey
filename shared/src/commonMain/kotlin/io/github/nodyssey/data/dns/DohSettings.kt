@@ -34,7 +34,8 @@ enum class DohProvider(
     val bootstrap: List<String>,
     val supportsBootstrapOverride: Boolean = true,
 ) {
-    WEISHIAIR("https://doh.weishiair.de/dns-query", emptyList(), supportsBootstrapOverride = false),
+    // The original doh host resets TLS on affected direct routes; this alias uses the same backend.
+    WEISHIAIR("https://resolver.weishiair.de/dns-query", emptyList(), supportsBootstrapOverride = false),
     ALIDNS("https://dns.alidns.com/dns-query", listOf("223.5.5.5", "223.6.6.6", "2400:3200::1")),
     DNSPOD("https://doh.pub/dns-query", listOf("1.12.12.12", "120.53.53.53")),
     CLOUDFLARE("https://cloudflare-dns.com/dns-query", listOf("1.1.1.1", "1.0.0.1", "2606:4700:4700::1111")),

@@ -189,6 +189,7 @@ internal fun NodysseyChrome(
             // 角色预设 is the one answer that is not a seed at all: five whole schemes written by hand,
             // which is why they win over both of the lines above.
             characterPalette = activeCharacterPalette(settings),
+            softPalette = activePreset(settings)?.softPalette,
             pureWhite = activePreset(settings)?.pureWhite == true,
             useSystemPalette =
             settings.colorSource == ColorSource.WALLPAPER && settings.wallpaperSystemPalette,
