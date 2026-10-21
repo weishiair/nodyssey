@@ -56,12 +56,14 @@ import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.scene.Scene
+import androidx.navigation3.scene.rememberSceneState
 import androidx.navigation3.ui.NavDisplay
 import androidx.navigation3.ui.defaultPopTransitionSpec
 import androidx.navigation3.ui.defaultPredictivePopTransitionSpec
 import androidx.navigation3.ui.defaultTransitionSpec
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.NotificationTab
+import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
@@ -71,6 +73,7 @@ import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.common.contentSwipeBack
 import io.github.nodyssey.ui.common.contentSwipeBackSupported
+import io.github.nodyssey.ui.common.rememberNavigationBackState
 import io.github.nodyssey.ui.common.rememberNewClipboardText
 import io.github.nodyssey.ui.common.rememberTouchExplorationEnabled
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
@@ -114,6 +117,16 @@ fun MainNavigation(
     onLaunchRequestHandled: () -> Unit = {},
 ) {
     // Hoisted out of the navigation lambdas below, which are not composable.
+    val navigationSettings by container.settingsRepository.settings.collectAsStateWithLifecycle(
+        initialValue = UserSettings(),
+    )
+    val historySession by container.sessionRepository.state.collectAsStateWithLifecycle()
+    LaunchedEffect(historySession.isSignedIn, historySession.fingerprint) {
+        container.postRepository.reconcileSession(historySession.isSignedIn, historySession.fingerprint)
+        if (historySession.isSignedIn) {
+            runCatchingExceptCancellation { container.profileRepository.profile() }
+        }
+    }
     val siteTitle = appName()
     val aboutSiteTitle = stringResource(Res.string.about_site)
     val privacyTitle = stringResource(Res.string.about_privacy)
@@ -600,21 +613,23 @@ fun MainNavigation(
                     // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
                     LocalStickerNavigation provides stickerNavigation,
                 ) {
-                    NavDisplay(
+                    val navigateBack: () -> Unit = {
+                        if (backStack.size > 1) {
+                            backStack.removeLastOrNull()
+                        } else {
+                            currentTab = TopLevelDestination.HOME
+                        }
+                    }
+                    val sceneState = rememberSceneState(
                         entries = entries,
-                        // The current tab first, and only when it is spent does back mean "leave this
-                        // tab". `NavDisplay` handles back whenever there is more than one entry, and
-                        // with 首页 underneath there always is — so popping blindly would empty a
-                        // secondary tab's stack.
-                        onBack = {
-                            if (backStack.size > 1) {
-                                backStack.removeLastOrNull()
-                            } else {
-                                currentTab = TopLevelDestination.HOME
-                            }
-                        },
                         sceneStrategies = listOf(listDetailSceneStrategy),
                         sharedTransitionScope = this@SharedTransitionLayout,
+                        onBack = navigateBack,
+                    )
+                    val backState = rememberNavigationBackState(sceneState, navigationSettings.predictiveBack, navigateBack)
+                    NavDisplay(
+                        sceneState = sceneState,
+                        navigationEventState = backState,
                         // Nav3's own defaults are a 700ms slide built from `tween` and `spring`, written
                         // out rather than taken from the motion scheme — so `PlazaTheme`'s snapped scheme,
                         // which silences everything else, does not reach them. On paper a slide is the

@@ -26,7 +26,7 @@ data class ReadHistoryUiState(
 )
 
 /**
- * 浏览历史 — every thread this device has opened, newest first.
+ * 浏览历史 — the active account's opened threads, newest first; visitors have their own history.
  *
  * Purely local. NodeSeek keeps no such list, so there is nothing to fetch, nothing to refresh and no
  * failure state: the database either has rows or it does not.

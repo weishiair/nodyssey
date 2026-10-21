@@ -550,7 +550,7 @@ class NodeSeekDatabaseMigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate(DATABASE_NAME, 20, true, *NODESEEK_MIGRATIONS)
+        val migrated = helper.runMigrationsAndValidate(DATABASE_NAME, 21, true, *NODESEEK_MIGRATIONS)
 
         migrated.query("SELECT title, isBlocked, isAwarded FROM posts WHERE postId = 42").use {
             it.moveToFirst()
@@ -568,6 +568,54 @@ class NodeSeekDatabaseMigrationTest {
             it.moveToFirst()
             assertEquals(3, it.getInt(0))
             assertTrue(it.isNull(1))
+        }
+        migrated.close()
+    }
+
+    @Test
+    fun `history upgrade keeps existing marks and positions with the cached uid`() {
+        helper.createDatabase(DATABASE_NAME, 20).apply {
+            execSQL("INSERT INTO cache_session(id, authenticated, fingerprint) VALUES(0, 1, 123)")
+            execSQL("INSERT INTO self_profile(sessionFingerprint, uid, name, avatarUrl, cachedAtMillis) VALUES(123, 71, 'reader', '', 1000)")
+            execSQL("INSERT INTO post_read_marks(postId, lastReadAtMillis, lastSeenCommentCount, title) VALUES(42, 1000, 12, 'saved title')")
+            execSQL("INSERT INTO post_reading_positions(postId, page, floor, updatedAtMillis) VALUES(42, 3, '#25', 1200)")
+            close()
+        }
+        val migrated = helper.runMigrationsAndValidate(DATABASE_NAME, 21, true, MIGRATION_20_21)
+        migrated.query("SELECT ownerKey, fingerprint FROM reading_history_account WHERE id = 0").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("uid:71", it.getString(0))
+            assertEquals(123, it.getInt(1))
+        }
+        migrated.query("SELECT title, lastSeenCommentCount FROM post_read_marks WHERE postId = 42").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("saved title", it.getString(0))
+            assertEquals(12, it.getInt(1))
+        }
+        migrated.query("SELECT page, floor FROM post_reading_positions WHERE postId = 42").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(3, it.getInt(0))
+            assertEquals("#25", it.getString(1))
+        }
+        migrated.close()
+    }
+
+    @Test
+    fun `history upgrade leaves an unknown session isolated from another cached account`() {
+        helper.createDatabase(DATABASE_NAME, 20).apply {
+            execSQL("INSERT INTO cache_session(id, authenticated, fingerprint) VALUES(0, 1, 456)")
+            execSQL("INSERT INTO self_profile(sessionFingerprint, uid, name, avatarUrl, cachedAtMillis) VALUES(123, 71, 'reader', '', 1000)")
+            execSQL("INSERT INTO post_read_marks(postId, lastReadAtMillis, lastSeenCommentCount) VALUES(42, 1000, 12)")
+            close()
+        }
+        val migrated = helper.runMigrationsAndValidate(DATABASE_NAME, 21, true, MIGRATION_20_21)
+        migrated.query("SELECT ownerKey FROM reading_history_account WHERE id = 0").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("session:456", it.getString(0))
+        }
+        migrated.query("SELECT COUNT(*) FROM post_read_marks").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(1, it.getInt(0))
         }
         migrated.close()
     }

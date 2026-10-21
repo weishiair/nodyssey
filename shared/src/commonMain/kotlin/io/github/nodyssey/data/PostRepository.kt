@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 
 /**
  * One row as the list renders it: the post, plus what the user has already seen of it.
@@ -76,6 +77,8 @@ data class ReadHistoryEntry(
      * with it, and 撤销 has only this entry to put everything back from.
      */
     val readingPosition: ReadingPosition? = null,
+    /** Prevents an Undo retained across account switches from writing into the next account. */
+    val historyOwnerKey: String? = null,
 )
 
 /**
@@ -173,11 +176,12 @@ interface PostRepository {
     suspend fun invalidateCaches()
 
     /**
-     * Removes every post-derived value that may have been fetched with an authenticated session.
+     * Removes downloaded session content and switches browsing history to the guest's own records.
      *
      * The database cannot currently prove which rows came from a public page and which came from a
      * signed-in-only board, so logout must fail closed and clear the whole post cache. Boards and
-     * settings are not session-scoped and are deliberately retained.
+     * settings are retained. Account history is parked separately by UID, including reading places,
+     * and is restored only after the signed-in account has been identified again.
      */
     suspend fun clearSessionData()
 
@@ -372,6 +376,7 @@ class OfflineFirstPostRepository(
      * simply remembers nothing rather than remembering something invented.
      */
     private val collectedMeta: CollectedPostMetaStore? = null,
+    private val historyAccounts: ReadingHistoryAccounts = ReadingHistoryAccounts(database),
 ) : PostRepository {
     override fun feed(
         categorySlug: String?,
@@ -471,6 +476,7 @@ class OfflineFirstPostRepository(
 
     override suspend fun clearSessionData() {
         database.writeTransaction {
+            historyAccounts.signOut()
             clearPostData()
             database.cacheSessionDao().upsert(
                 CacheSessionEntity(authenticated = false, fingerprint = 0),
@@ -499,14 +505,15 @@ class OfflineFirstPostRepository(
     ): Boolean =
         database.writeTransaction {
             val previous = database.cacheSessionDao().find()
+            val current = historyAccounts.activateSession(isSignedIn, fingerprint)
             val mustClear =
                 previous?.authenticated == true &&
-                    (!isSignedIn || previous.fingerprint != fingerprint)
+                    (!current.authenticated || previous.fingerprint != current.fingerprint)
             if (mustClear) clearPostData()
             database.cacheSessionDao().upsert(
                 CacheSessionEntity(
-                    authenticated = isSignedIn,
-                    fingerprint = if (isSignedIn) fingerprint else 0,
+                    authenticated = current.authenticated,
+                    fingerprint = if (current.authenticated) current.fingerprint else 0,
                 ),
             )
             mustClear
@@ -519,8 +526,6 @@ class OfflineFirstPostRepository(
         database.feedDao().clearAllRemoteKeys()
         database.feedDao().clearAllPosts()
         database.postDetailDao().clearAllThreads()
-        database.readMarkDao().clearAll()
-        database.readingPositionDao().clearAll()
         // The collection is one account's, and this runs when the account changes or goes away. It
         // was harmless to keep while 收藏 asked the site for its list every time; now that the list
         // is read off disk, keeping it would show the previous account's collection to whoever signs
@@ -645,7 +650,7 @@ class OfflineFirstPostRepository(
     override suspend fun cachedPages(postId: Long): IntRange? =
         database.postDetailDao().findDetail(postId)?.let { it.firstLoadedPage..it.lastLoadedPage }
 
-    override suspend fun markThreadRead(postId: Long) {
+    override suspend fun markThreadRead(postId: Long) = historyAccounts.withCurrent {
         val listRow = database.feedDao().findPost(postId)
         // The cached thread is the better source for a deep link: it is what was just rendered,
         // whereas `posts` holds nothing at all for a thread no feed ever carried.
@@ -665,7 +670,7 @@ class OfflineFirstPostRepository(
         trimReadHistory()
     }
 
-    override suspend fun noteOwnReplyPublished(postId: Long) {
+    override suspend fun noteOwnReplyPublished(postId: Long) = historyAccounts.withCurrent {
         val previous = database.readMarkDao().find(postId)
         val listRow = database.feedDao().findPost(postId)
         val cached = database.postDetailDao().findDetail(postId)
@@ -689,13 +694,15 @@ class OfflineFirstPostRepository(
             .distinctUntilChanged()
             .flatMapLatest { limit -> database.readMarkDao().observeHistory(limit) }
             .map { rows -> rows.map(ReadHistoryRow::toHistoryEntry) }
+            .onStart { historyAccounts.withCurrent {} }
 
-    override suspend fun removeFromHistory(postId: Long) {
+    override suspend fun removeFromHistory(postId: Long) = historyAccounts.withCurrent {
         database.readMarkDao().delete(postId)
         database.readingPositionDao().delete(postId)
     }
 
-    override suspend fun restoreToHistory(entry: ReadHistoryEntry) {
+    override suspend fun restoreToHistory(entry: ReadHistoryEntry): Unit = historyAccounts.withCurrent {
+        if (entry.historyOwnerKey != null && entry.historyOwnerKey != historyAccounts.currentOwner()) return@withCurrent
         database.readMarkDao().upsert(
             ReadMarkEntity(
                 postId = entry.postId,
@@ -723,18 +730,18 @@ class OfflineFirstPostRepository(
         }
     }
 
-    override suspend fun trimReadHistory() {
+    override suspend fun trimReadHistory() = historyAccounts.withCurrent {
         val limit = readHistoryLimit.first()
         // Skipped rather than run with Int.MAX_VALUE: 无上限 should not cost a full-table DELETE scan
         // on every thread the user opens.
-        if (limit == SettingsRepository.READ_HISTORY_UNLIMITED) return
+        if (limit == SettingsRepository.READ_HISTORY_UNLIMITED) return@withCurrent
         database.readMarkDao().trimTo(limit)
         // The same number bounds the bookmarks, and this is the only place that has to know it: a
         // place can only exist for a thread that was opened, and opening one is what runs this.
         database.readingPositionDao().trimTo(limit)
     }
 
-    override suspend fun clearReadHistory() {
+    override suspend fun clearReadHistory() = historyAccounts.withCurrent {
         database.readMarkDao().clearAll()
         database.readingPositionDao().clearAll()
     }
@@ -865,6 +872,7 @@ private fun ReadHistoryRow.toHistoryEntry(): ReadHistoryEntry =
         commentCount = mark.commentCount,
         lastReadAtMillis = mark.lastReadAtMillis,
         readingPosition = readingPage?.let { ReadingPosition(page = it, floor = readingFloor) },
+        historyOwnerKey = historyOwnerKey,
     )
 
 private fun FeedPostRow.toFeedPost(): FeedPost {

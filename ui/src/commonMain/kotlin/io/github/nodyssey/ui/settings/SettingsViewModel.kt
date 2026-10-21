@@ -138,6 +138,14 @@ class SettingsViewModel(
         viewModelScope.launch { settings.setOneHandMode(value) }
     }
 
+    fun setPredictiveBack(value: Boolean) {
+        viewModelScope.launch { settings.setPredictiveBack(value) }
+    }
+
+    fun setSearchHistoryLimit(value: Int) {
+        viewModelScope.launch { settings.setSearchHistoryLimit(value) }
+    }
+
     fun setEinkMode(value: Boolean) {
         viewModelScope.launch { settings.setEinkMode(value) }
     }

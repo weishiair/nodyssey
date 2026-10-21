@@ -1655,4 +1655,9 @@
     <string name="post_loaded_scroll_position">Scroll position in loaded replies</string>
     <string name="post_floor_range">Floor range: 0–%1$d</string>
     <string name="post_reading_end">You have reached the last reply</string>
+    <string name="settings_predictive_back">Predictive back animation</string>
+    <string name="settings_predictive_back_hint">Preview the previous screen while swiping; turn off to navigate only on release</string>
+    <string name="settings_search_history_limit">Search history limit</string>
+    <string name="settings_search_history_limit_hint">Separate limits for posts and users; lowering the limit removes older entries</string>
+    <string name="settings_search_history_limit_count">%1$d per type</string>
 </resources>

@@ -123,6 +123,7 @@ class NetworkProfileRepository(
      */
     private val isSignedIn: () -> Boolean,
     private val clock: AppClock,
+    private val onAccountIdentified: suspend (Int, Long) -> Unit = { _, _ -> },
 ) : ProfileRepository {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -137,7 +138,12 @@ class NetworkProfileRepository(
 
     override fun observeProfile(sessionFingerprint: Int): Flow<UserProfile?> =
         profileDao.observe(sessionFingerprint).map { entity ->
-            entity?.toProfile()?.also { selfUidState.value = it.uid }
+            entity?.toProfile()?.also {
+                if (isSignedIn() && currentSessionFingerprint() == sessionFingerprint) {
+                    selfUidState.value = it.uid
+                    onAccountIdentified(sessionFingerprint, it.uid)
+                }
+            }
         }
 
     override suspend fun refreshProfile(sessionFingerprint: Int) {
@@ -162,7 +168,10 @@ class NetworkProfileRepository(
                     .find(fingerprint)
                     ?.takeIf { clock.nowMillis() - it.cachedAtMillis < PROFILE_CACHE_TTL_MILLIS }
                     ?.toProfile()
-                    ?.also { selfUidState.value = it.uid }
+                    ?.also {
+                        selfUidState.value = it.uid
+                        onAccountIdentified(fingerprint, it.uid)
+                    }
                     ?.let { return@withLock it }
             }
             fetchAndStore(fingerprint)
@@ -170,7 +179,9 @@ class NetworkProfileRepository(
 
     private suspend fun fetchAndStore(sessionFingerprint: Int): UserProfile =
         fetchProfile().also { profile ->
+            if (!isSignedIn() || currentSessionFingerprint() != sessionFingerprint) return@also
             profileDao.replace(profile.toEntity(sessionFingerprint, clock.nowMillis()))
+            onAccountIdentified(sessionFingerprint, profile.uid)
         }
 
     private suspend fun fetchProfile(): UserProfile {

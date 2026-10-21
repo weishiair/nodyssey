@@ -26,6 +26,9 @@ import androidx.sqlite.execSQL
         CommentEntity::class,
         ReadMarkEntity::class,
         ReadingPositionEntity::class,
+        AccountReadMarkEntity::class,
+        AccountReadingPositionEntity::class,
+        ReadingHistoryAccountEntity::class,
         CacheSessionEntity::class,
         SelfProfileEntity::class,
         OfflineThreadEntity::class,
@@ -40,7 +43,7 @@ import androidx.sqlite.execSQL
         StickerRepoEntity::class,
         StickerFolderEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
 )
 @TypeConverters(RichContentConverters::class)
@@ -55,6 +58,8 @@ abstract class NodeSeekDatabase : RoomDatabase() {
     abstract fun readMarkDao(): ReadMarkDao
 
     abstract fun readingPositionDao(): ReadingPositionDao
+
+    abstract fun readingHistoryAccountDao(): ReadingHistoryAccountDao
 
     abstract fun cacheSessionDao(): CacheSessionDao
 
@@ -477,6 +482,51 @@ val MIGRATION_19_20 =
         }
     }
 
+/** Keeps existing history with the account identified by the cached profile, or its pending session. */
+val MIGRATION_20_21 =
+    object : Migration(20, 21) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `account_read_marks` (
+                    `ownerKey` TEXT NOT NULL, `postId` INTEGER NOT NULL,
+                    `lastReadAtMillis` INTEGER NOT NULL, `lastSeenCommentCount` INTEGER NOT NULL,
+                    `title` TEXT, `authorName` TEXT, `authorUid` INTEGER, `categoryTitle` TEXT,
+                    `commentCount` INTEGER, PRIMARY KEY(`ownerKey`, `postId`)
+                )
+                """.trimIndent(),
+            )
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `account_reading_positions` (
+                    `ownerKey` TEXT NOT NULL, `postId` INTEGER NOT NULL, `page` INTEGER NOT NULL,
+                    `floor` TEXT, `updatedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`ownerKey`, `postId`)
+                )
+                """.trimIndent(),
+            )
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `reading_history_account` (
+                    `id` INTEGER NOT NULL, `ownerKey` TEXT NOT NULL,
+                    `authenticated` INTEGER NOT NULL, `fingerprint` INTEGER NOT NULL, PRIMARY KEY(`id`)
+                )
+                """.trimIndent(),
+            )
+            connection.execSQL(
+                """
+                INSERT INTO reading_history_account(id, ownerKey, authenticated, fingerprint)
+                SELECT 0,
+                    CASE WHEN c.authenticated = 1 THEN
+                        COALESCE((SELECT 'uid:' || uid FROM self_profile
+                                  WHERE sessionFingerprint = c.fingerprint LIMIT 1), 'session:' || c.fingerprint)
+                    ELSE 'guest' END,
+                    COALESCE(c.authenticated, 0), COALESCE(c.fingerprint, 0)
+                FROM (SELECT 0 AS id) AS singleton LEFT JOIN cache_session AS c ON c.id = singleton.id
+                """.trimIndent(),
+            )
+        }
+    }
+
 /**
  * Every migration this schema has, in order — the list `createNodeSeekDatabase` opens the file with.
  *
@@ -507,4 +557,5 @@ val NODESEEK_MIGRATIONS = arrayOf(
     MIGRATION_17_18,
     MIGRATION_18_19,
     MIGRATION_19_20,
+    MIGRATION_20_21,
 )

@@ -80,6 +80,7 @@ class SettingsRepository(
                 fontScale = preferences[KEY_FONT_SCALE] ?: 1f,
                 oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: true,
                 einkMode = preferences[KEY_EINK_MODE] ?: false,
+                predictiveBack = preferences[KEY_PREDICTIVE_BACK] ?: true,
                 stickerUniformSize = preferences[KEY_STICKER_UNIFORM_SIZE] ?: true,
                 stickerSize = (preferences[KEY_STICKER_SIZE] ?: DEFAULT_STICKER_SIZE_SP)
                     .coerceIn(MIN_STICKER_SIZE_SP, MAX_STICKER_SIZE_SP),
@@ -94,6 +95,7 @@ class SettingsRepository(
                 clipboardPostPrompt = preferences[KEY_CLIPBOARD_POST_PROMPT] ?: true,
                 holidayTheme = preferences[KEY_HOLIDAY_THEME] ?: false,
                 searchHistory = decodeSearchHistory(preferences),
+                searchHistoryLimit = searchHistoryLimit(preferences),
                 recentBoards = decodeValues(preferences[KEY_RECENT_BOARDS]),
                 hiddenHomeBoards =
                 decodeValues(preferences[KEY_HIDDEN_HOME_BOARDS])
@@ -353,9 +355,21 @@ class SettingsRepository(
             preferences[KEY_SEARCH_HISTORY] =
                 json.encodeToString(
                     (listOf(normalized) + history.filterNot { it.key == normalized.key })
-                        .take(MAX_RECENT_SEARCHES)
+                        .limitSearchHistory(searchHistoryLimit(preferences))
                         .map(SearchHistoryEntry::toStored),
                 )
+        }
+    }
+
+    suspend fun setPredictiveBack(enabled: Boolean) = edit { it[KEY_PREDICTIVE_BACK] = enabled }
+
+    suspend fun setSearchHistoryLimit(limit: Int) {
+        dataStore.edit { preferences ->
+            val selected = limit.takeIf { it in SEARCH_HISTORY_LIMIT_CHOICES } ?: DEFAULT_SEARCH_HISTORY_LIMIT
+            preferences[KEY_SEARCH_HISTORY_LIMIT] = selected
+            preferences[KEY_SEARCH_HISTORY] = json.encodeToString(
+                decodeSearchHistory(preferences).limitSearchHistory(selected).map(SearchHistoryEntry::toStored),
+            )
         }
     }
 
@@ -637,6 +651,8 @@ class SettingsRepository(
         private val KEY_FONT_SCALE = floatPreferencesKey("font_scale")
         private val KEY_ONE_HAND_MODE = booleanPreferencesKey("one_hand_mode")
         private val KEY_EINK_MODE = booleanPreferencesKey("eink_mode")
+        private val KEY_PREDICTIVE_BACK = booleanPreferencesKey("predictive_back")
+        private val KEY_SEARCH_HISTORY_LIMIT = intPreferencesKey("search_history_limit")
         private val KEY_STICKER_UNIFORM_SIZE = booleanPreferencesKey("sticker_uniform_size")
         private val KEY_STICKER_SIZE = intPreferencesKey("sticker_size_sp")
         private val KEY_IMAGES_WIFI_ONLY = booleanPreferencesKey("images_on_wifi_only")
@@ -699,7 +715,21 @@ class SettingsRepository(
         private val KEY_UPDATE_SOURCE = stringPreferencesKey("update_source")
 
         private const val RECENT_SEARCH_SEPARATOR = '\u001F'
-        private const val MAX_RECENT_SEARCHES = 8
+        const val DEFAULT_SEARCH_HISTORY_LIMIT = 100
+        val SEARCH_HISTORY_LIMIT_CHOICES = listOf(50, 100, 200, 500)
+
+        private fun searchHistoryLimit(preferences: Preferences): Int =
+            preferences[KEY_SEARCH_HISTORY_LIMIT]?.takeIf { it in SEARCH_HISTORY_LIMIT_CHOICES }
+                ?: DEFAULT_SEARCH_HISTORY_LIMIT
+
+        private fun List<SearchHistoryEntry>.limitSearchHistory(limit: Int): List<SearchHistoryEntry> {
+            val counts = mutableMapOf<SearchTarget, Int>()
+            return filter { entry ->
+                val count = counts.getOrElse(entry.target) { 0 }
+                counts[entry.target] = count + 1
+                count < limit
+            }
+        }
         private const val MAX_RECENT_BOARDS = 6
 
         /** The site has fifteen boards. The cap is only here so a corrupt write cannot grow forever. */
@@ -820,6 +850,7 @@ data class UserSettings(
      * screen — which is why paper books are not black.
      */
     val einkMode: Boolean = false,
+    val predictiveBack: Boolean = true,
     /**
      * 表情统一缩限. True — the default — draws every inline sticker in the same [stickerSize] square,
      * which at its smallest is the 20sp box that keeps a sticker inside a line of body text. False
@@ -862,6 +893,7 @@ data class UserSettings(
     /** Local mirror of the account's Remote 启用节日主题 switch. */
     val holidayTheme: Boolean = false,
     val searchHistory: List<SearchHistoryEntry> = emptyList(),
+    val searchHistoryLimit: Int = SettingsRepository.DEFAULT_SEARCH_HISTORY_LIMIT,
     val recentBoards: List<String> = emptyList(),
     /** Boards switched off the home feed. Empty — the default — hides nothing; see `setHomeBoardHidden`. */
     val hiddenHomeBoards: Set<String> = emptySet(),

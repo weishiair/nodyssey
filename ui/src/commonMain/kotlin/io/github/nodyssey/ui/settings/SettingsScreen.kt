@@ -1,6 +1,7 @@
 package io.github.nodyssey.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -13,6 +14,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -91,10 +95,15 @@ import io.github.nodyssey.ui.resources.settings_notify_summary_every
 import io.github.nodyssey.ui.resources.settings_notify_summary_quiet
 import io.github.nodyssey.ui.resources.settings_one_hand
 import io.github.nodyssey.ui.resources.settings_one_hand_hint
+import io.github.nodyssey.ui.resources.settings_predictive_back
+import io.github.nodyssey.ui.resources.settings_predictive_back_hint
 import io.github.nodyssey.ui.resources.settings_proxy_entry
 import io.github.nodyssey.ui.resources.settings_report_format
 import io.github.nodyssey.ui.resources.settings_report_format_adapted
 import io.github.nodyssey.ui.resources.settings_report_format_source
+import io.github.nodyssey.ui.resources.settings_search_history_limit
+import io.github.nodyssey.ui.resources.settings_search_history_limit_count
+import io.github.nodyssey.ui.resources.settings_search_history_limit_hint
 import io.github.nodyssey.ui.resources.settings_sticker_preview_caption
 import io.github.nodyssey.ui.resources.settings_sticker_size
 import io.github.nodyssey.ui.resources.settings_sticker_uniform
@@ -170,6 +179,8 @@ fun SettingsRoute(
         onThemeModeChange = viewModel::setThemeMode,
         onAppLanguageChange = viewModel::setAppLanguage,
         onOneHandModeChange = viewModel::setOneHandMode,
+        onPredictiveBackChange = viewModel::setPredictiveBack,
+        onSearchHistoryLimitChange = viewModel::setSearchHistoryLimit,
         onEinkModeChange = viewModel::setEinkMode,
         onFontScaleChange = viewModel::setFontScale,
         onStickerUniformSizeChange = viewModel::setStickerUniformSize,
@@ -225,6 +236,8 @@ fun SettingsScreen(
     onOpenBlockKeywords: () -> Unit = {},
     onAppLanguageChange: (AppLanguage) -> Unit = {},
     onEinkModeChange: (Boolean) -> Unit = {},
+    onPredictiveBackChange: (Boolean) -> Unit = {},
+    onSearchHistoryLimitChange: (Int) -> Unit = {},
     /** Null hides 识别剪贴板中的帖子: a platform where reading the clipboard costs a prompt each time. */
     onClipboardPostPromptChange: ((Boolean) -> Unit)? = null,
 ) {
@@ -424,6 +437,15 @@ fun SettingsScreen(
                     onCheckedChange = onHomePageBarChange,
                     trailing = { GroupedListItemSwitch(checked = state.settings.homePageBar) },
                 )
+                GroupedRow(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    title = stringResource(Res.string.settings_predictive_back),
+                    subtitle = stringResource(Res.string.settings_predictive_back_hint),
+                    checked = state.settings.predictiveBack,
+                    onCheckedChange = onPredictiveBackChange,
+                    trailing = { GroupedListItemSwitch(checked = state.settings.predictiveBack) },
+                )
+                SearchHistoryLimitSetting(state.settings.searchHistoryLimit, onSearchHistoryLimitChange)
                 onClipboardPostPromptChange?.let { onChange ->
                     GroupedRow(
                         icon = PlazaIcons.ContentPaste,
@@ -570,6 +592,31 @@ fun SettingsScreen(
                     title = stringResource(Res.string.settings_licenses),
                     last = true,
                     onClick = onOpenLicenses,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchHistoryLimitSetting(limit: Int, onChange: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        GroupedRow(
+            icon = PlazaIcons.History,
+            title = stringResource(Res.string.settings_search_history_limit),
+            subtitle = stringResource(Res.string.settings_search_history_limit_hint),
+            onClick = { expanded = true },
+            trailing = { Text(stringResource(Res.string.settings_search_history_limit_count, limit)) },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            SettingsRepository.SEARCH_HISTORY_LIMIT_CHOICES.forEach { count ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.settings_search_history_limit_count, count)) },
+                    onClick = {
+                        expanded = false
+                        onChange(count)
+                    },
                 )
             }
         }

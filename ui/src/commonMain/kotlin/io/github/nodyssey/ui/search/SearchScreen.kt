@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -56,7 +57,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -866,41 +866,42 @@ private fun ColumnScope.SearchHistory(
     onRemoveHistory: (SearchHistoryEntry) -> Unit,
     onClearHistory: () -> Unit,
 ) {
-    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.sm, top = Spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                stringResource(Res.string.search_recent),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onClearHistory) {
-                Text(stringResource(Res.string.search_clear_all), fontWeight = FontWeight.SemiBold)
+    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = Spacing.lg)) {
+        item(key = "history-header") {
+            Row(
+                Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.sm, top = Spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(Res.string.search_recent),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onClearHistory) {
+                    Text(stringResource(Res.string.search_clear_all), fontWeight = FontWeight.SemiBold)
+                }
             }
         }
         if (searches.isEmpty()) {
-            Text(
-                stringResource(Res.string.search_history_empty),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.md),
-            )
+            item(key = "history-empty") {
+                Text(
+                    stringResource(Res.string.search_history_empty),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.md),
+                )
+            }
         } else {
-            Column(Modifier.padding(start = LayerPageGutter, end = LayerPageGutter, bottom = Spacing.lg)) {
-                searches.forEachIndexed { index, recent ->
-                    // Keyed so removing one row does not hand its neighbour's pressed state around.
-                    key(recent.key) {
-                        HistoryRow(
-                            recent = recent,
-                            boards = boards,
-                            first = index == 0,
-                            last = index == searches.lastIndex,
-                            onClick = { onHistoryClick(recent) },
-                            onRemove = { onRemoveHistory(recent) },
-                        )
-                    }
+            itemsIndexed(searches, key = { _, recent -> recent.key }) { index, recent ->
+                Box(Modifier.padding(horizontal = LayerPageGutter)) {
+                    HistoryRow(
+                        recent = recent,
+                        boards = boards,
+                        first = index == 0,
+                        last = index == searches.lastIndex,
+                        onClick = { onHistoryClick(recent) },
+                        onRemove = { onRemoveHistory(recent) },
+                    )
                 }
             }
         }

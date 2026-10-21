@@ -30,6 +30,8 @@ fun interface AccountSignOut {
  * Navigation 3 entries alive, so clearing cookies alone would leave their already-rendered private
  * rows readable. And [SessionRepository.signOut] is what publishes the signed-out state, so
  * everything the next account must not see has to be gone before it runs.
+ * Browsing history is switched to a separate guest history; the identified account's records stay
+ * parked by UID, inaccessible through the active tables until that same account signs in again.
  */
 class DefaultAccountSignOut(
     private val posts: PostRepository,

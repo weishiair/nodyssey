@@ -1923,4 +1923,9 @@
     <string name="post_loaded_scroll_position">已加载回复的滚动位置</string>
     <string name="post_floor_range">楼层范围：0–%1$d</string>
     <string name="post_reading_end">已读到最后一条回复</string>
+    <string name="settings_predictive_back">预测式返回动画</string>
+    <string name="settings_predictive_back_hint">滑动返回时预览上一页；关闭后松手再返回</string>
+    <string name="settings_search_history_limit">搜索历史保留数量</string>
+    <string name="settings_search_history_limit_hint">帖子和用户搜索分别保存，减少数量会删除较早记录</string>
+    <string name="settings_search_history_limit_count">每类 %1$d 条</string>
 </resources>

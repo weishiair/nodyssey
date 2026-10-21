@@ -53,14 +53,15 @@ interface ReadingPositionStore {
 class RoomReadingPositionStore(
     private val dao: ReadingPositionDao,
     private val clock: AppClock,
+    private val accounts: ReadingHistoryAccounts? = null,
 ) : ReadingPositionStore {
     override suspend fun readingPosition(postId: Long): ReadingPosition? =
-        dao.find(postId)?.let { ReadingPosition(page = it.page, floor = it.floor) }
+        withCurrent { dao.find(postId)?.let { ReadingPosition(page = it.page, floor = it.floor) } }
 
     override suspend fun setReadingPosition(
         postId: Long,
         position: ReadingPosition,
-    ) {
+    ) = withCurrent {
         dao.upsert(
             ReadingPositionEntity(
                 postId = postId,
@@ -70,6 +71,9 @@ class RoomReadingPositionStore(
             ),
         )
     }
+
+    private suspend fun <T> withCurrent(block: suspend () -> T): T =
+        if (accounts != null) accounts.withCurrent(block) else block()
 }
 
 /** The store a preview or a test gets when the caller supplied none: it remembers nothing. */

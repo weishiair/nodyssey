@@ -9,6 +9,9 @@ interface ReadingPositionDao {
     @Upsert
     suspend fun upsert(position: ReadingPositionEntity)
 
+    @Query("SELECT * FROM post_reading_positions")
+    suspend fun all(): List<ReadingPositionEntity>
+
     @Query("SELECT * FROM post_reading_positions WHERE postId = :postId")
     suspend fun find(postId: Long): ReadingPositionEntity?
 

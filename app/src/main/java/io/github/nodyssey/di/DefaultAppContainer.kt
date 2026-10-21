@@ -46,6 +46,7 @@ import io.github.nodyssey.data.PostCollectionWriter
 import io.github.nodyssey.data.PostReactionWriter
 import io.github.nodyssey.data.PostRepository
 import io.github.nodyssey.data.ProfileRepository
+import io.github.nodyssey.data.ReadingHistoryAccounts
 import io.github.nodyssey.data.ReadingPositionStore
 import io.github.nodyssey.data.RoomCollectedPostMetaStore
 import io.github.nodyssey.data.RoomReadingPositionStore
@@ -470,6 +471,8 @@ class DefaultAppContainer(
         )
     }
 
+    private val historyAccounts by lazy { ReadingHistoryAccounts(database) { sessionRepository.state.value } }
+
     override val postRepository: PostRepository by lazy {
         OfflineFirstPostRepository(
             database,
@@ -483,6 +486,7 @@ class DefaultAppContainer(
             // interface only: the repository must not be able to start a download.
             offlineLibrary as? OfflineThreadReader,
             collectedPostMetaStore,
+            historyAccounts = historyAccounts,
         )
     }
 
@@ -495,7 +499,7 @@ class DefaultAppContainer(
     override val trackedThreadStore: TrackedThreadStore by lazy { TrackedThreadStore(database.trackedThreadDao(), clock) }
 
     override val readingPositionStore: ReadingPositionStore by lazy {
-        RoomReadingPositionStore(database.readingPositionDao(), clock)
+        RoomReadingPositionStore(database.readingPositionDao(), clock, historyAccounts)
     }
 
     override val categoryRepository: CategoryRepository by lazy {
@@ -535,6 +539,7 @@ class DefaultAppContainer(
             currentSessionFingerprint = { sessionRepository.state.value.fingerprint },
             isSignedIn = { sessionRepository.state.value.isSignedIn },
             clock = clock,
+            onAccountIdentified = historyAccounts::identify,
         )
     }
 

@@ -18,12 +18,16 @@ data class ReadHistoryRow(
     @Embedded val mark: ReadMarkEntity,
     val readingPage: Int?,
     val readingFloor: String?,
+    val historyOwnerKey: String?,
 )
 
 @Dao
 interface ReadMarkDao {
     @Upsert
     suspend fun upsert(mark: ReadMarkEntity)
+
+    @Query("SELECT * FROM post_read_marks")
+    suspend fun all(): List<ReadMarkEntity>
 
     @Query("SELECT * FROM post_read_marks WHERE postId = :postId")
     suspend fun find(postId: Long): ReadMarkEntity?
@@ -41,7 +45,8 @@ interface ReadMarkDao {
      */
     @Query(
         """
-        SELECT m.*, p.page AS readingPage, p.floor AS readingFloor
+        SELECT m.*, p.page AS readingPage, p.floor AS readingFloor,
+               (SELECT ownerKey FROM reading_history_account WHERE id = 0) AS historyOwnerKey
         FROM post_read_marks AS m
         LEFT JOIN post_reading_positions AS p ON p.postId = m.postId
         ORDER BY m.lastReadAtMillis DESC LIMIT :limit

@@ -174,8 +174,9 @@ class PostDetailCacheTest {
         }
 
     @Test
-    fun `clearing session data removes feeds threads and read marks but keeps boards`() =
+    fun `clearing session data hides account history and removes content but keeps boards`() =
         runTest {
+            repository.reconcileSession(isSignedIn = true, fingerprint = 123)
             database.boardDao().replaceAll(listOf(Board("inside", "内版", null).toEntity(0)))
             repository.refreshThread(postId = 42, page = 1)
             repository.markThreadRead(42)

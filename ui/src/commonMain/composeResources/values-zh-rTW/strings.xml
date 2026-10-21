@@ -1647,4 +1647,9 @@
     <string name="post_loaded_scroll_position">已載入回覆的捲動位置</string>
     <string name="post_floor_range">樓層範圍：0–%1$d</string>
     <string name="post_reading_end">已讀到最後一則回覆</string>
+    <string name="settings_predictive_back">預測式返回動畫</string>
+    <string name="settings_predictive_back_hint">滑動返回時預覽上一頁；關閉後放手再返回</string>
+    <string name="settings_search_history_limit">搜尋歷史保留數量</string>
+    <string name="settings_search_history_limit_hint">文章與使用者搜尋分別儲存，減少數量會刪除較早紀錄</string>
+    <string name="settings_search_history_limit_count">每類 %1$d 筆</string>
 </resources>
