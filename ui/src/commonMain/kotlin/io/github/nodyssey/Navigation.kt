@@ -1,11 +1,6 @@
 package io.github.nodyssey
 
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -52,28 +47,22 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.get
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
-import androidx.navigation3.scene.Scene
-import androidx.navigation3.scene.rememberSceneState
 import androidx.navigation3.ui.NavDisplay
-import androidx.navigation3.ui.defaultPopTransitionSpec
-import androidx.navigation3.ui.defaultPredictivePopTransitionSpec
-import androidx.navigation3.ui.defaultTransitionSpec
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.NotificationTab
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
-import io.github.nodyssey.ui.common.LocalThreadTransition
 import io.github.nodyssey.ui.common.appName
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.common.contentSwipeBack
 import io.github.nodyssey.ui.common.contentSwipeBackSupported
-import io.github.nodyssey.ui.common.rememberNavigationBackState
 import io.github.nodyssey.ui.common.rememberNewClipboardText
 import io.github.nodyssey.ui.common.rememberTouchExplorationEnabled
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
@@ -240,6 +229,7 @@ fun MainNavigation(
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
     val currentEinkMode by rememberUpdatedState(LocalEinkMode.current)
+    val currentPredictiveBack by rememberUpdatedState(navigationSettings.predictiveBack)
     val listDetailSceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
 
@@ -443,17 +433,28 @@ fun MainNavigation(
      * Three `remember` calls rather than a loop, for the same reason the stacks above are written out.
      */
     val homeProvider =
-        remember { stackScopedEntryProvider(TopLevelDestination.HOME, destinationProvider(homeStack, dependencies)) }
+        remember {
+            stackScopedEntryProvider(
+                TopLevelDestination.HOME,
+                destinationProvider(homeStack, dependencies),
+                predictiveBack = { currentPredictiveBack },
+            )
+        }
     val notificationsProvider =
         remember {
             stackScopedEntryProvider(
                 TopLevelDestination.NOTIFICATIONS,
                 destinationProvider(notificationsStack, dependencies),
+                predictiveBack = { currentPredictiveBack },
             )
         }
     val profileProvider =
         remember {
-            stackScopedEntryProvider(TopLevelDestination.PROFILE, destinationProvider(profileStack, dependencies))
+            stackScopedEntryProvider(
+                TopLevelDestination.PROFILE,
+                destinationProvider(profileStack, dependencies),
+                predictiveBack = { currentPredictiveBack },
+            )
         }
 
     val viewModelDecorator = rememberViewModelStoreNavEntryDecorator<NavKey>()
@@ -604,8 +605,6 @@ fun MainNavigation(
                     )
                 }
                 CompositionLocalProvider(
-                    LocalThreadTransition provides
-                        this@SharedTransitionLayout.takeUnless { isListDetailExpanded || eink },
                     // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
                     LocalOpenNetworkCheck provides { openNetworkCheck() },
                     // 测评对比 from any report card's 对比 (n), onto whichever tab the card is in.
@@ -620,29 +619,14 @@ fun MainNavigation(
                             currentTab = TopLevelDestination.HOME
                         }
                     }
-                    val sceneState = rememberSceneState(
+                    NodysseyNavDisplay(
                         entries = entries,
+                        predictiveBack = navigationSettings.predictiveBack,
+                        eink = eink,
                         sceneStrategies = listOf(listDetailSceneStrategy),
                         sharedTransitionScope = this@SharedTransitionLayout,
+                        sharedThreadTransitions = !isListDetailExpanded,
                         onBack = navigateBack,
-                    )
-                    val backState = rememberNavigationBackState(sceneState, navigationSettings.predictiveBack, navigateBack)
-                    NavDisplay(
-                        sceneState = sceneState,
-                        navigationEventState = backState,
-                        // Nav3's own defaults are a 700ms slide built from `tween` and `spring`, written
-                        // out rather than taken from the motion scheme — so `PlazaTheme`'s snapped scheme,
-                        // which silences everything else, does not reach them. On paper a slide is the
-                        // whole screen redrawing for two thirds of a second; a cut is one refresh.
-                        transitionSpec = if (eink) SNAP_TRANSITION else defaultTransitionSpec(),
-                        popTransitionSpec =
-                        if (eink) SNAP_TRANSITION else defaultPopTransitionSpec(),
-                        predictivePopTransitionSpec =
-                        if (eink) {
-                            { _ -> SNAP_CONTENT_TRANSFORM }
-                        } else {
-                            defaultPredictivePopTransitionSpec()
-                        },
                     )
                 }
             }
@@ -889,15 +873,21 @@ internal fun emptyDetailTextOf(key: NavKey): StringResource =
         else -> error("$key is a list pane with nothing to say when its detail is empty")
     }
 
-private fun stackScopedEntryProvider(
+internal fun stackScopedEntryProvider(
     destination: TopLevelDestination,
     provider: (NavKey) -> NavEntry<NavKey>,
+    predictiveBack: () -> Boolean = { true },
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val entry = provider(key)
+    val popTransition = entry.metadata[NavDisplay.PopTransitionKey]
     NavEntry(
         key = key,
         contentKey = "${destination.name}:${entry.contentKey}",
-        metadata = entry.metadata + paneMetadataOf(key, destination),
+        // Entry metadata wins over NavDisplay defaults, including the thread/image-viewer fade.
+        // Read the live setting inside the spec: these providers outlive changes in Settings.
+        metadata = entry.metadata + paneMetadataOf(key, destination) + NavDisplay.popTransitionSpec {
+            if (predictiveBack()) popTransition?.invoke(this) else SNAP_CONTENT_TRANSFORM
+        },
     ) {
         entry.Content()
     }
@@ -945,16 +935,3 @@ private fun NodeSeekSite.NotificationGroup.toTab(): NotificationTab =
         NodeSeekSite.NotificationGroup.MENTIONS -> NotificationTab.INTERACTIONS
         NodeSeekSite.NotificationGroup.MESSAGES -> NotificationTab.MESSAGES
     }
-
-/**
- * The cut 墨水屏模式 uses in place of every navigation transition.
- *
- * `EnterTransition.None` rather than a fade with a zero duration: the two look the same on the first
- * frame, but a fade still composes both destinations for the length of the animation, and on a panel
- * the cost is the drawing rather than the clock.
- */
-internal val SNAP_CONTENT_TRANSFORM = EnterTransition.None togetherWith ExitTransition.None
-
-private val SNAP_TRANSITION: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-    SNAP_CONTENT_TRANSFORM
-}
