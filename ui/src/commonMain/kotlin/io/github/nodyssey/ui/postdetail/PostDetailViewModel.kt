@@ -932,14 +932,22 @@ internal fun PostDetailUiState.readerLastFloor(): Int? {
  */
 internal fun PostDetailUiState.readingView(): PostDetailUiState {
     val ordered = comments.indices.sortedBy { NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE }
+    val unique =
+        ordered.distinctBy { original ->
+            val comment = comments[original]
+            comment.commentId?.let { "comment:$it" }
+                ?: comment.floor?.let { "floor:$it" }
+                // A reply with neither id nor floor cannot be compared safely with another one.
+                ?: "position:$original"
+        }
     if (!onlyAuthor) {
-        if (ordered.withIndex().all { (index, original) -> index == original }) return this
+        if (unique.withIndex().all { (index, original) -> index == original }) return this
         return copy(
-            comments = ordered.map(comments::get),
-            commentPages = ordered.map { commentPages.getOrNull(it) ?: firstLoadedPage },
+            comments = unique.map(comments::get),
+            commentPages = unique.map { commentPages.getOrNull(it) ?: firstLoadedPage },
         )
     }
-    val matching = ordered.filter { comments[it].isOriginalPoster || (body?.authorUid != null && comments[it].authorUid == body.authorUid) }
+    val matching = unique.filter { comments[it].isOriginalPoster || (body?.authorUid != null && comments[it].authorUid == body.authorUid) }
     val pages = ((matching.size + NodeSeekSite.COMMENTS_PER_PAGE - 1) / NodeSeekSite.COMMENTS_PER_PAGE).coerceAtLeast(1)
     return copy(
         comments = matching.map(comments::get),

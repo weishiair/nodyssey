@@ -117,6 +117,42 @@ class PostDetailViewModelTest {
         assertEquals(expectedPages, vm.uiState.value.commentPages)
     }
 
+    /**
+     * A reply can move across a page boundary while the previous page is still cached. Both pages
+     * then contain the same comment id, which used to become the same LazyColumn key twice and
+     * crashed the app while the long thread was still loading.
+     */
+    @Test
+    fun `a reply repeated on adjacent pages is drawn once`() = runTest(dispatcher) {
+        remote.detailResult = { postId, page ->
+            val replies =
+                when (page) {
+                    1 ->
+                        listOf(
+                            FakePostRemoteDataSource.content("first").copy(commentId = 13_321_590, floor = "#1"),
+                        )
+
+                    else ->
+                        listOf(
+                            FakePostRemoteDataSource.content("first, repeated by the next page").copy(commentId = 13_321_590, floor = "#1"),
+                            FakePostRemoteDataSource.content("second").copy(commentId = 13_321_591, floor = "#2"),
+                        )
+                }
+            FakePostRemoteDataSource.detail(postId, page, commentCount = replies.size, totalPages = 2)
+                .copy(comments = replies)
+        }
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.loadNextPage()
+        advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(listOf(13_321_590L, 13_321_591L), state.comments.map { it.commentId })
+        assertEquals(listOf("#1", "#2"), state.comments.map { it.floor })
+        assertEquals(listOf(1, 2), state.commentPages)
+    }
+
     private fun givenAuthorReplies() {
         remote.detailResult = { postId, page ->
             val detail = FakePostRemoteDataSource.detail(postId, page, commentCount = 10, totalPages = 3)
