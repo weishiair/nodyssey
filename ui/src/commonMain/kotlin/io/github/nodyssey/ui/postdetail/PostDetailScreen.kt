@@ -628,6 +628,17 @@ fun PostDetailScreen(
                 ?: if (state.firstLoadedPage > 1 || state.onlyAuthor) NodeSeekSite.parseFloorNumber(state.comments.firstOrNull()?.floor) ?: 0 else 0
         }
     }
+    val readerLoading =
+        state.isLoading ||
+            state.isAppending ||
+            state.isPrepending ||
+            state.isRefreshing ||
+            state.isRefreshingTail
+    val displayedFloor =
+        rememberStableReadingFloor(
+            currentFloor = currentFloor,
+            loading = readerLoading,
+        )
     val lastFloor = state.readerLastFloor()
     val shareThread = rememberShareText()
     val shareThreadLabel = stringResource(Res.string.action_share)
@@ -807,7 +818,7 @@ fun PostDetailScreen(
                 LoadedReadingScrollbar(
                     listState = listState,
                     itemKeys = readingItemKeys,
-                    currentFloor = currentFloor,
+                    currentFloor = displayedFloor,
                     onDraggingChanged = {
                         isScrollbarDragging = it
                         if (it) readingToolsExpanded = false
@@ -818,7 +829,7 @@ fun PostDetailScreen(
 
             if (state.hasContent && !replyOpen) {
                 ThreadReadingControls(
-                    currentFloor = currentFloor,
+                    currentFloor = displayedFloor,
                     lastFloor = lastFloor,
                     expanded = readingToolsExpanded,
                     onlyAuthor = state.onlyAuthor,
