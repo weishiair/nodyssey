@@ -185,9 +185,12 @@ jobs:
       # Android refuses to replace an installed app with one signed by a different key, so a release
       # signed with the wrong keystore does not fail here — it fails on the phone of every existing
       # user, as "app not installed", with no way to fix it after the fact. Hence the pinned digest.
+      #
+      # The fork has published its APKs with this debug-generated certificate since the ECH builds.
+      # Do not rotate it without a migration plan: every existing Nodyssey install trusts this digest.
       - name: Verify the signature is the key users already trust
         env:
-          EXPECTED_SHA256: '84f527d3a966f435cd32d889b8e0e267aa08b564a10df774c5159cef11e7fc6d'
+          EXPECTED_SHA256: '71218866231eae5bf61a1192b2df0180d6d65d55e6aa08f0e52176dbcad197f8'
         run: |
           apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           apk=app/build/outputs/apk/release/app-release.apk
