@@ -1,4 +1,4 @@
-name: ECH update manifests
+name: App update manifests
 
 on:
   release:
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository == 'weishiair/nodyssey' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'ech-'))
+    if: github.repository == 'weishiair/nodyssey' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'ech-') || startsWith(github.event.release.tag_name, 'release-'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,7 +43,7 @@ jobs:
           git -C "$checkout" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git -C "$checkout" add stable.json dev.json changelog.json index.html .nojekyll
           if ! git -C "$checkout" diff --cached --quiet; then
-            git -C "$checkout" commit -m 'Update ECH release manifests'
+            git -C "$checkout" commit -m 'Update app release manifests'
             git -C "$checkout" push origin HEAD:updates
           fi
           # GITHUB_TOKEN pushes do not trigger a legacy Pages build; request one explicitly.

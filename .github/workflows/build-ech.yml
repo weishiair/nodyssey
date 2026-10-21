@@ -1,5 +1,5 @@
-name: Build ECH APK
-run-name: ECH APK ${{ inputs.version_name }}
+name: Build Android APK
+run-name: Nodyssey APK ${{ inputs.version_name }}
 
 on:
   workflow_dispatch:
@@ -7,12 +7,12 @@ on:
       version_name:
         description: APK version name
         required: true
-        default: '1.2.22-ech.7'
+        default: '1.3.0'
         type: string
       version_code:
         description: Android version code (increase to upgrade an installed build)
         required: true
-        default: '63'
+        default: '65'
         type: string
 
 permissions:

@@ -5,7 +5,7 @@ package io.github.nodyssey.core
  *
  * Kept apart from [NodeSeekSite] for that reason, and out of `:core` because where an app publishes
  * is a fact about that app — `:core` is copied into https://github.com/5151561/plaza, which
- * publishes somewhere else entirely. This fork publishes signed ECH builds on its own releases page.
+ * publishes somewhere else entirely. This fork publishes its signed Android builds on its own releases page.
  */
 object NodysseyRelease {
     const val REPOSITORY = "weishiair/nodyssey"
@@ -20,7 +20,7 @@ object NodysseyRelease {
      * has no default, and naming the asset is worth doing anyway: a release also carries a mapping
      * file and a checksum, and `.apk` alone is not specific enough.
      *
-     * `build-ech-update-manifests.py` validates the signed ECH APK names before publishing updates.
+     * `build-ech-update-manifests.py` validates this fork's signed APK names before publishing updates.
      */
     const val ASSET_NAME_PREFIX = "nodyssey-"
 

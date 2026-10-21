@@ -7,6 +7,14 @@ import org.junit.Test
 
 class VersionNamesTest {
     @Test
+    fun `clean releases upgrade legacy ECH stable and test builds`() {
+        assertTrue(isNewerVersionName("1.3.0", "1.2.22-ech.7"))
+        assertTrue(isNewerVersionName("1.3.0", "1.2.22-ech.8-test.1"))
+        assertFalse(isNewerVersionName("1.2.22-ech.7", "1.3.0"))
+        assertFalse(isPreReleaseVersionName("1.3.0"))
+    }
+
+    @Test
     fun `ECH releases stay stable and their revision compares numerically`() {
         assertFalse(isPreReleaseVersionName("1.2.22-ech.5"))
         assertTrue(isPreReleaseVersionName("1.2.22-ech-test.5"))

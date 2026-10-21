@@ -13,9 +13,27 @@ class ReadingFloorTest {
     }
 
     @Test
-    fun `first reply becomes current before the opening post or reply header fully leaves`() {
-        assertEquals(0, layout(item(0, -600, 700), item(1, 100, 80), item(2, 180, 300)).readingCommentIndex(2, 10))
-        assertEquals(0, layout(item(1, -30, 80), item(2, 50, 300)).readingCommentIndex(2, 10))
+    fun `first reply waits for the top even after reaching the middle of the viewport`() {
+        assertNull(layout(item(0, -600, 700), item(1, 100, 80), item(2, 180, 300)).readingCommentIndex(2, 10))
+        assertNull(layout(item(1, -30, 80), item(2, 50, 300)).readingCommentIndex(2, 10))
+        assertEquals(0, layout(item(2, 0, 300), item(3, 300, 300)).readingCommentIndex(2, 10))
+    }
+
+    @Test
+    fun `a gap keeps the preceding floor until the next reply reaches the top`() {
+        val before = layout(item(6, 1, 100), item(7, 101, 100))
+        val reached = layout(item(6, 0, 100), item(7, 100, 100))
+        assertEquals(4, reached.readingCommentIndex(2, 10))
+        assertEquals(3, before.readingCommentIndex(2, 10))
+    }
+
+    @Test
+    fun `a jumped reply counts at the content edge even when the preceding reply peeks into padding`() {
+        assertEquals(
+            4,
+            layout(item(5, -108, 104), item(6, 0, 100), beforePadding = 8).readingCommentIndex(2, 10),
+        )
+        assertEquals(0, layout(item(2, 0, 300), beforePadding = 8).readingCommentIndex(2, 10))
     }
 
     @Test
@@ -43,10 +61,11 @@ class ReadingFloorTest {
         assertEquals(8, oldViewport.readingCommentIndex(2, 20, atEnd = true))
     }
 
-    private fun layout(vararg items: LazyListItemInfo) = object : LazyListLayoutInfo {
+    private fun layout(vararg items: LazyListItemInfo, beforePadding: Int = 0) = object : LazyListLayoutInfo {
         override val visibleItemsInfo = items.toList()
-        override val viewportStartOffset = 0
+        override val viewportStartOffset = -beforePadding
         override val viewportEndOffset = 800
+        override val beforeContentPadding = beforePadding
         override val totalItemsCount = 13
     }
 

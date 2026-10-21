@@ -105,8 +105,6 @@ android {
     // The helper looks the schemas up through the debug `AssetManager`, so this points at the
     // directory rather than keeping a second copy of it, for the same reason as the line below.
     sourceSets["debug"].assets.directories.add(project(":shared").projectDir.resolve("schemas").path)
-    if (echRelease) sourceSets["release"].res.directories.add("src/ech/res")
-
     // The captured pages moved to `:shared` with the parsers that read them, and a handful of tests
     // left here — the challenge detector, two repositories, the reply composer — still read the same
     // captures. Pointed at rather than copied: two copies of a 100KB capture drift, and the one that

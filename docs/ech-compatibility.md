@@ -50,7 +50,7 @@ public cover name `example.com`. Separate HTTPS tests check a trusted matching c
 untrusted certificate, and a mismatched hostname. The public ECH fixture is from the Apache-2.0
 Conscrypt 2.7.0 test resources; no production keys or sessions are used.
 
-The manual `Build ECH APK` workflow additionally runs `BundledEchDeviceTest` on API 26 and API 36
+The manual `Build Android APK` workflow additionally runs `BundledEchDeviceTest` on API 26 and API 36
 emulators. This opt-in live test uses the app's actual TLS client and requires Cloudflare's trace
 endpoint to report `sni=encrypted`; merely seeing ECH bytes in DNS is insufficient. Routine device
 journeys skip this external-server test unless `liveEch=true` is supplied.

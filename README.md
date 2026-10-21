@@ -1,7 +1,7 @@
 <div align="center">
 
-> **Nodyssey·ECH 非官方分支**：[下载 ECH 版](https://github.com/weishiair/nodyssey/releases)。基于 [5151561/nodyssey](https://github.com/5151561/nodyssey)，保留原项目署名与 GPL-3.0 许可证。
-> 内置 `https://doh.weishiair.de/dns-query`，Android 8 及以上支持 ECH；应用内更新仅跟随本分支。详细说明见 [ECH 分支](docs/ech-fork.md)。
+> **Nodyssey 非官方分支**：[下载本分支](https://github.com/weishiair/nodyssey/releases)。基于 [5151561/nodyssey](https://github.com/5151561/nodyssey)，保留原项目署名与 GPL-3.0 许可证。从 1.3.0 起使用简洁版本号，旧 ECH 版本可直接覆盖升级。
+> 内置 `https://resolver.weishiair.de/dns-query`，Android 8 及以上支持 ECH；应用内更新仅跟随本分支。详细说明见 [分支说明](docs/ech-fork.md)。
 
 # Nodyssey
 
