@@ -3,13 +3,13 @@
   "channel": "stable",
   "versionName": "1.3.2",
   "tag": "v1.3.2",
-  "publishedOn": "2026-10-21",
+  "publishedOn": "2026-10-22",
   "notes": "### 改进\n\n- 搜索历史默认按帖子、用户各保留 100 条，可在设置中选择每类 50、100、200 或 500 条。\n- 新增「预测式返回动画」开关，关闭后不再在滑动过程中预览上一页，完成手势后正常返回。\n\n### 修复\n\n- 长帖加载下一页时，底部楼层胶囊保持原数字，内容完成布局后再一次更新，避免加载过程中来回跳动。\n- 长帖相邻分页重复返回同一回复时只显示一次，避免继续加载时因重复列表键闪退。\n- 关闭预测式返回动画后，返回列表立即恢复触摸，不再等待普通返回、页面淡出或共享标题动画结束。\n- 浏览记录及阅读位置按账号 UID 分开保存，退出后重新登录同一账号可以恢复；访客和不同账号的记录各自独立，清理帖子缓存也不会删除历史。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.2.22-dev.7...v1.3.2",
   "apk": {
     "name": "nodyssey-v1.3.2.apk",
     "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.2/nodyssey-v1.3.2.apk",
-    "sizeBytes": 11063471,
-    "sha256": "11be8545281b9a6cf495e288d3b62bdab480edbe3acc4164ac5761333efa8a45"
+    "sizeBytes": 11063483,
+    "sha256": "b8968c34f7b83d72b3fc25097296935f9051eef3833fdca50ada25367c52b716"
   },
   "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.2"
 }
