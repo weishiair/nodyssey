@@ -1319,7 +1319,7 @@
     <string name="sign_in_session_not_stored">論壇已確認帳號密碼，但這台裝置沒能保存登入狀態。請改用網頁登入。</string>
 
     <string name="sign_in_verify_expired">驗證已過期，請重新驗證</string>
-    <string name="sign_in_verify_not_wired">人機驗證還沒接進 App，原生登入暫時用不了</string>
+    <string name="sign_in_verify_not_wired">人機驗證載入失敗，請檢查網路，或改用網頁登入</string>
     <string name="sign_in_verify_not_required">本次無需人機驗證</string>
 
     <string name="sign_in_2fa_title">兩步驟驗證</string>

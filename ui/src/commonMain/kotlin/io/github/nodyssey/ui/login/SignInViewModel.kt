@@ -289,13 +289,12 @@ enum class SignInStep { Credentials, TwoFactor }
 /**
  * Where h1's 人机验证 block stands.
  *
- * [NotWired] is what ships today. The widget is Cloudflare's Turnstile and cannot be drawn by
- * Compose — it needs a web view to run — so the block says so and the submit button stays down
- * rather than sending a request the site is certain to refuse: its own form will not submit without
- * a token either.
+ * The widget starts [VerificationState.Pending] and supplies a token through its WebView bridge.
+ * [VerificationState.NotWired] is the failure state when the platform has no WebView or the loader
+ * cannot start. Neither state permits a request without the verification the forum requires.
  */
 sealed interface VerificationState {
-    /** No widget behind the block yet. Draws the placeholder; blocks submission. */
+    /** The widget is unavailable or failed to load. Offers web sign-in; blocks submission. */
     data object NotWired : VerificationState
 
     /** The site did not ask for verification this time. */
