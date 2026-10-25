@@ -147,11 +147,9 @@ enum class Site(
  * the notification poller, `attachBaseContext`. The shell installs it once at startup from a
  * synchronous mirror of the stored choice, before the container is built.
  *
- * **It is written once per process and never flipped underneath a running graph.** Changing sites
- * restarts the app's UI stack from scratch (see `applySiteSwitch`), because the alternative —
- * flipping this while repositories built against the old site still hold coroutines in flight — is a
- * request issued to one site whose rows land in the other site's database. The window is small and
- * the corruption is silent, which is the worst combination available. A restart costs a frame.
+ * Never change this underneath a running graph. Android's site-switch controller first disposes
+ * screens, cancels graph-owned work and fences late network responses, then builds a fresh graph.
+ * Room and draft filenames are captured per graph so returning to a site retains its own data.
  */
 object ActiveSite {
     @Volatile
@@ -163,9 +161,8 @@ object ActiveSite {
     /**
      * Called by the platform shell at startup, before the dependency graph exists.
      *
-     * Idempotent and unguarded: a second call with the same value is what every launch after the
-     * first does, and there is no state here to protect — the guarantee that nothing is *running*
-     * when this changes is the restart's, not this object's.
+     * The shell also calls this during a coordinated site switch, after retiring the old graph.
+     * Keeping that ordering is the shell's responsibility, not this value holder's.
      */
     fun install(site: Site) {
         installed = site

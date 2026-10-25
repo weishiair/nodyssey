@@ -62,7 +62,17 @@ internal fun turnstileDocument(sitekey: String, darkTheme: Boolean): String {
           #w{display:flex;justify-content:center;align-items:center;min-height:65px}
         </style>
         <script>
+          var nsTurnstileLoaded = false;
+          var nsTurnstileLoadTimer = setTimeout(function () {
+            if (!nsTurnstileLoaded) nsTurnstileLoadFailed();
+          }, 30000);
+          function nsTurnstileLoadFailed() {
+            clearTimeout(nsTurnstileLoadTimer);
+            __nsBridge.post('error', 'script-load');
+          }
           function nsTurnstileReady() {
+            nsTurnstileLoaded = true;
+            clearTimeout(nsTurnstileLoadTimer);
             try {
               turnstile.render('#w', {
                 sitekey: '$sitekey',
@@ -76,7 +86,7 @@ internal fun turnstileDocument(sitekey: String, darkTheme: Boolean): String {
           }
           function nsTurnstileReset() { try { turnstile.reset(); } catch (e) {} }
         </script>
-        <script src="$TURNSTILE_SCRIPT" async defer></script>
+        <script src="$TURNSTILE_SCRIPT" async defer onerror="nsTurnstileLoadFailed()"></script>
         </head><body><div id="w"></div></body></html>
     """.trimIndent()
 }

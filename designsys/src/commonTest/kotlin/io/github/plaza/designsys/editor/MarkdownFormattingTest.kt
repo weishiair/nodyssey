@@ -67,4 +67,79 @@ class MarkdownFormattingTest {
         assertEquals("交易走**星辰担保**，勿私", state.text.toString())
         assertEquals(TextRange("交易走**星辰担保**".length), state.selection)
     }
+
+    @Test
+    fun `an image splits existing text at the caret and typing continues below it`() {
+        val state = field("beforeafter", selection = 6..6)
+
+        state.edit { insertBlockAtCaret("![a](url)") }
+
+        assertEquals("before\n\n![a](url)\n\nafter", state.text.toString())
+        assertEquals(TextRange("before\n\n![a](url)\n\n".length), state.selection)
+    }
+
+    @Test
+    fun `image insertion reuses existing blank lines on either side`() {
+        for (beforeBreaks in 0..2) {
+            for (afterBreaks in 0..2) {
+                val before = "before" + "\n".repeat(beforeBreaks)
+                val state = field(before + "\n".repeat(afterBreaks) + "after", selection = before.length..before.length)
+
+                state.edit { insertBlockAtCaret("![a](url)") }
+
+                assertEquals("before\n\n![a](url)\n\nafter", state.text.toString())
+                assertEquals(TextRange("before\n\n![a](url)\n\n".length), state.selection)
+            }
+        }
+    }
+
+    @Test
+    fun `an image follows a forward or reversed selection without deleting its text`() {
+        for (range in listOf(TextRange(1, 4), TextRange(4, 1))) {
+            val state = TextFieldState(initialText = "abcdef", initialSelection = range)
+
+            state.edit { insertBlockAtCaret("![a](url)") }
+
+            assertEquals("abcd\n\n![a](url)\n\nef", state.text.toString())
+            assertEquals(TextRange("abcd\n\n![a](url)\n\n".length), state.selection)
+        }
+    }
+
+    @Test
+    fun `an image at the beginning does not add leading blank lines`() {
+        val state = field("after", selection = 0..0)
+
+        state.edit { insertBlockAtCaret("![a](url)") }
+
+        assertEquals("![a](url)\n\nafter", state.text.toString())
+        assertEquals(TextRange("![a](url)\n\n".length), state.selection)
+    }
+
+    @Test
+    fun `consecutive images stay in insertion order before the following text`() {
+        val state = field("beforeafter", selection = 6..6)
+
+        state.edit {
+            insertBlockAtCaret("![a](first)")
+            insertBlockAtCaret("![b](second)")
+        }
+
+        assertEquals("before\n\n![a](first)\n\n![b](second)\n\nafter", state.text.toString())
+        assertEquals(TextRange("before\n\n![a](first)\n\n![b](second)\n\n".length), state.selection)
+    }
+
+    @Test
+    fun `removing a final image also removes the typing line it introduced`() {
+        for (body in listOf("", "before")) {
+            val state = field(body)
+            state.edit { insertBlockAtCaret("![a](url)") }
+
+            assertEquals(body + (if (body.isEmpty()) "" else "\n\n") + "![a](url)\n", state.text.toString())
+            assertEquals(TextRange(state.text.length), state.selection)
+
+            state.edit { removeBlock("![a](url)") }
+
+            assertEquals(body, state.text.toString())
+        }
+    }
 }

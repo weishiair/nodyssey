@@ -53,6 +53,7 @@ actual fun TurnstileWidget(
     // A plain box, not snapshot state: `update` runs in the apply phase, and writing state there to
     // remember what it already did would schedule a recomposition to say nothing.
     val lastReset = remember { intArrayOf(resetSignal) }
+    val navigationPolicy = remember { TurnstileNavigationPolicy(allowInitialDocument = false) }
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -85,11 +86,11 @@ actual fun TurnstileWidget(
                 addJavascriptInterface(bridge, TURNSTILE_BRIDGE)
                 webViewClient =
                     object : WebViewClient() {
-                        /** Nothing in this view navigates. The document it was given is all there is. */
+                        /** Keep the document fixed, while allowing the challenge's child frames. */
                         override fun shouldOverrideUrlLoading(
                             view: WebView,
                             request: WebResourceRequest,
-                        ): Boolean = true
+                        ): Boolean = !navigationPolicy.allowsNavigation(request.isForMainFrame)
                     }
                 // The base URL is the sitekey's hostname check — see [turnstileDocument].
                 loadDataWithBaseURL(

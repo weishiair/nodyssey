@@ -39,6 +39,7 @@ import io.github.plaza.designsys.editor.EditorAction
 import io.github.plaza.designsys.editor.ToolbarLayout
 import io.github.plaza.designsys.editor.appendBlock
 import io.github.plaza.designsys.editor.editFromViewModel
+import io.github.plaza.designsys.editor.insertBlockAtCaret
 import io.github.plaza.designsys.editor.insertText
 import io.github.plaza.designsys.editor.removeBlock
 import io.github.plaza.designsys.editor.toolbarLayout
@@ -133,13 +134,13 @@ class PostComposerViewModel(
             ?.onEach { stored ->
                 _uiState.update { it.copy(toolbar = toolbarLayout(stored, EditorActions.Post)) }
             }?.launchIn(viewModelScope)
-        // An upload lands while typing continues, so its Markdown goes to the end of the body
-        // rather than wherever the caret happens to be sitting — and, because this edits the buffer
-        // instead of replacing the whole string, the caret stays wherever the user left it.
+        // An upload lands where the caret is when it finishes, on a line of its own — see
+        // [insertBlockAtCaret]. It used to go to the end of the body, which put a picture written
+        // about mid-post below everything else.
         uploads.uploaded
             .onEach { attachment ->
                 val markdown = attachment.markdown ?: return@onEach
-                bodyState.editFromViewModel { appendBlock(markdown) }
+                bodyState.editFromViewModel { insertBlockAtCaret(markdown) }
             }.launchIn(viewModelScope)
 
         snapshotFlow { titleState.text.toString() }

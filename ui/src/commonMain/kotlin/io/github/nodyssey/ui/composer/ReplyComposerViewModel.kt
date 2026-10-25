@@ -34,6 +34,7 @@ import io.github.plaza.designsys.editor.EditorAction
 import io.github.plaza.designsys.editor.ToolbarLayout
 import io.github.plaza.designsys.editor.appendBlock
 import io.github.plaza.designsys.editor.editFromViewModel
+import io.github.plaza.designsys.editor.insertBlockAtCaret
 import io.github.plaza.designsys.editor.insertText
 import io.github.plaza.designsys.editor.removeBlock
 import io.github.plaza.designsys.editor.toolbarLayout
@@ -117,7 +118,8 @@ class ReplyComposerViewModel(
         uploads.uploaded
             .onEach { attachment ->
                 val markdown = attachment.markdown ?: return@onEach
-                bodyState.editFromViewModel { appendBlock(markdown) }
+                // At the caret, as in the post composer — see [insertBlockAtCaret].
+                bodyState.editFromViewModel { insertBlockAtCaret(markdown) }
             }.launchIn(viewModelScope)
         snapshotFlow { bodyState.text.toString() }
             .onEach { body -> if (body != _uiState.value.body) mutate { it.copy(body = body) } }

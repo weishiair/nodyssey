@@ -70,7 +70,7 @@ object NodeSeekSite {
      */
     private val CONFIGS: Map<Site, SiteConfig> = Site.entries.associateWith(::configFor)
 
-    private fun configFor(site: Site) =
+    fun configFor(site: Site) =
         SiteConfig(
             baseUrl = site.origin,
             fallbackUserAgent = FALLBACK_USER_AGENT,

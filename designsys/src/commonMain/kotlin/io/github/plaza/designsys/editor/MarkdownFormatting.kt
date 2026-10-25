@@ -131,12 +131,8 @@ fun TextFieldBuffer.deleteBackwards() {
 internal expect fun previousGraphemeBoundary(text: String, index: Int): Int
 
 /**
- * Appends an uploaded image on a line of its own.
- *
- * Not inserted at the caret: uploads finish while typing continues, and dropping `![…](…)` into the
- * middle of the sentence being written is both surprising and hard to undo. A block image also has
- * to start its own line to render as one. Appending through the buffer is what keeps the caret where
- * the user left it — the previous version rewrote the whole body and shoved the caret to the end.
+ * Appends a block without moving the caret. Shared text and quotes use this; images use
+ * [insertBlockAtCaret] so the reader can place them between existing paragraphs.
  */
 fun TextFieldBuffer.appendBlock(block: String) {
     val body = asCharSequence()
@@ -149,6 +145,43 @@ fun TextFieldBuffer.appendBlock(block: String) {
     replace(length, length, separator + block)
 }
 
+/**
+ * Puts an image in at the caret, as a block of its own — what the reader asked for once they had
+ * written around a picture and found it at the bottom of the post instead of where they were.
+ *
+ * Blank lines separate the image from surrounding text. A selection is preserved and the image
+ * goes after it; the caret then moves below the image. Uploads use the caret at completion time,
+ * including edits made while they were in flight.
+ */
+fun TextFieldBuffer.insertBlockAtCaret(block: String) {
+    val at = selection.max
+    val text = asCharSequence()
+    val before = text.subSequence(0, at)
+    val after = text.subSequence(at, text.length)
+    val lead = when {
+        before.isBlank() -> ""
+        before.endsWith("\n\n") -> ""
+        before.endsWith("\n") -> "\n"
+        else -> "\n\n"
+    }
+    val trail = when {
+        after.isEmpty() -> "\n"
+        after.startsWith("\n\n") -> ""
+        after.startsWith("\n") -> "\n"
+        else -> "\n\n"
+    }
+    replace(at, at, lead + block + trail)
+    // Past the image and the line breaks after it — at most the blank line that separates it.
+    val now = asCharSequence()
+    var caret = at + lead.length + block.length
+    var skipped = 0
+    while (caret < now.length && now[caret] == '\n' && skipped < 2) {
+        caret++
+        skipped++
+    }
+    placeCursorBeforeCharAt(caret)
+}
+
 /** Removes an attachment's Markdown again when its cell is dismissed. */
 fun TextFieldBuffer.removeBlock(block: String) {
     if (block.isEmpty()) return
@@ -158,7 +191,10 @@ fun TextFieldBuffer.removeBlock(block: String) {
         .firstNotNullOfOrNull { candidate ->
             body.indexOf(candidate).takeIf { it >= 0 }?.let { it to candidate.length }
         } ?: return
-    delete(index.first, index.first + index.second)
+    var end = index.first + index.second
+    // The line [insertBlockAtCaret] leaves under an image at the end of the body goes with it.
+    if (end == body.length - 1 && body[end] == '\n') end++
+    delete(index.first, end)
 }
 
 /** The URL slot in `](https://)`, i.e. just past the `](`. Shared by the link and image actions. */

@@ -1,4 +1,5 @@
 <resources>
+    <string name="site_switch_failed">切换站点失败，已返回原站点，请稍后重试</string>
     <string name="app_name">Nodyssey</string>
 
     <!-- 屏幕阅读器焦点落在进度指示器上时读出的名字；见 Modifier.describedAsLoading -->
@@ -320,6 +321,7 @@
     <string name="message_thread_empty">还没有消息，说点什么吧</string>
     <string name="message_thread_open_space">查看主页</string>
     <string name="message_input_hint">发消息</string>
+    <string name="message_new_messages">有新消息</string>
     <string name="message_send">发送</string>
     <string name="message_status_sending">发送中</string>
     <string name="message_status_failed">发送失败</string>
@@ -1577,7 +1579,7 @@
 
     <string name="sign_in_verify_brand">Cloudflare Turnstile</string>
     <string name="sign_in_verify_expired">验证已过期，请重新验证</string>
-    <string name="sign_in_verify_not_wired">人机验证还没接进 App，原生登录暂时用不了</string>
+    <string name="sign_in_verify_not_wired">人机验证加载失败，请检查网络，或改用网页登录</string>
     <string name="sign_in_verify_not_required">本次无需人机验证</string>
 
     <string name="sign_in_2fa_title">两步验证</string>
@@ -1895,6 +1897,7 @@
     <string name="sticker_image_link_copied">已复制图片链接</string>
     <!-- sticker:end -->
     <string name="post_author_joined_days">加入 %1$d 天</string>
+    <string name="post_author_age_days">%1$d天</string>
     <string name="messages_thread_joined_days">加入 %1$d 天</string>
     <string name="messages_scam_warning_title">交易风险提示</string>
     <string name="messages_scam_caution_title">防诈安全提醒</string>

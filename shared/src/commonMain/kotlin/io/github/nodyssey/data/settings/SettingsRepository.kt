@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.nodyssey.core.ActiveSite
+import io.github.nodyssey.core.Site
 import io.github.nodyssey.data.NotificationCounts
 import io.github.nodyssey.data.update.UpdateCheckStore
 import io.github.nodyssey.model.FeedSort
@@ -45,7 +46,14 @@ import okio.IOException
 class SettingsRepository(
     private val dataStore: DataStore<Preferences>,
     private val devChannelDefault: Boolean = false,
+    site: Site = ActiveSite.current,
 ) : UpdateCheckStore {
+    // Capture the site per graph; companion keys would keep the first site's suffix after a switch.
+    private val hiddenHomeBoardsKey = stringPreferencesKey("hidden_home_boards${site.storageSuffix}")
+    private val homeBoardOrderKey = stringPreferencesKey("home_board_order${site.storageSuffix}")
+    private val disabledHomeBoardsKey = stringPreferencesKey("disabled_home_boards${site.storageSuffix}")
+    private val alertLastPostIdKey = longPreferencesKey("keyword_alert_last_post_id${site.storageSuffix}")
+
     private val json = Json { ignoreUnknownKeys = true }
 
     /** 测评对比's basket, kept in this same store; see [ReportCompareStore]. */
@@ -98,13 +106,13 @@ class SettingsRepository(
                 searchHistoryLimit = searchHistoryLimit(preferences),
                 recentBoards = decodeValues(preferences[KEY_RECENT_BOARDS]),
                 hiddenHomeBoards =
-                decodeValues(preferences[KEY_HIDDEN_HOME_BOARDS])
+                decodeValues(preferences[hiddenHomeBoardsKey])
                     // Only the three slugs the site allows can hide a board; anything else in the
                     // store (a renamed slug, a bad write) must not silently thin out the feed.
                     .filter { it in OPTIONAL_HOME_BOARD_SLUGS }
                     .toSet(),
-                homeBoardOrder = decodeValues(preferences[KEY_HOME_BOARD_ORDER]),
-                disabledHomeBoards = decodeValues(preferences[KEY_DISABLED_HOME_BOARDS]).toSet(),
+                homeBoardOrder = decodeValues(preferences[homeBoardOrderKey]),
+                disabledHomeBoards = decodeValues(preferences[disabledHomeBoardsKey]).toSet(),
                 postToolbarActions = decodeValues(preferences[KEY_POST_TOOLBAR]),
                 replyToolbarActions = decodeValues(preferences[KEY_REPLY_TOOLBAR]),
                 messageToolbarActions = decodeValues(preferences[KEY_MESSAGE_TOOLBAR]),
@@ -324,9 +332,9 @@ class SettingsRepository(
      * The newest thread id 提醒关键词 has already looked at, or null before its first run. Worker
      * bookkeeping like [notificationSeenCounts], and per site: the two sites number threads apart.
      */
-    suspend fun keywordAlertBaseline(): Long? = preferences()[KEY_ALERT_LAST_POST_ID]
+    suspend fun keywordAlertBaseline(): Long? = preferences()[alertLastPostIdKey]
 
-    suspend fun setKeywordAlertBaseline(postId: Long) = edit { it[KEY_ALERT_LAST_POST_ID] = postId }
+    suspend fun setKeywordAlertBaseline(postId: Long) = edit { it[alertLastPostIdKey] = postId }
 
     /**
      * How long 浏览历史 remembers. Anything outside [READ_HISTORY_LIMIT_CHOICES] is refused rather
@@ -408,12 +416,12 @@ class SettingsRepository(
     suspend fun setHomeBoardHidden(slug: String, hidden: Boolean) {
         if (slug !in OPTIONAL_HOME_BOARD_SLUGS) return
         dataStore.edit { preferences ->
-            val current = decodeValues(preferences[KEY_HIDDEN_HOME_BOARDS]).toSet()
+            val current = decodeValues(preferences[hiddenHomeBoardsKey]).toSet()
             val next = if (hidden) current + slug else current - slug
             if (next.isEmpty()) {
-                preferences.remove(KEY_HIDDEN_HOME_BOARDS)
+                preferences.remove(hiddenHomeBoardsKey)
             } else {
-                preferences[KEY_HIDDEN_HOME_BOARDS] =
+                preferences[hiddenHomeBoardsKey] =
                     encodeValues(next.toList(), OPTIONAL_HOME_BOARD_SLUGS.size)
             }
         }
@@ -436,17 +444,17 @@ class SettingsRepository(
     ) {
         dataStore.edit { preferences ->
             if (order.isEmpty()) {
-                preferences.remove(KEY_HOME_BOARD_ORDER)
+                preferences.remove(homeBoardOrderKey)
             } else {
-                preferences[KEY_HOME_BOARD_ORDER] = encodeValues(order, MAX_HOME_BOARDS)
+                preferences[homeBoardOrderKey] = encodeValues(order, MAX_HOME_BOARDS)
             }
             // Only slugs the order still knows about; a disabled board with no rank would come back
             // as a fresh board on the next read and silently re-enable itself.
             val ranked = disabled.filter { it in order }
             if (ranked.isEmpty()) {
-                preferences.remove(KEY_DISABLED_HOME_BOARDS)
+                preferences.remove(disabledHomeBoardsKey)
             } else {
-                preferences[KEY_DISABLED_HOME_BOARDS] = encodeValues(ranked, MAX_HOME_BOARDS)
+                preferences[disabledHomeBoardsKey] = encodeValues(ranked, MAX_HOME_BOARDS)
             }
         }
     }
@@ -671,13 +679,9 @@ class SettingsRepository(
          * rewrite the other's.
          *
          * The suffix is empty for NodeSeek, so an existing reader's arrangement is untouched — see
-         * `Site.storageSuffix`. Read once at class init, which is after the shell has installed
-         * `ActiveSite` and long before a switch, which restarts the process.
+         * `Site.storageSuffix`. The per-site keys are instance members above, captured when the
+         * shell builds the graph; returning to a site must not reuse the first site's key suffix.
          */
-        private val boardKeySuffix = ActiveSite.current.storageSuffix
-        private val KEY_HIDDEN_HOME_BOARDS = stringPreferencesKey("hidden_home_boards$boardKeySuffix")
-        private val KEY_HOME_BOARD_ORDER = stringPreferencesKey("home_board_order$boardKeySuffix")
-        private val KEY_DISABLED_HOME_BOARDS = stringPreferencesKey("disabled_home_boards$boardKeySuffix")
         private val KEY_POST_TOOLBAR = stringPreferencesKey("post_toolbar_actions")
         private val KEY_REPLY_TOOLBAR = stringPreferencesKey("reply_toolbar_actions")
         private val KEY_MESSAGE_TOOLBAR = stringPreferencesKey("message_toolbar_actions")
@@ -700,7 +704,6 @@ class SettingsRepository(
         private val KEY_NOTIFY_MESSAGES = booleanPreferencesKey("notify_messages")
         private val KEY_NOTIFY_KEYWORD_ALERTS = booleanPreferencesKey("notify_keyword_alerts")
         private val KEY_NOTIFY_TRACKED_THREADS = booleanPreferencesKey("notify_tracked_threads")
-        private val KEY_ALERT_LAST_POST_ID = longPreferencesKey("keyword_alert_last_post_id$boardKeySuffix")
         private val KEY_SEEN_REPLIES = intPreferencesKey("notification_seen_replies")
         private val KEY_SEEN_MENTIONS = intPreferencesKey("notification_seen_mentions")
         private val KEY_SEEN_MESSAGES = intPreferencesKey("notification_seen_messages")

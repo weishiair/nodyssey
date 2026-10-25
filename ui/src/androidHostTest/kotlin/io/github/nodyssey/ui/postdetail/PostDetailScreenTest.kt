@@ -86,6 +86,7 @@ class PostDetailScreenTest {
         onLoadPrevious: () -> Unit = {},
         onJumpToFloor: (String) -> Unit = {},
         onReadingPositionChange: (Int, String?) -> Unit = { _, _ -> },
+        onVisibleAuthorsChange: (Set<Long>) -> Unit = {},
     ) {
         composeRule.setContent {
             PlazaTheme {
@@ -101,6 +102,7 @@ class PostDetailScreenTest {
                     onLoadPrevious = onLoadPrevious,
                     onJumpToFloor = onJumpToFloor,
                     onReadingPositionChange = onReadingPositionChange,
+                    onVisibleAuthorsChange = onVisibleAuthorsChange,
                     onSignIn = onSignIn,
                     onVerify = {},
                     onReact = onReact,
@@ -622,6 +624,44 @@ class PostDetailScreenTest {
         composeRule.onNodeWithText("the opening post").assertDoesNotExist()
     }
 
+    @Test
+    fun `a same-page notification waits for the refreshed replies before consuming its jump`() {
+        var state by mutableStateOf(
+            jumpedState(page = 1, floors = (1..6).toList(), pendingScroll = PendingScroll(page = 1, floor = "#7"))
+                .copy(isLoading = true),
+        )
+        var handled = 0
+        composeRule.setContent {
+            PlazaTheme {
+                PostDetailScreen(
+                    state = state,
+                    postUrl = "https://www.nodeseek.com/post-1-1",
+                    onBack = {},
+                    onOpenBrowser = {},
+                    onImageClick = {},
+                    onRetry = {},
+                    onLoadMore = {},
+                    onScrollHandled = {
+                        handled++
+                        state = state.copy(pendingScroll = null)
+                    },
+                    onVerify = {},
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { assertEquals(0, handled) }
+
+        // Same page and same number of rows: only the refreshed floor and loading gate change.
+        state = state.copy(comments = (1..5).plus(7).map { content("floor $it", floor = "#$it") })
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { assertEquals(0, handled) }
+        state = state.copy(isLoading = false)
+
+        composeRule.onNodeWithText("floor 7").assertIsDisplayed()
+        composeRule.runOnIdle { assertEquals(1, handled) }
+    }
+
     /** A page jump with no floor named lands on the page's first floor, not back on the opening post. */
     @Test
     fun `a pending scroll to a page lands on that page's first floor`() {
@@ -776,6 +816,36 @@ class PostDetailScreenTest {
         composeRule.onNodeWithText("12楼").performTouchInput { longClick() }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("回复 nssk").assertIsDisplayed()
+    }
+
+    @Test
+    fun `author lookups follow actually visible reply keys instead of the entire loaded thread`() {
+        val seen = mutableListOf<Set<Long>>()
+        val state = jumpedState(floors = (121..160).toList()).let { thread ->
+            thread.copy(comments = thread.comments.mapIndexed { index, reply -> reply.copy(authorUid = 1000L + index) })
+        }
+        setScreen(state, onVisibleAuthorsChange = { seen += it })
+        composeRule.waitUntil(5_000) { seen.any { it.isNotEmpty() } }
+        val first = seen.last { it.isNotEmpty() }
+        org.junit.Assert.assertTrue(first.size < 40)
+        org.junit.Assert.assertFalse(first.contains(1039))
+        // Two header rows, then the last of forty replies.
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(41)
+        composeRule.waitUntil(5_000) { seen.lastOrNull()?.contains(1039) == true }
+        org.junit.Assert.assertFalse(seen.last().contains(1000))
+    }
+
+    @Test
+    fun `visible author keys survive a prepend and do not load collapsed blocked accounts`() {
+        val before = jumpedState(floors = listOf(121, 122)).let { thread ->
+            thread.copy(comments = thread.comments.mapIndexed { index, reply -> reply.copy(authorUid = 121L + index) })
+        }
+        val visibleKey = before.comments[1].commentId!!
+        val after = before.copy(comments = listOf(content("earlier", floor = "#120").copy(authorUid = 99)) + before.comments)
+        assertEquals(setOf(122L), after.visibleReplyAuthorUids(setOf(visibleKey)))
+        val blocked = after.copy(comments = after.comments.map { it.copy(isBlocked = true) })
+        assertEquals(emptySet<Long>(), blocked.visibleReplyAuthorUids(setOf(visibleKey)))
+        assertEquals(setOf(122L), blocked.copy(showBlockedContent = true).visibleReplyAuthorUids(setOf(visibleKey)))
     }
 
     /** One page of a long thread, loaded on its own — what a jump or a notification produces. */

@@ -18,9 +18,12 @@ import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -150,6 +153,178 @@ class MessageThreadViewModelTest {
             assertTrue(messages.any { it.status == SendStatus.FAILED && it.content == "在吗" })
         }
 
+    @Test
+    fun `foreground polling receives replies and resumes immediately without duplicate loops`() =
+        runTest(dispatcher) {
+            val repository = FakeMessageRepository()
+            val viewModel = viewModel(repository)
+            advanceUntilIdle()
+            viewModel.startPolling()
+            viewModel.startPolling()
+            try {
+                runCurrent()
+                assertEquals(2, repository.threadRequests)
+                repository.incoming += incoming("2", "第一条回复")
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals("第一条回复", viewModel.uiState.value.messages.last().content)
+
+                viewModel.stopPolling()
+                repository.incoming += incoming("3", "后台期间的回复")
+                advanceTimeBy(30_000)
+                runCurrent()
+                assertEquals(3, repository.threadRequests)
+                assertEquals(2, viewModel.uiState.value.messages.size)
+
+                viewModel.startPolling()
+                runCurrent()
+                assertEquals("后台期间的回复", viewModel.uiState.value.messages.last().content)
+                assertEquals(4, repository.threadRequests)
+            } finally {
+                viewModel.stopPolling()
+            }
+        }
+
+    @Test
+    fun `an old poll cannot erase a send that completed before the history returned`() =
+        runTest(dispatcher) {
+            val repository = FakeMessageRepository()
+            val viewModel = viewModel(repository)
+            advanceUntilIdle()
+            repository.threadDelayMillis = 30_000
+            viewModel.startPolling()
+            try {
+                runCurrent()
+                viewModel.draftState.setTextAndPlaceCursorAtEnd("刚刚发出的消息")
+                viewModel.send()
+                runCurrent()
+                assertEquals(SendStatus.SENT, viewModel.uiState.value.messages.last().status)
+
+                advanceTimeBy(30_000)
+                runCurrent()
+                assertEquals("刚刚发出的消息", viewModel.uiState.value.messages.last().content)
+                assertEquals(SendStatus.SENT, viewModel.uiState.value.messages.last().status)
+            } finally {
+                viewModel.stopPolling()
+            }
+        }
+
+    @Test
+    fun `manual refresh and polling never overlap or consume each others loading state`() =
+        runTest(dispatcher) {
+            val repository = FakeMessageRepository()
+            val viewModel = viewModel(repository)
+            advanceUntilIdle()
+            repository.threadDelayMillis = 30_000
+            viewModel.startPolling()
+            try {
+                runCurrent()
+                viewModel.refresh()
+                runCurrent()
+                assertTrue(viewModel.uiState.value.isLoading)
+                advanceTimeBy(30_000)
+                runCurrent()
+                assertTrue(viewModel.uiState.value.isLoading)
+                assertEquals(3, repository.threadRequests)
+
+                advanceTimeBy(30_000)
+                runCurrent()
+                assertEquals(1, repository.maxConcurrentReads)
+                assertEquals(false, viewModel.uiState.value.isLoading)
+            } finally {
+                viewModel.stopPolling()
+            }
+        }
+
+    @Test
+    fun `polling pauses a history fetch while a message is still being sent`() =
+        runTest(dispatcher) {
+            val repository = FakeMessageRepository(sendDelayMillis = 30_000)
+            val viewModel = viewModel(repository)
+            advanceUntilIdle()
+            viewModel.draftState.setTextAndPlaceCursorAtEnd("还在发送")
+            viewModel.send()
+            repository.incoming += incoming("server-echo", "还在发送").copy(isMine = true)
+            viewModel.startPolling()
+            try {
+                runCurrent()
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(1, repository.threadRequests)
+                assertEquals(1, viewModel.uiState.value.messages.count { it.content == "还在发送" })
+            } finally {
+                viewModel.stopPolling()
+            }
+            advanceUntilIdle()
+        }
+
+    @Test
+    fun `failed polls preserve readable history and back off until a successful fetch`() =
+        runTest(dispatcher) {
+            val repository = FakeMessageRepository()
+            val viewModel = viewModel(repository)
+            advanceUntilIdle()
+            repository.threadError = SiteException(SiteError.Network)
+            viewModel.startPolling()
+            try {
+                runCurrent()
+                advanceTimeBy(19_999)
+                runCurrent()
+                assertEquals(2, repository.threadRequests)
+                assertEquals(1, viewModel.uiState.value.messages.size)
+                assertEquals(null, viewModel.uiState.value.error)
+                advanceTimeBy(1)
+                runCurrent()
+                assertEquals(3, repository.threadRequests)
+                advanceTimeBy(40_000)
+                runCurrent()
+                assertEquals(4, repository.threadRequests)
+
+                repository.threadError = null
+                repository.incoming += incoming("2", "恢复连接")
+                advanceTimeBy(60_000)
+                runCurrent()
+                assertEquals("恢复连接", viewModel.uiState.value.messages.last().content)
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(6, repository.threadRequests)
+            } finally {
+                viewModel.stopPolling()
+            }
+        }
+
+    @Test
+    fun `a response from before sign out cannot add messages to the screen`() =
+        runTest(dispatcher) {
+            val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+            val repository = FakeMessageRepository()
+            val viewModel = viewModel(repository, session = session)
+            advanceUntilIdle()
+            repository.incoming += incoming("2", "旧账号的回复")
+            repository.threadDelayMillis = 30_000
+            viewModel.startPolling()
+            try {
+                runCurrent()
+                session.signOut()
+                advanceTimeBy(40_000)
+                runCurrent()
+                assertEquals(1, viewModel.uiState.value.messages.size)
+                assertEquals(2, repository.threadRequests)
+            } finally {
+                viewModel.stopPolling()
+            }
+        }
+
+    @Test
+    fun `repeated server message ids produce only one bubble`() =
+        runTest(dispatcher) {
+            val repository = FakeMessageRepository()
+            repository.incoming += incoming("1", "重复的同一条消息")
+            val viewModel = viewModel(repository)
+            advanceUntilIdle()
+            assertEquals(listOf("1"), viewModel.uiState.value.messages.map { it.id })
+        }
+
     /**
      * Bug: fetching a conversation is not what clears it — the ids have to go back — so the 私信
      * badge survived reading the message that put it there.
@@ -241,10 +416,11 @@ class MessageThreadViewModelTest {
         notifications: NotificationRepository = NotificationRepository(FakeCountsApi()),
         profiles: ProfileRepository? = null,
         clock: AppClock = AppClock { NOW },
+        session: SessionRepository = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies)),
     ) = MessageThreadViewModel(
         repository = repository,
         notifications = notifications,
-        session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies)),
+        session = session,
         clock = clock,
         uploader = ImageUploader { _, _ -> "https://cdn.nodeimage.com/i/x.webp" },
         uid = 4471,
@@ -255,6 +431,9 @@ class MessageThreadViewModelTest {
     private companion object {
         const val NOW = 1_785_000_000_000L
     }
+
+    private fun incoming(id: String, content: String) =
+        DirectMessage(id = id, isMine = false, content = content, isMarkdown = true, sentAtMillis = NOW, sentAtText = null)
 }
 
 private class FakeCountsApi(
@@ -270,7 +449,14 @@ private class FakeMessageRepository(
     var sendError: Throwable? = null,
     private val unreadIds: List<Long> = emptyList(),
     private val level: Int? = 4,
+    private val sendDelayMillis: Long = 0,
 ) : MessageRepository {
+    val incoming = mutableListOf<DirectMessage>()
+    var threadDelayMillis = 0L
+    var threadError: Throwable? = null
+    var threadRequests = 0
+    var maxConcurrentReads = 0
+    private var concurrentReads = 0
     var sendCount = 0
     var lastContent: String? = null
     val markedRead = mutableListOf<Long>()
@@ -283,8 +469,11 @@ private class FakeMessageRepository(
         markedRead += messageIds
     }
 
-    override suspend fun thread(uid: Long) =
-        MessageThread(
+    override suspend fun thread(uid: Long): MessageThread {
+        threadRequests++
+        concurrentReads++
+        maxConcurrentReads = maxOf(maxConcurrentReads, concurrentReads)
+        val snapshot = MessageThread(
             uid = uid,
             userName = "iwil",
             avatarUrl = null,
@@ -299,9 +488,17 @@ private class FakeMessageRepository(
                     sentAtMillis = 1_784_999_000_000L,
                     sentAtText = null,
                 ),
-            ),
+            ) + incoming.toList(),
             unreadIds = unreadIds,
         )
+        try {
+            delay(threadDelayMillis)
+            threadError?.let { throw it }
+            return snapshot
+        } finally {
+            concurrentReads--
+        }
+    }
 
     override suspend fun send(
         uid: Long,
@@ -310,6 +507,7 @@ private class FakeMessageRepository(
     ): DirectMessage? {
         sendCount++
         lastContent = content
+        delay(sendDelayMillis)
         sendError?.let { throw it }
         return DirectMessage(
             id = "sent-$sendCount",
@@ -318,6 +516,6 @@ private class FakeMessageRepository(
             isMarkdown = markdown,
             sentAtMillis = 1_785_000_000_000L,
             sentAtText = null,
-        )
+        ).also { incoming += it }
     }
 }

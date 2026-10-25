@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -50,9 +52,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -163,6 +168,13 @@ fun ProfileFieldsScreen(
     // Sticky rather than plain focus: a toolbar key takes focus off the field the moment it is
     // pressed, so a strip that hid on blur would vanish under the finger that was using it.
     var target by remember { mutableStateOf<MarkdownTarget?>(null) }
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val finishEditing = {
+        target = null
+        focus.clearFocus()
+        keyboard?.hide()
+    }
 
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
@@ -184,7 +196,10 @@ fun ProfileFieldsScreen(
                     // 3b's filled pill: saving is this page's one commit, and it waits up here while
                     // the fields below are edited.
                     Button(
-                        onClick = onSave,
+                        onClick = {
+                            finishEditing()
+                            onSave()
+                        },
                         enabled = state.canSave,
                         modifier = Modifier.padding(end = Spacing.sm),
                     ) {
@@ -237,6 +252,8 @@ fun ProfileFieldsScreen(
                             onValueChange = onBioChange,
                             placeholder = { Text(stringResource(Res.string.account_bio_hint)) },
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { finishEditing() }),
                             shape = PlazaFieldDefaults.shape,
                             colors = PlazaFieldDefaults.colors(inCard = true),
                             modifier =

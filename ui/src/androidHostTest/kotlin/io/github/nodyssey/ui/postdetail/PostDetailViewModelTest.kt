@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -646,6 +647,85 @@ class PostDetailViewModelTest {
             assertEquals(2, vm.uiState.value.comments.size)
             assertNotNull(vm.uiState.value.body)
         }
+
+    private fun detailWithFloors(commentCount: Int) =
+        FakePostRemoteDataSource.detail(42, page = 1, commentCount = commentCount).let { detail ->
+            detail.copy(
+                body = detail.body?.copy(floor = "#0"),
+                comments = detail.comments.mapIndexed { index, comment -> comment.copy(floor = "#${index + 1}") },
+            )
+        }
+
+    @Test
+    fun `a notification refetches a fresh cached page when its new reply is missing`() = runTest(dispatcher) {
+        remote.detailResult = { _, _ -> detailWithFloors(1) }
+        repository.refreshThread(postId = 42, page = 1)
+        val requests = remote.detailRequests.size
+        remote.detailResult = { _, _ -> detailWithFloors(2) }
+
+        val vm = viewModel(initialFloor = "#2")
+        advanceUntilIdle()
+
+        assertEquals(requests + 1, remote.detailRequests.size)
+        assertEquals(listOf("#1", "#2"), vm.uiState.value.comments.map { it.floor })
+        assertEquals(PendingScroll(page = 1, floor = "#2"), vm.uiState.value.pendingScroll)
+    }
+
+    @Test
+    fun `a notification to a cached reply keeps the fresh page without a request`() = runTest(dispatcher) {
+        remote.detailResult = { _, _ -> detailWithFloors(2) }
+        repository.refreshThread(postId = 42, page = 1)
+        val requests = remote.detailRequests.size
+
+        val vm = viewModel(initialFloor = "#2")
+        advanceUntilIdle()
+
+        assertEquals(requests, remote.detailRequests.size)
+        assertEquals(PendingScroll(page = 1, floor = "#2"), vm.uiState.value.pendingScroll)
+    }
+
+    @Test
+    fun `opening the cached opening floor does not look for it among replies`() = runTest(dispatcher) {
+        remote.detailResult = { _, _ -> detailWithFloors(2) }
+        repository.refreshThread(postId = 42, page = 1)
+        val requests = remote.detailRequests.size
+
+        val vm = viewModel(initialFloor = "#0")
+        advanceUntilIdle()
+
+        assertEquals(requests, remote.detailRequests.size)
+        assertEquals("#0", vm.uiState.value.body?.floor)
+    }
+
+    @Test
+    fun `a deleted notification reply is fetched only once even when it stays missing`() = runTest(dispatcher) {
+        remote.detailResult = { _, _ -> detailWithFloors(1) }
+        repository.refreshThread(postId = 42, page = 1)
+        val requests = remote.detailRequests.size
+
+        val vm = viewModel(initialFloor = "#2")
+        advanceUntilIdle()
+
+        assertEquals(requests + 1, remote.detailRequests.size)
+        assertEquals(listOf("#1"), vm.uiState.value.comments.map { it.floor })
+        assertFalse(vm.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `an offline notification refresh keeps the cached replies and reports the failure`() = runTest(dispatcher) {
+        remote.detailResult = { _, _ -> detailWithFloors(1) }
+        repository.refreshThread(postId = 42, page = 1)
+        val requests = remote.detailRequests.size
+        remote.detailResult = { _, _ -> throw SiteException(SiteError.Network) }
+
+        val vm = viewModel(initialFloor = "#2")
+        advanceUntilIdle()
+
+        assertEquals(requests + 1, remote.detailRequests.size)
+        assertEquals(listOf("#1"), vm.uiState.value.comments.map { it.floor })
+        assertEquals(SiteError.Network, vm.uiState.value.error)
+        assertFalse(vm.uiState.value.isLoading)
+    }
 
     /**
      * The badge on the row the reader tapped said replies had arrived; the cache window said the
@@ -1416,6 +1496,110 @@ class PostDetailViewModelTest {
             assertEquals(1, vm.uiState.value.authorLevel)
             assertEquals(24, vm.uiState.value.authorJoinedDays)
         }
+
+    @Test
+    fun `reply account lookups are limited to visible authors and reused for repeated replies`() = runTest(dispatcher) {
+        givenReplyAuthors()
+        val calls = mutableListOf<Long>()
+        val profiles = accountProfiles { uid ->
+            calls += uid
+            UserProfile(uid, "author", "", rank = 0, createdAt = "2026-07-01")
+        }
+        val vm = viewModel(profiles = profiles, clock = AppClock { 1_784_980_800_000L })
+        advanceUntilIdle()
+        assertEquals(listOf(7L), calls)
+        vm.loadVisibleAuthors(setOf(5, 999, -1))
+        advanceUntilIdle()
+        assertEquals(listOf(7L, 5L), calls)
+        assertEquals(setOf(5L), vm.uiState.value.replyAuthors.keys)
+        assertEquals(ReplyAuthorInfo(0, 24), vm.uiState.value.replyAuthors[5])
+        vm.loadVisibleAuthors(setOf(5, 6))
+        advanceUntilIdle()
+        vm.loadVisibleAuthors(emptySet())
+        vm.loadVisibleAuthors(setOf(5))
+        advanceUntilIdle()
+        assertEquals(listOf(7L, 5L, 6L), calls)
+        assertEquals(listOf("#1", "#2", "#3", "#4"), vm.uiState.value.comments.map { it.floor })
+    }
+
+    @Test
+    fun `scrolling away cancels unfinished reply account lookups without preventing a later retry`() = runTest(dispatcher) {
+        givenReplyAuthors()
+        var attempts = 0
+        val gate = CompletableDeferred<Unit>()
+        val vm = viewModel(
+            profiles = accountProfiles { uid ->
+                if (uid == 5L) {
+                    attempts++
+                    if (attempts == 1) gate.await()
+                }
+                UserProfile(uid, "author", "", rank = 4)
+            },
+        )
+        advanceUntilIdle()
+        vm.loadVisibleAuthors(setOf(5))
+        runCurrent()
+        assertEquals(1, attempts)
+        vm.loadVisibleAuthors(setOf(6))
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertNull(vm.uiState.value.replyAuthors[5])
+        assertEquals(4, vm.uiState.value.replyAuthors[6]?.level)
+        vm.loadVisibleAuthors(setOf(5))
+        advanceUntilIdle()
+        assertEquals(2, attempts)
+        assertEquals(4, vm.uiState.value.replyAuthors[5]?.level)
+    }
+
+    @Test
+    fun `failed reply account lookups do not affect posts and retry only after cooldown`() = runTest(dispatcher) {
+        givenReplyAuthors()
+        var attempts = 0
+        var fail = true
+        val vm = viewModel(
+            profiles = accountProfiles { uid ->
+                if (uid == 5L) {
+                    attempts++
+                    if (fail) throw SiteException(SiteError.Http(429))
+                }
+                UserProfile(uid, "author", "", rank = 4)
+            },
+        )
+        advanceUntilIdle()
+        vm.loadVisibleAuthors(setOf(5))
+        advanceUntilIdle()
+        vm.loadVisibleAuthors(setOf(6))
+        vm.loadVisibleAuthors(setOf(5))
+        advanceUntilIdle()
+        assertEquals(1, attempts)
+        assertNull(vm.uiState.value.error)
+        assertEquals(4, vm.uiState.value.comments.size)
+        clock.advanceBy(60_000)
+        fail = false
+        vm.loadVisibleAuthors(setOf(5))
+        advanceUntilIdle()
+        assertEquals(2, attempts)
+        assertEquals(4, vm.uiState.value.replyAuthors[5]?.level)
+        assertNull(vm.uiState.value.replyAuthors[5]?.joinedDays)
+    }
+
+    private fun givenReplyAuthors() {
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 1).copy(
+                body = FakePostRemoteDataSource.content("body").copy(authorUid = 7),
+                comments = listOf(5L, 6L, 5L, 8L).mapIndexed { index, uid ->
+                    FakePostRemoteDataSource.content("reply $index").copy(authorUid = uid, floor = "#${index + 1}")
+                },
+            )
+        }
+    }
+
+    private fun accountProfiles(fetch: suspend (Long) -> UserProfile): ProfileRepository = object : ProfileRepository {
+        override suspend fun profile(refresh: Boolean): UserProfile = error("unused")
+
+        override suspend fun profile(uid: Long): UserProfile = fetch(uid)
+    }
 }
 
 /** The same trick as [GatedReactionRepository] for the star: a real thread, a recorded toggle. */

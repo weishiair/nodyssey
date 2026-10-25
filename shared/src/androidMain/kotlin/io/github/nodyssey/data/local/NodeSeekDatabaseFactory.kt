@@ -3,6 +3,7 @@ package io.github.nodyssey.data.local
 import android.content.Context
 import androidx.room.Room
 import io.github.nodyssey.core.ActiveSite
+import io.github.nodyssey.core.Site
 
 /**
  * Opens the app's database file.
@@ -19,9 +20,9 @@ import io.github.nodyssey.core.ActiveSite
  * `BundledSQLiteDriver` here — the driver the Apple side has no choice about — would swap the SQLite
  * implementation under a live database file, which is a behaviour change and not a build detail.
  */
-fun createNodeSeekDatabase(context: Context): NodeSeekDatabase =
+fun createNodeSeekDatabase(context: Context, site: Site = ActiveSite.current): NodeSeekDatabase =
     Room
-        .databaseBuilder<NodeSeekDatabase>(context, databaseFileName(ActiveSite.current))
+        .databaseBuilder<NodeSeekDatabase>(context, databaseFileName(site))
         // Known upgrades preserve local state explicitly; schemas stay checked in.
         .addMigrations(*NODESEEK_MIGRATIONS)
         // The destructive fallback covers exactly the versions that have no migration — v1 and v2,

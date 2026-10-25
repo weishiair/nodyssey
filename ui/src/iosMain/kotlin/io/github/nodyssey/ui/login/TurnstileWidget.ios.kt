@@ -5,6 +5,7 @@ package io.github.nodyssey.ui.login
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -56,35 +57,38 @@ actual fun TurnstileWidget(
     val currentUnavailable by rememberUpdatedState(onUnavailable)
     val document = remember(sitekey, darkTheme) { turnstileDocument(sitekey, darkTheme) }
 
-    val host =
-        remember {
-            TurnstileHost(
-                onToken = { currentToken(it) },
-                onExpired = { currentExpired() },
-                onUnavailable = { currentUnavailable() },
-            )
-        }
-    val webView =
-        remember(document, userAgent) {
-            newTurnstileWebView(userAgent, host).also {
-                it.loadHTMLString(document, baseURL = NSURL(string = NodeSeekSite.BASE_URL + "/"))
+    key(document, userAgent) {
+        // The navigation allowance belongs to this document and must reset when its view is replaced.
+        val host =
+            remember {
+                TurnstileHost(
+                    onToken = { currentToken(it) },
+                    onExpired = { currentExpired() },
+                    onUnavailable = { currentUnavailable() },
+                )
             }
+        val webView =
+            remember {
+                newTurnstileWebView(userAgent, host).also {
+                    it.loadHTMLString(document, baseURL = NSURL(string = NodeSeekSite.BASE_URL + "/"))
+                }
+            }
+
+        // Skips the first composition: the widget fetches a token on its own when it renders, and
+        // resetting a box the user has not ticked yet would be a wasted round trip.
+        LaunchedEffect(resetSignal) {
+            if (resetSignal != 0) webView.evaluateJavaScript("nsTurnstileReset()", null)
         }
 
-    // Skips the first composition: the widget fetches a token on its own when it renders, and
-    // resetting a box the user has not ticked yet would be a wasted round trip.
-    LaunchedEffect(resetSignal) {
-        if (resetSignal != 0) webView.evaluateJavaScript("nsTurnstileReset()", null)
+        UIKitView(
+            factory = { webView },
+            modifier = modifier,
+            onRelease = { view ->
+                view.stopLoading()
+                view.configuration.userContentController.removeScriptMessageHandlerForName(TURNSTILE_BRIDGE)
+            },
+        )
     }
-
-    UIKitView(
-        factory = { webView },
-        modifier = modifier,
-        onRelease = { view ->
-            view.stopLoading()
-            view.configuration.userContentController.removeScriptMessageHandlerForName(TURNSTILE_BRIDGE)
-        },
-    )
 }
 
 private fun newTurnstileWebView(userAgent: UserAgent, host: TurnstileHost): WKWebView {
@@ -126,7 +130,7 @@ private class TurnstileHost(
     WKScriptMessageHandlerProtocol,
     WKNavigationDelegateProtocol {
 
-    private var hasLoaded = false
+    private val navigationPolicy = TurnstileNavigationPolicy()
 
     override fun userContentController(
         userContentController: WKUserContentController,
@@ -147,17 +151,17 @@ private class TurnstileHost(
      *
      * A count rather than a URL test: `loadHTMLString` navigates to the *base* URL, so "is this the
      * document we supplied?" and "is this somewhere the page decided to go?" look identical from the
-     * request. The widget's own iframe is a subframe load and never reaches here.
+     * request. WebKit also calls this delegate for subframes; those must be allowed independently
+     * or the Cloudflare iframe is cancelled and the form never receives a verification token.
      */
     override fun webView(
         webView: WKWebView,
         decidePolicyForNavigationAction: WKNavigationAction,
         decisionHandler: (WKNavigationActionPolicy) -> Unit,
     ) {
-        val first = !hasLoaded
-        hasLoaded = true
+        val allowed = navigationPolicy.allowsNavigation(decidePolicyForNavigationAction.targetFrame?.mainFrame)
         decisionHandler(
-            if (first) {
+            if (allowed) {
                 WKNavigationActionPolicy.WKNavigationActionPolicyAllow
             } else {
                 WKNavigationActionPolicy.WKNavigationActionPolicyCancel

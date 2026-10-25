@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
@@ -41,11 +42,22 @@ import io.github.nodyssey.ui.settings.theme.rememberActiveSeed
 import io.github.nodyssey.ui.settings.theme.toPlaza
 import io.github.nodyssey.ui.sticker.LocalStickerLibrary
 import io.github.plaza.designsys.component.LocalLinkPrefetcher
+import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.richtext.DismissTextSelectionOnTap
 import io.github.plaza.designsys.richtext.LocalStickerSizing
 import io.github.plaza.designsys.richtext.StickerSizing
 import io.github.plaza.designsys.theme.PlazaTheme
 import kotlinx.coroutines.launch
+
+/** Uses the current theme while the Android shell disposes the previous site's navigation. */
+@Composable
+fun NodysseySiteSwitchPlaceholder(container: AppContainer, initialSettings: UserSettings?) {
+    NodysseyChrome(container, initialSettings) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Box(contentAlignment = Alignment.Center) { PlazaSpinner() }
+        }
+    }
+}
 
 /**
  * Everything the app draws, from the theme down.

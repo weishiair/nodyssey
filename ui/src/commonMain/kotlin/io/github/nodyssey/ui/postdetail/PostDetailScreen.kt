@@ -64,6 +64,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -74,6 +75,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -149,8 +151,8 @@ import io.github.nodyssey.ui.resources.dislike_dialog_body
 import io.github.nodyssey.ui.resources.dislike_dialog_confirm
 import io.github.nodyssey.ui.resources.dislike_dialog_title
 import io.github.nodyssey.ui.resources.post_all_replies
+import io.github.nodyssey.ui.resources.post_author_age_days
 import io.github.nodyssey.ui.resources.post_author_empty
-import io.github.nodyssey.ui.resources.post_author_joined_days
 import io.github.nodyssey.ui.resources.post_author_replies
 import io.github.nodyssey.ui.resources.post_author_scan
 import io.github.nodyssey.ui.resources.post_author_scan_retry
@@ -229,6 +231,8 @@ import io.github.plaza.designsys.theme.asSignature
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.readableWidth
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -287,6 +291,7 @@ fun PostDetailRoute(
         onJumpToFloor = viewModel::jumpToFloor,
         onScrollHandled = viewModel::onScrollHandled,
         onReadingPositionChange = viewModel::recordReadingPosition,
+        onVisibleAuthorsChange = viewModel::loadVisibleAuthors,
         onResumeReading = viewModel::resumeReading,
         showBackButton = showBackButton,
         // Replying needs an account; sending an anonymous reply into the void is the one outcome
@@ -362,6 +367,8 @@ fun PostDetailScreen(
     onScrollHandled: () -> Unit = {},
     /** Reports where the reader is, so a later visit can offer to come back to it. */
     onReadingPositionChange: (Int, String?) -> Unit = { _, _ -> },
+    /** Settled, visible replies only; cached profile requests never gate reading the thread. */
+    onVisibleAuthorsChange: (Set<Long>) -> Unit = {},
     /** Returns to where a previous visit left off; only reachable when there was one. */
     onResumeReading: () -> Unit = {},
     showBackButton: Boolean = true,
@@ -490,6 +497,27 @@ fun PostDetailScreen(
     // The state as it is *now*, for the waits below: `state` is this composition's value and a
     // coroutine holding it would never see the floors it is waiting for.
     val latestState by rememberUpdatedState(state)
+    val latestVisibleAuthorsChange by rememberUpdatedState(onVisibleAuthorsChange)
+    val latestReplyOpen by rememberUpdatedState(replyOpen)
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            if (listState.isScrollInProgress || latestReplyOpen) {
+                emptySet()
+            } else {
+                val layout = listState.layoutInfo
+                val keys = layout.visibleItemsInfo
+                    .filter { it.offset < layout.viewportEndOffset && it.offset + it.size > layout.viewportStartOffset }
+                    .map { it.key }.toSet()
+                latestState.visibleReplyAuthorUids(keys)
+            }
+        }.distinctUntilChanged().collectLatest {
+            delay(180)
+            latestVisibleAuthorsChange(it)
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { latestVisibleAuthorsChange(emptySet()) }
+    }
 
     var prependAnchor by remember { mutableStateOf<PrependAnchor?>(null) }
     fun loadPrevious() {
@@ -569,8 +597,11 @@ fun PostDetailScreen(
     // Keyed on the pages themselves rather than on how many comments there are: a jump swaps one page
     // of ten floors for another page of ten floors, so a count would not change and the effect would
     // never re-run against the content it was waiting for.
-    LaunchedEffect(state.pendingScroll, state.commentPages) {
+    LaunchedEffect(state.pendingScroll, state.commentPages, state.isLoading) {
         val target = state.pendingScroll ?: return@LaunchedEffect
+        // A notification can name a new reply on an already cached page. The cached rows are
+        // readable while refreshing, but must not consume the jump before the new snapshot lands.
+        if (state.isLoading) return@LaunchedEffect
         // The fetch has finished but the new comments may not have flowed out of Room yet; wait for
         // the emission that carries them rather than scrolling to a stale end-of-list.
         if (target.page !in state.firstLoadedPage..state.lastLoadedPage) return@LaunchedEffect
@@ -1254,6 +1285,7 @@ private fun ThreadList(
                 BlockAware(content = comment, revealed = state.showBlockedContent) {
                     CommentRow(
                         comment = comment,
+                        authorInfo = comment.authorUid?.let(state.replyAuthors::get),
                         onOpenBrowser = onOpenBrowser,
                         onImageClick = onImageClick,
                         onJumpToFloor = onJumpToFloor,
@@ -1447,6 +1479,7 @@ private fun ThreadAuthorRow(
     modifier: Modifier = Modifier,
     /** Put on the avatar and the name only — the badges, note and time beside them are not a way in. */
     identity: Modifier = Modifier,
+    accountBadge: @Composable () -> Unit = {},
     badges: @Composable () -> Unit = {},
 ) {
     Row(
@@ -1468,23 +1501,22 @@ private fun ThreadAuthorRow(
                 // The name beside it is the same way in, and the one a screen reader is told about.
                 .clearAndSetSemantics {},
         )
-        Column(Modifier.weight(1f)) {
+        // Keep the name, account facts and role badges together, wrapping only when space runs out.
+        FlowRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 text = authorName,
                 style = floorNameStyle(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .sharedThreadAuthor(postId)
-                    .then(identity),
+                modifier = Modifier.sharedThreadAuthor(postId).then(identity),
             )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-                itemVerticalAlignment = Alignment.CenterVertically,
-            ) {
-                badges()
-            }
+            accountBadge()
+            badges()
         }
     }
 }
@@ -1590,27 +1622,10 @@ private fun ThreadOpeningPost(
                     authorName = body?.authorName ?: preview?.authorName.orEmpty(),
                     modifier = Modifier.weight(1f),
                     identity = Modifier.authorClickable(body?.authorUid, onAuthorClick),
+                    accountBadge = { AuthorAccountBadge(authorLevel, authorJoinedDays) },
                     badges = {
                         if (body != null) {
-                            FloorBadges(body)
-                        }
-                        if (
-                            authorLevel != null &&
-                            body?.badges?.none {
-                                it.equals("Lv.$authorLevel", ignoreCase = true) ||
-                                    it.equals("Lv$authorLevel", ignoreCase = true)
-                            } != false
-                        ) {
-                            BadgeChip(
-                                text = "Lv.$authorLevel",
-                                tone = if (authorLevel <= 1) BadgeTone.Caution else BadgeTone.Neutral,
-                            )
-                        }
-                        if (authorJoinedDays != null) {
-                            BadgeChip(
-                                text = stringResource(Res.string.post_author_joined_days, authorJoinedDays),
-                                tone = if (authorJoinedDays < 100) BadgeTone.Caution else BadgeTone.Neutral,
-                            )
+                            FloorBadges(body, hasAccountLevel = authorLevel != null)
                         }
                         if (body != null) {
                             UserNoteTag(body.authorUid)
@@ -1764,6 +1779,7 @@ private fun CommentsHeader(
 @Composable
 private fun CommentRow(
     comment: PostContent,
+    authorInfo: ReplyAuthorInfo?,
     onOpenBrowser: (String) -> Unit,
     onImageClick: (String) -> Unit,
     onJumpToFloor: (String) -> Unit,
@@ -1795,22 +1811,24 @@ private fun CommentRow(
                     // The name beside it is the same way in, and the one a screen reader is told about.
                     .clearAndSetSemantics {},
             )
-            FlowRow(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                itemVerticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = comment.authorName,
-                    style = floorNameStyle(),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.authorClickable(comment.authorUid, onAuthorClick),
-                )
-                FloorBadges(comment)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = comment.authorName,
+                        style = floorNameStyle(),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.authorClickable(comment.authorUid, onAuthorClick),
+                    )
+                    AuthorAccountBadge(authorInfo?.level, authorInfo?.joinedDays)
+                    FloorBadges(comment, hasAccountLevel = authorInfo?.level != null)
+                    UserNoteTag(comment.authorUid)
+                }
                 FloorTimeLine(comment)
-                UserNoteTag(comment.authorUid)
             }
             comment.floor?.let { FloorLabel(it) }
         }
@@ -2447,7 +2465,7 @@ private fun ReactionAction.price(freeChickenLegs: FreeChickenLegs?): String =
  * of some templates). Capped at three plus a +N chip — see [RoleBadgeRow].
  */
 @Composable
-private fun FloorBadges(content: PostContent) {
+private fun FloorBadges(content: PostContent, hasAccountLevel: Boolean = false) {
     val opLabel = stringResource(Res.string.post_badge_original_poster)
     val labels =
         if (content.isOriginalPoster && content.badges.none { it == opLabel }) {
@@ -2455,8 +2473,29 @@ private fun FloorBadges(content: PostContent) {
         } else {
             content.badges
         }
-    if (labels.isNotEmpty()) RoleBadgeRow(labels)
+    val remaining = if (hasAccountLevel) labels.filterNot { ACCOUNT_LEVEL_BADGE.matches(it) } else labels
+    if (remaining.isNotEmpty()) RoleBadgeRow(remaining)
 }
+
+/** Registration age and rank are account facts, with the same tone for new and established users. */
+@Composable
+private fun AuthorAccountBadge(level: Int?, days: Int?) {
+    val parts = buildList {
+        if (level != null) add("Lv $level")
+        if (days != null) add(stringResource(Res.string.post_author_age_days, days))
+    }
+    if (parts.isNotEmpty()) BadgeChip(parts.joinToString(" | "), BadgeTone.Neutral)
+}
+
+private val ACCOUNT_LEVEL_BADGE = Regex("Lv\\.?\\s*\\d+", RegexOption.IGNORE_CASE)
+
+/** Match stable keys rather than indices, which can still describe the previous prepended window. */
+internal fun PostDetailUiState.visibleReplyAuthorUids(keys: Set<Any>): Set<Long> =
+    comments.withIndex().mapNotNull { (index, comment) ->
+        comment.authorUid?.takeIf {
+            it > 0 && comment.lazyKey(index) in keys && (!comment.isBlocked || showBlockedContent)
+        }
+    }.toSet()
 
 /**
  * The floor's time, and after it the dashed-underline 已编辑 marker (b1 §8).

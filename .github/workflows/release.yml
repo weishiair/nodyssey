@@ -552,9 +552,10 @@ jobs:
             echo
             echo "$marker"
             echo
-            echo "iOS 版还在迁移中，这个 \`.ipa\` 是测试构建，**没有签名**，双击装不上。"
+            echo "此版本同步提供 iOS \`.ipa\`，**没有签名**，需要自行签名后安装。"
             echo "需要用 AltStore、Sideloadly、TrollStore 或 Xcode，拿你自己的 Apple ID 重新签名后再装。"
             echo "免费账号签出来的有效期是 7 天，到期要重签。"
+            echo "Android 的免重启切站为平台专属改进；iOS 尚未进行真机验证。"
           } > release-notes-with-ios.md
           gh release edit "$tag" --notes-file release-notes-with-ios.md
           echo "Added the iOS note to $tag."

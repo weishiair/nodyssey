@@ -2,8 +2,10 @@ package io.github.nodyssey.di
 
 import android.content.Context
 import coil3.SingletonImageLoader
+import io.github.nodyssey.core.ActiveSite
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.NodysseyRelease
+import io.github.nodyssey.core.Site
 import io.github.nodyssey.core.net.AppDns
 import io.github.nodyssey.core.net.AppProxyAuthenticator
 import io.github.nodyssey.core.net.AppProxySelector
@@ -11,6 +13,7 @@ import io.github.nodyssey.core.net.AppSocksAuthenticator
 import io.github.nodyssey.core.net.DynamicSignTransport
 import io.github.nodyssey.core.net.LiveProxyConfig
 import io.github.nodyssey.core.net.NodeSeekJsonClient
+import io.github.nodyssey.core.net.SiteTransportLifetime
 import io.github.nodyssey.core.net.dnsOverHttpsResolvers
 import io.github.nodyssey.data.AppCacheStore
 import io.github.nodyssey.data.AssetsRepository
@@ -82,7 +85,6 @@ import io.github.nodyssey.data.dns.OkHttpDnsResolutionTester
 import io.github.nodyssey.data.imagehost.DataStoreImageHostSettings
 import io.github.nodyssey.data.imagehost.DefaultImageHostRepository
 import io.github.nodyssey.data.imagehost.ImageHostRepository
-import io.github.nodyssey.data.local.createNodeSeekDatabase
 import io.github.nodyssey.data.offline.AndroidOfflineFileStore
 import io.github.nodyssey.data.offline.OfflineSettingsStore
 import io.github.nodyssey.data.offline.OkHttpOfflineImageSource
@@ -135,14 +137,19 @@ import io.github.plaza.core.update.ApkInstaller
 import io.github.plaza.core.update.UpdateManifestSource
 import io.github.plaza.core.update.isPreReleaseVersionName
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -154,6 +161,10 @@ import java.util.concurrent.TimeUnit
  * common interface to a type that only exists on two of the four targets `:shared` builds for.
  */
 interface AndroidAppContainer : AppContainer {
+    /** A worker created during a site transition must wait for the replacement graph. */
+    val isActive: Boolean get() = true
+    suspend fun <T> runSiteWork(block: suspend () -> T): T = block()
+
     /** What the shared cookie store says about this session. See [SessionCookies]. */
     val sessionCookies: SessionCookies
     val okHttpClient: OkHttpClient
@@ -172,8 +183,53 @@ class DefaultAppContainer(
     context: Context,
     override val dispatchers: AppDispatchers = AppDispatchers(),
     override val clock: AppClock = AppClock.System,
+    private val databases: AndroidSiteDatabases = AndroidSiteDatabases(context),
 ) : AndroidAppContainer {
     private val appContext = context.applicationContext
+    val site: Site = ActiveSite.current
+    private val siteConfig = NodeSeekSite.configFor(site)
+    private val lifetime = SiteTransportLifetime()
+    override val isActive: Boolean get() = lifetime.isActive
+    private val clients = mutableListOf<OkHttpClient>()
+
+    override suspend fun <T> runSiteWork(block: suspend () -> T): T {
+        lifetime.checkActive()
+        val work = appScope.async { block() }
+        return try {
+            work.await()
+        } finally {
+            work.cancel()
+        }
+    }
+
+    /** Stop the graph without signing out, deleting rows, or closing shared per-site Room handles. */
+    suspend fun shutdown() {
+        sessionCookies.flush()
+        lifetime.stop()
+        val opened = synchronized(clients) { clients.toList() }
+        opened.forEach { it.dispatcher.cancelAll() }
+        appScope.coroutineContext[Job]?.cancelAndJoin()
+        withContext(dispatchers.io) {
+            opened.forEach { runCatching { it.cache?.close() } }
+            connectionPool.evictAll()
+        }
+    }
+
+    private fun ownClient(client: OkHttpClient): OkHttpClient = synchronized(clients) {
+        if (!isActive) {
+            client.cache?.close()
+            lifetime.checkActive()
+        }
+        client.newBuilder().addInterceptor { chain ->
+            if (!isActive) throw IOException("Site graph retired")
+            val response = chain.proceed(chain.request())
+            if (!isActive) {
+                response.close()
+                throw IOException("Site graph retired")
+            }
+            response
+        }.build().also { clients += it }
+    }
 
     /**
      * The one store OkHttp and the sign-in WebView share, and the two things built on it: the
@@ -181,7 +237,7 @@ class DefaultAppContainer(
      */
     private val cookieStore = WebViewCookieStore()
 
-    override val sessionCookies: SessionCookies by lazy { SessionCookies(NodeSeekSite.CONFIG, cookieStore) }
+    override val sessionCookies: SessionCookies by lazy { SessionCookies(siteConfig, cookieStore) }
 
     /**
      * Eager, and the only member of the graph that must be: this is where the WebView provider gets
@@ -203,7 +259,7 @@ class DefaultAppContainer(
      * any thread gets a plain value. If another main-thread-dependent initialisation ever joins the
      * graph, it needs this same treatment, not a `lazy`.
      */
-    override val userAgent: UserAgent = resolveUserAgent(appContext, NodeSeekSite.CONFIG)
+    override val userAgent: UserAgent = resolveUserAgent(appContext, siteConfig)
 
     /**
      * The other header a browser always sends and OkHttp never does — see [deviceAcceptLanguage].
@@ -271,10 +327,10 @@ class DefaultAppContainer(
             // Small on purpose: a DNS answer is a few hundred bytes and the TTL throws it away
             // shortly anyway. 清除缓存 may delete this directory out from under the running cache,
             // which OkHttp recovers from by rebuilding its journal — the same deal `updates` has.
-            .cache(Cache(File(appContext.cacheDir, "doh"), DOH_CACHE_BYTES))
+            .cache(Cache(File(appContext.cacheDir, "doh${site.storageSuffix}"), DOH_CACHE_BYTES))
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
-            .build()
+            .build().let(::ownClient)
     }
 
     /**
@@ -307,7 +363,7 @@ class DefaultAppContainer(
             settings = dohSettings,
             tester = OkHttpDnsResolutionTester(
                 dns = { appDns },
-                host = NodeSeekSite.BASE_URL.toHttpUrl().host,
+                host = site.origin.toHttpUrl().host,
                 dispatchers = dispatchers,
                 clock = clock,
             ),
@@ -365,7 +421,7 @@ class DefaultAppContainer(
         java.net.Authenticator.setDefault(AppSocksAuthenticator(liveProxyConfig))
         OkHttpClient
             .Builder()
-            .cookieJar(WebViewCookieJar(cookieStore, NodeSeekSite.CONFIG.unreplayableCookies))
+            .cookieJar(WebViewCookieJar(cookieStore, siteConfig.unreplayableCookies))
             .connectionPool(connectionPool)
             // 加密 DNS, or the platform resolver while it is off — see [AppDns].
             .dns(appDns)
@@ -381,14 +437,14 @@ class DefaultAppContainer(
                 BrowserHeadersInterceptor(
                     userAgent = userAgent.value,
                     acceptLanguage = acceptLanguage,
-                    referer = "${NodeSeekSite.BASE_URL}/",
+                    referer = "${site.origin}/",
                 ),
             )
             // A *network* interceptor, because it is about a hop the application layer never sees:
             // the `Referer` stamped above must not follow a redirect off the host it was addressed
             // to, or an image host that 302s to a CDN with hotlink protection refuses every image.
             .addNetworkInterceptor(CrossOriginRefererInterceptor())
-            .build()
+            .build().let(::ownClient)
     }
 
     /**
@@ -422,11 +478,11 @@ class DefaultAppContainer(
                 BrowserHeadersInterceptor(
                     userAgent = userAgent.value,
                     acceptLanguage = acceptLanguage,
-                    referer = "${NodeSeekSite.BASE_URL}/",
+                    referer = "${site.origin}/",
                 ),
             )
             .addNetworkInterceptor(CrossOriginRefererInterceptor())
-            .build()
+            .build().let(::ownClient)
     }
 
     /**
@@ -441,15 +497,17 @@ class DefaultAppContainer(
     private val transport by lazy {
         // Retry sits outside the signature: a retried vote is signed once and sent once, because
         // [RetryingTransport] never repeats a write.
-        RetryingTransport(
-            DynamicSignTransport(
-                CookieScrubbingTransport(OkHttpTransport(okHttpClient), sessionCookies),
-                userAgent.value,
+        lifetime.guard(
+            RetryingTransport(
+                DynamicSignTransport(
+                    CookieScrubbingTransport(OkHttpTransport(okHttpClient), sessionCookies),
+                    userAgent.value,
+                ),
             ),
         )
     }
 
-    private val htmlClient by lazy { SiteHtmlClient(transport, dispatchers, NodeSeekSite.CONFIG) }
+    private val htmlClient by lazy { SiteHtmlClient(transport, dispatchers, siteConfig) }
 
     private val jsonClient by lazy { NodeSeekJsonClient(transport, dispatchers) }
 
@@ -458,7 +516,7 @@ class DefaultAppContainer(
     }
 
     /** The offline-first SSOT. Everything below reads from it; only the data sources write to it. */
-    private val database by lazy { createNodeSeekDatabase(appContext) }
+    private val database by lazy { databases.get(site) }
 
     private val remotePosts by lazy { NetworkPostDataSource(htmlClient, dispatchers, clock) }
 
@@ -514,6 +572,7 @@ class DefaultAppContainer(
             // newer than a test build cut ahead of it, and 已是最新 is what they would be told for as
             // long as that stays true. Flipping the switch off still sticks.
             devChannelDefault = isPreReleaseVersionName(appVersion.name),
+            site = site,
         )
     }
 
@@ -548,7 +607,7 @@ class DefaultAppContainer(
     }
 
     override val postComposerRepository: PostComposerRepository by lazy {
-        DefaultPostComposerRepository(appContext.postComposerDataStore, transport, dispatchers, clock)
+        DefaultPostComposerRepository(appContext.postComposerDataStore(site), transport, dispatchers, clock)
     }
 
     override val accountSettingsRepository: AccountSettingsRepository by lazy {
@@ -620,7 +679,7 @@ class DefaultAppContainer(
 
     override val commentComposerRepository: CommentComposerRepository by lazy {
         DefaultCommentComposerRepository(
-            appContext.commentComposerDataStore,
+            appContext.commentComposerDataStore(site),
             transport,
             dispatchers,
             clock,
@@ -674,7 +733,7 @@ class DefaultAppContainer(
             // No `referer`: see the comment above, and [BrowserHeadersInterceptor].
             .addInterceptor(
                 BrowserHeadersInterceptor(userAgent = userAgent.value, acceptLanguage = acceptLanguage),
-            ).build()
+            ).build().let(::ownClient)
     }
 
     override val imageHostRepository: ImageHostRepository by lazy {
@@ -760,7 +819,7 @@ class DefaultAppContainer(
             .connectTimeout(15, TimeUnit.SECONDS)
             // An APK download is minutes of streaming, not a page read.
             .readTimeout(120, TimeUnit.SECONDS)
-            .build()
+            .build().let(::ownClient)
     }
 
     override val appUpdateRepository: AppUpdateRepository by lazy {

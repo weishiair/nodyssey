@@ -50,6 +50,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,10 +66,13 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -91,6 +95,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.NodeSeekStickers
@@ -116,6 +121,7 @@ import io.github.nodyssey.ui.resources.composer_image_default_name
 import io.github.nodyssey.ui.resources.message_bubble_actions
 import io.github.nodyssey.ui.resources.message_copied
 import io.github.nodyssey.ui.resources.message_input_hint
+import io.github.nodyssey.ui.resources.message_new_messages
 import io.github.nodyssey.ui.resources.message_quote_action
 import io.github.nodyssey.ui.resources.message_quote_chip
 import io.github.nodyssey.ui.resources.message_quote_chip_mine
@@ -172,6 +178,7 @@ import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.floatShadow
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -188,6 +195,10 @@ fun MessageThreadRoute(
     onLinkClick: (String) -> Unit = onOpenBrowser,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LifecycleResumeEffect(viewModel) {
+        viewModel.startPolling()
+        onPauseOrDispose { viewModel.stopPolling() }
+    }
     MessageThreadScreen(
         state = state,
         draftState = viewModel.draftState,
@@ -566,30 +577,58 @@ private fun MessageBubbles(
      * still read in the order they were built.
      */
     val newestFirst = remember(rows) { rows.asReversed() }
-    LaunchedEffect(rows.size) {
-        if (rows.isNotEmpty()) listState.animateScrollToItem(0)
+    val scope = rememberCoroutineScope()
+    var hasNewMessages by remember { mutableStateOf(false) }
+    var lastScrollRequest by remember { mutableLongStateOf(state.scrollToLatestRequest) }
+    val newestIncomingId = state.messages.lastOrNull { !it.isMine }?.id
+    // Capture before the new rows are measured: stable lazy keys will then preserve the old bubble
+    // when a new one arrives at index 0. Reading the position after layout would miss that anchor.
+    val wasAtBottom = remember(state.messages) { !listState.canScrollBackward }
+    LaunchedEffect(newestIncomingId, state.scrollToLatestRequest) {
+        val sentMessage = lastScrollRequest != state.scrollToLatestRequest
+        lastScrollRequest = state.scrollToLatestRequest
+        if (wasAtBottom || sentMessage) {
+            hasNewMessages = false
+            if (rows.isNotEmpty()) listState.animateScrollToItem(0)
+        } else if (newestIncomingId != null) {
+            hasNewMessages = true
+        }
     }
-    LazyColumn(
-        state = listState,
-        reverseLayout = true,
-        modifier = Modifier.fillMaxSize(),
-        // The top is the floating bar's height and a little more, so the oldest message can be
-        // scrolled clear of the card rather than parked under it.
-        contentPadding =
-        PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = topClearance + Spacing.sm, bottom = Spacing.md),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(newestFirst, key = ThreadRow::key) { row ->
-            when (row) {
-                is ThreadRow.Day -> DayDivider(row.label)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.canScrollBackward }.collect { canScroll ->
+            if (!canScroll) hasNewMessages = false
+        }
+    }
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            reverseLayout = true,
+            modifier = Modifier.fillMaxSize(),
+            // Keep the oldest messages clear of the floating title bar.
+            contentPadding =
+            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = topClearance + Spacing.sm, bottom = Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(newestFirst, key = ThreadRow::key) { row ->
+                when (row) {
+                    is ThreadRow.Day -> DayDivider(row.label)
 
-                is ThreadRow.Bubble ->
-                    MessageBubbleRow(
-                        message = row.message,
-                        onOpenBrowser = onOpenBrowser,
-                        onRetrySend = { onRetrySend(row.message.id) },
-                        onQuote = { onQuote(row.message) },
-                    )
+                    is ThreadRow.Bubble ->
+                        MessageBubbleRow(
+                            message = row.message,
+                            onOpenBrowser = onOpenBrowser,
+                            onRetrySend = { onRetrySend(row.message.id) },
+                            onQuote = { onQuote(row.message) },
+                        )
+                }
+            }
+        }
+        if (hasNewMessages) {
+            FilledTonalButton(
+                onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = Spacing.sm),
+            ) {
+                Text(stringResource(Res.string.message_new_messages))
             }
         }
     }

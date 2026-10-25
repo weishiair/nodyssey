@@ -6,23 +6,33 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.IntentCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.AttendanceMode
 import io.github.nodyssey.data.composer.PickedImage
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.composer.MAX_IMAGES_PER_PICK
 import io.github.nodyssey.ui.navigation.TopLevelDestination
+import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.site_switch_failed
 import io.github.nodyssey.ui.settings.AndroidAppLanguage
+import io.github.nodyssey.ui.settings.LocalSiteSwitch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import org.jetbrains.compose.resources.stringResource
 
 class MainActivity : ComponentActivity() {
     /*
@@ -55,7 +65,8 @@ class MainActivity : ComponentActivity() {
         // theme the app actually resolved, which can disagree with the OS (主题外观 forced 深色/浅色).
         enableEdgeToEdge()
 
-        val container = (application as NodysseyApp).container
+        val app = application as NodysseyApp
+        val container = app.container
         // Only a poll notification carries the extra; a cold start from it should land on 通知.
         // A saved UI state still wins — see the rememberSaveable inside MainNavigation.
         val initialTab =
@@ -72,13 +83,35 @@ class MainActivity : ComponentActivity() {
         val initialSettings = readSettingsForFirstFrame(container.settingsRepository)
 
         setContent {
-            NodysseyRoot(
-                container = container,
-                initialSettings = initialSettings,
-                initialTab = initialTab,
-                launchRequest = launchRequest,
-                onLaunchRequestHandled = { launchRequest = null },
-            )
+            val runtime by app.sites.state.collectAsStateWithLifecycle()
+            val switchError = stringResource(Res.string.site_switch_failed)
+            LaunchedEffect(runtime) {
+                if (runtime.failed) Toast.makeText(this@MainActivity, switchError, Toast.LENGTH_LONG).show()
+            }
+            if (runtime.switching) {
+                NodysseySiteSwitchPlaceholder(runtime.graph, initialSettings)
+            } else {
+                key(runtime.graph.site) {
+                    DisposableEffect(runtime.graph) {
+                        val detach = app.sites.attachUi(runtime.graph) { viewModelStore.clear() }
+                        onDispose { detach() }
+                    }
+                    CompositionLocalProvider(
+                        LocalSiteSwitch provides { site ->
+                            launchRequest = null
+                            app.switchSite(site)
+                        },
+                    ) {
+                        NodysseyRoot(
+                            container = runtime.graph,
+                            initialSettings = initialSettings,
+                            initialTab = if (runtime.graph === container) initialTab else TopLevelDestination.HOME,
+                            launchRequest = launchRequest,
+                            onLaunchRequestHandled = { launchRequest = null },
+                        )
+                    }
+                }
+            }
         }
     }
 

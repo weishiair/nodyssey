@@ -19,6 +19,7 @@
   languages still has to recognise what they are looking at on the web version.
 -->
 <resources>
+    <string name="site_switch_failed">Could not switch sites. Returned to the previous site. Please try again later.</string>
     <string name="loading_indicator_label">Loading</string>
     <string name="action_back">Back</string>
     <string name="action_close">Close</string>
@@ -261,6 +262,7 @@
     <string name="message_thread_empty">No messages yet — say something</string>
     <string name="message_thread_open_space">See their space</string>
     <string name="message_input_hint">Message</string>
+    <string name="message_new_messages">New messages</string>
     <string name="message_send">Send</string>
     <string name="message_status_sending">Sending</string>
     <string name="message_status_failed">Not sent</string>
@@ -1326,7 +1328,7 @@
     <string name="sign_in_session_not_stored">The forum accepted your account and password, but this device could not store the session. Sign in on the web instead.</string>
 
     <string name="sign_in_verify_expired">The check has expired — do it again</string>
-    <string name="sign_in_verify_not_wired">The human check is not wired into the app yet, so signing in here is unavailable</string>
+    <string name="sign_in_verify_not_wired">The verification could not load. Check your connection or use web sign-in.</string>
     <string name="sign_in_verify_not_required">No human check needed this time</string>
 
     <string name="sign_in_2fa_title">Two-step verification</string>
@@ -1627,6 +1629,7 @@
     <string name="sticker_image_link_copied">Image link copied</string>
     <!-- sticker:end -->
     <string name="post_author_joined_days">Joined %1$d d</string>
+    <string name="post_author_age_days">%1$d days</string>
     <string name="messages_thread_joined_days">Joined %1$d d</string>
     <string name="messages_scam_warning_title">Trading risk warning</string>
     <string name="messages_scam_caution_title">Anti-scam reminder</string>

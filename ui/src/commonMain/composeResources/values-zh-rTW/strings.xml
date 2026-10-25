@@ -14,6 +14,7 @@
   proper noun the site itself does not translate.
 -->
 <resources>
+    <string name="site_switch_failed">切換站點失敗，已返回原站點，請稍後重試</string>
     <string name="loading_indicator_label">載入中</string>
     <string name="action_back">返回</string>
     <string name="action_close">關閉</string>
@@ -255,6 +256,7 @@
     <string name="message_thread_empty">還沒有訊息，說點什麼吧</string>
     <string name="message_thread_open_space">檢視主頁</string>
     <string name="message_input_hint">傳訊息</string>
+    <string name="message_new_messages">有新訊息</string>
     <string name="message_send">傳送</string>
     <string name="message_status_sending">傳送中</string>
     <string name="message_status_failed">傳送失敗</string>
@@ -1319,7 +1321,7 @@
     <string name="sign_in_session_not_stored">論壇已確認帳號密碼，但這台裝置沒能保存登入狀態。請改用網頁登入。</string>
 
     <string name="sign_in_verify_expired">驗證已過期，請重新驗證</string>
-    <string name="sign_in_verify_not_wired">人機驗證還沒接進 App，原生登入暫時用不了</string>
+    <string name="sign_in_verify_not_wired">人機驗證載入失敗，請檢查網路，或改用網頁登入</string>
     <string name="sign_in_verify_not_required">本次無需人機驗證</string>
 
     <string name="sign_in_2fa_title">兩步驟驗證</string>
@@ -1619,6 +1621,7 @@
     <string name="sticker_image_link_copied">已複製圖片連結</string>
     <!-- sticker:end -->
     <string name="post_author_joined_days">加入 %1$d 天</string>
+    <string name="post_author_age_days">%1$d天</string>
     <string name="messages_thread_joined_days">加入 %1$d 天</string>
     <string name="messages_scam_warning_title">交易風險提示</string>
     <string name="messages_scam_caution_title">防詐安全提醒</string>

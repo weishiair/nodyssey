@@ -12,6 +12,7 @@ import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.DirectMessage
 import io.github.nodyssey.data.MessageConversation
 import io.github.nodyssey.data.MessageRepository
+import io.github.nodyssey.data.MessageThread
 import io.github.nodyssey.data.NotificationCategory
 import io.github.nodyssey.data.NotificationRepository
 import io.github.nodyssey.data.ProfileRepository
@@ -33,11 +34,12 @@ import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.designsys.editor.EditorAction
 import io.github.plaza.designsys.editor.ToolbarLayout
-import io.github.plaza.designsys.editor.appendBlock
 import io.github.plaza.designsys.editor.editFromViewModel
+import io.github.plaza.designsys.editor.insertBlockAtCaret
 import io.github.plaza.designsys.editor.removeBlock
 import io.github.plaza.designsys.editor.toolbarLayout
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +49,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Board 7f.
@@ -91,6 +95,9 @@ class MessageThreadViewModel(
      */
     private val uploads = ImageUploadQueue(viewModelScope, uploader)
     private var loadJob: Job? = null
+    private var pollJob: Job? = null
+    private val historyMutex = Mutex()
+    private var historyRevision = 0L
     private var pendingSeed = 0L
 
     init {
@@ -104,12 +111,11 @@ class MessageThreadViewModel(
         uploads.attachments
             .onEach { attachments -> _uiState.update { it.copy(attachments = attachments) } }
             .launchIn(viewModelScope)
-        // Appended rather than spliced at the caret: the upload lands while typing continues, and
-        // dropping `![](…)` mid-sentence is both surprising and hard to undo.
+        // At the caret, on a line of its own, as in the composers — see [insertBlockAtCaret].
         uploads.uploaded
             .onEach { attachment ->
                 val markdown = attachment.markdown ?: return@onEach
-                draftState.editFromViewModel { appendBlock(markdown) }
+                draftState.editFromViewModel { insertBlockAtCaret(markdown) }
             }.launchIn(viewModelScope)
         settings?.settings
             ?.map { it.messageToolbarActions }
@@ -151,32 +157,16 @@ class MessageThreadViewModel(
             _uiState.update { it.copy(error = SiteError.LoginRequired) }
             return
         }
+        historyRevision++
         loadJob?.cancel()
         loadJob =
             viewModelScope.launch {
                 _uiState.update { it.copy(isLoading = true, error = null) }
-                runCatchingExceptCancellation { repository.thread(_uiState.value.uid) }
+                runCatchingExceptCancellation { fetchHistory() }
                     .onSuccess { thread ->
-                        val now = clock.nowMillis()
-                        val threadJoinedDays = joinedDays(thread.createdAt, now)
-                        val resolvedName = thread.userName.ifBlank { _uiState.value.userName }
-                        _uiState.update { state ->
-                            state.copy(
-                                // The server list replaces the delivered history but must not drop a
-                                // bubble that is still in flight or waiting to be retried.
-                                messages =
-                                thread.messages.map(::delivered) +
-                                    state.messages.filter { it.status != SendStatus.SENT },
-                                userName = resolvedName,
-                                avatarUrl = thread.avatarUrl ?: state.avatarUrl,
-                                level = thread.level ?: state.level,
-                                joinedDays = threadJoinedDays ?: state.joinedDays,
-                                isLoading = false,
-                                error = null,
-                                nowMillis = now,
-                            )
-                        }
-                        markRead(thread.unreadIds)
+                        _uiState.update { it.copy(isLoading = false) }
+                        if (thread == null) return@onSuccess
+                        val resolvedName = applyHistory(thread)
                         val current = _uiState.value
                         if (
                             profiles != null &&
@@ -201,6 +191,72 @@ class MessageThreadViewModel(
                         }
                     }
             }
+    }
+
+    /**
+     * Foreground polling follows nodyssey-wa 331028a. Reads and sends are coordinated below;
+     * failures back off without replacing a conversation the reader can already use.
+     */
+    fun startPolling() {
+        if (pollJob?.isActive == true) return
+        pollJob =
+            viewModelScope.launch {
+                var interval = POLL_INTERVAL_MILLIS
+                while (session.state.value.isSignedIn) {
+                    if (loadJob?.isActive != true && !isSending()) {
+                        val result = runCatchingExceptCancellation { fetchHistory()?.let(::applyHistory) }
+                        interval =
+                            if (result.isSuccess) {
+                                POLL_INTERVAL_MILLIS
+                            } else {
+                                (interval * 2).coerceAtMost(MAX_POLL_INTERVAL_MILLIS)
+                            }
+                    }
+                    delay(interval)
+                }
+            }
+    }
+
+    fun stopPolling() {
+        pollJob?.cancel()
+        pollJob = null
+    }
+
+    private fun isSending() = _uiState.value.messages.any { it.status == SendStatus.SENDING }
+
+    /**
+     * Serializes manual and automatic reads. A snapshot started before a send, retry or explicit
+     * refresh must not erase a message accepted while that request was in flight. Checking only
+     * SENDING misses a send that both started and finished before the history came back.
+     */
+    private suspend fun fetchHistory(): MessageThread? =
+        historyMutex.withLock {
+            val sessionAtStart = session.state.value
+            if (!sessionAtStart.isSignedIn || isSending()) return@withLock null
+            val revision = historyRevision
+            repository.thread(_uiState.value.uid).takeIf {
+                revision == historyRevision && !isSending() && session.state.value == sessionAtStart
+            }
+        }
+
+    private fun applyHistory(thread: MessageThread): String {
+        val now = clock.nowMillis()
+        val resolvedName = thread.userName.ifBlank { _uiState.value.userName }
+        _uiState.update { state ->
+            state.copy(
+                messages =
+                thread.messages.distinctBy { it.id }.map(::delivered) +
+                    state.messages.filter { it.status != SendStatus.SENT },
+                userName = resolvedName,
+                avatarUrl = thread.avatarUrl ?: state.avatarUrl,
+                level = thread.level ?: state.level,
+                joinedDays = joinedDays(thread.createdAt, now) ?: state.joinedDays,
+                error = null,
+                nowMillis = now,
+            )
+        }
+        markRead(thread.unreadIds)
+        return resolvedName
     }
 
     /**
@@ -266,7 +322,12 @@ class MessageThreadViewModel(
         // report for getting it there, and leaving them up would attach them to the next message.
         uploads.clear()
         _uiState.update {
-            it.copy(messages = it.messages + bubble, quotes = emptyList(), nowMillis = clock.nowMillis())
+            it.copy(
+                messages = it.messages + bubble,
+                quotes = emptyList(),
+                nowMillis = clock.nowMillis(),
+                scrollToLatestRequest = it.scrollToLatestRequest + 1,
+            )
         }
         deliver(bubble)
     }
@@ -279,6 +340,7 @@ class MessageThreadViewModel(
     }
 
     private fun deliver(bubble: MessageBubble) {
+        historyRevision++
         viewModelScope.launch {
             runCatchingExceptCancellation {
                 repository.send(
@@ -290,6 +352,7 @@ class MessageThreadViewModel(
                     markdown = true,
                 )
             }.onSuccess { accepted ->
+                historyRevision++
                 replace(bubble.id) {
                     // Whatever the echo says, this bubble is ours: an ack without a sender must not
                     // send the message we just wrote over to the other side of the thread.
@@ -297,6 +360,7 @@ class MessageThreadViewModel(
                         ?: it.copy(status = SendStatus.SENT)
                 }
             }.onFailure { throwable ->
+                historyRevision++
                 replace(bubble.id) {
                     it.copy(
                         status = SendStatus.FAILED,
@@ -333,6 +397,9 @@ class MessageThreadViewModel(
         )
 
     companion object {
+        private const val POLL_INTERVAL_MILLIS = 10_000L
+        private const val MAX_POLL_INTERVAL_MILLIS = 60_000L
+
         fun factory(
             container: AppContainer,
             uid: Long,
@@ -401,6 +468,8 @@ data class MessageThreadUiState(
     /** The formatting strip's keys and the wrench panel's pool. Defaults until settings arrive. */
     val toolbar: ToolbarLayout = toolbarLayout(emptyList(), EditorActions.Message),
     val nowMillis: Long = 0L,
+    /** Only an explicit send asks the reader to leave older messages for the newest bubble. */
+    val scrollToLatestRequest: Long = 0L,
 ) {
     /**
      * Sending an image that has not finished uploading would send its placeholder.

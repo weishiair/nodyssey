@@ -79,6 +79,9 @@ interface ProfileRepository {
      */
     suspend fun profile(uid: Long): UserProfile
 
+    /** Quiet account badges. Production caches public facts and backs off when the endpoint fails. */
+    suspend fun authorInfo(uid: Long): AuthorInfo? = profile(uid).let { AuthorInfo(it.rank, it.createdAt) }
+
     /**
      * The signed-in account's uid, remembered from the last successful load or persisted emission.
      *
@@ -135,6 +138,9 @@ class NetworkProfileRepository(
         private set
 
     private val cacheLock = Mutex()
+    private val authorInfoCache = AuthorInfoCache(clock) { uid -> profile(uid) }
+
+    override suspend fun authorInfo(uid: Long): AuthorInfo? = authorInfoCache.get(uid)
 
     override fun observeProfile(sessionFingerprint: Int): Flow<UserProfile?> =
         profileDao.observe(sessionFingerprint).map { entity ->

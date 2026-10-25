@@ -44,7 +44,7 @@ import io.github.nodyssey.ui.sticker.rememberLeavingStickerNavigation
 import io.github.nodyssey.ui.sticker.stickerMarkdown
 import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.designsys.component.PlazaLoadingIndicator
-import io.github.plaza.designsys.editor.appendBlock
+import io.github.plaza.designsys.editor.insertBlockAtCaret
 import io.github.plaza.designsys.theme.Spacing
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -126,8 +126,8 @@ class HostedImagePickerViewModel(
 /**
  * 从图床选择: the selected host's pictures, picked into [bodyState] on lines of their own.
  *
- * One sheet for all three editors. Appended rather than dropped at the caret, the way an upload
- * lands, so that a picture from the host and a fresh one end up in the same place.
+ * One sheet for all three editors. Dropped in at the caret, each on a line of its own, the way an
+ * upload lands — so a picture from the host and a fresh one end up in the same place.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -183,7 +183,7 @@ internal fun HostedImagePickerSheet(
                             Button(
                                 onClick = {
                                     val markdown = viewModel.selectedMarkdown()
-                                    bodyState.edit { markdown.forEach { appendBlock(it) } }
+                                    bodyState.edit { markdown.forEach { insertBlockAtCaret(it) } }
                                     close()
                                 },
                                 enabled = selection.isNotEmpty(),

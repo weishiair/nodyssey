@@ -19,6 +19,7 @@ import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.model.PostReactions
 import io.github.nodyssey.ui.postdetail.PostDetailScreen
 import io.github.nodyssey.ui.postdetail.PostDetailUiState
+import io.github.nodyssey.ui.postdetail.ReplyAuthorInfo
 import io.github.nodyssey.ui.postdetail.readingView
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
@@ -97,6 +98,18 @@ class PostDetailScreenRenderTest {
         composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(1)
 
         composeRule.onRoot().captureRender("post-detail-replies-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h900dp")
+    fun `reply account badges with long names and large text`() {
+        val state = LATER_PAGE.copy(
+            comments = LATER_PAGE.comments.mapIndexed { index, reply ->
+                if (index == 0) reply.copy(authorName = "A very long forum username for wrapping") else reply
+            },
+        )
+        composeRule.setContent { Screen(darkTheme = false, state = state, fontScale = 1.3f) }
+        composeRule.onRoot().captureRender("post-detail-author-badges-narrow")
     }
 
     @Test
@@ -369,6 +382,12 @@ class PostDetailScreenRenderTest {
                 title = "自建 NAS 一年，聊聊我踩过的那些坑和真香时刻",
                 body = BODY,
                 comments = COMMENTS,
+                replyAuthors = mapOf(
+                    1001L to ReplyAuthorInfo(4, 459),
+                    1002L to ReplyAuthorInfo(0, 2),
+                    1003L to ReplyAuthorInfo(4, 252),
+                    1004L to ReplyAuthorInfo(null, 82),
+                ),
                 commentPages = List(COMMENTS.size) { 1 },
                 totalPages = 3,
                 hasNextPage = true,
@@ -389,6 +408,7 @@ class PostDetailScreenRenderTest {
 
         val LATER_PAGE = STATE.copy(
             replyCount = 396,
+            replyAuthors = (121L..130L).associateWith { ReplyAuthorInfo(if (it % 2L == 0L) 0 else 4, if (it % 2L == 0L) 2 else 459) },
             comments = (121..130).map { number ->
                 floor(
                     id = number.toLong(),

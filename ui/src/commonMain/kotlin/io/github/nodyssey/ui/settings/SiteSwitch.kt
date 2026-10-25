@@ -13,17 +13,16 @@ import io.github.nodyssey.core.Site
  * database, for as long as their in-flight coroutines lasted. That window is short, silent, and
  * produces one site's threads under the other's ids, which is the worst way for this to go wrong.
  *
- * So the choice is stored and the app is started again from it. What "started again" means is the
- * platform's business, and the two platforms genuinely differ — see the actuals.
+ * Android disposes the navigation and retires its graph before installing the new site. Shared
+ * stores remain open and site-specific stores keep their existing filenames. Other platforms may
+ * defer the choice until the next launch — see the actuals.
  */
 @Composable
 expect fun rememberSiteSwitch(): (Site) -> Unit
 
 /**
- * Whether [rememberSiteSwitch] takes effect on its own, or only at the next launch.
+ * Whether [rememberSiteSwitch] takes effect immediately, or only at the next launch.
  *
- * The switcher shows this to the reader rather than deciding for them: an app that restarts itself
- * without warning and an app that asks to be reopened are two different things to be handed, and
- * neither should be discovered by watching what happens.
+ * The historical name is retained for the platform implementations; Android now rebuilds in place.
  */
 expect val siteSwitchRestartsApp: Boolean

@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
-import io.github.nodyssey.core.ActiveSite
+import io.github.nodyssey.core.Site
 import io.github.nodyssey.data.imagehost.ImageHostSecretEncryptionMigration
 import io.github.nodyssey.data.imagehost.LEGACY_NODE_IMAGE_KEY
 import io.github.nodyssey.data.imagehost.LegacyNodeImageKeyMigration
@@ -53,16 +53,34 @@ internal val Context.dnsDataStore: DataStore<Preferences> by preferencesDataStor
  * forum, and a reader who set 字体大小 once should not have to set it again on the other site.
  *
  * The suffix is empty for NodeSeek, so these are still the files already on every installed device —
- * see the note above about names being load-bearing, and `Site.storageSuffix`. `ActiveSite` is
- * installed in `attachBaseContext`, which is before anything can touch this file.
+ * see the note above about names being load-bearing, and `Site.storageSuffix`. Each delegate has a
+ * fixed name so returning to a site reuses its single DataStore instance in the current process.
  */
-internal val Context.postComposerDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "post-composer${ActiveSite.current.storageSuffix}",
+private val Context.nodeSeekPostComposerDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "post-composer",
 )
 
-internal val Context.commentComposerDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "comment-composer${ActiveSite.current.storageSuffix}",
+private val Context.deepFloodPostComposerDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "post-composer-deepflood",
 )
+
+private val Context.nodeSeekCommentComposerDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "comment-composer",
+)
+
+private val Context.deepFloodCommentComposerDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "comment-composer-deepflood",
+)
+
+internal fun Context.postComposerDataStore(site: Site): DataStore<Preferences> = when (site) {
+    Site.NODESEEK -> nodeSeekPostComposerDataStore
+    Site.DEEPFLOOD -> deepFloodPostComposerDataStore
+}
+
+internal fun Context.commentComposerDataStore(site: Site): DataStore<Preferences> = when (site) {
+    Site.NODESEEK -> nodeSeekCommentComposerDataStore
+    Site.DEEPFLOOD -> deepFloodCommentComposerDataStore
+}
 
 internal val Context.offlineDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "offline",

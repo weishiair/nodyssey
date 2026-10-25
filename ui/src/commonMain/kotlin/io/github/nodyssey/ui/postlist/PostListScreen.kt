@@ -1074,9 +1074,8 @@ private fun SortButton(
  * current one ticked, which is the same shape 排序 uses two slots to the left; a reader who opens it
  * to check where they are should not have to change anything to find out.
  *
- * Switching restarts the app on Android — see [rememberSiteSwitch] for why nothing cheaper is
- * correct — and on a platform where it cannot, the menu says so instead of letting the reader
- * discover that nothing happened.
+ * Android rebuilds the site's navigation and services in place. On a platform that defers the
+ * change until the next launch, the menu explains that beside the selected site.
  */
 @Composable
 private fun SiteSwitcher(

@@ -1,5 +1,6 @@
 package io.github.nodyssey.ui.composer
 
+import androidx.compose.ui.text.TextRange
 import io.github.nodyssey.data.Board
 import io.github.nodyssey.data.MutableClock
 import io.github.nodyssey.data.ProfileRepository
@@ -452,7 +453,7 @@ class PostComposerViewModelTest {
     }
 
     @Test
-    fun `an uploaded image is appended to the body and removed with its cell`() = runTest(dispatcher) {
+    fun `an uploaded image at the end is removed with its cell without leaving a blank line`() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
         viewModel.bodyState.typeText("正文")
@@ -464,13 +465,37 @@ class PostComposerViewModelTest {
 
         val attachment = viewModel.uiState.value.attachments.single()
         assertEquals(UploadStatus.UPLOADED, attachment.status)
-        assertEquals("正文\n\n![screenshot.png](https://cdn.nodeimage.com/i/fake.webp)", viewModel.uiState.value.body)
+        assertEquals("正文\n\n![screenshot.png](https://cdn.nodeimage.com/i/fake.webp)\n", viewModel.uiState.value.body)
 
         viewModel.removeAttachment(attachment)
         advanceUntilIdle()
 
         assertEquals("正文", viewModel.uiState.value.body)
         assertTrue(viewModel.uiState.value.attachments.isEmpty())
+    }
+
+    @Test
+    fun `an upload uses the latest caret and text when it completes and saves that draft`() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        uploader.gate = gate
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.bodyState.typeText("beforeafter")
+        runCurrent()
+        viewModel.addImages(listOf(PickedImage("content://pick/1", "a.png")))
+        runCurrent()
+
+        viewModel.bodyState.typeText("edited after")
+        viewModel.bodyState.edit { selection = TextRange(7) }
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        val expected = "edited \n\n![a.png](https://cdn.nodeimage.com/i/fake.webp)\n\nafter"
+        assertEquals(expected, viewModel.bodyState.text.toString())
+        assertEquals(expected, viewModel.uiState.value.body)
+        assertEquals(expected, repository.savedDraft?.body)
+        assertEquals(TextRange(expected.indexOf("after")), viewModel.bodyState.selection)
     }
 
     @Test
@@ -513,11 +538,13 @@ private class FakeProfileRepository(
 
 private class FakeImageUploader : ImageUploader {
     var failures = 0
+    var gate: CompletableDeferred<Unit>? = null
 
     override suspend fun upload(
         attachment: ImageAttachment,
         onProgress: (Float) -> Unit,
     ): String {
+        gate?.await()
         if (failures > 0) {
             failures--
             throw SiteException(SiteError.Network)

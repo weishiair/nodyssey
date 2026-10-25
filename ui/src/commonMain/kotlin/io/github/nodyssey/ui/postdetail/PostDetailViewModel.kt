@@ -80,8 +80,7 @@ class PostDetailViewModel(
     /** 追踪新回复; absent in a test that does not care, which also hides the menu item. */
     private val trackedThreads: TrackedThreadStore? = null,
     /**
-     * Reads `/api/account/getInfo/{uid}` for the opening post's author so the header can show
-     * `Lv.X` and `加入 X 天` alongside `楼主`.
+     * Cached public account information for the opening post and the replies actually on screen.
      */
     private val profiles: ProfileRepository? = null,
     private val clock: AppClock = AppClock.System,
@@ -109,6 +108,8 @@ class PostDetailViewModel(
     private var loadJob: Job? = null
     private var authorProfileJob: Job? = null
     private var fetchedAuthorUid: Long? = null
+    private val replyAuthorJobs = mutableMapOf<Long, Job>()
+    private val replyAuthorRetryAfter = mutableMapOf<Long, Long>()
     private var authorScanJob: Job? = null
     private var authorScanGeneration = 0
     private var unfilteredPosition: ReadingPosition? = null
@@ -144,6 +145,9 @@ class PostDetailViewModel(
                     // before the floors it named could possibly have arrived.
                     fetchedAuthorUid = null
                     authorProfileJob?.cancel()
+                    replyAuthorJobs.values.forEach { it.cancel() }
+                    replyAuthorJobs.clear()
+                    replyAuthorRetryAfter.clear()
                     updateState {
                         it.copy(
                             title = preview?.title.orEmpty(),
@@ -159,6 +163,7 @@ class PostDetailViewModel(
                             isAwarded = preview?.isAwarded == true,
                             authorLevel = null,
                             authorJoinedDays = null,
+                            replyAuthors = emptyMap(),
                             onlyAuthor = false,
                             isScanningAuthor = false,
                             authorScanError = null,
@@ -169,11 +174,14 @@ class PostDetailViewModel(
                     return@collect
                 }
 
+                val replyUids = thread.comments.mapNotNull { it.authorUid }.toSet()
+                replyAuthorRetryAfter.keys.retainAll(replyUids)
                 updateState { state ->
                     state.copy(
                         title = thread.title,
                         body = thread.body,
                         comments = thread.comments,
+                        replyAuthors = state.replyAuthors.filterKeys { it in replyUids },
                         commentPages = thread.commentPages,
                         firstLoadedPage = thread.firstLoadedPage,
                         lastLoadedPage = thread.lastLoadedPage,
@@ -262,11 +270,15 @@ class PostDetailViewModel(
         authorProfileJob?.cancel()
         authorProfileJob =
             viewModelScope.launch {
-                runCatchingExceptCancellation { repo.profile(uid) }
+                runCatchingExceptCancellation { repo.authorInfo(uid) }
                     .onSuccess { profile ->
+                        if (profile == null) {
+                            fetchedAuthorUid = null
+                            return@onSuccess
+                        }
                         updateState {
                             it.copy(
-                                authorLevel = profile.rank,
+                                authorLevel = profile.level,
                                 authorJoinedDays = joinedDays(profile.createdAt, clock.nowMillis()),
                             )
                         }
@@ -274,6 +286,33 @@ class PostDetailViewModel(
                         fetchedAuthorUid = null
                     }
             }
+    }
+
+    /** Called after scrolling settles; lazy precomposition is deliberately not a reason to fetch. */
+    fun loadVisibleAuthors(uids: Set<Long>) {
+        val repo = profiles ?: return
+        val visible = uids.intersect(uiState.value.comments.mapNotNull { it.authorUid }.toSet()).filter { it > 0 }.toSet()
+        (replyAuthorJobs.keys - visible).forEach { uid -> replyAuthorJobs.remove(uid)?.cancel() }
+        visible.forEach { uid ->
+            if (sourceState.value.replyAuthors.containsKey(uid) || replyAuthorJobs[uid]?.isActive == true) return@forEach
+            if (clock.nowMillis() < (replyAuthorRetryAfter[uid] ?: Long.MIN_VALUE)) return@forEach
+            replyAuthorJobs[uid] = viewModelScope.launch {
+                val info = runCatchingExceptCancellation { repo.authorInfo(uid) }.getOrNull()
+                if (info == null) {
+                    replyAuthorRetryAfter[uid] = clock.nowMillis() + AUTHOR_RETRY_MILLIS
+                } else if (sourceState.value.comments.any { it.authorUid == uid }) {
+                    replyAuthorRetryAfter.remove(uid)
+                    updateState { state ->
+                        val authors = state.replyAuthors.toMutableMap()
+                        authors.remove(uid)
+                        authors[uid] = ReplyAuthorInfo(info.level, joinedDays(info.createdAt, clock.nowMillis()))
+                        while (authors.size > MAX_REPLY_AUTHORS) authors.remove(authors.keys.first())
+                        state.copy(replyAuthors = authors)
+                    }
+                }
+                while (replyAuthorRetryAfter.size > MAX_REPLY_AUTHORS) replyAuthorRetryAfter.remove(replyAuthorRetryAfter.keys.first())
+            }
+        }
     }
 
     /**
@@ -299,12 +338,25 @@ class PostDetailViewModel(
         if (floor != null || start > 1) {
             updateState { it.copy(pendingScroll = PendingScroll(start, floor)) }
         }
-        // A thread read moments ago needs no request — but only if the page being asked for is
-        // one of the pages it cached; freshness says nothing about a page nobody has fetched.
+        // Even a fresh page can predate the reply named by a notification. Refresh once when that
+        // floor is missing; collection must not keep retrying a reply that may have been deleted.
         val cached = repository.cachedPages(postId)
-        if (cached == null || start !in cached || hasUnreadReplies || !repository.isThreadFresh(postId)) {
-            load(page = start, replacesWindow = true)
+        if (
+            cached == null ||
+            start !in cached ||
+            hasUnreadReplies ||
+            !repository.isThreadFresh(postId) ||
+            !isFloorCached(floor)
+        ) {
+            load(page = start, replacesWindow = true, scrollTo = sourceState.value.pendingScroll)
         }
+    }
+
+    private suspend fun isFloorCached(floor: String?): Boolean {
+        val number = NodeSeekSite.parseFloorNumber(floor) ?: return true
+        val thread = repository.thread(postId).first() ?: return false
+        return NodeSeekSite.parseFloorNumber(thread.body?.floor) == number ||
+            thread.comments.any { NodeSeekSite.parseFloorNumber(it.floor) == number }
     }
 
     /** Where this thread opens: the floor's page, the link's page, or the top. */
@@ -754,6 +806,21 @@ class PostDetailViewModel(
                     } else {
                         repository.extendThread(postId, page)
                     }
+                    if (scrollTo != null) {
+                        // Room can publish the refreshed page after the request returns. Keep the
+                        // loading gate closed until the screen state holds that snapshot, or a
+                        // same-page notification can consume its jump against the old replies.
+                        val loaded = repository.thread(postId).first()
+                        if (loaded != null) {
+                            sourceState.first { state ->
+                                state.body == loaded.body &&
+                                    state.comments == loaded.comments &&
+                                    state.commentPages == loaded.commentPages &&
+                                    state.firstLoadedPage == loaded.firstLoadedPage &&
+                                    state.lastLoadedPage == loaded.lastLoadedPage
+                            }
+                        }
+                    }
                 }.onSuccess {
                     // Neither content nor the read mark is applied here: both follow from the Room
                     // observation above, so there is exactly one path by which either can happen.
@@ -817,6 +884,8 @@ class PostDetailViewModel(
          * enough that leaving the thread the moment you stop still records where you stopped.
          */
         private const val POSITION_WRITE_DELAY_MILLIS = 500L
+        private const val AUTHOR_RETRY_MILLIS = 60_000L
+        private const val MAX_REPLY_AUTHORS = 256
     }
 }
 
@@ -893,6 +962,8 @@ data class PostDetailUiState(
     val authorLevel: Int? = null,
     /** Whole days since the original poster registered, when known. */
     val authorJoinedDays: Int? = null,
+    /** Keyed by UID so repeated authors share the same answer without changing reply order. */
+    val replyAuthors: Map<Long, ReplyAuthorInfo> = emptyMap(),
     val replyCount: Int? = null,
     /** Original thread floor extent, retained when only-author replaces the reply count. */
     val lastFloor: Int? = null,
@@ -914,6 +985,8 @@ data class PostDetailUiState(
      */
     val hasContent: Boolean get() = body != null || comments.isNotEmpty() || onlyAuthor
 }
+
+data class ReplyAuthorInfo(val level: Int?, val joinedDays: Int?)
 
 /** The counter must never turn original floor 121 into filtered reply 3, or invent missing totals. */
 internal fun PostDetailUiState.readerLastFloor(): Int? {

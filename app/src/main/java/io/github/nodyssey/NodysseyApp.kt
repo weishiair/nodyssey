@@ -16,12 +16,16 @@ import coil3.network.cachecontrol.CacheControlCacheStrategy
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.transitionFactory
 import coil3.svg.SvgDecoder
+import io.github.nodyssey.core.ActiveSite
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.core.Site
 import io.github.nodyssey.core.net.BundledEch
 import io.github.nodyssey.data.offline.AndroidOfflineFileStore
+import io.github.nodyssey.data.offline.OfflineDownloads
 import io.github.nodyssey.data.offline.OfflineImageInterceptor
 import io.github.nodyssey.data.offline.OfflineWork
 import io.github.nodyssey.di.AndroidAppContainer
+import io.github.nodyssey.di.AndroidSiteDatabases
 import io.github.nodyssey.di.DefaultAppContainer
 import io.github.nodyssey.image.AvifImageDecoder
 import io.github.nodyssey.image.EinkAwareCrossfade
@@ -50,8 +54,10 @@ open class NodysseyApp :
     SingletonImageLoader.Factory,
     Configuration.Provider {
     /** The one place the dependency graph is built. Everything else receives it. */
-    lateinit var container: AndroidAppContainer
+    val container: AndroidAppContainer get() = sites.state.value.graph
+    lateinit var sites: SiteSwitchController<DefaultAppContainer>
         private set
+    private val databases by lazy { AndroidSiteDatabases(this) }
 
     /**
      * On-demand WorkManager initialization — the androidx.startup initializer is removed in the
@@ -65,7 +71,7 @@ open class NodysseyApp :
         get() =
             Configuration
                 .Builder()
-                .setWorkerFactory(NodysseyWorkerFactory { container })
+                .setWorkerFactory(NodysseyWorkerFactory({ container }, { !sites.state.value.switching }))
                 .build()
 
     /** Lives as long as the process; the launch update check and the settings watcher below use it. */
@@ -93,7 +99,14 @@ open class NodysseyApp :
     override fun onCreate() {
         super.onCreate()
         BundledEch.install()
-        container = DefaultAppContainer(this)
+        sites = SiteSwitchController(
+            initial = DefaultAppContainer(this, databases = databases),
+            siteOf = { it.site },
+            install = ActiveSite::install,
+            build = { DefaultAppContainer(this, databases = databases) },
+            retire = { it.shutdown() },
+            store = { AndroidActiveSite.store(this, it) },
+        )
 
         // Installed before anything that could crash gets to run. Chained onto whatever handler was
         // there first — the system's, which still shows the dialog and kills the process.
@@ -143,6 +156,22 @@ open class NodysseyApp :
                 .map { it.einkMode }
                 .distinctUntilChanged()
                 .collect { eink -> EinkAwareCrossfade.crossfading = !eink }
+        }
+    }
+
+    fun switchSite(site: Site) {
+        applicationScope.launch(Dispatchers.Main.immediate) {
+            if (sites.state.value.switching || site == sites.state.value.graph.site) return@launch
+            sites.switch(site)
+            OfflineWork.ensureMaintenance(this@NodysseyApp)
+            val graph = sites.state.value.graph
+            graph.runSiteWork {
+                val downloads = graph.offlineLibrary as? OfflineDownloads
+                if (downloads?.hasQueuedWork() == true) {
+                    val settings = graph.offlineLibrary.settings.first()
+                    OfflineWork.startDrain(this@NodysseyApp, settings.wifiOnly, restart = true)
+                }
+            }
         }
     }
 
