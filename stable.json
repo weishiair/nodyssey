@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "channel": "stable",
-  "versionName": "1.3.2",
-  "tag": "v1.3.2",
-  "publishedOn": "2026-10-22",
-  "notes": "### 改进\n\n- 搜索历史默认按帖子、用户各保留 100 条，可在设置中选择每类 50、100、200 或 500 条。\n- 新增「预测式返回动画」开关，关闭后不再在滑动过程中预览上一页，完成手势后正常返回。\n\n### 修复\n\n- 长帖加载下一页时，底部楼层胶囊保持原数字，内容完成布局后再一次更新，避免加载过程中来回跳动。\n- 长帖相邻分页重复返回同一回复时只显示一次，避免继续加载时因重复列表键闪退。\n- 关闭预测式返回动画后，返回列表立即恢复触摸，不再等待普通返回、页面淡出或共享标题动画结束。\n- 浏览记录及阅读位置按账号 UID 分开保存，退出后重新登录同一账号可以恢复；访客和不同账号的记录各自独立，清理帖子缓存也不会删除历史。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.2.22-dev.7...v1.3.2",
+  "versionName": "1.3.3",
+  "tag": "v1.3.3",
+  "publishedOn": "2026-10-26",
+  "notes": "### 改进\n\n- Android 新增屏幕刷新率选择：跟随系统、60、90、120、144、165 Hz，不支持的档位置灰，设置即时生效。\n- 回复作者支持显示等级与注册天数，按当前可见回复加载并缓存；仅展示中性账号信息。\n- Android 可直接切换 NodeSeek / DeepFlood，无需重启应用；两站的登录状态、草稿、浏览记录、阅读位置及版块配置分别保留。\n- 私信页面在前台自动刷新，浏览旧消息时保留阅读位置，并提供新消息提示。\n- 发帖、回复及私信上传的图片插入到当前光标位置，便于继续编辑。\n\n### 修复\n\n- 首页向上箭头改为回到顶部，第一页内滑动或从后面的页码进入时也可使用。\n- 主帖昵称、等级天数和「楼主」标签优先同排显示，空间不足时再换行。\n- 修复 iOS 登录时人机验证子页面被拦截的问题，补齐验证不可用时的提示。\n- 修复私信刷新与发送并发时，较早返回的历史消息覆盖刚发送消息的问题。\n- 调整个人资料编辑页收起键盘的处理，避免影响页面操作。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.2...v1.3.3",
   "apk": {
-    "name": "nodyssey-v1.3.2.apk",
-    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.2/nodyssey-v1.3.2.apk",
-    "sizeBytes": 11063483,
-    "sha256": "b8968c34f7b83d72b3fc25097296935f9051eef3833fdca50ada25367c52b716"
+    "name": "nodyssey-v1.3.3.apk",
+    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.3/nodyssey-v1.3.3.apk",
+    "sizeBytes": 11096575,
+    "sha256": "3b2ee21f8b64f7437a95161e4adce4c3968aa5c8cfdd6ab42663d96f918af45a"
   },
-  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.2"
+  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.3"
 }
