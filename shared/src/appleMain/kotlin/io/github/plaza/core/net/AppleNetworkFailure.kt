@@ -16,7 +16,7 @@ internal fun NSError.asNetworkFailure(): SiteException {
     repeat(TransportFailureDiagnostics.MAX_ERRORS) {
         val error = current ?: return@repeat
         errors += NativeNetworkError(
-            domain = NativeNetworkErrorDomain.fromNative(error.domain),
+            domain = NativeNetworkErrorDomain.fromNative(error.domain.orEmpty()),
             code = error.code,
             streamDomain = (error.userInfo["_kCFStreamErrorDomainKey"] as? NSNumber)?.longLongValue,
             streamCode = (error.userInfo["_kCFStreamErrorCodeKey"] as? NSNumber)?.longLongValue,
