@@ -69,7 +69,9 @@ struct Input {
     #[serde(default = "default_body_limit")]
     max_body: usize,
 }
-fn default_body_limit() -> usize { MAX_BODY }
+fn default_body_limit() -> usize {
+    MAX_BODY
+}
 #[derive(Clone, Debug, Default, Serialize)]
 struct Facts {
     stage: String,

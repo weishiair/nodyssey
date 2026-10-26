@@ -1,0 +1,4 @@
+package = io.github.plaza.core.net.ech
+headers = nodyssey_network.h
+staticLibraries = libnodyssey_network.a
+linkerOpts = -framework Security -framework SystemConfiguration

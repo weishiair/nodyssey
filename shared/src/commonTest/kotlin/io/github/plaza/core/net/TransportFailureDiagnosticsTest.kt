@@ -7,6 +7,18 @@ import kotlin.test.assertTrue
 
 class TransportFailureDiagnosticsTest {
     @Test
+    fun rustConnectionFactsAreBoundedAndClassified() {
+        val failure = TransportFailureDiagnostics("test", emptyList(), NativeTransportEngine.RUST_ECH, EncryptedConnectionDiagnostics.fromNative("TLS", "certificate_rejected", "NotEstablished"))
+        assertEquals(TransportFailureCategory.CERTIFICATE, failure.category)
+        assertTrue(failure.asText().contains("Nodyssey rustls DoH/ECH"))
+        assertTrue(failure.asText().contains("Connection stage: TLS"))
+        val untrusted = EncryptedConnectionDiagnostics.fromNative("private-url", "password", "cookie")
+        assertEquals("UNKNOWN", untrusted.stage)
+        assertEquals("other", untrusted.reason)
+        assertEquals("Unknown", untrusted.ech)
+    }
+
+    @Test
     fun wrapperDoesNotHideUrlLoadingFailure() {
         val failure = TransportFailureDiagnostics(
             "iOS test",

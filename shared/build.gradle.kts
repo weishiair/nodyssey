@@ -164,6 +164,30 @@ kotlin {
         compilations.getByName("main").cinterops.create("encrypteddns") {
             definitionFile.set(layout.projectDirectory.file("src/nativeInterop/cinterop/encrypteddns.def"))
         }
+        val rustTarget = when (name) {
+            "iosArm64" -> "aarch64-apple-ios"
+            "iosSimulatorArm64" -> "aarch64-apple-ios-sim"
+            "macosArm64" -> "aarch64-apple-darwin"
+            else -> error("Unsupported Apple network target: $name")
+        }
+        val nativeNetwork = rootProject.layout.projectDirectory.dir("native/ios-network")
+        val buildNetwork = tasks.register<Exec>("buildEchNetwork${name.replaceFirstChar(Char::uppercaseChar)}") {
+            workingDir(rootProject.projectDir)
+            commandLine("bash", ".github/scripts/build-ios-network.sh", rustTarget)
+            inputs.files(nativeNetwork.file("Cargo.toml"), nativeNetwork.file("Cargo.lock"))
+            inputs.dir(nativeNetwork.dir("src"))
+            inputs.dir(nativeNetwork.dir("include"))
+            inputs.file(nativeNetwork.file("rust-toolchain.toml"))
+            inputs.file(rootProject.layout.projectDirectory.file(".github/scripts/build-ios-network.sh"))
+            outputs.file(nativeNetwork.file("target/$rustTarget/release/libnodyssey_network.a"))
+        }
+        compilations.getByName("main").cinterops.create("echtransport") {
+            definitionFile.set(layout.projectDirectory.file("src/nativeInterop/cinterop/echtransport.def"))
+            compilerOpts("-I${nativeNetwork.dir("include").asFile.absolutePath}")
+            extraOpts("-libraryPath", nativeNetwork.dir("target/$rustTarget/release").asFile.absolutePath)
+            val processingName = interopProcessingTaskName
+            tasks.matching { it.name == processingName }.configureEach { dependsOn(buildNetwork) }
+        }
     }
 
     // `java.time` is the JVM part of Android rather than the Android part of it, and both targets

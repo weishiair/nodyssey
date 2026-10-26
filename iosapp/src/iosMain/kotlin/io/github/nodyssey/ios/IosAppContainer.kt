@@ -71,10 +71,10 @@ import io.github.nodyssey.data.imagehost.DataStoreImageHostSettings
 import io.github.nodyssey.data.imagehost.DefaultImageHostRepository
 import io.github.nodyssey.data.imagehost.ImageHostRepository
 import io.github.nodyssey.data.local.createNodeSeekDatabase
+import io.github.nodyssey.data.offline.OfflineImageSource
 import io.github.nodyssey.data.offline.OfflineSettingsStore
 import io.github.nodyssey.data.offline.OfflineWorkScheduler
 import io.github.nodyssey.data.offline.RoomOfflineLibrary
-import io.github.nodyssey.data.offline.UrlSessionOfflineImageSource
 import io.github.nodyssey.data.proxy.DataStoreProxySettings
 import io.github.nodyssey.data.proxy.ProxyClientKind
 import io.github.nodyssey.data.proxy.ProxyConnectionTester
@@ -100,9 +100,12 @@ import io.github.plaza.core.AppVersion
 import io.github.plaza.core.crash.CrashReportStore
 import io.github.plaza.core.crash.NoCrashReports
 import io.github.plaza.core.net.AppleCookieStore
+import io.github.plaza.core.net.AppleEchResponse
+import io.github.plaza.core.net.AppleEchTransport
 import io.github.plaza.core.net.CookieScrubbingTransport
 import io.github.plaza.core.net.EncryptedNameResolution
 import io.github.plaza.core.net.EncryptedResolver
+import io.github.plaza.core.net.HttpRequest
 import io.github.plaza.core.net.NSUrlSessionTransport
 import io.github.plaza.core.net.ProxiedUrlSession
 import io.github.plaza.core.net.ProxyRoute
@@ -122,6 +125,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import platform.Foundation.NSHTTPCookieStorage
 import platform.Foundation.NSURLSession
@@ -229,6 +233,24 @@ class IosAppContainer(
     /** What the image loader and the offline downloader read; the current one, not the first one. */
     internal val urlSession: NSURLSession get() = forumSession.current
 
+    private val encryptedTransport by lazy {
+        AppleEchTransport(
+            fallback = NSUrlSessionTransport { forumSession.current },
+            config = { dohSettings.config.first() },
+            usesProxy = { proxySettings.config.first().routes(ProxyClientKind.FORUM) },
+            userAgent = userAgent.value,
+            acceptLanguage = acceptLanguage,
+            referer = "${NodeSeekSite.BASE_URL}/",
+            sessionCookies = sessionCookies,
+            byteSession = { forumSession.current },
+        )
+    }
+
+    internal suspend fun fetchForumImage(url: String, maxBytes: Long = 32L * 1024 * 1024): AppleEchResponse? =
+        runCatchingExceptCancellation {
+            encryptedTransport.executeBytes(HttpRequest(url), maxBytes = maxBytes.coerceIn(0, 32L * 1024 * 1024).toInt())
+        }.getOrNull()
+
     /**
      * A session of its own for the six image hosts, sharing with [forumSession] only what the user
      * set once for the whole app.
@@ -268,7 +290,7 @@ class IosAppContainer(
     private val transport by lazy {
         RetryingTransport(
             DynamicSignTransport(
-                CookieScrubbingTransport(NSUrlSessionTransport { forumSession.current }, sessionCookies),
+                CookieScrubbingTransport(encryptedTransport, sessionCookies),
                 userAgent.value,
             ),
         )
@@ -305,17 +327,7 @@ class IosAppContainer(
 
     private val dohSettings: DohSettings by lazy { DataStoreDohSettings(createPreferenceDataStore("dns")) }
 
-    /**
-     * 加密 DNS, with two of its switches missing, one server instead of a list, and the third path to
-     * it taken.
-     *
-     * None of the capabilities is available here and every refusal is quoted from `privacy_context.h` —
-     * see [EncryptedNameResolution], which is also why this needs no session rebuilt and no client
-     * handed anything: the setting lands on the process's default privacy context, and every
-     * resolution in the process inherits it.
-     *
-     * 测试解析 is a request rather than a lookup for the same reason; see [IosDnsResolutionTester].
-     */
+    /** Native requests own their DoH chain and record selection; WebKit retains the privacy context. */
     override val doh: DohSupport by lazy {
         DohSupport(
             settings = dohSettings,
@@ -324,11 +336,13 @@ class IosAppContainer(
                 url = NodeSeekSite.BASE_URL,
                 host = WebUrl.parse(NodeSeekSite.BASE_URL)?.host.orEmpty(),
                 clock = clock,
+                encrypted = { if (encryptedTransport.isEnabled()) encryptedTransport.executeBytes(HttpRequest(NodeSeekSite.BASE_URL)).remoteAddress else null },
+                usesEncrypted = { encryptedTransport.isEnabled() },
             ),
             capabilities = DohCapabilities(
-                canChooseRecordTypes = false,
+                canChooseRecordTypes = true,
                 canFallBackToSystem = false,
-                triesServersInOrder = false,
+                triesServersInOrder = true,
             ),
         )
     }
@@ -452,7 +466,10 @@ class IosAppContainer(
             files = IosOfflineFileStore.of(applicationSupportDirectory()),
             // The app's own session, so a stored picture arrives under the same cookies and headers
             // as one on screen. Lazily for the reason the Android container gives about its client.
-            images = UrlSessionOfflineImageSource { urlSession },
+            images = object : OfflineImageSource {
+                override suspend fun fetch(url: String, maxBytes: Long): ByteArray? =
+                    fetchForumImage(url, maxBytes)?.takeIf { it.code in 200..299 }?.body
+            },
             collectedMeta = collectedPostMetaStore,
             settingsStore = OfflineSettingsStore(createPreferenceDataStore("offline")),
             scheduler = offlineScheduler,

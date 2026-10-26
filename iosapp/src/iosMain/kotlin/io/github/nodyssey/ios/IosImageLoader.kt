@@ -11,12 +11,10 @@ import coil3.network.NetworkResponse
 import coil3.network.NetworkResponseBody
 import coil3.network.cachecontrol.CacheControlCacheStrategy
 import io.github.nodyssey.core.NodeSeekSite
-import io.github.plaza.core.net.getBytes
-import io.github.plaza.core.toByteArray
+import io.github.plaza.core.net.AppleEchResponse
 import io.github.plaza.designsys.image.LongLivedImageCacheStrategy
 import okio.Buffer
 import okio.Path.Companion.toPath
-import platform.Foundation.NSURLSession
 
 /**
  * The app's image loader, built on the app's own session.
@@ -34,14 +32,14 @@ import platform.Foundation.NSURLSession
 @OptIn(coil3.annotation.ExperimentalCoilApi::class)
 internal fun nodysseyImageLoader(
     context: PlatformContext,
-    session: () -> NSURLSession,
+    fetch: suspend (String) -> AppleEchResponse?,
 ): ImageLoader =
     ImageLoader
         .Builder(context)
         .components {
             add(
                 NetworkFetcher.Factory(
-                    networkClient = { UrlSessionNetworkClient(session) },
+                    networkClient = { UrlSessionNetworkClient(fetch) },
                     // Not the default one, and `NodysseyApp.kt` in `:app` gives the argument at
                     // length: Coil's default strategy hands back the cached response whenever there
                     // is one and never asks the server about it. That is invisible for an attachment
@@ -95,19 +93,19 @@ internal fun nodysseyImageLoader(
  * give the layer above something else to catch.
  */
 private class UrlSessionNetworkClient(
-    private val session: () -> NSURLSession,
+    private val fetch: suspend (String) -> AppleEchResponse?,
 ) : NetworkClient {
     override suspend fun <T> executeRequest(
         request: NetworkRequest,
         block: suspend (response: NetworkResponse) -> T,
     ): T {
-        val fetched = session().getBytes(request.url)
+        val fetched = fetch(request.url)
         val response =
             if (fetched == null) {
                 NetworkResponse(code = UNREACHABLE, headers = NetworkHeaders.EMPTY, body = null)
             } else {
                 NetworkResponse(
-                    code = 200,
+                    code = fetched.code,
                     // Carried through rather than dropped: these are what Coil's disk cache decides
                     // freshness with, and a cache with no `Cache-Control` and no `ETag` never asks
                     // the server anything again.
@@ -116,7 +114,7 @@ private class UrlSessionNetworkClient(
                         .Builder()
                         .apply { fetched.headers.forEach { (name, value) -> add(name, value) } }
                         .build(),
-                    body = NetworkResponseBody(Buffer().apply { write(fetched.data.toByteArray()) }),
+                    body = NetworkResponseBody(Buffer().apply { write(fetched.body) }),
                 )
             }
         return block(response)
