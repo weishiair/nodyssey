@@ -1,0 +1,27 @@
+name: iOS network core checks
+on:
+  push:
+    branches: ['test/ios-doh-ech-1.3.4-test.2']
+permissions:
+  contents: read
+concurrency:
+  group: ios-network-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test native DoH and ECH core
+        run: |
+          rustup update stable --no-self-update
+          cargo +stable test --manifest-path native/ios-network/Cargo.toml
+          cargo +stable fmt --manifest-path native/ios-network/Cargo.toml
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ios-network-source-check
+          path: |
+            native/ios-network/Cargo.lock
+            native/ios-network/src/
