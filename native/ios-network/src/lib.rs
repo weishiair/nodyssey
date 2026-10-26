@@ -604,7 +604,11 @@ pub unsafe extern "C" fn nodyssey_network_start(request_json: *const c_char) -> 
                     error: Some(code.into()),
                     facts: Facts {
                         stage: stage.into(),
-                        ech: "NotEstablished".into(),
+                        ech: match stage {
+                            "HTTP" | "HTTP_BODY" | "TIMEOUT" => "Unknown",
+                            _ => "NotEstablished",
+                        }
+                        .into(),
                         ip: None,
                     },
                 }

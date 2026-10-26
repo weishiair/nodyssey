@@ -18,7 +18,7 @@ jobs:
         run: |
           rustup show
           cargo test --locked
-          cargo fmt
+          cargo fmt --check
       - name: Probe the production resolver and ECH TLS path
         working-directory: native/ios-network
         run: cargo run --locked --example probe

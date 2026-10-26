@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: ios-test-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validate:
@@ -71,10 +71,19 @@ jobs:
         with:
           cache-read-only: false
       - name: Prepare the pinned native network toolchain
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/ios-network/target
+          key: native-network-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}
+      - name: Test the pinned native network toolchain
         working-directory: native/ios-network
         run: |
           rustup show
           cargo test --locked
+          cargo fmt --check
           cargo run --locked --example probe
       - name: Read the test version
         shell: bash
@@ -109,6 +118,7 @@ jobs:
         run: |
           app="$RUNNER_TEMP/Nodyssey.xcarchive/Products/Applications/Nodyssey.app"
           test -d "$app"
+          python3 .github/scripts/native-network-notices.py "$app/NativeNetworkLicenses.txt"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = "$BUILD_VERSION"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = "$BUILD_CODE"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" = 'io.github.nodyssey'

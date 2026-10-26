@@ -24,21 +24,23 @@ class AppleEchNativeTest {
         val id = nodyssey_network_start("""{"url":"http://example.test/","method":"GET","headers":[],"settings":{"resolvers":[],"ipv6":false}}""")
         assertNotEquals(0uL, id)
         try {
-            val result = withTimeout(10_000) {
-                while (true) {
-                    val pointer = nodyssey_network_take(id)
-                    if (pointer != null) {
-                        return@withTimeout try {
-                            pointer.toKString()
-                        } finally {
-                            nodyssey_network_free(pointer)
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                withTimeout(10_000) {
+                    while (true) {
+                        val pointer = nodyssey_network_take(id)
+                        if (pointer != null) {
+                            return@withTimeout try {
+                                pointer.toKString()
+                            } finally {
+                                nodyssey_network_free(pointer)
+                            }
                         }
+                        // Both the timeout and polling use real time: Rust is outside runTest's clock.
+                        delay(25)
                     }
-                    // Real dispatcher: the Rust runtime is outside runTest's virtual clock.
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { delay(25) }
+                    @Suppress("UNREACHABLE_CODE")
+                    error("unreachable")
                 }
-                @Suppress("UNREACHABLE_CODE")
-                error("unreachable")
             }
             assertTrue(result.contains("https_required"))
             assertTrue(result.contains("NotEstablished"))
