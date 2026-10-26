@@ -106,6 +106,7 @@ class PostDetailViewModel(
     }
 
     private var loadJob: Job? = null
+    private var replyCountJob: Job? = null
     private var authorProfileJob: Job? = null
     private var fetchedAuthorUid: Long? = null
     private val replyAuthorJobs = mutableMapOf<Long, Job>()
@@ -134,6 +135,7 @@ class PostDetailViewModel(
                 if (thread == null) {
                     authorScanGeneration++
                     authorScanJob?.cancel()
+                    replyCountJob?.cancel()
                     // Logout deletes the Room row while this Navigation 3 entry can remain alive in a
                     // background tab. Clear the mirrored UI state as well or the composable would keep
                     // rendering the last authenticated snapshot after its owner was removed.
@@ -311,6 +313,23 @@ class PostDetailViewModel(
                     }
                 }
                 while (replyAuthorRetryAfter.size > MAX_REPLY_AUTHORS) replyAuthorRetryAfter.remove(replyAuthorRetryAfter.keys.first())
+            }
+        }
+    }
+
+    /** The reader needs this even when history, collections or an external link supplied no preview. */
+    fun loadReplyCount() {
+        val state = sourceState.value
+        if (!state.hasContent || state.readerLastFloor() != null || replyCountJob?.isActive == true) return
+        val pages = state.totalPages
+        replyCountJob = viewModelScope.launch {
+            val count = runCatchingExceptCancellation { repository.threadReplyCount(postId) }.getOrNull() ?: return@launch
+            updateState { current ->
+                if (current.hasContent && current.totalPages == pages && current.readerLastFloor() == null) {
+                    current.copy(replyCount = count, lastFloor = count)
+                } else {
+                    current
+                }
             }
         }
     }

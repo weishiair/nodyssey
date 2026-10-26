@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.post_loaded_scroll_position
+import io.github.nodyssey.ui.resources.post_reading_original
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import kotlinx.coroutines.channels.BufferOverflow
@@ -151,7 +152,7 @@ internal fun LoadedReadingScrollbar(
                 shape = RoundedCornerShape(9.dp),
             ) {
                 Text(
-                    currentFloor.toString(),
+                    if (currentFloor == 0) stringResource(Res.string.post_reading_original) else currentFloor.toString(),
                     Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

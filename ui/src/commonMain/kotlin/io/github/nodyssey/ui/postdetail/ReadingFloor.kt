@@ -2,6 +2,12 @@ package io.github.nodyssey.ui.postdetail
 
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 
+/** Room can replace a page before LazyColumn has measured its new keys at the restored position. */
+internal fun LazyListLayoutInfo.matchesReadingItems(itemKeys: List<Any>): Boolean =
+    visibleItemsInfo.isNotEmpty() &&
+        totalItemsCount == itemKeys.size &&
+        visibleItemsInfo.all { itemKeys.getOrNull(it.index) == it.key }
+
 /**
  * Advance only when a reply reaches the top reading edge, aligned with scrollToItem's content
  * padding. Replies lower in the viewport and the gap before the next reply keep the preceding floor.

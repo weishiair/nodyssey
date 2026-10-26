@@ -264,6 +264,9 @@ fun PostDetailRoute(
     shareImage: (suspend (ImageBitmap, String?) -> Boolean)? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(state.hasContent, state.totalPages, state.lastFloor, state.isLoading, state.isRefreshing) {
+        if (!state.isLoading && !state.isRefreshing) viewModel.loadReplyCount()
+    }
     val replyState by replyViewModel.uiState.collectAsStateWithLifecycle()
     val postUrl = viewModel.postUrl()
     // Every image in the thread as currently loaded, so the viewer can page between them without
@@ -665,11 +668,6 @@ fun PostDetailScreen(
             state.isPrepending ||
             state.isRefreshing ||
             state.isRefreshingTail
-    val displayedFloor =
-        rememberStableReadingFloor(
-            currentFloor = currentFloor,
-            loading = readerLoading,
-        )
     val lastFloor = state.readerLastFloor()
     val shareThread = rememberShareText()
     val shareThreadLabel = stringResource(Res.string.action_share)
@@ -685,6 +683,16 @@ fun PostDetailScreen(
             }
         }
     }
+    val readingLayoutReady by remember(readingItemKeys) {
+        derivedStateOf { listState.layoutInfo.matchesReadingItems(readingItemKeys) }
+    }
+    val displayedFloor =
+        rememberStableReadingFloor(
+            currentFloor = currentFloor,
+            loading = readerLoading,
+            positionReady = state.hasContent && readingLayoutReady &&
+                state.pendingScroll == null && prependAnchor == null && !pendingBottom,
+        )
     fun jumpToFloor(floor: String) {
         readingToolsExpanded = false
         val index = if (floor == "#0" && state.firstLoadedPage == 1 && !state.onlyAuthor) 0 else state.indexOfFloor(floor)

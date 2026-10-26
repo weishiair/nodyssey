@@ -32,6 +32,9 @@ interface ReadMarkDao {
     @Query("SELECT * FROM post_read_marks WHERE postId = :postId")
     suspend fun find(postId: Long): ReadMarkEntity?
 
+    @Query("UPDATE post_read_marks SET commentCount = :count WHERE postId = :postId")
+    suspend fun updateCommentCount(postId: Long, count: Int)
+
     @Query("DELETE FROM post_read_marks")
     suspend fun clearAll()
 

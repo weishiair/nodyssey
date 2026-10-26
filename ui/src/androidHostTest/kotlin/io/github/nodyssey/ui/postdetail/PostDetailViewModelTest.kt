@@ -68,6 +68,80 @@ class PostDetailViewModelTest {
     private val session = MutableStateFlow(SessionState())
 
     @Test
+    fun `reader opened without a preview resolves its total without scrolling to the last page`() = runTest(dispatcher) {
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 3).copy(
+                comments = (if (page == 3) 21..27 else 1..10).map { floor ->
+                    FakePostRemoteDataSource.content("floor $floor").copy(floor = "#$floor")
+                },
+            )
+        }
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertNull(vm.uiState.value.readerLastFloor())
+
+        vm.loadReplyCount()
+        vm.loadReplyCount()
+        advanceUntilIdle()
+
+        assertEquals(27, vm.uiState.value.readerLastFloor())
+        assertEquals(27, vm.uiState.value.replyCount)
+        assertEquals(1, vm.uiState.value.firstLoadedPage)
+        assertEquals(1, vm.uiState.value.lastLoadedPage)
+        assertEquals((1..10).map { "#$it" }, vm.uiState.value.comments.map { it.floor })
+        assertEquals(listOf(42L to 1, 42L to 3), remote.detailRequests)
+    }
+
+    @Test
+    fun `a failed count lookup keeps readable content and can be retried`() = runTest(dispatcher) {
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 2).copy(
+                comments = listOf(FakePostRemoteDataSource.content("floor").copy(floor = if (page == 2) "#17" else "#1")),
+            )
+        }
+        val vm = viewModel()
+        advanceUntilIdle()
+        val content = vm.uiState.value.comments
+        remote.detailError = SiteException(SiteError.Network)
+
+        vm.loadReplyCount()
+        advanceUntilIdle()
+
+        assertEquals(content, vm.uiState.value.comments)
+        assertNull(vm.uiState.value.readerLastFloor())
+        remote.detailError = null
+        vm.loadReplyCount()
+        advanceUntilIdle()
+        assertEquals(17, vm.uiState.value.readerLastFloor())
+    }
+
+    @Test
+    fun `a delayed total cannot replace the newer count from a completed reading window`() = runTest(dispatcher) {
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 2).copy(
+                comments = listOf(FakePostRemoteDataSource.content("floor").copy(floor = if (page == 2) "#17" else "#1")),
+            )
+        }
+        val count = CompletableDeferred<Int?>()
+        val heldRepository = object : PostRepository by repository {
+            override suspend fun threadReplyCount(postId: Long): Int? = count.await()
+        }
+        val vm = PostDetailViewModel(42, heldRepository, session)
+        advanceUntilIdle()
+        vm.loadReplyCount()
+        runCurrent()
+        vm.loadNextPage()
+        advanceUntilIdle()
+        assertEquals(17, vm.uiState.value.readerLastFloor())
+
+        count.complete(15)
+        advanceUntilIdle()
+
+        assertEquals(17, vm.uiState.value.readerLastFloor())
+        assertEquals(17, vm.uiState.value.replyCount)
+    }
+
+    @Test
     fun `cached HTML replies are read in numeric floor order without a refetch`() = runTest(dispatcher) {
         val html = javaClass.classLoader!!.getResourceAsStream("fixtures/post-703863-1.html")!!.bufferedReader().use { it.readText() }
         val detail = PostDetailParser.parse(html, postId = 42, page = 1)

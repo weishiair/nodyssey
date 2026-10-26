@@ -7,6 +7,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.map
+import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.local.CacheSessionEntity
 import io.github.nodyssey.data.local.CommentEntity
 import io.github.nodyssey.data.local.FeedPostRow
@@ -203,6 +204,9 @@ interface PostRepository {
 
     /** The cached thread, emitting null until page 1 has ever been fetched. */
     fun thread(postId: Long): Flow<ThreadSnapshot?>
+
+    /** Resolves the thread's extent without replacing or extending the reader's loaded window. */
+    suspend fun threadReplyCount(postId: Long): Int? = null
 
     /**
      * Fetches [page] and makes it the whole of the cached thread. Throws on failure.
@@ -534,6 +538,34 @@ class OfflineFirstPostRepository(
     }
 
     override fun thread(postId: Long): Flow<ThreadSnapshot?> = database.postDetailDao().observeThread(postId).map { it?.toSnapshot() }
+
+    override suspend fun threadReplyCount(postId: Long): Int? {
+        val thread = thread(postId).first() ?: return null
+        val loadedFloor = thread.comments.mapNotNull { NodeSeekSite.parseFloorNumber(it.floor) }.maxOrNull() ?: 0
+        if (!thread.hasNextPage) return loadedFloor
+
+        val owner = historyAccounts.currentOwner()
+        val known = listOfNotNull(
+            database.feedDao().findPost(postId)?.commentCount,
+            database.readMarkDao().find(postId)?.commentCount,
+        ).filter { it >= loadedFloor && NodeSeekSite.pageOfFloor(it) == thread.totalPages }.maxOrNull()
+        if (known != null) return known
+
+        // A post page reports its page count, but not the total replies. Read only the final page
+        // when neither the feed nor history knows the total; saving it as a normal page would move
+        // the reading window to the end and discard the page the user is actually reading.
+        val tail = remote.loadDetail(postId, thread.totalPages)
+        if (tail.hasNextPage || tail.page != tail.totalPages || tail.totalPages != thread.totalPages) return null
+        val count = tail.comments.mapNotNull { NodeSeekSite.parseFloorNumber(it.floor) }.maxOrNull() ?: return null
+        if (count < loadedFloor) return null
+        historyAccounts.withCurrent {
+            if (historyAccounts.currentOwner() == owner) {
+                // Update metadata only: discovering the last floor does not mean it was read.
+                database.readMarkDao().updateCommentCount(postId, count)
+            }
+        }
+        return count
+    }
 
     override suspend fun refreshThread(
         postId: Long,

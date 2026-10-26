@@ -283,6 +283,37 @@ class AccountSettingsRepositoryTest {
         }
 
     @Test
+    fun `unset remote holiday preference uses the default and still reads hidden boards`() = runTest {
+        for (fixture in listOf("preferences-unset.json", "preferences-null.json", "preferences-false.json")) {
+            val source = preferencesSource(fixture)
+
+            assertEquals(
+                RemoteAccountPreferences(holidayTheme = false, hiddenBoards = setOf("life")),
+                repository(source).remotePreferences(),
+            )
+            assertEquals(NodeSeekJsonClient.PATH_HOMEPAGE, source.requestedPath)
+        }
+    }
+
+    @Test
+    fun `malformed preference envelopes and values still fail instead of overwriting the mirror`() = runTest {
+        for (fixture in listOf("preferences-malformed-value.json", "preferences-malformed-envelope.json")) {
+            val failure = runCatching { repository(preferencesSource(fixture)).remotePreferences() }.exceptionOrNull()
+
+            assertEquals(SiteError.Unparsable, (failure as? SiteException)?.error)
+        }
+    }
+
+    private fun preferencesSource(fixture: String) = FakeSettingsJsonSource(
+        response = """{"success":true}""",
+        getResponses = mapOf(NodeSeekJsonClient.PATH_HOMEPAGE to fixture("homepage-preferences.json")),
+        postResponses = mapOf(NodeSeekJsonClient.PATH_PREFERENCE_LIST to fixture(fixture)),
+    )
+
+    private fun fixture(name: String): String =
+        javaClass.classLoader!!.getResourceAsStream("fixtures/$name")!!.bufferedReader().use { it.readText() }
+
+    @Test
     fun `rejects a home board the site does not expose`() =
         runTest {
             val source = FakeSettingsJsonSource("""{"success":true}""")

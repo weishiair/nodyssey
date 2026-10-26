@@ -65,6 +65,8 @@ import io.github.nodyssey.ui.resources.post_floor_position
 import io.github.nodyssey.ui.resources.post_floor_range
 import io.github.nodyssey.ui.resources.post_only_author
 import io.github.nodyssey.ui.resources.post_open_original
+import io.github.nodyssey.ui.resources.post_reading_original
+import io.github.nodyssey.ui.resources.post_reading_original_position
 import io.github.nodyssey.ui.resources.post_reply_action
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalEinkMode
@@ -92,7 +94,11 @@ internal fun ThreadReadingControls(
 ) {
     val layers = LocalPlazaLayers.current
     val einkMode = LocalEinkMode.current
-    val positionLabel = stringResource(Res.string.post_floor_position, currentFloor)
+    val positionLabel = if (currentFloor == 0) {
+        stringResource(Res.string.post_reading_original_position)
+    } else {
+        stringResource(Res.string.post_floor_position, currentFloor)
+    }
     val capsuleTarget = if (expanded) 78.dp else 4.dp
     val capsuleBottom by animateDpAsState(
         targetValue = capsuleTarget,
@@ -148,7 +154,7 @@ internal fun ThreadReadingControls(
         ) {
             Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    "$currentFloor / ${lastFloor ?: "…"}",
+                    if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}",
                     style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
                     maxLines = 1,
                 )

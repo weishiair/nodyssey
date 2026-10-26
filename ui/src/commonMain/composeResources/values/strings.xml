@@ -1920,6 +1920,8 @@
     <string name="settings_preset_warm_sand">暖米色</string>
     <string name="settings_preset_mist_violet">柔雾紫</string>
     <string name="post_floor_position">正在读第 %1$d 楼，点击跳楼</string>
+    <string name="post_reading_original">主帖</string>
+    <string name="post_reading_original_position">正在读主帖，点击跳楼</string>
     <string name="post_floor_jump">跳到楼层</string>
     <string name="post_floor_entry">楼层号</string>
     <string name="post_reading_tools">阅读工具</string>

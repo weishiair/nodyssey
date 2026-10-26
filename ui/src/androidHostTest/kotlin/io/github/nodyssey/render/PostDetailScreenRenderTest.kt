@@ -274,7 +274,7 @@ class PostDetailScreenRenderTest {
 
     private fun pageJump(darkTheme: Boolean) {
         composeRule.setContent { Screen(darkTheme = darkTheme) }
-        composeRule.onNodeWithContentDescription("正在读第 0 楼，点击跳楼").performClick()
+        composeRule.onNodeWithContentDescription("正在读主帖，点击跳楼").performClick()
         composeRule.waitForIdle()
 
         captureWindows("post-detail-jump-${if (darkTheme) "dark" else "light"}")

@@ -740,6 +740,7 @@ private fun SearchResults(
                 } else {
                     // One item holding the whole group: see [UserResultGroup] for why one card.
                     LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = LayerPageGutter, vertical = Spacing.md),
                     ) {
                         item("users") {

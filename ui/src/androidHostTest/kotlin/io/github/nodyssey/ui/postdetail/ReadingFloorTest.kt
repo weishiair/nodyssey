@@ -3,10 +3,31 @@ package io.github.nodyssey.ui.postdetail
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReadingFloorTest {
+    @Test
+    fun `replacing a page with the same row count waits for its new reply keys`() {
+        val oldPage = List<Any>(13) { it }
+        val replacement = oldPage.toMutableList().apply { this[2] = "floor:121" }
+        val before = layout(item(0, -100, 150), item(1, 50, 80), item(2, 130, 300))
+        assertTrue(before.matchesReadingItems(oldPage))
+        assertFalse(before.matchesReadingItems(replacement))
+        val placed = layout(item(2, 0, 300, key = "floor:121"), item(3, 300, 300))
+        assertTrue(placed.matchesReadingItems(replacement))
+    }
+
+    @Test
+    fun `a page insertion or an empty layout cannot confirm the reading position`() {
+        val oldPage = List<Any>(13) { it }
+        val before = layout(item(0, 0, 100), item(1, 100, 80))
+        assertFalse(before.matchesReadingItems(oldPage + listOf("floor:131")))
+        assertFalse(layout().matchesReadingItems(oldPage))
+    }
+
     @Test
     fun `opening post remains current while the first reply only peeks into the viewport`() {
         assertNull(layout(item(0, -100, 650), item(1, 550, 100), item(2, 650, 300)).readingCommentIndex(2, 10))
@@ -69,9 +90,9 @@ class ReadingFloorTest {
         override val totalItemsCount = 13
     }
 
-    private fun item(index: Int, offset: Int, size: Int) = object : LazyListItemInfo {
+    private fun item(index: Int, offset: Int, size: Int, key: Any = index) = object : LazyListItemInfo {
         override val index = index
-        override val key = index
+        override val key = key
         override val offset = offset
         override val size = size
     }

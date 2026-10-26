@@ -1652,6 +1652,8 @@
     <string name="settings_preset_warm_sand">Warm Sand</string>
     <string name="settings_preset_mist_violet">Mist Violet</string>
     <string name="post_floor_position">Reading floor %1$d. Tap to jump.</string>
+    <string name="post_reading_original">Original post</string>
+    <string name="post_reading_original_position">Reading the original post. Tap to jump.</string>
     <string name="post_floor_jump">Jump to floor</string>
     <string name="post_floor_entry">Floor number</string>
     <string name="post_reading_tools">Reading tools</string>

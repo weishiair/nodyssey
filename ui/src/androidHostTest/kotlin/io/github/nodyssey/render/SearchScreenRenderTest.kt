@@ -126,6 +126,9 @@ class SearchScreenRenderTest {
     @Test
     fun `user results in dark`() = render("search-users-dark", USER_RESULTS, "NAS")
 
+    @Test
+    fun `single user result in light`() = render("search-single-user-light", USER_RESULTS.copy(userResults = USER_RESULTS.userResults.take(1)), "NAS")
+
     /**
      * 高级搜索 and the sort menu open in windows of their own, which `onRoot()` does not see; the
      * screen capture takes every window, the way the device would show it.

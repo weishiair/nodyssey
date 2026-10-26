@@ -17,6 +17,7 @@ import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -335,9 +336,13 @@ class NetworkAccountSettingsRepository(
                 ),
                 operation = "remotePreferences",
             )
-        val holidayTheme =
-            preference.obj("data")?.bool(REMOTE_HOLIDAY_THEME_KEY)
-                ?: throw SiteException(SiteError.Unparsable)
+        val values = preference.obj("data") ?: throw SiteException(SiteError.Unparsable)
+        // Unset Remote preferences are omitted or null. They use the site's default (off), while
+        // an explicit false must remain false and a malformed value must still report an error.
+        val holidayTheme = when (values[REMOTE_HOLIDAY_THEME_KEY]) {
+            null, JsonNull -> false
+            else -> values.bool(REMOTE_HOLIDAY_THEME_KEY) ?: throw SiteException(SiteError.Unparsable)
+        }
 
         val homepage =
             getObject(

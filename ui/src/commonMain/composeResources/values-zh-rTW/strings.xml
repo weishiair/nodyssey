@@ -1644,6 +1644,8 @@
     <string name="settings_preset_warm_sand">暖米色</string>
     <string name="settings_preset_mist_violet">柔霧紫</string>
     <string name="post_floor_position">正在讀第 %1$d 樓，點擊跳樓</string>
+    <string name="post_reading_original">主帖</string>
+    <string name="post_reading_original_position">正在讀主帖，點擊跳樓</string>
     <string name="post_floor_jump">跳到樓層</string>
     <string name="post_floor_entry">樓層號</string>
     <string name="post_reading_tools">閱讀工具</string>

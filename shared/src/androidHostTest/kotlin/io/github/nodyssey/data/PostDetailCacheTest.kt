@@ -1,6 +1,7 @@
 package io.github.nodyssey.data
 
 import io.github.nodyssey.data.local.NodeSeekDatabase
+import io.github.nodyssey.data.local.ReadMarkEntity
 import io.github.nodyssey.data.local.RichContentJson
 import io.github.nodyssey.data.local.toEntity
 import io.github.nodyssey.data.local.toSnapshot
@@ -37,6 +38,57 @@ class PostDetailCacheTest {
     @After
     fun tearDown() {
         database.close()
+    }
+
+    @Test
+    fun `resolving reply count reads the final page without moving the window or marking it read`() = runTest {
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 4).copy(
+                comments = (if (page == 4) 31..37 else 1..10).map { floor ->
+                    FakePostRemoteDataSource.content("floor $floor").copy(floor = "#$floor")
+                },
+            )
+        }
+        repository.refreshThread(42, 1)
+        repository.markThreadRead(42)
+        val before = requireNotNull(database.readMarkDao().find(42))
+        val window = repository.thread(42).first()
+
+        assertEquals(37, repository.threadReplyCount(42))
+
+        assertEquals(listOf(42L to 1, 42L to 4), remote.detailRequests)
+        assertEquals(window, repository.thread(42).first())
+        assertEquals(before.copy(commentCount = 37), database.readMarkDao().find(42))
+        assertEquals(37, repository.threadReplyCount(42))
+        assertEquals(2, remote.detailRequests.size)
+    }
+
+    @Test
+    fun `history count resolves a thread opened without a feed preview offline`() = runTest {
+        remote.detailResult = { postId, page -> FakePostRemoteDataSource.detail(postId, page, totalPages = 4) }
+        repository.refreshThread(42, 1)
+        database.readMarkDao().upsert(ReadMarkEntity(42, 123, 5, commentCount = 37))
+        remote.detailError = io.github.plaza.core.net.SiteException(io.github.plaza.core.net.SiteError.Network)
+
+        assertEquals(37, repository.threadReplyCount(42))
+        assertEquals(listOf(42L to 1), remote.detailRequests)
+        assertEquals(1..1, repository.cachedPages(42))
+    }
+
+    @Test
+    fun `a growing thread cannot commit an intermediate page as its final count`() = runTest {
+        remote.detailResult = { postId, page -> FakePostRemoteDataSource.detail(postId, page, totalPages = 4) }
+        repository.refreshThread(42, 1)
+        repository.markThreadRead(42)
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 5).copy(
+                comments = listOf(FakePostRemoteDataSource.content("later").copy(floor = "#40")),
+            )
+        }
+
+        assertNull(repository.threadReplyCount(42))
+        assertNull(database.readMarkDao().find(42)?.commentCount)
+        assertEquals(1..1, repository.cachedPages(42))
     }
 
     /**
