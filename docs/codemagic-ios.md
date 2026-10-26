@@ -2,11 +2,15 @@
 
 仓库根目录的 `codemagic.yaml` 提供 `ios-unsigned` 工作流，使用 macOS M2、JDK 21 和 Xcode 26.6。没有自动触发、自动发布或消息通知；在 Codemagic 页面手动开始构建。
 
+多平台项目的 Android 插件在配置时需要 SDK 目录，因此准备步骤会将 Codemagic 预装 SDK 的路径写入 `local.properties`。此工作流只运行原生测试并编译 iOS，不安装 Android 平台包或 Build Tools，也不修改 Android 的 `compileSdk`。
+
 ## 操作
 
 1. 在 Codemagic 应用页面选中包含 `codemagic.yaml` 的分支，然后点击 **Check for configuration files**。
 2. 选择 **Nodyssey iOS unsigned IPA**，手动开始构建。
 3. 构建完成后，从 Artifacts 下载 `.ipa`。这是 iPhone arm64 设备包，需要使用自己的签名工具签名后安装。
+
+配置修复推送后，请在分支上启动新的构建，并检查页面显示的新提交号；重建旧提交仍会使用旧配置。
 
 不需要上传 Apple 证书、账号密码或 App Store Connect 密钥。此流程不提交 App Store，也不会改动 GitHub Release。
 

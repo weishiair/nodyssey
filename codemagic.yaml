@@ -24,8 +24,9 @@ workflows:
           sdk_dir="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/share/android-sdk}}"
           test -d "$sdk_dir"
           printf 'sdk.dir=%s\n' "$sdk_dir" > local.properties
-          "$sdk_dir/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk_dir" \
-            'platforms;android-37' 'build-tools;37.0.0'
+          # Android plugins need an SDK directory during KMP configuration.
+          # Native tests and the iOS archive do not build an Android target,
+          # so use the preinstalled SDK without installing Android platforms.
           java -version
           xcodebuild -version
       - name: Run the shared Kotlin Native tests
