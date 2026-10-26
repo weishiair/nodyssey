@@ -14,10 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Test native DoH and ECH core
+        working-directory: native/ios-network
         run: |
-          rustup update stable --no-self-update
-          cargo +stable test --manifest-path native/ios-network/Cargo.toml
-          cargo +stable fmt --manifest-path native/ios-network/Cargo.toml
+          rustup show
+          cargo test --locked
+          cargo fmt
+      - name: Probe the production resolver and ECH TLS path
+        working-directory: native/ios-network
+        run: cargo run --locked --example probe
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -25,3 +29,4 @@ jobs:
           path: |
             native/ios-network/Cargo.lock
             native/ios-network/src/
+            native/ios-network/examples/
