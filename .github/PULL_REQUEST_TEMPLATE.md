@@ -1,4 +1,4 @@
-<!-- 贡献指南：https://github.com/5151561/nodyssey/blob/main/CONTRIBUTING.md -->
+<!-- 贡献指南：https://github.com/weishiair/nodyssey/blob/main/CONTRIBUTING.md -->
 
 ## 做了什么
 
@@ -15,7 +15,7 @@
 
 - [ ] 我完整读过自己的 diff，没有调试代码、注释掉的旧代码、多余的日志或 `TODO`
 - [ ] 这个 PR 只做一件事；顺手发现的别的问题另开 issue 或另开 PR
-- [ ] 遵守四条架构规则：SSOT、UDF、构造器注入、数据层不产生用户文案（详见 [docs/architecture.md](https://github.com/5151561/nodyssey/blob/main/docs/architecture.md)）
+- [ ] 遵守四条架构规则：SSOT、UDF、构造器注入、数据层不产生用户文案（详见 [docs/architecture.md](https://github.com/weishiair/nodyssey/blob/main/docs/architecture.md)）
 - [ ] 新增或改动的用户可见文案，简中 / 繁中 / 英文三份都更新了
 - [ ] 站点选择器的改动集中在 `:shared` 的 `core/html/Selectors.kt`，没有散进 UI 或数据层
 - [ ] 改了行为就补了测试；修 bug 就补了能挂在旧代码上的回归测试

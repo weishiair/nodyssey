@@ -7,7 +7,7 @@ Nodyssey 欢迎 issue 和 PR。这份文档说清楚两件事：怎么把问题�
 
 ## 反馈问题
 
-到 [Issues](https://github.com/5151561/nodyssey/issues/new/choose) 按模板提。问题反馈里有三项是必填的：
+到 [Issues](https://github.com/weishiair/nodyssey/issues/new/choose) 按模板提。问题反馈里有三项是必填的：
 
 - **App 版本** —— 设置 → 关于 Nodyssey 里那行「版本 1.2.21 (43)」，整行抄过来
 - **手机型号**
@@ -18,8 +18,7 @@ Nodyssey 欢迎 issue 和 PR。这份文档说清楚两件事：怎么把问题�
 界面问题请附截图或录屏。和具体帖子有关的请附帖子链接 —— 首页置顶帖会轮换，只说「第一个帖子」的话，
 照着复现打开的多半是另一个帖子。
 
-用法提问、不确定算不算 bug，可以先去
-[Telegram 群组](https://t.me/+97ANIwVaCYk1MjQ1)。
+用法提问、不确定算不算 bug，可以先查看应用内的使用帮助，也可以在本分支 Issues 提问。
 
 ## 先读这一节
 

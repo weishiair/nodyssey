@@ -82,7 +82,7 @@ fun OpenSourceLicensesScreen(
                     subtitle = "GNU General Public License v3.0",
                     first = true,
                     last = true,
-                    onClick = { onOpenUri(APP_LICENSE_URL) },
+                    onClick = { onOpenUri(AppLinks.LICENSE) },
                     trailing = { LicenseLinkIcon() },
                     showChevron = false,
                 )
@@ -139,8 +139,6 @@ private val SHIPPED_LIBRARIES =
         LibraryLicense("Ksoup", "MIT License", "https://github.com/fleeksoft/ksoup"),
         LibraryLicense("kotlinx-datetime", "Apache License 2.0", "https://github.com/Kotlin/kotlinx-datetime"),
     )
-
-private const val APP_LICENSE_URL = "https://github.com/5151561/nodyssey/blob/main/LICENSE"
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable

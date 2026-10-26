@@ -127,6 +127,7 @@ import org.jetbrains.compose.resources.stringResource
  *
  * [page] is the page the reader is *looking at*, which on an appending list is not the last page
  * fetched — the caller derives it from whatever is at the top of the viewport.
+ * The home feed overrides the upper key to return to the top, including within page one.
  */
 @Composable
 fun PageJumpRail(
@@ -137,6 +138,9 @@ fun PageJumpRail(
     onNext: () -> Unit,
     onPageClick: () -> Unit,
     modifier: Modifier = Modifier,
+    previousEnabled: Boolean = page > 1,
+    previousLabel: StringResource = Res.string.page_jump_previous,
+    previousIcon: ImageVector = Icons.Default.KeyboardArrowUp,
 ) {
     val motionScheme = MaterialTheme.motionScheme
     // No arrangement spacing: each key paints 40dp inside a 48dp touch slot, and the 4dp of slack
@@ -175,10 +179,10 @@ fun PageJumpRail(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 PageKey(
                     onClick = onPrevious,
-                    enabled = page > 1,
-                    contentDescription = stringResource(Res.string.page_jump_previous),
+                    enabled = previousEnabled,
+                    contentDescription = stringResource(previousLabel),
                 ) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = null)
+                    Icon(previousIcon, contentDescription = null)
                 }
                 PageKey(
                     onClick = onNext,
@@ -238,8 +242,7 @@ private fun PageKey(
             // The raised layer, not the page's grey: the rail floats over cards and over the gaps
             // between them, and a key the colour of the gaps disappeared into them there.
             color = LocalPlazaLayers.current.raised,
-            // Material's Surface leaves a disabled one looking exactly like a live one, so the end
-            // of the run has to be said here: at page 1 上一页 is still drawn, and still does nothing.
+            // Material's Surface otherwise leaves a disabled key looking exactly like a live one.
             contentColor =
             if (enabled) {
                 MaterialTheme.colorScheme.onSurfaceVariant

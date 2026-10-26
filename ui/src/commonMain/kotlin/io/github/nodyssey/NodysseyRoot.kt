@@ -21,6 +21,7 @@ import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.ThemeMode
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
+import io.github.nodyssey.ui.common.ApplyDisplayRefreshRate
 import io.github.nodyssey.ui.common.LocalAppName
 import io.github.nodyssey.ui.common.ProvideUserNotes
 import io.github.nodyssey.ui.common.SystemBarsMatchTheme
@@ -154,6 +155,8 @@ internal fun NodysseyChrome(
     val storedSettings: UserSettings? by container.settingsRepository.settings
         .collectAsStateWithLifecycle(initialValue = initialSettings)
     val settings = storedSettings ?: UserSettings()
+
+    ApplyDisplayRefreshRate(if (settings.einkMode) 0 else settings.displayRefreshRate)
 
     // 语言, put into the platform's own idea of a locale — the notification bodies `:app` posts,
     // what a WebView reports, `Accept-Language`, the separators a grouped number is written with.

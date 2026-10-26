@@ -48,6 +48,7 @@ class SettingsScreenRenderTest {
                 onUpdateCheckOnLaunchChange = {},
                 onUpdateDevChannelChange = {},
                 onClearCache = {},
+                supportedRefreshRates = setOf(60, 90, 120),
             )
         }
     }

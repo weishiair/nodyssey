@@ -89,6 +89,8 @@ class SettingsRepository(
                 oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: true,
                 einkMode = preferences[KEY_EINK_MODE] ?: false,
                 predictiveBack = preferences[KEY_PREDICTIVE_BACK] ?: true,
+                displayRefreshRate = (preferences[KEY_DISPLAY_REFRESH_RATE] ?: 0)
+                    .takeIf { it in DISPLAY_REFRESH_RATE_CHOICES } ?: 0,
                 stickerUniformSize = preferences[KEY_STICKER_UNIFORM_SIZE] ?: true,
                 stickerSize = (preferences[KEY_STICKER_SIZE] ?: DEFAULT_STICKER_SIZE_SP)
                     .coerceIn(MIN_STICKER_SIZE_SP, MAX_STICKER_SIZE_SP),
@@ -246,6 +248,9 @@ class SettingsRepository(
 
     /** 墨水屏模式; see [UserSettings.einkMode] for everything it takes over. */
     suspend fun setEinkMode(enabled: Boolean) = edit { it[KEY_EINK_MODE] = enabled }
+
+    suspend fun setDisplayRefreshRate(hertz: Int) =
+        edit { it[KEY_DISPLAY_REFRESH_RATE] = hertz.takeIf { rate -> rate in DISPLAY_REFRESH_RATE_CHOICES } ?: 0 }
 
     /**
      * 表情统一缩限. On — the default, and what every build before this one did — every inline sticker
@@ -660,6 +665,10 @@ class SettingsRepository(
         private val KEY_ONE_HAND_MODE = booleanPreferencesKey("one_hand_mode")
         private val KEY_EINK_MODE = booleanPreferencesKey("eink_mode")
         private val KEY_PREDICTIVE_BACK = booleanPreferencesKey("predictive_back")
+        private val KEY_DISPLAY_REFRESH_RATE = intPreferencesKey("display_refresh_rate")
+
+        /** Zero releases the window's refresh-rate preference to the OS. */
+        val DISPLAY_REFRESH_RATE_CHOICES = listOf(0, 60, 90, 120, 144, 165)
         private val KEY_SEARCH_HISTORY_LIMIT = intPreferencesKey("search_history_limit")
         private val KEY_STICKER_UNIFORM_SIZE = booleanPreferencesKey("sticker_uniform_size")
         private val KEY_STICKER_SIZE = intPreferencesKey("sticker_size_sp")
@@ -854,6 +863,8 @@ data class UserSettings(
      */
     val einkMode: Boolean = false,
     val predictiveBack: Boolean = true,
+    /** Android window preference; zero follows the system and e-ink always releases the vote. */
+    val displayRefreshRate: Int = 0,
     /**
      * 表情统一缩限. True — the default — draws every inline sticker in the same [stickerSize] square,
      * which at its smallest is the 20sp box that keeps a sticker inside a line of body text. False

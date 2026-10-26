@@ -150,6 +150,10 @@ class SettingsViewModel(
         viewModelScope.launch { settings.setEinkMode(value) }
     }
 
+    fun setDisplayRefreshRate(value: Int) {
+        viewModelScope.launch { settings.setDisplayRefreshRate(value) }
+    }
+
     fun setFontScale(value: Float) {
         viewModelScope.launch { settings.setFontScale(value) }
     }

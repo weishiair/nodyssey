@@ -43,10 +43,6 @@ import io.github.nodyssey.ui.common.rememberFileSizeLabel
 import io.github.nodyssey.ui.common.rememberShareText
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.about_app_channel
-import io.github.nodyssey.ui.resources.about_app_channel_hint
-import io.github.nodyssey.ui.resources.about_app_group
-import io.github.nodyssey.ui.resources.about_app_group_hint
 import io.github.nodyssey.ui.resources.about_changelog
 import io.github.nodyssey.ui.resources.about_check_updates
 import io.github.nodyssey.ui.resources.about_crash_clear
@@ -88,6 +84,7 @@ import io.github.nodyssey.ui.resources.about_update_prerelease
 import io.github.nodyssey.ui.resources.about_update_prerelease_hint
 import io.github.nodyssey.ui.resources.about_update_retry
 import io.github.nodyssey.ui.resources.about_update_unknown
+import io.github.nodyssey.ui.resources.about_upstream
 import io.github.nodyssey.ui.resources.about_version
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.settings_licenses
@@ -234,7 +231,7 @@ fun AboutAppScreen(
                 )
                 AboutRow(
                     title = stringResource(Res.string.about_project_home),
-                    subtitle = "github.com/5151561/nodyssey",
+                    subtitle = AppLinks.PROJECT_HOME.removePrefix("https://"),
                     icon = PlazaIcons.Code,
                     external = true,
                     onClick = { onOpenUri(AppLinks.PROJECT_HOME) },
@@ -249,23 +246,13 @@ fun AboutAppScreen(
                 )
             }
             SettingsGroup {
-                // Sms rather than the Campaign a broadcast channel would ordinarily take: 问题反馈 in
-                // the card above already has that icon, and two identical megaphones on one screen
-                // tell nobody apart.
                 AboutRow(
-                    title = stringResource(Res.string.about_app_channel),
-                    subtitle = stringResource(Res.string.about_app_channel_hint),
-                    icon = PlazaIcons.Sms,
+                    title = stringResource(Res.string.about_upstream),
+                    subtitle = AppLinks.UPSTREAM.removePrefix("https://"),
+                    icon = PlazaIcons.Code,
                     external = true,
                     first = true,
-                    onClick = { onOpenUri(AppLinks.TELEGRAM_CHANNEL) },
-                )
-                AboutRow(
-                    title = stringResource(Res.string.about_app_group),
-                    subtitle = stringResource(Res.string.about_app_group_hint),
-                    icon = PlazaIcons.Group,
-                    external = true,
-                    onClick = { onOpenUri(AppLinks.TELEGRAM_GROUP) },
+                    onClick = { onOpenUri(AppLinks.UPSTREAM) },
                 )
                 AboutRow(
                     title = stringResource(Res.string.settings_licenses),
@@ -587,30 +574,11 @@ private fun UnofficialNotice() {
 private const val UPDATE_NOTES_MAX_LINES = 8
 
 internal object AppLinks {
-    const val PROJECT_HOME = "https://github.com/5151561/nodyssey"
-    const val ISSUES = "https://github.com/5151561/nodyssey/issues"
-    const val RELEASES = "https://github.com/weishiair/nodyssey/releases"
-
-    /**
-     * The project's own Telegram channel — where `release.yml` posts every build.
-     *
-     * One-way, so it is the row for people who only want to hear that a version exists; [TELEGRAM_GROUP]
-     * is the one where anything is discussed back.
-     */
-    const val TELEGRAM_CHANNEL = "https://t.me/nodyssey_official"
-
-    /**
-     * The project's own Telegram group — Nodyssey's, not the forum's.
-     *
-     * NodeSeek's channel and group are on 关于 · 社区 under [CommunityLinks]; this one is where the app
-     * itself is discussed, so it belongs beside 项目主页 and 问题反馈 instead. The invite link is the
-     * published form of it: the group has no public username to link by name.
-     *
-     * Deliberately *not* the invite link the README publishes, and the two must not be merged: Telegram
-     * counts joins per invite link, and keeping this one to itself is what makes "came in from the app"
-     * a number that can be read at all.
-     */
-    const val TELEGRAM_GROUP = "https://t.me/+0mY1RaPADJMwNTdl"
+    const val PROJECT_HOME = "https://github.com/weishiair/nodyssey"
+    const val ISSUES = "$PROJECT_HOME/issues"
+    const val RELEASES = "$PROJECT_HOME/releases"
+    const val LICENSE = "$PROJECT_HOME/blob/main/LICENSE"
+    const val UPSTREAM = "https://github.com/5151561/nodyssey"
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "f1 关于 Nodyssey")

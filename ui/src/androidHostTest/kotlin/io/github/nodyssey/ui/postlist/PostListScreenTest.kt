@@ -629,6 +629,70 @@ class PostListScreenTest {
             startPages = mapOf(null to startPage),
         )
 
+    @Test
+    fun `the top arrow returns to zero offset within the first page without fetching another page`() {
+        val feedStates = HomeFeedStates()
+        val listState = feedStates.listState(null, FeedSort.LAST_REPLY)
+        var requested: Int? = null
+        setScreen(
+            posts = (1..30).map { feedPost(it.toLong(), "post $it", page = 1) },
+            state = pagedState(),
+            feedStates = feedStates,
+            onGoToPage = { requested = it },
+        )
+        composeRule.runOnIdle { listState.requestScrollToItem(0, 40) }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle {
+            assertEquals(0, listState.firstVisibleItemIndex)
+            assertTrue(listState.firstVisibleItemScrollOffset > 0)
+        }
+
+        composeRule.onNodeWithContentDescription("回到顶部").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(0, listState.firstVisibleItemIndex)
+            assertEquals(0, listState.firstVisibleItemScrollOffset)
+            assertEquals(null, requested)
+        }
+    }
+
+    @Test
+    fun `the top arrow returns to the feed start rather than the preceding page`() {
+        val feedStates = HomeFeedStates()
+        val listState = feedStates.listState(null, FeedSort.LAST_REPLY)
+        var requested: Int? = null
+        setScreen(
+            posts = (1..60).map { feedPost(it.toLong(), "post $it", page = (it - 1) / 20 + 1) },
+            state = pagedState(),
+            feedStates = feedStates,
+            onGoToPage = { requested = it },
+            onFindPageRow = { page -> (page - 1) * 20 },
+        )
+        feedList().performScrollToIndex(45)
+
+        composeRule.onNodeWithContentDescription("回到顶部").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(0, listState.firstVisibleItemIndex)
+            assertEquals(0, listState.firstVisibleItemScrollOffset)
+            assertEquals(null, requested)
+        }
+    }
+
+    @Test
+    fun `the top arrow fetches page one when the feed window starts on a later page`() {
+        var requested: Int? = null
+        setScreen(
+            posts = listOf(feedPost(1001, "later page row", page = 40)),
+            state = pagedState(startPage = 40),
+            onGoToPage = { requested = it },
+        )
+
+        composeRule.onNodeWithContentDescription("回到顶部").performClick()
+
+        composeRule.runOnIdle { assertEquals(1, requested) }
+    }
+
     /** A jump names its destination before the rows arrive; otherwise the tap reads as ignored. */
     @Test
     fun `the bar names the page a jump is heading for while the old rows are still up`() {

@@ -51,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -121,6 +122,7 @@ import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_create_post
+import io.github.nodyssey.ui.resources.action_scroll_to_top
 import io.github.nodyssey.ui.resources.action_sort
 import io.github.nodyssey.ui.resources.action_switch_site
 import io.github.nodyssey.ui.resources.feed_page_size_note
@@ -394,8 +396,7 @@ fun PostListScreen(
     DisposableEffect(Unit) { onDispose { currentOnNavigationBarHiddenChanged(false) } }
 
     /*
-     * Back to the start of the feed. Only the 首页 tab asks for this now — the wordmark that used to
-     * be the second way in is gone with the rest of the title.
+     * Back to the start of the feed, from the 首页 tab or the feed rail's top arrow.
      *
      * The bar is revealed first and without waiting for the animation, because the request did not
      * come from a user scroll and the direction connection would otherwise leave the list sitting at
@@ -411,6 +412,9 @@ fun PostListScreen(
             listState.scrollToItem(SCROLL_TO_TOP_ANIMATED_ITEMS)
         }
         listState.animateScrollToItem(0)
+    }
+    val scrolledFromTop by remember(listState, topBarScrollBehavior) {
+        derivedStateOf { listState.canScrollBackward || topBarScrollBehavior.state.heightOffset < 0f }
     }
     /*
      * Which request has already been answered, remembered exactly as the board identity above is and
@@ -511,7 +515,7 @@ fun PostListScreen(
     }
 
     /**
-     * 上一页 / 下一页 on a list that is one continuous scroll: the step is a scroll wherever it can be,
+     * Page selection / 下一页 on a list that is one continuous scroll: travel is a scroll wherever it can be,
      * and only a page the feed has no way to reach by reading on is fetched as a new window.
      *
      * Three cases, in the order they are tried:
@@ -646,7 +650,14 @@ fun PostListScreen(
                     expanded = !navigationBarHidden || showPageSheet,
                     page = visiblePage,
                     totalPages = state.totalPages,
-                    onPrevious = { goToPage((visiblePage - 1).coerceAtLeast(1)) },
+                    canScrollToTop = scrolledFromTop || state.startPage > FIRST_PAGE,
+                    onScrollToTop = {
+                        scope.launch {
+                            // A window opened at a later page has no page-one rows to scroll to.
+                            if (state.startPage > FIRST_PAGE) onGoToPage(FIRST_PAGE)
+                            scrollToTop()
+                        }
+                    },
                     onNext = { goToPage((visiblePage + 1).coerceAtMost(state.totalPages)) },
                     onPageClick = { showPageSheet = true },
                     onCreatePost = onCreatePost,
@@ -827,7 +838,8 @@ private fun FeedPageBar(
     expanded: Boolean,
     page: Int,
     totalPages: Int,
-    onPrevious: () -> Unit,
+    canScrollToTop: Boolean,
+    onScrollToTop: () -> Unit,
     onNext: () -> Unit,
     onPageClick: () -> Unit,
     onCreatePost: () -> Unit,
@@ -844,9 +856,12 @@ private fun FeedPageBar(
             expanded = expanded,
             page = page,
             totalPages = totalPages,
-            onPrevious = onPrevious,
+            onPrevious = onScrollToTop,
             onNext = onNext,
             onPageClick = onPageClick,
+            previousEnabled = canScrollToTop,
+            previousLabel = Res.string.action_scroll_to_top,
+            previousIcon = PlazaIcons.VerticalAlignTop,
         )
         PlazaExtendedFab(
             text = stringResource(Res.string.action_create_post),

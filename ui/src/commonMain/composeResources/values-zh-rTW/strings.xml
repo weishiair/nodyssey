@@ -17,6 +17,7 @@
     <string name="site_switch_failed">切換站點失敗，已返回原站點，請稍後重試</string>
     <string name="loading_indicator_label">載入中</string>
     <string name="action_back">返回</string>
+    <string name="action_scroll_to_top">回到頂部</string>
     <string name="action_close">關閉</string>
     <string name="action_expand">展開</string>
     <string name="action_collapse">收合</string>
@@ -286,6 +287,9 @@
     <string name="settings_appearance">外觀</string>
     <string name="settings_theme">主題</string>
     <string name="settings_theme_system">跟隨系統</string>
+    <string name="settings_refresh_rate">螢幕更新率</string>
+    <string name="settings_refresh_rate_hint">不支援的檔位停用；實際更新率由系統調度，較高檔位可能增加耗電</string>
+    <string name="settings_refresh_rate_value">%1$d Hz</string>
     <string name="settings_theme_light">淺色</string>
     <string name="settings_theme_dark">深色</string>
     <string name="settings_theme_mode">明暗</string>
@@ -567,11 +571,8 @@
     <string name="update_reminder_later">稍後</string>
     <string name="about_project_home">專案首頁</string>
     <string name="about_feedback">問題回報</string>
-    <string name="about_feedback_hint">開 GitHub Issue 或站內私訊開發者</string>
-    <string name="about_app_channel">Telegram 官方頻道</string>
-    <string name="about_app_channel_hint">新版本發布和更新說明</string>
-    <string name="about_app_group">Telegram 官方群組</string>
-    <string name="about_app_group_hint">聊 Nodyssey、回報 bug、看 dev 版動靜</string>
+    <string name="about_feedback_hint">在本分支的 GitHub Issues 回報問題</string>
+    <string name="about_upstream">原專案與致謝</string>
     <string name="about_changelog">更新紀錄</string>
     <string name="about_help">使用說明</string>
     <string name="about_help_hint">被當成 bug 的那幾件事，和不容易撞見的用法</string>

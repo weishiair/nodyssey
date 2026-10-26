@@ -7,19 +7,17 @@
 
 [NodeSeek](https://www.nodeseek.com/) 的非官方开源 Android 客户端，Kotlin + Jetpack Compose，帖子渲染为原生 Compose 内容。
 
-[![Release](https://img.shields.io/github/v/release/5151561/nodyssey?include_prereleases&sort=semver&label=Release&color=2C6E7F)](https://github.com/5151561/nodyssey/releases)
-[![Downloads](https://img.shields.io/github/downloads/5151561/nodyssey/total?label=Downloads&color=2C6E7F)](https://github.com/5151561/nodyssey/releases)
-[![Stars](https://img.shields.io/github/stars/5151561/nodyssey?style=flat&logo=github&label=Stars)](https://github.com/5151561/nodyssey/stargazers)
-[![CI](https://img.shields.io/github/actions/workflow/status/5151561/nodyssey/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/5151561/nodyssey/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/5151561/nodyssey?label=License)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/weishiair/nodyssey?label=Release&color=2C6E7F)](https://github.com/weishiair/nodyssey/releases)
+[![Downloads](https://img.shields.io/github/downloads/weishiair/nodyssey/total?label=Downloads&color=2C6E7F)](https://github.com/weishiair/nodyssey/releases)
+[![Stars](https://img.shields.io/github/stars/weishiair/nodyssey?style=flat&logo=github&label=Stars)](https://github.com/weishiair/nodyssey/stargazers)
+[![CI](https://img.shields.io/github/actions/workflow/status/weishiair/nodyssey/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/weishiair/nodyssey/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/weishiair/nodyssey?label=License)](LICENSE)
 
-[![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://github.com/5151561/nodyssey/releases)
+[![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://github.com/weishiair/nodyssey/releases)
 [![Kotlin](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Compose](https://img.shields.io/badge/Jetpack_Compose-M3_Expressive-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
 
-[![Website](https://img.shields.io/badge/宣传页-nodyssey-2C6E7F?logo=githubpages&logoColor=white)](https://5151561.github.io/nodyssey/)
-[![Telegram Channel](https://img.shields.io/badge/Telegram-Channel-26A5E4?logo=telegram&logoColor=white)](https://t.me/nodyssey_official)
-[![Telegram Group](https://img.shields.io/badge/Telegram-Group-26A5E4?logo=telegram&logoColor=white)](https://t.me/+97ANIwVaCYk1MjQ1)
+[![Website](https://img.shields.io/badge/宣传页-nodyssey-2C6E7F?logo=githubpages&logoColor=white)](https://weishiair.github.io/nodyssey/)
 
 <img src="docs/screenshots/post-list-light.png" width="200" alt="帖子列表" />
 <img src="docs/screenshots/post-detail-dark.png" width="200" alt="帖子详情" />
@@ -30,9 +28,9 @@
 
 ## 下载
 
-到 [Releases](https://github.com/5151561/nodyssey/releases) 下载最新 APK，应用内也可以检查更新。各版本变化见 [CHANGELOG.md](CHANGELOG.md)。
+到 [Releases](https://github.com/weishiair/nodyssey/releases) 下载最新 APK，应用内也可以检查更新。各版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
-> **关于 iOS**：项目只维护 Android。iOS 版本已停止维护，不再加功能、不再修 iOS 专属的问题，也不接受 iOS 方向的 PR。
+> **关于 iOS**：本分支同时提供未签名 IPA，需要自行签名后安装；以 Android 优化为主，iOS 功能和网络支持可能不同，尚未进行真机验证。
 
 ## 功能
 
@@ -54,16 +52,17 @@
 
 ## 参与
 
-- 反馈问题：[Issues](https://github.com/5151561/nodyssey/issues/new/choose)，请带上 App 版本、机型和 Android 版本
-- 用法提问：[Telegram 群组](https://t.me/+97ANIwVaCYk1MjQ1)
+- 反馈问题：[Issues](https://github.com/weishiair/nodyssey/issues/new/choose)，请带上 App 版本、机型和 Android 版本
+- 使用帮助：应用内「设置 → 关于 Nodyssey → 使用帮助」；仍有疑问可在本分支 Issues 提问。
 - 提 PR 前请先读 [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 致谢
 
+- [5151561/nodyssey](https://github.com/5151561/nodyssey)（GPL-3.0）—— 本分支基于此项目开发，保留原项目署名与许可证。
 - [tyrad/nodeseek](https://github.com/tyrad/nodeseek)（iOS 客户端，MIT）—— 站点结构的逆向参考
 - [mrzhiin/seekmate](https://github.com/mrzhiin/seekmate)（React Native 客户端，MIT）—— 部分 JSON 端点的发现来源
 
-本项目独立实现，不共享代码。
+本分支继承原项目的实现，并在 GPL-3.0 许可下继续改进。
 
 ## 说明
 

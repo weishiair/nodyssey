@@ -49,6 +49,7 @@ import io.github.nodyssey.ui.account.shortNameRes
 import io.github.nodyssey.ui.common.UpdateDot
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.describedAsLoading
+import io.github.nodyssey.ui.common.rememberDisplayRefreshRates
 import io.github.nodyssey.ui.common.rememberFileSizeLabel
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -98,6 +99,9 @@ import io.github.nodyssey.ui.resources.settings_one_hand_hint
 import io.github.nodyssey.ui.resources.settings_predictive_back
 import io.github.nodyssey.ui.resources.settings_predictive_back_hint
 import io.github.nodyssey.ui.resources.settings_proxy_entry
+import io.github.nodyssey.ui.resources.settings_refresh_rate
+import io.github.nodyssey.ui.resources.settings_refresh_rate_hint
+import io.github.nodyssey.ui.resources.settings_refresh_rate_value
 import io.github.nodyssey.ui.resources.settings_report_format
 import io.github.nodyssey.ui.resources.settings_report_format_adapted
 import io.github.nodyssey.ui.resources.settings_report_format_source
@@ -182,6 +186,8 @@ fun SettingsRoute(
         onPredictiveBackChange = viewModel::setPredictiveBack,
         onSearchHistoryLimitChange = viewModel::setSearchHistoryLimit,
         onEinkModeChange = viewModel::setEinkMode,
+        supportedRefreshRates = rememberDisplayRefreshRates(),
+        onDisplayRefreshRateChange = viewModel::setDisplayRefreshRate,
         onFontScaleChange = viewModel::setFontScale,
         onStickerUniformSizeChange = viewModel::setStickerUniformSize,
         onStickerSizeChange = viewModel::setStickerSize,
@@ -236,6 +242,8 @@ fun SettingsScreen(
     onOpenBlockKeywords: () -> Unit = {},
     onAppLanguageChange: (AppLanguage) -> Unit = {},
     onEinkModeChange: (Boolean) -> Unit = {},
+    supportedRefreshRates: Set<Int>? = null,
+    onDisplayRefreshRateChange: (Int) -> Unit = {},
     onPredictiveBackChange: (Boolean) -> Unit = {},
     onSearchHistoryLimitChange: (Int) -> Unit = {},
     /** Null hides 识别剪贴板中的帖子: a platform where reading the clipboard costs a prompt each time. */
@@ -325,6 +333,14 @@ fun SettingsScreen(
                     onCheckedChange = onEinkModeChange,
                     trailing = { GroupedListItemSwitch(checked = state.settings.einkMode) },
                 )
+                supportedRefreshRates?.let { supported ->
+                    DisplayRefreshRateSetting(
+                        selected = state.settings.displayRefreshRate,
+                        supported = supported,
+                        enabled = !state.settings.einkMode,
+                        onChange = onDisplayRefreshRateChange,
+                    )
+                }
                 // One switch for every screen that carries the bar rather than one per screen:
                 // whether the title should come down to the thumb is a fact about the hand holding
                 // the phone, and it does not change between 收藏 and 设置.
@@ -597,6 +613,37 @@ fun SettingsScreen(
         }
     }
 }
+
+@Composable
+private fun DisplayRefreshRateSetting(selected: Int, supported: Set<Int>, enabled: Boolean, onChange: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        GroupedRow(
+            icon = PlazaIcons.Contrast,
+            title = stringResource(Res.string.settings_refresh_rate),
+            subtitle = stringResource(Res.string.settings_refresh_rate_hint),
+            enabled = enabled,
+            onClick = { expanded = true },
+            trailing = { Text(refreshRateLabel(selected)) },
+        )
+        DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+            SettingsRepository.DISPLAY_REFRESH_RATE_CHOICES.forEach { hertz ->
+                DropdownMenuItem(
+                    text = { Text(refreshRateLabel(hertz)) },
+                    enabled = hertz == 0 || hertz in supported,
+                    onClick = {
+                        expanded = false
+                        onChange(hertz)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun refreshRateLabel(hertz: Int): String =
+    if (hertz == 0) stringResource(Res.string.settings_theme_system) else stringResource(Res.string.settings_refresh_rate_value, hertz)
 
 @Composable
 private fun SearchHistoryLimitSetting(limit: Int, onChange: (Int) -> Unit) {
