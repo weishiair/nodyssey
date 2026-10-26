@@ -15,6 +15,8 @@ import io.github.nodyssey.data.ReadingPosition
 import io.github.nodyssey.data.ReadingPositionStore
 import io.github.nodyssey.data.TrackedThreadStore
 import io.github.nodyssey.data.session.SessionState
+import io.github.nodyssey.data.settings.PostReplyStyle
+import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.model.ReactionAction
@@ -25,7 +27,11 @@ import io.github.plaza.core.AppClock
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.runCatchingExceptCancellation
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,9 +42,11 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 
 /**
@@ -84,6 +92,7 @@ class PostDetailViewModel(
      */
     private val profiles: ProfileRepository? = null,
     private val clock: AppClock = AppClock.System,
+    settings: Flow<UserSettings> = flowOf(UserSettings()),
 ) : ViewModel() {
     private val sourceState =
         MutableStateFlow(
@@ -111,6 +120,8 @@ class PostDetailViewModel(
     private var fetchedAuthorUid: Long? = null
     private val replyAuthorJobs = mutableMapOf<Long, Job>()
     private val replyAuthorRetryAfter = mutableMapOf<Long, Long>()
+    private var visibleAuthorUids: Set<Long> = emptySet()
+    private val accountSettingsReady = CompletableDeferred<Unit>()
     private var authorScanJob: Job? = null
     private var authorScanGeneration = 0
     private var unfilteredPosition: ReadingPosition? = null
@@ -119,10 +130,28 @@ class PostDetailViewModel(
     private val readingPosition = MutableStateFlow<ReadingPosition?>(null)
 
     init {
+        settings
+            .distinctUntilChangedBy { it.postReplyStyle to it.showAuthorAccountInfo }
+            .onEach { values ->
+                updateState { it.copy(postReplyStyle = values.postReplyStyle, showAuthorAccountInfo = values.showAuthorAccountInfo) }
+                accountSettingsReady.complete(Unit)
+                if (values.showAuthorAccountInfo) {
+                    loadAuthorProfileIfNeeded(sourceState.value.body?.authorUid)
+                    loadVisibleAuthors(visibleAuthorUids)
+                } else {
+                    if (authorProfileJob?.isActive == true) fetchedAuthorUid = null
+                    authorProfileJob?.cancel()
+                    authorProfileJob = null
+                    cancelReplyAuthorLookups()
+                    updateState { it.copy(isLoadingAuthorInfo = false, loadingAuthorUids = emptySet()) }
+                }
+            }.launchIn(viewModelScope)
         // Reconcile session provenance before collecting Room. A restored detail destination can be
         // the first entry composed after process death, so relying on the list ViewModel to do this
         // would allow an authenticated snapshot to flash on a signed-out cold start.
         viewModelScope.launch {
+            // Respect a saved opt-out before the first cached thread could trigger a lookup.
+            accountSettingsReady.await()
             repository.reconcileSession(
                 isSignedIn = session.value.isSignedIn,
                 fingerprint = session.value.fingerprint,
@@ -147,8 +176,7 @@ class PostDetailViewModel(
                     // before the floors it named could possibly have arrived.
                     fetchedAuthorUid = null
                     authorProfileJob?.cancel()
-                    replyAuthorJobs.values.forEach { it.cancel() }
-                    replyAuthorJobs.clear()
+                    cancelReplyAuthorLookups()
                     replyAuthorRetryAfter.clear()
                     updateState {
                         it.copy(
@@ -166,6 +194,8 @@ class PostDetailViewModel(
                             authorLevel = null,
                             authorJoinedDays = null,
                             replyAuthors = emptyMap(),
+                            isLoadingAuthorInfo = false,
+                            loadingAuthorUids = emptySet(),
                             onlyAuthor = false,
                             isScanningAuthor = false,
                             authorScanError = null,
@@ -265,55 +295,84 @@ class PostDetailViewModel(
         }
     }
 
+    private fun cancelReplyAuthorLookups() {
+        // Main.immediate cancellation can run a job's finally inline. Detach all owners before
+        // cancelling so completion cannot remove an entry while this map is being iterated.
+        val jobs = replyAuthorJobs.values.toList()
+        replyAuthorJobs.clear()
+        jobs.forEach { it.cancel() }
+    }
+
     private fun loadAuthorProfileIfNeeded(uid: Long?) {
+        if (!accountSettingsReady.isCompleted || !sourceState.value.showAuthorAccountInfo) return
         val repo = profiles ?: return
         if (uid == null || uid <= 0 || uid == fetchedAuthorUid) return
         fetchedAuthorUid = uid
         authorProfileJob?.cancel()
+        updateState { it.copy(isLoadingAuthorInfo = true) }
         authorProfileJob =
-            viewModelScope.launch {
-                runCatchingExceptCancellation { repo.authorInfo(uid) }
-                    .onSuccess { profile ->
-                        if (profile == null) {
+            viewModelScope.launch(start = CoroutineStart.LAZY) {
+                try {
+                    runCatchingExceptCancellation { repo.authorInfo(uid) }
+                        .onSuccess { profile ->
+                            if (profile == null) {
+                                fetchedAuthorUid = null
+                                return@onSuccess
+                            }
+                            updateState {
+                                it.copy(
+                                    authorLevel = profile.level,
+                                    authorJoinedDays = joinedDays(profile.createdAt, clock.nowMillis()),
+                                )
+                            }
+                        }.onFailure {
                             fetchedAuthorUid = null
-                            return@onSuccess
                         }
-                        updateState {
-                            it.copy(
-                                authorLevel = profile.level,
-                                authorJoinedDays = joinedDays(profile.createdAt, clock.nowMillis()),
-                            )
-                        }
-                    }.onFailure {
-                        fetchedAuthorUid = null
+                } finally {
+                    if (authorProfileJob === currentCoroutineContext().job) {
+                        updateState { it.copy(isLoadingAuthorInfo = false) }
                     }
+                }
             }
+        authorProfileJob?.start()
     }
 
     /** Called after scrolling settles; lazy precomposition is deliberately not a reason to fetch. */
     fun loadVisibleAuthors(uids: Set<Long>) {
+        visibleAuthorUids = uids
+        if (!accountSettingsReady.isCompleted || !sourceState.value.showAuthorAccountInfo) return
         val repo = profiles ?: return
         val visible = uids.intersect(uiState.value.comments.mapNotNull { it.authorUid }.toSet()).filter { it > 0 }.toSet()
         (replyAuthorJobs.keys - visible).forEach { uid -> replyAuthorJobs.remove(uid)?.cancel() }
+        updateState { it.copy(loadingAuthorUids = it.loadingAuthorUids.intersect(visible)) }
         visible.forEach { uid ->
             if (sourceState.value.replyAuthors.containsKey(uid) || replyAuthorJobs[uid]?.isActive == true) return@forEach
             if (clock.nowMillis() < (replyAuthorRetryAfter[uid] ?: Long.MIN_VALUE)) return@forEach
-            replyAuthorJobs[uid] = viewModelScope.launch {
-                val info = runCatchingExceptCancellation { repo.authorInfo(uid) }.getOrNull()
-                if (info == null) {
-                    replyAuthorRetryAfter[uid] = clock.nowMillis() + AUTHOR_RETRY_MILLIS
-                } else if (sourceState.value.comments.any { it.authorUid == uid }) {
-                    replyAuthorRetryAfter.remove(uid)
-                    updateState { state ->
-                        val authors = state.replyAuthors.toMutableMap()
-                        authors.remove(uid)
-                        authors[uid] = ReplyAuthorInfo(info.level, joinedDays(info.createdAt, clock.nowMillis()))
-                        while (authors.size > MAX_REPLY_AUTHORS) authors.remove(authors.keys.first())
-                        state.copy(replyAuthors = authors)
+            updateState { it.copy(loadingAuthorUids = it.loadingAuthorUids + uid) }
+            replyAuthorJobs[uid] = viewModelScope.launch(start = CoroutineStart.LAZY) {
+                try {
+                    val info = runCatchingExceptCancellation { repo.authorInfo(uid) }.getOrNull()
+                    if (info == null) {
+                        replyAuthorRetryAfter[uid] = clock.nowMillis() + AUTHOR_RETRY_MILLIS
+                    } else if (sourceState.value.comments.any { it.authorUid == uid }) {
+                        replyAuthorRetryAfter.remove(uid)
+                        updateState { state ->
+                            val authors = state.replyAuthors.toMutableMap()
+                            authors.remove(uid)
+                            authors[uid] = ReplyAuthorInfo(info.level, joinedDays(info.createdAt, clock.nowMillis()))
+                            while (authors.size > MAX_REPLY_AUTHORS) authors.remove(authors.keys.first())
+                            state.copy(replyAuthors = authors)
+                        }
+                    }
+                    while (replyAuthorRetryAfter.size > MAX_REPLY_AUTHORS) replyAuthorRetryAfter.remove(replyAuthorRetryAfter.keys.first())
+                } finally {
+                    if (replyAuthorJobs[uid] === currentCoroutineContext().job) {
+                        replyAuthorJobs.remove(uid)
+                        updateState { it.copy(loadingAuthorUids = it.loadingAuthorUids - uid) }
                     }
                 }
-                while (replyAuthorRetryAfter.size > MAX_REPLY_AUTHORS) replyAuthorRetryAfter.remove(replyAuthorRetryAfter.keys.first())
             }
+            replyAuthorJobs[uid]?.start()
         }
     }
 
@@ -892,6 +951,7 @@ class PostDetailViewModel(
                         container.trackedThreadStore,
                         container.profileRepository,
                         container.clock,
+                        container.settingsRepository.settings,
                     )
                 }
             }
@@ -983,6 +1043,10 @@ data class PostDetailUiState(
     val authorJoinedDays: Int? = null,
     /** Keyed by UID so repeated authors share the same answer without changing reply order. */
     val replyAuthors: Map<Long, ReplyAuthorInfo> = emptyMap(),
+    val isLoadingAuthorInfo: Boolean = false,
+    val loadingAuthorUids: Set<Long> = emptySet(),
+    val showAuthorAccountInfo: Boolean = true,
+    val postReplyStyle: PostReplyStyle = PostReplyStyle.CARDS,
     val replyCount: Int? = null,
     /** Original thread floor extent, retained when only-author replaces the reply count. */
     val lastFloor: Int? = null,

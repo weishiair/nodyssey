@@ -97,6 +97,12 @@ class PostListScreenRenderTest {
         composeRule.onRoot().captureRender("post-list-pure-white")
     }
 
+    @Test
+    fun `neutral dark feed`() {
+        composeRule.setContent { Screen(darkTheme = true, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-list-neutral-dark")
+    }
+
     /** The two menus of the header, open over the feed; each marks its current entry. */
     @OptIn(ExperimentalRoborazziApi::class)
     @Test

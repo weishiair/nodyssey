@@ -43,6 +43,8 @@ import io.github.nodyssey.ui.common.rememberFileSizeLabel
 import io.github.nodyssey.ui.common.rememberShareText
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.about_app_telegram_group
+import io.github.nodyssey.ui.resources.about_app_telegram_group_hint
 import io.github.nodyssey.ui.resources.about_changelog
 import io.github.nodyssey.ui.resources.about_check_updates
 import io.github.nodyssey.ui.resources.about_crash_clear
@@ -241,8 +243,15 @@ fun AboutAppScreen(
                     subtitle = stringResource(Res.string.about_feedback_hint),
                     icon = PlazaIcons.Campaign,
                     external = true,
-                    last = true,
                     onClick = { onOpenUri(AppLinks.ISSUES) },
+                )
+                AboutRow(
+                    title = stringResource(Res.string.about_app_telegram_group),
+                    subtitle = stringResource(Res.string.about_app_telegram_group_hint),
+                    icon = PlazaIcons.Group,
+                    external = true,
+                    last = true,
+                    onClick = { onOpenUri(AppLinks.TELEGRAM_GROUP) },
                 )
             }
             SettingsGroup {
@@ -579,6 +588,7 @@ internal object AppLinks {
     const val RELEASES = "$PROJECT_HOME/releases"
     const val LICENSE = "$PROJECT_HOME/blob/main/LICENSE"
     const val UPSTREAM = "https://github.com/5151561/nodyssey"
+    const val TELEGRAM_GROUP = "https://t.me/+JGCIMJmPrj0wZGVh"
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "f1 关于 Nodyssey")

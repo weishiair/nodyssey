@@ -112,7 +112,7 @@ internal fun SettingsBlock(
 
 /**
  * A row whose choices open in a menu rather than as rows of their own — 语言, 色彩风格 — with its
- * answer on the second line.
+ * answer on the second line or in [value] beside the trailing icon.
  *
  * The menu hangs off the trailing icon and nothing wider, because a `DropdownMenu` is anchored to its
  * *parent* layout node — `Popup` reads `parentLayoutCoordinates`, not the position of its own
@@ -131,12 +131,15 @@ internal fun <T> SettingsMenuRow(
     last: Boolean = false,
     enabled: Boolean = true,
     menuIcon: ImageVector = Icons.Default.ArrowDropDown,
+    value: String? = null,
+    isChoiceEnabled: (T) -> Boolean = { true },
 ) {
     var expanded by remember { mutableStateOf(false) }
     GroupedRow(
         icon = icon,
         title = title,
         subtitle = subtitle,
+        value = value,
         last = last,
         enabled = enabled,
         onClick = { expanded = true },
@@ -144,13 +147,14 @@ internal fun <T> SettingsMenuRow(
         trailing = {
             Box {
                 Icon(menuIcon, contentDescription = null)
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
                     choices.forEachIndexed { index, (choice, label) ->
                         SelectableMenuItem(
                             selected = choice == selected,
                             index = index,
                             count = choices.size,
                             text = { Text(label) },
+                            enabled = isChoiceEnabled(choice),
                             onClick = {
                                 expanded = false
                                 onSelect(choice)

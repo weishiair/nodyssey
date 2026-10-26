@@ -156,6 +156,7 @@ fun TwoFactorScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                SignInDiagnosticsAction(state.failureReport)
             }
 
             Column(

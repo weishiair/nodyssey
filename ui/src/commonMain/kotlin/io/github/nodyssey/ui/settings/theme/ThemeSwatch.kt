@@ -103,7 +103,7 @@ internal fun ThemeSwatch(
  * Two stops at the same offset rather than a blend: the point is to show two colours, and a gradient
  * between them produces a third that belongs to neither palette.
  */
-private fun swatchBrush(color: Color, second: Color?): Brush =
+internal fun swatchBrush(color: Color, second: Color?): Brush =
     if (second == null) {
         Brush.linearGradient(listOf(color, color))
     } else {

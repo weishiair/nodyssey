@@ -1,0 +1,138 @@
+name: Build iOS login diagnostics IPA
+
+on:
+  push:
+    branches: ['test/ios-login-diagnostics-1.3.4-test.1']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
+      - name: Run the shared regression gates
+        run: ./gradlew spotlessCheck testDebugUnitTest testAndroidHostTest jvmTest :app:lintDebug :app:assembleDebug :app:bundleRelease --max-workers=2
+      - name: Test release helpers
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+      - name: Check committed database schemas
+        shell: bash
+        run: |
+          if test -n "$(git status --porcelain -uall -- '*/schemas/*')"; then
+            echo '::error::Generated database schemas differ from the committed files.'
+            exit 1
+          fi
+      - name: Collect validation reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-test-validation-${{ github.run_id }}
+          path: |
+            */build/reports/
+            */build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Stop Gradle
+        if: always()
+        run: ./gradlew --stop
+
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up the Android SDK for multiplatform configuration
+        uses: android-actions/setup-android@v4
+      - name: Cache the Kotlin Native toolchain
+        uses: actions/cache@v6
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: false
+      - name: Read the test version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
+          code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ios-test\.[0-9]+$ ]]
+          [[ "$code" =~ ^[1-9][0-9]*$ ]]
+          echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
+          echo "BUILD_CODE=$code" >> "$GITHUB_ENV"
+      - name: Run common tests on Kotlin Native
+        run: ./gradlew :shared:macosArm64Test --max-workers=2
+      - name: Build the unsigned iPhone app
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8"
+        run: |
+          xcodebuild \
+            -project iosapp/Nodyssey.xcodeproj \
+            -scheme Nodyssey \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Nodyssey.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$BUILD_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_CODE"
+      - name: Verify and package the IPA
+        shell: bash
+        run: |
+          app="$RUNNER_TEMP/Nodyssey.xcarchive/Products/Applications/Nodyssey.app"
+          test -d "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = "$BUILD_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = "$BUILD_CODE"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" = 'io.github.nodyssey'
+          executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
+          test "$(lipo -archs "$app/$executable")" = 'arm64'
+          mkdir -p "$RUNNER_TEMP/Payload" "$RUNNER_TEMP/ios-test-dist"
+          cp -R "$app" "$RUNNER_TEMP/Payload/"
+          name="nodyssey-$BUILD_VERSION.ipa"
+          (cd "$RUNNER_TEMP" && zip -qry "ios-test-dist/$name" Payload)
+          unzip -t "$RUNNER_TEMP/ios-test-dist/$name" > "$RUNNER_TEMP/ipa-zip-check.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/ios-test-dist/source-commit.txt"
+          printf 'version=%s\nbuild=%s\nsigning=unsigned\n' "$BUILD_VERSION" "$BUILD_CODE" > "$RUNNER_TEMP/ios-test-dist/build-info.txt"
+          (cd "$RUNNER_TEMP/ios-test-dist" && shasum -a 256 "$name" > SHA256SUMS.txt)
+      - name: Upload the unsigned IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: nodyssey-ios-test-${{ github.run_id }}
+          path: ${{ runner.temp }}/ios-test-dist/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Collect Native test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-native-reports-${{ github.run_id }}
+          path: |
+            shared/build/reports/tests/macosArm64Test/
+            shared/build/test-results/macosArm64Test/
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Stop Gradle
+        if: always()
+        run: ./gradlew --stop

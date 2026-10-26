@@ -19,6 +19,7 @@ import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.proxy.routes
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.settings.AppLanguage
+import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.ThemeMode
@@ -140,6 +141,14 @@ class SettingsViewModel(
 
     fun setPredictiveBack(value: Boolean) {
         viewModelScope.launch { settings.setPredictiveBack(value) }
+    }
+
+    fun setPostReplyStyle(value: PostReplyStyle) {
+        viewModelScope.launch { settings.setPostReplyStyle(value) }
+    }
+
+    fun setShowAuthorAccountInfo(value: Boolean) {
+        viewModelScope.launch { settings.setShowAuthorAccountInfo(value) }
     }
 
     fun setSearchHistoryLimit(value: Int) {

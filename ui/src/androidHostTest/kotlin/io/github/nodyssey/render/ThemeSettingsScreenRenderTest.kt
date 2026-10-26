@@ -77,6 +77,15 @@ class ThemeSettingsScreenRenderTest {
         composeRule.onRoot().captureRender("theme-pure-white")
     }
 
+    @Test
+    @Config(qualifiers = "w360dp-h1300dp")
+    fun `neutral dark theme picker`() {
+        composeRule.setContent {
+            Screen(darkTheme = true, settings = UserSettings(presetId = "pure_white", savedThemes = SAVED))
+        }
+        composeRule.onRoot().captureRender("theme-neutral-dark")
+    }
+
     /** 6c3's card: 自定义 in force, named after the saved theme it matches. */
     @Test
     @Config(qualifiers = "w360dp-h1100dp")

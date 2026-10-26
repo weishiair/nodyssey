@@ -11,12 +11,17 @@ import io.github.nodyssey.data.session.TwoFactorChallenge
 import io.github.nodyssey.ui.ViewModels
 import io.github.nodyssey.ui.typeText
 import io.github.plaza.core.AppClock
+import io.github.plaza.core.AppVersion
+import io.github.plaza.core.net.NativeNetworkError
+import io.github.plaza.core.net.NativeNetworkErrorDomain
 import io.github.plaza.core.net.SessionCookies
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
+import io.github.plaza.core.net.TransportFailureDiagnostics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -322,6 +327,79 @@ class SignInViewModelTest {
             advanceUntilIdle()
 
             assertEquals(SignInCredentials("nssk", "hunter2hunter2", "turnstile-token"), repository.sent)
+            assertTrue(vm.uiState.value.signedIn)
+        }
+
+    @Test
+    fun `native error codes remain exportable after the snackbar without exporting the form`() =
+        runTest(dispatcher) {
+            val repository = FakeSignInRepository(
+                failure = SiteException(
+                    SiteError.Network,
+                    // Exception messages are deliberately excluded even if a platform puts a URL
+                    // or request context in one. Only the separate numeric diagnostic is exported.
+                    detail = "private-message with nssk and hunter2hunter2",
+                    diagnostics = TransportFailureDiagnostics(
+                        "iOS test",
+                        listOf(NativeNetworkError(NativeNetworkErrorDomain.URL, -1200)),
+                    ),
+                ),
+                jar = cookies,
+            )
+            val vm = readyViewModel(repository)
+            vm.submitCredentials()
+            advanceUntilIdle()
+
+            val report = requireNotNull(vm.uiState.value.failureReport)
+            assertTrue(report.contains("NSURLErrorDomain (-1200)"))
+            assertTrue(report.contains("Verification ready: true"))
+            listOf("private-message", "nssk", "hunter2hunter2", "turnstile-token").forEach {
+                assertFalse(it, report.contains(it))
+            }
+            vm.consumeFailure()
+            assertNull(vm.uiState.value.failure)
+            assertEquals(report, vm.uiState.value.failureReport)
+
+            repository.failure = null
+            vm.retry()
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.signedIn)
+            assertNull(vm.uiState.value.failureReport)
+        }
+
+    @Test
+    fun `an unresponsive diagnostic context keeps the version and does not prevent retry`() =
+        runTest(dispatcher) {
+            val repository = FakeSignInRepository(
+                failure = SiteException(
+                    SiteError.Network,
+                    diagnostics = TransportFailureDiagnostics(
+                        "iOS test",
+                        listOf(NativeNetworkError(NativeNetworkErrorDomain.URL, -1200)),
+                    ),
+                ),
+                jar = cookies,
+            )
+            val vm = viewModels.track(
+                SignInViewModel(
+                    signIn = repository,
+                    session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies)),
+                    clock = AppClock { FIXED_MILLIS },
+                    appVersion = AppVersion("1.3.4-test", 85),
+                    diagnosticContext = { awaitCancellation() },
+                ),
+            )
+            vm.accountState.typeText("nssk")
+            vm.passwordState.typeText("hunter2hunter2")
+            runCurrent()
+            vm.onVerified("turnstile-token")
+            vm.submitCredentials()
+            advanceUntilIdle()
+            assertTrue(requireNotNull(vm.uiState.value.failureReport).contains("App: 1.3.4-test (85)"))
+
+            repository.failure = null
+            vm.retry()
+            advanceUntilIdle()
             assertTrue(vm.uiState.value.signedIn)
         }
 

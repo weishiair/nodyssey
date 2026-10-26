@@ -3,10 +3,12 @@ package io.github.nodyssey.ui.login
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Rule
@@ -60,5 +62,17 @@ class SignInScreenTest {
         )
 
         composeRule.onNodeWithText("登录", substring = false).performScrollTo().assertIsEnabled()
+    }
+
+    @Test
+    fun `a signed out reader can open the retained native failure report`() {
+        val report = "Nodyssey login diagnostics\nError[0]: NSURLErrorDomain (-1200)"
+        setContent(SignInUiState(failureReport = report))
+
+        composeRule.onNodeWithText("查看登录诊断").performScrollTo().performClick()
+        composeRule.onNodeWithText(report).assertIsDisplayed()
+        composeRule.onNodeWithText("复制结果").assertIsEnabled()
+        composeRule.onNodeWithText("关闭").performClick()
+        composeRule.onNodeWithText(report).assertDoesNotExist()
     }
 }

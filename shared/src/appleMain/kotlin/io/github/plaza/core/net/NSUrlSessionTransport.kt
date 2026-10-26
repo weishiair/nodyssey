@@ -70,10 +70,7 @@ class NSUrlSessionTransport(
                 when {
                     error != null ->
                         continuation.resumeWithException(
-                            // Everything `NSURLSession` reports here is a call that did not
-                            // complete, which is exactly what `Network` means; the description is
-                            // kept as the detail so a log says which one.
-                            SiteException(SiteError.Network, detail = error.localizedDescription),
+                            error.asNetworkFailure(),
                         )
 
                     response !is NSHTTPURLResponse ->

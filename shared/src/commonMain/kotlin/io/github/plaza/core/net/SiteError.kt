@@ -123,6 +123,8 @@ class SiteException(
     val error: SiteError,
     cause: Throwable? = null,
     val detail: String? = null,
+    /** Numeric transport facts only; kept apart from the sentence shown in a snackbar. */
+    val diagnostics: TransportFailureDiagnostics? = null,
 ) : Exception(detail ?: error.toString(), cause)
 
 /** True when a human can clear this by acting inside a WebView. */

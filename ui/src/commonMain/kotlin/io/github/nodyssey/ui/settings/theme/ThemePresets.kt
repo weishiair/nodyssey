@@ -30,9 +30,10 @@ import org.jetbrains.compose.resources.StringResource
 internal val GraphiteCompanion = Color(0xFF7E5700)
 
 /**
- * Three columns: 石墨青, pure white, four soft palettes, then the five character palettes.
+ * Three columns: pure white, 石墨青, four soft palettes, then the five character palettes.
  *
- * 石墨青 remains the default and the only generated seed. Pure white uses fixed neutral surfaces;
+ * Pure white is the default, pairing white surfaces with neutral charcoal at night;
+ * 石墨青 remains the generated seed.
  * the soft and character palettes use hand-written schemes. Those fixed palettes do
  * not use 色彩风格. Custom seeds belong in 自定义 and 我的主题.
  */
@@ -58,12 +59,6 @@ internal data class ThemePreset(
 internal val ThemePresets =
     listOf(
         ThemePreset(
-            id = SettingsRepository.DEFAULT_PRESET_ID,
-            label = Res.string.settings_preset_graphite,
-            palette = null,
-            avatar = null,
-        ),
-        ThemePreset(
             id = "pure_white",
             label = Res.string.settings_preset_pure_white,
             palette = null,
@@ -71,6 +66,12 @@ internal val ThemePresets =
             pureWhite = true,
             swatch = Color.White,
             companion = Color(0xFF0866D9),
+        ),
+        ThemePreset(
+            id = "graphite",
+            label = Res.string.settings_preset_graphite,
+            palette = null,
+            avatar = null,
         ),
         ThemePreset(
             id = "breeze_blue",
@@ -140,9 +141,9 @@ internal val ThemePresets =
         ),
     )
 
-/** The preset a stored id names, or 石墨青 when the store holds one this build no longer ships. */
+/** Unknown stored ids fall back to the current default without overwriting a saved choice. */
 internal fun presetById(id: String): ThemePreset =
-    ThemePresets.firstOrNull { it.id == id } ?: ThemePresets.first()
+    ThemePresets.firstOrNull { it.id == id } ?: ThemePresets.first { it.id == SettingsRepository.DEFAULT_PRESET_ID }
 
 /** `#RRGGBB`, upper case — the form the hex field reads back and the form the labels print. */
 internal fun Color.toHexString(): String =

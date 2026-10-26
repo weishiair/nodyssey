@@ -1,7 +1,9 @@
 package io.github.nodyssey.ui.settings.theme
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -9,8 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.data.settings.ColorSource
@@ -25,6 +25,7 @@ import io.github.nodyssey.ui.resources.settings_palette_style_soft
 import io.github.nodyssey.ui.resources.settings_palette_style_vibrant
 import io.github.nodyssey.ui.settings.DISABLED_ALPHA
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -75,33 +76,35 @@ internal fun paletteStyleLabel(style: PaletteStyle): StringResource =
     }
 
 /**
- * The theme in force as a dot: `primary` and `tertiary`, split on the 135° diagonal the preset dots
- * use.
+ * The selected preset's own swatch or portrait, matching its face in the theme picker in both modes.
  *
- * Read off the live colour scheme rather than off the settings, so it is the colour the screen is
- * actually wearing — under 动态取色 that is whatever the wallpaper gave, and no stored value knows it.
+ * Wallpaper and custom colours have no preset face, so they sample the live primary and tertiary
+ * colours instead. In particular, no stored seed knows what the current wallpaper produced.
  */
 @Composable
 fun ThemeSummaryDot(
+    settings: UserSettings,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val preset = activePreset(settings)
+    val avatar = preset?.avatar
     Box(
         modifier
             .size(24.dp)
             // Dimmed with the row it sits in: a full-colour dot on a greyed-out row reads as live.
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
-            .clip(CircleShape)
-            .background(
-                Brush.linearGradient(
-                    0f to scheme.primary,
-                    0.5f to scheme.primary,
-                    0.5f to scheme.tertiary,
-                    1f to scheme.tertiary,
-                    start = Offset.Zero,
-                    end = Offset.Infinite,
+            .clip(CircleShape),
+    ) {
+        if (avatar != null) {
+            Image(painterResource(avatar), contentDescription = null, modifier = Modifier.fillMaxSize())
+        } else {
+            Box(
+                Modifier.fillMaxSize().background(
+                    swatchBrush(preset?.swatch ?: scheme.primary, preset?.companion ?: scheme.tertiary),
                 ),
-            ),
-    )
+            )
+        }
+    }
 }

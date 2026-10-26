@@ -6,15 +6,16 @@ import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
+import io.github.nodyssey.ThreadPreview
 import io.github.nodyssey.data.FreeChickenLegs
 import io.github.nodyssey.data.ReadingPosition
+import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.model.PostReactions
 import io.github.nodyssey.ui.postdetail.PostDetailScreen
@@ -101,6 +102,87 @@ class PostDetailScreenRenderTest {
     }
 
     @Test
+    fun `light cards with signature links and quotes`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SIGNED_REPLIES, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-cards-signatures")
+    }
+
+    @Test
+    fun `flat replies with signature links and quotes`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SIGNED_REPLIES.copy(postReplyStyle = PostReplyStyle.FLAT), pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-flat-signatures")
+    }
+
+    @Test
+    fun `flat replies in dark`() {
+        composeRule.setContent { Screen(darkTheme = true, state = SIGNED_REPLIES.copy(postReplyStyle = PostReplyStyle.FLAT), pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-flat-dark")
+    }
+
+    @Test
+    fun `neutral dark cards with signature links and quotes`() {
+        composeRule.setContent { Screen(darkTheme = true, state = SIGNED_REPLIES, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-neutral-dark-cards")
+    }
+
+    @Test
+    fun `neutral dark opening post with replies`() {
+        composeRule.setContent { Screen(darkTheme = true, state = SHORT_STATE, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-neutral-dark-opening")
+    }
+
+    @Test
+    fun `neutral dark loading card`() {
+        composeRule.setContent { Screen(darkTheme = true, state = LOADING_STATE, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-neutral-dark-loading")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h900dp")
+    fun `neutral dark cards with large text`() {
+        composeRule.setContent { Screen(darkTheme = true, state = SIGNED_REPLIES, fontScale = 1.5f, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-neutral-dark-large-text")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h900dp")
+    fun `light card actions with large text`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SIGNED_REPLIES, fontScale = 1.5f, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-cards-large-text")
+    }
+
+    @Test
+    fun `account info pending without blocking the thread`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SIGNED_REPLIES.copy(replyAuthors = emptyMap(), loadingAuthorUids = setOf(121, 122, 123)), pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-account-loading")
+    }
+
+    @Test
+    fun `loading opening card with a list preview`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LOADING_STATE, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-loading-card")
+    }
+
+    @Test
+    fun `loading flat opening post with a list preview`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LOADING_STATE.copy(postReplyStyle = PostReplyStyle.FLAT), pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-loading-flat")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h900dp")
+    fun `loading opening card with large text`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LOADING_STATE, fontScale = 1.5f, pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-loading-large-text")
+    }
+
+    @Test
+    fun `account info switched off with original forum badges retained`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SIGNED_REPLIES.copy(showAuthorAccountInfo = false), pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-account-off")
+    }
+
+    @Test
     @Config(qualifiers = "w320dp-h900dp")
     fun `reply account badges with long names and large text`() {
         val state = LATER_PAGE.copy(
@@ -174,15 +256,17 @@ class PostDetailScreenRenderTest {
     fun `reading tools in mist violet dark`() = readingTools(darkTheme = true)
 
     @Test
+    fun `neutral dark reading tools`() = readingTools(darkTheme = true, pureWhite = true)
+
+    @Test
     @Config(qualifiers = "w320dp-h900dp")
     fun `reading tools on a narrow screen`() = readingTools(darkTheme = false, narrow = true)
 
-    private fun readingTools(darkTheme: Boolean, narrow: Boolean = false) {
-        composeRule.setContent { Screen(darkTheme = darkTheme, state = LATER_PAGE, softPalette = PlazaSoftPalette.VIOLET) }
-        composeRule.onNodeWithContentDescription("更多").performClick()
-        composeRule.onNodeWithText("阅读工具").performSemanticsAction(SemanticsActions.OnClick)
+    private fun readingTools(darkTheme: Boolean, narrow: Boolean = false, pureWhite: Boolean = false) {
+        composeRule.setContent { Screen(darkTheme = darkTheme, state = LATER_PAGE, pureWhite = pureWhite, softPalette = if (pureWhite) null else PlazaSoftPalette.VIOLET) }
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(LATER_PAGE.comments.size + 1)
         composeRule.waitForIdle()
-        composeRule.onRoot().captureRender("post-detail-reading-tools-${if (darkTheme) "dark" else "light"}${if (narrow) "-narrow" else ""}")
+        composeRule.onRoot().captureRender("post-detail-reading-tools-${if (darkTheme) "dark" else "light"}${if (narrow) "-narrow" else ""}${if (pureWhite) "-neutral" else ""}")
     }
 
     @Test
@@ -290,6 +374,18 @@ class PostDetailScreenRenderTest {
     }
 
     private companion object {
+        val LOADING_STATE = PostDetailUiState(
+            postId = 100,
+            title = "QQG.NET靠谱吗",
+            preview = ThreadPreview(
+                title = "QQG.NET靠谱吗",
+                authorName = "ccsky",
+                categoryTitle = "日常",
+                categorySlug = "daily",
+            ),
+            isLoading = true,
+        )
+
         private fun paragraphs(vararg text: String): List<RichNode> =
             text.map { RichNode.Paragraph(listOf(InlineNode.Text(it))) }
 
@@ -443,6 +539,21 @@ class PostDetailScreenRenderTest {
             firstLoadedPage = 13,
             lastLoadedPage = 13,
             totalPages = 40,
+        )
+
+        val SIGNED_REPLIES = LATER_PAGE.copy(
+            comments = LATER_PAGE.comments.mapIndexed { index, comment ->
+                comment.copy(
+                    badges = listOf("Lv.4"),
+                    signatureNodes = if (index % 2 == 0) {
+                        listOf(
+                            RichNode.Paragraph(listOf(InlineNode.Link(text = "探针 | TG | PM | NAS 技术交流", url = "https://www.nodeseek.com/"))),
+                        )
+                    } else {
+                        emptyList()
+                    },
+                )
+            },
         )
     }
 }

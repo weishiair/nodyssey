@@ -34,6 +34,7 @@ internal fun SelectableMenuItem(
     text: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     leadingIcon: (@Composable () -> Unit)? = null,
+    enabled: Boolean = true,
 ) {
     SelectableDropdownMenuItem(
         selected = selected,
@@ -41,6 +42,7 @@ internal fun SelectableMenuItem(
         text = text,
         shapes = MenuDefaults.itemShape(index, count),
         modifier = modifier,
+        enabled = enabled,
         leadingIcon = leadingIcon,
         trailingContent = { if (selected) Icon(Icons.Default.Check, contentDescription = null) },
         colors =

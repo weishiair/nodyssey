@@ -3,10 +3,12 @@
 基于 [Nodyssey](https://github.com/5151561/nodyssey) 的非官方 Android 分支，用于在支持的网络中配合 DoH 与 ECH 直连 NodeSeek。协议继续使用 GPL-3.0，感谢上游作者。
 
 - 下载：[weishiair/nodyssey Releases](https://github.com/weishiair/nodyssey/releases)。
+- 交流与反馈：[Telegram 交流群](https://t.me/+JGCIMJmPrj0wZGVh)，也可从 App「设置 → 关于 Nodyssey → Telegram 交流群」加入。
 - 从 1.3.0 起，应用名统一为 `Nodyssey`，版本号使用 `1.3.0` 这样的常规格式，不再附加 ECH；ECH 继续作为加密 DNS 与 TLS 功能提供。
 - 包名 `io.github.nodyssey.debug`，可与官方版共存。沿用旧 ECH 版本的同一包名和签名，可直接覆盖升级并保留数据。
 - Android 8–16 使用内置 Conscrypt，Android 17 及以上使用系统 ECH。
-- 提供纯白及清爽蓝、薄荷绿、暖米色、柔雾紫主题；帖子使用主帖卡片、回复气泡与连续阅读布局。Release 包不包含 LeakCanary。
+- 提供纯白及清爽蓝、薄荷绿、暖米色、柔雾紫主题，纯白为默认配色，深色模式对应中性黑灰；帖子支持通栏与轻卡片，默认轻卡片，引用块和悬浮控件单独分层，保留签名档与连续阅读。已有的自选配色继续保留。Release 包不包含 LeakCanary。
+- 「设置 → 内容」可切换回复样式、关闭作者等级与注册天数；账号信息默认显示，读取时有加载动画，关闭后不再补查作者资料。
 
 ## 内置 DoH
 
