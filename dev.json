@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "channel": "dev",
-  "versionName": "1.3.3",
-  "tag": "v1.3.3",
-  "publishedOn": "2026-10-26",
-  "notes": "### 改进\n\n- Android 新增屏幕刷新率选择：跟随系统、60、90、120、144、165 Hz，不支持的档位置灰，设置即时生效。\n- 回复作者支持显示等级与注册天数，按当前可见回复加载并缓存；仅展示中性账号信息。\n- Android 可直接切换 NodeSeek / DeepFlood，无需重启应用；两站的登录状态、草稿、浏览记录、阅读位置及版块配置分别保留。\n- 私信页面在前台自动刷新，浏览旧消息时保留阅读位置，并提供新消息提示。\n- 发帖、回复及私信上传的图片插入到当前光标位置，便于继续编辑。\n\n### 修复\n\n- 首页向上箭头改为回到顶部，第一页内滑动或从后面的页码进入时也可使用。\n- 主帖昵称、等级天数和「楼主」标签优先同排显示，空间不足时再换行。\n- 修复 iOS 登录时人机验证子页面被拦截的问题，补齐验证不可用时的提示。\n- 修复私信刷新与发送并发时，较早返回的历史消息覆盖刚发送消息的问题。\n- 调整个人资料编辑页收起键盘的处理，避免影响页面操作。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.2...v1.3.3",
+  "versionName": "1.3.4",
+  "tag": "v1.3.4",
+  "publishedOn": "2026-10-27",
+  "notes": "### 改进\n\n- 优化帖子详情排版、连续阅读与分页，支持通栏和轻卡片两种回复样式，并可控制作者等级及注册天数显示。\n- 调整默认浅色和深色配色、引用块和阅读控件，保留自选主题。\n- 登录失败时提供可复制的诊断信息，改进网络和会话异常的提示。\n- iOS 原生网络链路增加 DoH / ECH 支持及相关诊断；网页登录使用系统 WebView，不保证与原生请求使用相同链路。\n- 设置页增加 Telegram 交流群入口。\n\n### 修复\n\n- 改进帖子向上加载、跨页阅读与作者资料加载，减少重复内容对阅读的干扰。\n- 改进权限提示与已登录状态的识别，避免把帖子正文中的权限相关文字误判为页面错误。\n- 改进网络重定向及传输失败的处理。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.3...v1.3.4",
   "apk": {
-    "name": "nodyssey-v1.3.3.apk",
-    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.3/nodyssey-v1.3.3.apk",
-    "sizeBytes": 11096575,
-    "sha256": "3b2ee21f8b64f7437a95161e4adce4c3968aa5c8cfdd6ab42663d96f918af45a"
+    "name": "nodyssey-v1.3.4.apk",
+    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.4/nodyssey-v1.3.4.apk",
+    "sizeBytes": 11088003,
+    "sha256": "ef88ac574fa63f7ae56b919351805643f998a5556d7a583a6973d0e8453155d2"
   },
-  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.3"
+  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.4"
 }
