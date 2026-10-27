@@ -538,6 +538,8 @@ private fun BoxScope.NotificationGroup(
             // leaves the rest of the page dispatching nothing, and the gesture that reopens the
             // one-hand title is a pull on the page.
             LazyColumn(
+                // No bounce under pull-to-refresh; see the feed's list in `PostListScreen`.
+                overscrollEffect = null,
                 modifier = Modifier.fillMaxSize(),
                 state = notificationListState,
                 contentPadding =

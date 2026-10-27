@@ -776,6 +776,12 @@ private fun BoardFeed(
                     onRefresh = posts::refresh,
                 ) {
                     LazyColumn(
+                        // No bounce: a list under pull-to-refresh has the indicator for that. On
+                        // iOS the bounce turned a fling into the top of the feed into a stretch, and
+                        // the drag that followed went into pulling that stretch back — so a reader
+                        // who kept pulling got no refresh until the list had come to rest and they
+                        // pulled again.
+                        overscrollEffect = null,
                         state = listState,
                         modifier = Modifier
                             .fillMaxHeight()

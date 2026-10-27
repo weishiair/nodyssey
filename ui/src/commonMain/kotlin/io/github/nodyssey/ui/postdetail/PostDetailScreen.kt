@@ -1178,6 +1178,9 @@ private fun ThreadList(
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
+        // No bounce under pull-to-refresh, at either end of the thread; see the feed's list in
+        // `PostListScreen`.
+        overscrollEffect = null,
         state = listState,
         contentPadding =
         PaddingValues(top = Spacing.sm, bottom = 96.dp),

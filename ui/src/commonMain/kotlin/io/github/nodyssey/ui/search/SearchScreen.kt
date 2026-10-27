@@ -799,6 +799,8 @@ private fun PostResults(
         onRefresh = posts::refresh,
     ) {
         LazyColumn(
+            // No bounce under pull-to-refresh; see the feed's list in `PostListScreen`.
+            overscrollEffect = null,
             contentPadding = PaddingValues(start = LayerPageGutter, end = LayerPageGutter, bottom = Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
