@@ -1,11 +1,11 @@
 import UIKit
 import NodysseyShell
 
-/// The app lifecycle and the native tokenizer compatibility guard are wired here.
+/// The whole of the Swift in this app.
 ///
 /// `MainActivity` is the Android counterpart and it is 76 lines; this is short, and the difference is
 /// not that iOS does less — it is that everything `MainActivity` does beyond installing a composition
-/// is about the platform's own hooks, including the offline downloader's
+/// is about the platform's own hooks, and this app has one so far: the offline downloader's
 /// background tasks. `registerBackgroundTasks` installs their `BGTaskScheduler` handlers, which
 /// **must** happen before launch finishes, so it goes here rather than in the scene. When
 /// notifications and Universal Links arrive, this is where they land too.
@@ -15,12 +15,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        let tokenizerGuardInstalled = NodysseyInstallComposeTokenizerGuard()
-        #if DEBUG
-        print("[ComposeTokenizerGuard] installation \(tokenizerGuardInstalled ? "succeeded" : "failed")")
-        #else
-        _ = tokenizerGuardInstalled
-        #endif
         NodysseyApp.shared.registerBackgroundTasks()
         return true
     }
