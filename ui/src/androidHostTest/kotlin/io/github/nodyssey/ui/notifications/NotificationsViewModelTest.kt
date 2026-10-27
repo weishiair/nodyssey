@@ -18,9 +18,12 @@ import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -164,6 +167,244 @@ class NotificationsViewModelTest {
             assertEquals(5, viewModel.uiState.value.counts.mentions)
         }
 
+    @Test
+    fun `a failed badge refresh expires a recent successful load so returning retries immediately`() =
+        runTest(dispatcher) {
+            val api = FakeApi(counts = """{"message":1}""")
+            val viewModel = viewModel(api)
+            advanceUntilIdle()
+
+            api.countsFail = true
+            viewModel.refresh()
+            advanceUntilIdle()
+            assertEquals(1, viewModel.uiState.value.counts.messages)
+
+            api.countsFail = false
+            api.counts = """{"message":4}"""
+            viewModel.refreshIfStale()
+            advanceUntilIdle()
+            assertEquals(4, viewModel.uiState.value.counts.messages)
+            assertEquals(3, api.countRequests)
+        }
+
+    @Test
+    fun `visible message polling updates previews even when unread totals stay the same and stops off screen`() =
+        runTest(dispatcher) {
+            val api = FakeApi(counts = """{"message":1}""")
+            val messages = FakeMessages()
+            val viewModel = viewModel(api, messages = messages)
+            advanceUntilIdle()
+            viewModel.selectTab(NotificationTab.MESSAGES)
+            advanceUntilIdle()
+            val initialRequests = messages.requests
+            val initialInteractionRequests = api.interactionRequests
+            viewModel.startMessagePolling()
+            viewModel.startMessagePolling()
+            try {
+                runCurrent()
+                assertEquals(initialRequests, messages.requests)
+                messages.content = "new reply"
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(contentPreview("new reply"), viewModel.uiState.value.conversations.single().snippet)
+                assertEquals(1, viewModel.uiState.value.counts.messages)
+                assertEquals(initialRequests + 1, messages.requests)
+                assertEquals(initialInteractionRequests, api.interactionRequests)
+                assertFalse(viewModel.uiState.value.isLoading)
+
+                viewModel.stopMessagePolling()
+                messages.content = "reply while away"
+                advanceTimeBy(30_000)
+                runCurrent()
+                assertEquals(initialRequests + 1, messages.requests)
+
+                viewModel.startMessagePolling()
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(contentPreview("reply while away"), viewModel.uiState.value.conversations.single().snippet)
+
+                viewModel.selectTab(NotificationTab.INTERACTIONS)
+                runCurrent()
+                val afterLeaving = messages.requests
+                viewModel.startMessagePolling()
+                advanceTimeBy(30_000)
+                runCurrent()
+                assertEquals(afterLeaving, messages.requests)
+            } finally {
+                viewModel.stopMessagePolling()
+            }
+        }
+
+    @Test
+    fun `failed badge polls back off to a minute then return to normal after recovery`() =
+        runTest(dispatcher) {
+            val api = FakeApi(counts = """{"message":1}""")
+            val messages = FakeMessages()
+            val viewModel = viewModel(api, messages = messages)
+            advanceUntilIdle()
+            viewModel.selectTab(NotificationTab.MESSAGES)
+            advanceUntilIdle()
+            val initialRequests = api.countRequests
+            api.countsFail = true
+            viewModel.startMessagePolling()
+            try {
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(initialRequests + 1, api.countRequests)
+                advanceTimeBy(19_999)
+                runCurrent()
+                assertEquals(initialRequests + 1, api.countRequests)
+                advanceTimeBy(1)
+                runCurrent()
+                assertEquals(initialRequests + 2, api.countRequests)
+                advanceTimeBy(40_000)
+                runCurrent()
+                assertEquals(initialRequests + 3, api.countRequests)
+                advanceTimeBy(60_000)
+                runCurrent()
+                assertEquals(initialRequests + 4, api.countRequests)
+                assertEquals(1, viewModel.uiState.value.counts.messages)
+                assertEquals(1, viewModel.uiState.value.conversations.size)
+                assertFalse(viewModel.uiState.value.isLoading)
+
+                api.countsFail = false
+                api.counts = """{"message":3}"""
+                advanceTimeBy(59_999)
+                runCurrent()
+                assertEquals(initialRequests + 4, api.countRequests)
+                advanceTimeBy(1)
+                runCurrent()
+                assertEquals(3, viewModel.uiState.value.counts.messages)
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(initialRequests + 6, api.countRequests)
+            } finally {
+                viewModel.stopMessagePolling()
+            }
+        }
+
+    @Test
+    fun `a failed conversation poll preserves the list and clears its error on recovery`() =
+        runTest(dispatcher) {
+            val messages = FakeMessages()
+            val viewModel = viewModel(FakeApi(counts = """{"message":1}"""), messages = messages)
+            advanceUntilIdle()
+            viewModel.selectTab(NotificationTab.MESSAGES)
+            advanceUntilIdle()
+            messages.fails = true
+            viewModel.startMessagePolling()
+            try {
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(contentPreview("hello"), viewModel.uiState.value.conversations.single().snippet)
+                assertEquals(SiteError.Network, viewModel.uiState.value.error)
+                messages.fails = false
+                messages.content = "recovered"
+                advanceTimeBy(20_000)
+                runCurrent()
+                assertEquals(contentPreview("recovered"), viewModel.uiState.value.conversations.single().snippet)
+                assertEquals(null, viewModel.uiState.value.error)
+            } finally {
+                viewModel.stopMessagePolling()
+            }
+        }
+
+    @Test
+    fun `manual refresh supersedes an active poll without overlapping requests or losing its loading state`() =
+        runTest(dispatcher) {
+            val messages = FakeMessages()
+            val viewModel = viewModel(FakeApi(counts = """{"message":1}"""), messages = messages)
+            advanceUntilIdle()
+            viewModel.selectTab(NotificationTab.MESSAGES)
+            advanceUntilIdle()
+            val initialRequests = messages.requests
+            messages.delayMillis = 30_000
+            viewModel.startMessagePolling()
+            try {
+                advanceTimeBy(10_000)
+                runCurrent()
+                messages.content = "newer snapshot"
+                viewModel.refresh()
+                runCurrent()
+                assertTrue(viewModel.uiState.value.isLoading)
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertTrue(viewModel.uiState.value.isLoading)
+                advanceTimeBy(20_000)
+                runCurrent()
+                assertEquals(1, messages.maxConcurrentRequests)
+                assertEquals(contentPreview("newer snapshot"), viewModel.uiState.value.conversations.single().snippet)
+                assertFalse(viewModel.uiState.value.isLoading)
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(1, messages.maxConcurrentRequests)
+                assertEquals(initialRequests + 3, messages.requests)
+                assertFalse(viewModel.uiState.value.isLoading)
+            } finally {
+                viewModel.stopMessagePolling()
+            }
+        }
+
+    @Test
+    fun `pausing cancels an in flight poll before it can change the conversation list`() =
+        runTest(dispatcher) {
+            val messages = FakeMessages()
+            val viewModel = viewModel(FakeApi(counts = """{"message":1}"""), messages = messages)
+            advanceUntilIdle()
+            viewModel.selectTab(NotificationTab.MESSAGES)
+            advanceUntilIdle()
+            messages.delayMillis = 30_000
+            messages.content = "arrived after opening the thread"
+            viewModel.startMessagePolling()
+            advanceTimeBy(10_000)
+            runCurrent()
+            viewModel.stopMessagePolling()
+            advanceTimeBy(60_000)
+            runCurrent()
+            assertEquals(contentPreview("hello"), viewModel.uiState.value.conversations.single().snippet)
+            assertEquals(0, messages.activeRequests)
+        }
+
+    @Test
+    fun `session renewal keeps visible polling alive and signing out cancels outstanding requests`() =
+        runTest(dispatcher) {
+            val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+            val api = FakeApi(counts = """{"message":1}""")
+            val messages = FakeMessages()
+            val viewModel = viewModel(api, messages = messages, session = session)
+            advanceUntilIdle()
+            viewModel.selectTab(NotificationTab.MESSAGES)
+            advanceUntilIdle()
+            viewModel.startMessagePolling()
+            try {
+                runCurrent()
+                cookies.setCookie(NodeSeekSite.BASE_URL, "session=renewed")
+                session.sync()
+                runCurrent()
+                messages.content = "after renewal"
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(contentPreview("after renewal"), viewModel.uiState.value.conversations.single().snippet)
+
+                messages.delayMillis = 30_000
+                advanceTimeBy(10_000)
+                runCurrent()
+                assertEquals(1, messages.activeRequests)
+                session.signOut()
+                runCurrent()
+                val requestsAtSignOut = messages.requests
+                advanceTimeBy(60_000)
+                runCurrent()
+                assertEquals(requestsAtSignOut, messages.requests)
+                assertEquals(0, messages.activeRequests)
+                assertFalse(viewModel.uiState.value.isSignedIn)
+                assertTrue(viewModel.uiState.value.conversations.isEmpty())
+                assertEquals(0, viewModel.uiState.value.counts.messages)
+            } finally {
+                viewModel.stopMessagePolling()
+            }
+        }
+
     /** One endpoint behind a wall must not put an error screen over the group that loaded fine. */
     @Test
     fun `a failure in one group leaves the other alone`() =
@@ -183,6 +424,7 @@ class NotificationsViewModelTest {
         unread: Boolean = true,
         clock: AppClock = AppClock { 1_785_000_000_000L },
         messages: MessageRepository = NoMessages,
+        session: SessionRepository = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies)),
     ): NotificationsViewModel {
         val notifications = NotificationRepository(api)
         api.mentionUnread = unread
@@ -190,22 +432,30 @@ class NotificationsViewModelTest {
             repository = notifications,
             messages = messages,
             search = NoSearch,
-            session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies)),
+            session = session,
             clock = clock,
         )
     }
 }
 
 /** A conversation list that answers, or refuses to. */
-private class FakeMessages(private val fails: Boolean = false) : MessageRepository by NoMessages {
+private class FakeMessages(var fails: Boolean = false) : MessageRepository by NoMessages {
+    var content = "hello"
+    var delayMillis = 0L
+    var requests = 0
+    var activeRequests = 0
+    var maxConcurrentRequests = 0
+
     override suspend fun conversations(): List<MessageConversation> {
-        if (fails) throw SiteException(SiteError.Network)
-        return listOf(
+        requests++
+        activeRequests++
+        maxConcurrentRequests = maxOf(maxConcurrentRequests, activeRequests)
+        val snapshot = listOf(
             MessageConversation(
                 uid = 7,
                 userName = "nssk",
                 avatarUrl = null,
-                snippet = contentPreview("在的"),
+                snippet = contentPreview(content),
                 isSnippetMine = false,
                 updatedAtMillis = 1_785_000_000_000L,
                 updatedAtText = null,
@@ -213,6 +463,13 @@ private class FakeMessages(private val fails: Boolean = false) : MessageReposito
                 isSystem = false,
             ),
         )
+        try {
+            delay(delayMillis)
+            if (fails) throw SiteException(SiteError.Network)
+            return snapshot
+        } finally {
+            activeRequests--
+        }
     }
 }
 
@@ -250,14 +507,24 @@ private class FakeApi(
     private val replies: String = """{"replyList":[]}""",
 ) : JsonApi {
     var mentionUnread = true
+    var countsFail = false
+    var countRequests = 0
+    var interactionRequests = 0
     val postedPaths = mutableListOf<String>()
     val postedBodies = mutableListOf<String>()
 
     override suspend fun getJson(path: String, referer: String): String =
         when {
-            path.startsWith("/api/notification/unread-count") -> counts
+            path.startsWith("/api/notification/unread-count") -> {
+                countRequests++
+                if (countsFail) throw SiteException(SiteError.Network)
+                counts
+            }
 
-            path.startsWith("/api/notification/reply-to-me") -> replies
+            path.startsWith("/api/notification/reply-to-me") -> {
+                interactionRequests++
+                replies
+            }
 
             else ->
                 """{"atList":[{"id":1,"comment_id":42,"post_id":703863,"member_id":12,"username":"nssk",

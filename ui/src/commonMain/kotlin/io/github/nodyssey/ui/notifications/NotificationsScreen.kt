@@ -137,9 +137,10 @@ fun NotificationsRoute(
     // Coming back into view is the refresh trigger this screen was missing: the view model outlives
     // every tab switch, so nothing recreates it, and ON_RESUME is the one signal that covers all the
     // ways back — the tab bar, Back from a thread, the app returning to the foreground.
-    LifecycleResumeEffect(Unit) {
+    LifecycleResumeEffect(viewModel, state.selectedTab, state.isSignedIn) {
         viewModel.refreshIfStale()
-        onPauseOrDispose {}
+        if (state.selectedTab == NotificationTab.MESSAGES && state.isSignedIn) viewModel.startMessagePolling()
+        onPauseOrDispose { viewModel.stopMessagePolling() }
     }
     NotificationsScreen(
         state = state,
