@@ -461,6 +461,23 @@ jobs:
       # gate. This job is the one paid-for Mac the project boots, so the tests ride along — the
       # toolchain they need is already here for the build below, and macosArm64 is the cheap target:
       # a test binary, not a whole app link.
+      # The Apple transport now links a pinned Rust library for DoH/ECH.
+      - name: Cache the native network dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/ios-network/target
+          key: native-network-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}
+
+      - name: Test the native network core
+        working-directory: native/ios-network
+        run: |
+          rustup show
+          cargo test --locked
+          cargo fmt --check
+
       - name: Run the common tests on Kotlin/Native
         run: ./gradlew :shared:macosArm64Test
 
@@ -514,9 +531,17 @@ jobs:
         id: ipa
         run: |
           name="nodyssey-${{ needs.release.outputs.tag }}.ipa"
+          app="$RUNNER_TEMP/Nodyssey.xcarchive/Products/Applications/Nodyssey.app"
+          test -d "$app"
+          python3 .github/scripts/native-network-notices.py "$app/NativeNetworkLicenses.txt"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = "${{ needs.release.outputs.version }}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = "$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" = 'io.github.nodyssey'
+          executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
+          test "$(lipo -archs "$app/$executable")" = 'arm64'
           mkdir -p "$RUNNER_TEMP/Payload"
-          cp -R "$RUNNER_TEMP/Nodyssey.xcarchive/Products/Applications/Nodyssey.app" "$RUNNER_TEMP/Payload/"
-          (cd "$RUNNER_TEMP" && zip -qry "$name" Payload)
+          cp -R "$app" "$RUNNER_TEMP/Payload/"
+          (cd "$RUNNER_TEMP" && zip -qry "$name" Payload && unzip -t "$name" >/dev/null)
           echo "path=$RUNNER_TEMP/$name" >> "$GITHUB_OUTPUT"
           ls -lh "$RUNNER_TEMP/$name"
 
