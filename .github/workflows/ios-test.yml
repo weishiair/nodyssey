@@ -4,16 +4,23 @@ on:
   push:
     branches: ['test/ios-doh-ech-1.3.4-test.2']
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Test packages to build
+        type: choice
+        options: [all, android, ios]
+        default: all
 
 permissions:
   contents: read
 
 concurrency:
-  group: ios-test-${{ github.ref }}
+  group: test-apps-${{ github.ref }}-${{ inputs.platform || 'all' }}
   cancel-in-progress: false
 
 jobs:
   validate:
+    if: inputs.platform != 'ios'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -51,6 +58,7 @@ jobs:
         run: ./gradlew --stop
 
   android:
+    if: inputs.platform != 'ios'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -116,6 +124,7 @@ jobs:
         run: ./gradlew --stop
 
   ios:
+    if: inputs.platform != 'android'
     runs-on: macos-15
     timeout-minutes: 90
     steps:

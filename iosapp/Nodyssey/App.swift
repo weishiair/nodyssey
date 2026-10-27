@@ -55,10 +55,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
 
         NodysseyApp.shared.start { controller in
-            if let tabs = controller as? UITabBarController {
-                // UIKit's nil scrollEdgeAppearance makes the bar transparent at a scroll edge.
-                // Match both states so refreshing, changing tabs and popping back to a root cannot
-                // drop its background. The semantic colour follows the shell's light/dark override.
+            // iOS 26 and later draw a floating Liquid Glass tab bar. An opaque appearance or
+            // isTranslucent=false paints the full bottom edge behind that floating bar. Leave the
+            // system appearance intact there, including its transparent surrounding area.
+            if #unavailable(iOS 26.0), let tabs = controller as? UITabBarController {
+                // Older systems use an edge-to-edge bar. Match its two states so returning to a
+                // tab root cannot drop the background. The semantic colour follows the shell's
+                // light/dark override.
                 let appearance = UITabBarAppearance()
                 appearance.configureWithOpaqueBackground()
                 appearance.backgroundColor = .systemBackground
