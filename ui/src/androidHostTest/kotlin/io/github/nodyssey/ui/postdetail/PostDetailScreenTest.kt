@@ -126,7 +126,8 @@ class PostDetailScreenTest {
         val requested = mutableListOf<String>()
         var position: Pair<Int, String?>? = null
         setScreen(
-            jumpedState(),
+            // Leave replies below the target so the end-of-list scroll limit cannot clamp it.
+            jumpedState(floors = (121..140).toList()),
             onJumpToFloor = { requested += it },
             onReadingPositionChange = { page, floor -> position = page to floor },
         )
@@ -423,6 +424,27 @@ class PostDetailScreenTest {
         )
 
         composeRule.onNodeWithContentDescription("收藏").performClick()
+
+        assertEquals(1, signIn)
+        assertEquals(0, collects)
+    }
+
+    @Test
+    fun `collecting from the thread menu also requires sign in`() {
+        var signIn = 0
+        var collects = 0
+        setScreen(
+            PostDetailUiState(
+                title = "t",
+                body = content("body", author = "op", reactions = PostReactions()),
+                collected = false,
+            ),
+            onSignIn = { signIn++ },
+            onCollect = { collects++ },
+        )
+
+        composeRule.onNodeWithContentDescription("更多").performClick()
+        composeRule.onNodeWithText("收藏").performClick()
 
         assertEquals(1, signIn)
         assertEquals(0, collects)

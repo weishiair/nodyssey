@@ -578,6 +578,8 @@
     <string name="about_project_home">Project home</string>
     <string name="about_feedback">Report a problem</string>
     <string name="about_feedback_hint">Report a problem in this fork’s GitHub Issues</string>
+    <string name="about_app_telegram_group">Nodyssey Telegram group</string>
+    <string name="about_app_telegram_group_hint">Chat about Nodyssey, report issues and discuss updates</string>
     <string name="about_upstream">Original project and credits</string>
     <string name="about_changelog">Changelog</string>
     <string name="about_help">How to use this app</string>
@@ -1656,7 +1658,6 @@
     <string name="post_reading_original_position">Reading the original post. Tap to jump.</string>
     <string name="post_floor_jump">Jump to floor</string>
     <string name="post_floor_entry">Floor number</string>
-    <string name="post_reading_tools">Reading tools</string>
     <string name="post_loading_earlier">Loading earlier replies…</string>
     <string name="post_loaded_scroll_position">Scroll position in loaded replies</string>
     <string name="post_floor_range">Floor range: 0–%1$d</string>
@@ -1666,4 +1667,12 @@
     <string name="settings_search_history_limit">Search history limit</string>
     <string name="settings_search_history_limit_hint">Separate limits for posts and users; lowering the limit removes older entries</string>
     <string name="settings_search_history_limit_count">%1$d per type</string>
+    <string name="settings_post_reply_style">Post reply layout</string>
+    <string name="settings_post_reply_style_hint">Choose the layout for reading replies</string>
+    <string name="settings_post_reply_style_flat">Full width</string>
+    <string name="settings_post_reply_style_cards">Light cards</string>
+    <string name="settings_show_author_account_info">Show account age</string>
+    <string name="settings_show_author_account_info_hint">Show author levels and account age on posts and replies</string>
+    <string name="sign_in_diagnostics">View sign-in diagnostics</string>
+    <string name="sign_in_diagnostics_privacy">Kept only on this sign-in screen and never uploaded automatically. No account, password, verification code or cookies are included. Copy it to share with the developer.</string>
 </resources>

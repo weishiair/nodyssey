@@ -15,8 +15,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -129,12 +131,17 @@ enum class BadgeTone {
     Neutral,
 }
 
-/** A filled (or, for [BadgeTone.Muted], outlined) badge next to a name. */
+/**
+ * A filled (or, for [BadgeTone.Muted], outlined) badge next to a name.
+ * Callers can supply a site's own identity colours without changing the shared type and spacing.
+ */
 @Composable
 fun BadgeChip(
     text: String,
     tone: BadgeTone,
     modifier: Modifier = Modifier,
+    containerBrush: Brush? = null,
+    contentColor: Color = Color.Unspecified,
 ) {
     val scheme = MaterialTheme.colorScheme
     val extra = LocalPlazaExtraColors.current
@@ -172,12 +179,12 @@ fun BadgeChip(
             lineHeight = BADGE_LINE_HEIGHT * scale,
             fontWeight = FontWeight.SemiBold,
         ),
-        color = content,
+        color = contentColor.takeOrElse { content },
         modifier =
         modifier
             .clip(shape)
             .then(outlined)
-            .background(container)
+            .then(if (containerBrush != null) Modifier.background(containerBrush) else Modifier.background(container))
             .padding(horizontal = 5.dp, vertical = 1.dp),
     )
 }

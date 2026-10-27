@@ -572,6 +572,8 @@
     <string name="about_project_home">專案首頁</string>
     <string name="about_feedback">問題回報</string>
     <string name="about_feedback_hint">在本分支的 GitHub Issues 回報問題</string>
+    <string name="about_app_telegram_group">Telegram 交流群組</string>
+    <string name="about_app_telegram_group_hint">交流 Nodyssey、回報問題與討論新版本</string>
     <string name="about_upstream">原專案與致謝</string>
     <string name="about_changelog">更新紀錄</string>
     <string name="about_help">使用說明</string>
@@ -1648,7 +1650,6 @@
     <string name="post_reading_original_position">正在讀主帖，點擊跳樓</string>
     <string name="post_floor_jump">跳到樓層</string>
     <string name="post_floor_entry">樓層號</string>
-    <string name="post_reading_tools">閱讀工具</string>
     <string name="post_loading_earlier">正在載入較早的回覆…</string>
     <string name="post_loaded_scroll_position">已載入回覆的捲動位置</string>
     <string name="post_floor_range">樓層範圍：0–%1$d</string>
@@ -1658,4 +1659,12 @@
     <string name="settings_search_history_limit">搜尋歷史保留數量</string>
     <string name="settings_search_history_limit_hint">文章與使用者搜尋分別儲存，減少數量會刪除較早紀錄</string>
     <string name="settings_search_history_limit_count">每類 %1$d 筆</string>
+    <string name="settings_post_reply_style">貼文回覆樣式</string>
+    <string name="settings_post_reply_style_hint">選擇連續閱讀的排版方式</string>
+    <string name="settings_post_reply_style_flat">通欄</string>
+    <string name="settings_post_reply_style_cards">輕卡片</string>
+    <string name="settings_show_author_account_info">顯示作者註冊天數</string>
+    <string name="settings_show_author_account_info_hint">在主文和回覆中顯示作者等級與註冊天數</string>
+    <string name="sign_in_diagnostics">查看登入診斷</string>
+    <string name="sign_in_diagnostics_privacy">僅保存在目前登入頁，不會自動上傳。不包含帳號、密碼、驗證碼或 Cookie；複製後可傳給開發者排查。</string>
 </resources>

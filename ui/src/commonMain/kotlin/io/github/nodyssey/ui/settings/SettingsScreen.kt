@@ -1,7 +1,6 @@
 package io.github.nodyssey.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,8 +13,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -41,6 +37,7 @@ import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.settings.AppLanguage
+import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.ThemeMode
@@ -96,6 +93,10 @@ import io.github.nodyssey.ui.resources.settings_notify_summary_every
 import io.github.nodyssey.ui.resources.settings_notify_summary_quiet
 import io.github.nodyssey.ui.resources.settings_one_hand
 import io.github.nodyssey.ui.resources.settings_one_hand_hint
+import io.github.nodyssey.ui.resources.settings_post_reply_style
+import io.github.nodyssey.ui.resources.settings_post_reply_style_cards
+import io.github.nodyssey.ui.resources.settings_post_reply_style_flat
+import io.github.nodyssey.ui.resources.settings_post_reply_style_hint
 import io.github.nodyssey.ui.resources.settings_predictive_back
 import io.github.nodyssey.ui.resources.settings_predictive_back_hint
 import io.github.nodyssey.ui.resources.settings_proxy_entry
@@ -108,6 +109,8 @@ import io.github.nodyssey.ui.resources.settings_report_format_source
 import io.github.nodyssey.ui.resources.settings_search_history_limit
 import io.github.nodyssey.ui.resources.settings_search_history_limit_count
 import io.github.nodyssey.ui.resources.settings_search_history_limit_hint
+import io.github.nodyssey.ui.resources.settings_show_author_account_info
+import io.github.nodyssey.ui.resources.settings_show_author_account_info_hint
 import io.github.nodyssey.ui.resources.settings_sticker_preview_caption
 import io.github.nodyssey.ui.resources.settings_sticker_size
 import io.github.nodyssey.ui.resources.settings_sticker_uniform
@@ -184,6 +187,8 @@ fun SettingsRoute(
         onAppLanguageChange = viewModel::setAppLanguage,
         onOneHandModeChange = viewModel::setOneHandMode,
         onPredictiveBackChange = viewModel::setPredictiveBack,
+        onPostReplyStyleChange = viewModel::setPostReplyStyle,
+        onShowAuthorAccountInfoChange = viewModel::setShowAuthorAccountInfo,
         onSearchHistoryLimitChange = viewModel::setSearchHistoryLimit,
         onEinkModeChange = viewModel::setEinkMode,
         supportedRefreshRates = rememberDisplayRefreshRates(),
@@ -245,6 +250,8 @@ fun SettingsScreen(
     supportedRefreshRates: Set<Int>? = null,
     onDisplayRefreshRateChange: (Int) -> Unit = {},
     onPredictiveBackChange: (Boolean) -> Unit = {},
+    onPostReplyStyleChange: (PostReplyStyle) -> Unit = {},
+    onShowAuthorAccountInfoChange: (Boolean) -> Unit = {},
     onSearchHistoryLimitChange: (Int) -> Unit = {},
     /** Null hides 识别剪贴板中的帖子: a platform where reading the clipboard costs a prompt each time. */
     onClipboardPostPromptChange: ((Boolean) -> Unit)? = null,
@@ -321,7 +328,7 @@ fun SettingsScreen(
                     },
                     enabled = !state.settings.einkMode,
                     onClick = onOpenTheme,
-                    trailing = { ThemeSummaryDot(enabled = !state.settings.einkMode) },
+                    trailing = { ThemeSummaryDot(settings = state.settings, enabled = !state.settings.einkMode) },
                 )
                 // Under 主题 rather than above it: it overrides 明暗 and replaces 主题, and the two
                 // it greys out read first, the way a master switch reads after what it governs.
@@ -452,6 +459,24 @@ fun SettingsScreen(
                     checked = state.settings.homePageBar,
                     onCheckedChange = onHomePageBarChange,
                     trailing = { GroupedListItemSwitch(checked = state.settings.homePageBar) },
+                )
+                SettingsBlock(
+                    title = stringResource(Res.string.settings_post_reply_style),
+                    subtitle = stringResource(Res.string.settings_post_reply_style_hint),
+                ) {
+                    ChoiceSegments(
+                        labels = listOf(stringResource(Res.string.settings_post_reply_style_flat), stringResource(Res.string.settings_post_reply_style_cards)),
+                        selectedIndex = if (state.settings.postReplyStyle == PostReplyStyle.FLAT) 0 else 1,
+                        onSelect = { onPostReplyStyleChange(if (it == 0) PostReplyStyle.FLAT else PostReplyStyle.CARDS) },
+                    )
+                }
+                GroupedRow(
+                    icon = PlazaIcons.EventAvailable,
+                    title = stringResource(Res.string.settings_show_author_account_info),
+                    subtitle = stringResource(Res.string.settings_show_author_account_info_hint),
+                    checked = state.settings.showAuthorAccountInfo,
+                    onCheckedChange = onShowAuthorAccountInfoChange,
+                    trailing = { GroupedListItemSwitch(checked = state.settings.showAuthorAccountInfo) },
                 )
                 GroupedRow(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
@@ -616,29 +641,18 @@ fun SettingsScreen(
 
 @Composable
 private fun DisplayRefreshRateSetting(selected: Int, supported: Set<Int>, enabled: Boolean, onChange: (Int) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        GroupedRow(
-            icon = PlazaIcons.Contrast,
-            title = stringResource(Res.string.settings_refresh_rate),
-            subtitle = stringResource(Res.string.settings_refresh_rate_hint),
-            enabled = enabled,
-            onClick = { expanded = true },
-            trailing = { Text(refreshRateLabel(selected)) },
-        )
-        DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
-            SettingsRepository.DISPLAY_REFRESH_RATE_CHOICES.forEach { hertz ->
-                DropdownMenuItem(
-                    text = { Text(refreshRateLabel(hertz)) },
-                    enabled = hertz == 0 || hertz in supported,
-                    onClick = {
-                        expanded = false
-                        onChange(hertz)
-                    },
-                )
-            }
-        }
-    }
+    SettingsMenuRow(
+        icon = PlazaIcons.Contrast,
+        title = stringResource(Res.string.settings_refresh_rate),
+        subtitle = stringResource(Res.string.settings_refresh_rate_hint),
+        choices = SettingsRepository.DISPLAY_REFRESH_RATE_CHOICES.map { it to refreshRateLabel(it) },
+        selected = selected,
+        onSelect = onChange,
+        enabled = enabled,
+        menuIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+        value = refreshRateLabel(selected),
+        isChoiceEnabled = { it == 0 || it in supported },
+    )
 }
 
 @Composable
@@ -647,27 +661,16 @@ private fun refreshRateLabel(hertz: Int): String =
 
 @Composable
 private fun SearchHistoryLimitSetting(limit: Int, onChange: (Int) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        GroupedRow(
-            icon = PlazaIcons.History,
-            title = stringResource(Res.string.settings_search_history_limit),
-            subtitle = stringResource(Res.string.settings_search_history_limit_hint),
-            onClick = { expanded = true },
-            trailing = { Text(stringResource(Res.string.settings_search_history_limit_count, limit)) },
-        )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            SettingsRepository.SEARCH_HISTORY_LIMIT_CHOICES.forEach { count ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.settings_search_history_limit_count, count)) },
-                    onClick = {
-                        expanded = false
-                        onChange(count)
-                    },
-                )
-            }
-        }
-    }
+    SettingsMenuRow(
+        icon = PlazaIcons.History,
+        title = stringResource(Res.string.settings_search_history_limit),
+        subtitle = stringResource(Res.string.settings_search_history_limit_hint),
+        choices = SettingsRepository.SEARCH_HISTORY_LIMIT_CHOICES.map { it to stringResource(Res.string.settings_search_history_limit_count, it) },
+        selected = limit,
+        onSelect = onChange,
+        menuIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+        value = stringResource(Res.string.settings_search_history_limit_count, limit),
+    )
 }
 
 /**

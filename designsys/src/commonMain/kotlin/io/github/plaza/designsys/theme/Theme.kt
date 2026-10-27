@@ -80,7 +80,7 @@ fun PlazaTheme(
     characterPalette: PlazaCharacterPalette? = null,
     /** Fixed reading palettes, selected through the same preset picker as character schemes. */
     softPalette: PlazaSoftPalette? = null,
-    /** White reading surfaces in light mode; dark mode and e-ink retain their own palettes. */
+    /** White reading surfaces by day, neutral charcoal by night; e-ink retains its own palette. */
     pureWhite: Boolean = false,
     /**
      * 使用系统调色板 — take the OS's own Monet scheme rather than generating one.
@@ -116,12 +116,12 @@ fun PlazaTheme(
     einkMode: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val whiteSurfaces = pureWhite && !darkTheme && !einkMode
+    val neutralSurfaces = pureWhite && !einkMode
     // Asked for only when it could win: 角色预设 beats it, and building a scheme that is about to be
     // discarded is work on every recomposition of the whole app. Null means this platform — or this
     // Android version — has no system palette; see [platformSystemColorScheme].
     val systemColorScheme =
-        if (useSystemPalette && characterPalette == null && softPalette == null && !einkMode && !whiteSurfaces) {
+        if (useSystemPalette && characterPalette == null && softPalette == null && !einkMode && !neutralSurfaces) {
             platformSystemColorScheme(darkTheme)
         } else {
             null
@@ -130,7 +130,7 @@ fun PlazaTheme(
         when {
             einkMode -> EInkColorScheme
 
-            whiteSurfaces -> PureWhiteColorScheme
+            neutralSurfaces -> if (darkTheme) NeutralDarkColorScheme else PureWhiteColorScheme
 
             characterPalette != null -> characterPalette.colorScheme(darkTheme)
 
@@ -145,9 +145,9 @@ fun PlazaTheme(
                     plazaSeedColorScheme(seedColor, darkTheme, paletteStyle)
                 }
         }
-    val layers = remember(baseScheme, darkTheme, einkMode, whiteSurfaces, softPalette, characterPalette) {
-        val layers = plazaLayers(baseScheme, darkTheme, einkMode, pureWhite = whiteSurfaces)
-        if (softPalette != null && characterPalette == null && !einkMode && !whiteSurfaces) {
+    val layers = remember(baseScheme, darkTheme, einkMode, neutralSurfaces, softPalette, characterPalette) {
+        val layers = plazaLayers(baseScheme, darkTheme, einkMode, pureWhite = neutralSurfaces)
+        if (softPalette != null && characterPalette == null && !einkMode && !neutralSurfaces) {
             layers.copy(inset = softPalette.inset(darkTheme))
         } else {
             layers
@@ -173,8 +173,8 @@ fun PlazaTheme(
         // Tonal elevation is a colour difference, and 墨水屏模式's container ladder has none left to
         // make. Turning it off here means a `Surface` handed a `tonalElevation` by some caller does
         // not go and compute one anyway — the scheme's intent holds even where a call site disagrees.
-        // Keep white surfaces white even when a component asks for tonal elevation.
-        LocalTonalElevationEnabled provides (!einkMode && !whiteSurfaces),
+        // Keep the neutral reading palette free of tonal tint in both light and dark modes.
+        LocalTonalElevationEnabled provides (!einkMode && !neutralSurfaces),
         // A ripple is a translucent 300ms spread: a panel can draw neither the translucency nor the
         // spread, and pays a refresh for trying. Null removes the node outright, which reaches every
         // Material component — they all go through the theme-aware `ripple()`. It does not reach a

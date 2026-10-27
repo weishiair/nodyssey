@@ -12,6 +12,7 @@
 [![Stars](https://img.shields.io/github/stars/weishiair/nodyssey?style=flat&logo=github&label=Stars)](https://github.com/weishiair/nodyssey/stargazers)
 [![CI](https://img.shields.io/github/actions/workflow/status/weishiair/nodyssey/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/weishiair/nodyssey/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/weishiair/nodyssey?label=License)](LICENSE)
+[![Telegram](https://img.shields.io/badge/Telegram-交流群-26A5E4?logo=telegram&logoColor=white)](https://t.me/+JGCIMJmPrj0wZGVh)
 
 [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://github.com/weishiair/nodyssey/releases)
 [![Kotlin](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
@@ -38,7 +39,9 @@
 - **消息与社交**：通知与未读数、私信、关注 / 粉丝、用户空间
 - **账号**：鸡腿与星辰流水、星辰转账与收款码、等级进度、账号设置
 - **阅读体验**：离线缓存、已读标记、浏览历史与阅读位置、图片预览 / 保存 / 分享、六种图床上传
+- **帖子排版**：通栏与轻卡片可选，默认轻卡片；保留签名档，作者等级与注册天数默认显示，可在「设置 → 内容」关闭
 - **界面**：Material 3 Expressive，宽屏自动换侧边栏；简体 / 繁體 / English 三语
+- **默认配色**：浅色模式使用纯白，深色模式使用中性黑灰，引用块和悬浮控件分层显示；已有的自选配色继续保留
 
 ## 构建
 
@@ -52,6 +55,7 @@
 
 ## 参与
 
+- 交流群：[Telegram](https://t.me/+JGCIMJmPrj0wZGVh)，交流 Nodyssey 使用体验、反馈问题与讨论更新；App 内可从「设置 → 关于 Nodyssey → Telegram 交流群」进入。
 - 反馈问题：[Issues](https://github.com/weishiair/nodyssey/issues/new/choose)，请带上 App 版本、机型和 Android 版本
 - 使用帮助：应用内「设置 → 关于 Nodyssey → 使用帮助」；仍有疑问可在本分支 Issues 提问。
 - 提 PR 前请先读 [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -61,6 +65,7 @@
 - [5151561/nodyssey](https://github.com/5151561/nodyssey)（GPL-3.0）—— 本分支基于此项目开发，保留原项目署名与许可证。
 - [tyrad/nodeseek](https://github.com/tyrad/nodeseek)（iOS 客户端，MIT）—— 站点结构的逆向参考
 - [mrzhiin/seekmate](https://github.com/mrzhiin/seekmate)（React Native 客户端，MIT）—— 部分 JSON 端点的发现来源
+- [Woodll / Nodeseek Pro](https://greasyfork.org/zh-CN/scripts/567109-nodeseek-pro)（GPL-3.0）—— 作者等级与注册天数标签的灵感和等级渐变配色参考。
 
 本分支继承原项目的实现，并在 GPL-3.0 许可下继续改进。
 

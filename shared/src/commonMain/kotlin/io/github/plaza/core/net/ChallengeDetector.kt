@@ -1,5 +1,7 @@
 package io.github.plaza.core.net
 
+import com.fleeksoft.ksoup.Ksoup
+
 /**
  * A scraped forum sits behind Cloudflare, and some of its boards require a signed-in account. Both
  * failures come back as a 200-with-HTML rather than a useful status code, so the body has to be
@@ -18,18 +20,27 @@ class ChallengeDetector(private val markers: PageMarkers) {
      * [SiteError.Cloudflare].
      */
     fun detect(html: String, statusCode: Int, headers: Map<String, String>, url: String): SiteError? {
+        // Only parse when a restriction could match. A successful page can contain these words in
+        // JS messages, a feed title, a quoted error or a signature. Searching the raw response made
+        // every screen using that page report an expired session even though its bootstrap had a
+        // signed-in user. Keep Cloudflare's checks on the original response: its markers are JS too.
+        val restrictionCandidate = markers.loginRequired.any { html.contains(it) } ||
+            markers.privatePost.any { html.contains(it) } ||
+            markers.levelRequired.any { it.containsMatchIn(html) }
+        val restrictionText = if (restrictionCandidate) restrictionText(html) else ""
+
         // Before the login markers, not after: see [PageMarkers.levelRequired] — the two refusals
         // can share a phrase, and only the more specific one carries a level to show.
-        markers.levelRequired.firstNotNullOfOrNull { it.find(html) }?.let { match ->
+        markers.levelRequired.firstNotNullOfOrNull { it.find(restrictionText) }?.let { match ->
             return SiteError.LevelRequired(match.groupValues.getOrNull(1)?.toIntOrNull())
         }
 
         // Beside the level wall and for the same reason: the page it arrives on is an ordinary
         // signed-in frame carrying `id="nsk-body"`, so anything checked after [markers.usablePage]
         // would never see it. Its 404 is invisible for the same reason.
-        if (markers.privatePost.any { html.contains(it) }) return SiteError.PrivatePost
+        if (markers.privatePost.any { restrictionText.contains(it) }) return SiteError.PrivatePost
 
-        if (markers.loginRequired.any { html.contains(it) }) return SiteError.LoginRequired
+        if (markers.loginRequired.any { restrictionText.contains(it) }) return SiteError.LoginRequired
 
         // A normal page from a Cloudflare-fronted site also carries `Server: cloudflare`, so only an
         // explicit challenge signal counts — and real content always wins over a false positive.
@@ -49,5 +60,14 @@ class ChallengeDetector(private val markers: PageMarkers) {
         if (statusCode !in 200..299) return SiteError.Http(statusCode)
 
         return SiteError.Unparsable
+    }
+
+    private fun restrictionText(html: String): String {
+        val document = Ksoup.parse(html)
+        document.select("head, script, style, template, textarea").forEach { it.remove() }
+        markers.restrictionIgnoredSelectors.forEach { selector ->
+            document.select(selector).forEach { it.remove() }
+        }
+        return document.body().text()
     }
 }

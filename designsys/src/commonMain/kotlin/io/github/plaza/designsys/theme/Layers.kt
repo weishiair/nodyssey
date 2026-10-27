@@ -27,7 +27,8 @@ import androidx.compose.ui.unit.dp
  * choices:
  *
  * - **Light**: page `surfaceContainer`, card `surfaceContainerLowest` (white), soft shadows.
- * - **Pure white**: page and cards are white; neutral insets and dividers separate their content.
+ * - **Pure white**: white by day, neutral charcoal by night. Dark insets are slightly lighter than
+ *   their cards so quotes remain visible in both the flat and the card reading layouts.
  * - **Dark**: the ladder inverts — lower tones are darker — so the page takes `surface` and a card
  *   is *lighter* than it (`surfaceContainer`). No shadows: a shadow on a near-black page is
  *   invisible and only costs a blur.
@@ -92,6 +93,17 @@ fun plazaLayers(
                 divider = scheme.outlineVariant,
                 shadows = false,
                 cardBorder = scheme.outline,
+            )
+
+        pureWhite && darkTheme ->
+            PlazaLayers(
+                page = scheme.surface,
+                card = scheme.surfaceContainer,
+                raised = scheme.surfaceContainerHighest,
+                inset = scheme.surfaceContainerHigh,
+                divider = scheme.outlineVariant,
+                shadows = false,
+                cardBorder = null,
             )
 
         darkTheme ->

@@ -425,6 +425,8 @@ fun SignInScreen(
                 }
             }
 
+            SignInDiagnosticsAction(state.failureReport)
+
             Column(
                 modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally,

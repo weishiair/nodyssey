@@ -89,6 +89,10 @@ class SettingsRepository(
                 oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: true,
                 einkMode = preferences[KEY_EINK_MODE] ?: false,
                 predictiveBack = preferences[KEY_PREDICTIVE_BACK] ?: true,
+                postReplyStyle = preferences[KEY_POST_REPLY_STYLE]
+                    ?.let { runCatching { PostReplyStyle.valueOf(it) }.getOrNull() }
+                    ?: PostReplyStyle.CARDS,
+                showAuthorAccountInfo = preferences[KEY_SHOW_AUTHOR_ACCOUNT_INFO] ?: true,
                 displayRefreshRate = (preferences[KEY_DISPLAY_REFRESH_RATE] ?: 0)
                     .takeIf { it in DISPLAY_REFRESH_RATE_CHOICES } ?: 0,
                 stickerUniformSize = preferences[KEY_STICKER_UNIFORM_SIZE] ?: true,
@@ -183,7 +187,7 @@ class SettingsRepository(
      * The preset 预设 is currently on, by id.
      *
      * An id rather than a seed since j2: five of the six are hand-written schemes and have no seed
-     * to store. An id this build does not know resolves back to 石墨青 — see `presetById`.
+     * to store. An id this build does not know resolves to the default preset — see `presetById`.
      */
     suspend fun setPresetId(id: String) = edit { it[KEY_PRESET_ID] = id }
 
@@ -375,6 +379,10 @@ class SettingsRepository(
     }
 
     suspend fun setPredictiveBack(enabled: Boolean) = edit { it[KEY_PREDICTIVE_BACK] = enabled }
+
+    suspend fun setPostReplyStyle(style: PostReplyStyle) = edit { it[KEY_POST_REPLY_STYLE] = style.name }
+
+    suspend fun setShowAuthorAccountInfo(enabled: Boolean) = edit { it[KEY_SHOW_AUTHOR_ACCOUNT_INFO] = enabled }
 
     suspend fun setSearchHistoryLimit(limit: Int) {
         dataStore.edit { preferences ->
@@ -642,8 +650,8 @@ class SettingsRepository(
         /** 石墨青, the colour the app has always been, now as the seed every scheme starts from. */
         const val DEFAULT_SEED_COLOR: Int = 0xFF35606E.toInt()
 
-        /** 石墨青 again, as the 预设 id — the one preset that is a seed rather than a character. */
-        const val DEFAULT_PRESET_ID: String = "graphite"
+        /** Neutral white surfaces for fresh installs; an explicitly stored preset is preserved. */
+        const val DEFAULT_PRESET_ID: String = "pure_white"
 
         /** Enough that the chip row still fits on a phone; past that it stops being a shortcut. */
         const val MAX_SAVED_THEMES = 12
@@ -665,6 +673,8 @@ class SettingsRepository(
         private val KEY_ONE_HAND_MODE = booleanPreferencesKey("one_hand_mode")
         private val KEY_EINK_MODE = booleanPreferencesKey("eink_mode")
         private val KEY_PREDICTIVE_BACK = booleanPreferencesKey("predictive_back")
+        private val KEY_POST_REPLY_STYLE = stringPreferencesKey("post_reply_style")
+        private val KEY_SHOW_AUTHOR_ACCOUNT_INFO = booleanPreferencesKey("show_author_account_info")
         private val KEY_DISPLAY_REFRESH_RATE = intPreferencesKey("display_refresh_rate")
 
         /** Zero releases the window's refresh-rate preference to the OS. */
@@ -863,6 +873,10 @@ data class UserSettings(
      */
     val einkMode: Boolean = false,
     val predictiveBack: Boolean = true,
+    /** Reply presentation only; switching never changes floor keys, ordering or pagination. */
+    val postReplyStyle: PostReplyStyle = PostReplyStyle.CARDS,
+    /** Enrich thread authors with cached public account facts only while this is enabled. */
+    val showAuthorAccountInfo: Boolean = true,
     /** Android window preference; zero follows the system and e-ink always releases the vote. */
     val displayRefreshRate: Int = 0,
     /**
@@ -998,6 +1012,8 @@ data class UserSettings(
  * reads as [SYSTEM] again, which is what that setting was asking for anyway.
  */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
+enum class PostReplyStyle { FLAT, CARDS }
 
 /**
  * Where the seed comes from: one of the six presets, the system wallpaper (API 31+), or a colour the

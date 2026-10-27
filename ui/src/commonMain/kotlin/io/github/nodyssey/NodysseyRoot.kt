@@ -144,7 +144,7 @@ internal fun NodysseyChrome(
     //
     // [initialSettings] is that same store, read once before this composition existed, and it is
     // what stops a cold start from painting one frame in the factory settings. The store is read
-    // asynchronously, so without it the first frame goes out on `UserSettings()` — 石墨青, and
+    // asynchronously, so without it the first frame goes out on `UserSettings()` — pure white, and
     // 字体大小, 单手模式 and 墨水屏模式 at their defaults too — and the app visibly changes
     // colour a frame later when the disk answers.
     //

@@ -54,7 +54,7 @@ class ThemeSettingsScreenTest {
     fun `色彩风格 still works under 石墨青`() {
         var style: PaletteStyle? = null
         setScreen(
-            settings = UserSettings(colorSource = ColorSource.PRESET),
+            settings = UserSettings(colorSource = ColorSource.PRESET, presetId = "graphite"),
             onPaletteStyleChange = { style = it },
         )
 

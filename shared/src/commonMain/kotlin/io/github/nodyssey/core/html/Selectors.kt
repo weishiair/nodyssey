@@ -138,6 +138,16 @@ object Selectors {
      */
     val LOGIN_REQUIRED_MARKERS = listOf("需要注册用户才能查看", "权限不足", "Wrong category")
 
+    // These are delivered content, not the site's refusal. A feed title, quoted error message or
+    // signature saying 权限不足 must not turn the whole feed/profile into a sign-in wall.
+    val RESTRICTION_IGNORED_SELECTORS = listOf(
+        LIST_ITEM,
+        DETAIL_TITLE,
+        DETAIL_TITLE_FALLBACK,
+        ".post-content",
+        CONTENT_SIGNATURE,
+    )
+
     /**
      * 阅读权限 refused: 「查看本帖需要Lv5，您的权限不足😑，请赚取🍗升级您的用户等级」.
      *

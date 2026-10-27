@@ -10,13 +10,16 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.session.SignInCredentials
+import io.github.nodyssey.data.session.SignInDiagnosticContext
 import io.github.nodyssey.data.session.SignInOutcome
 import io.github.nodyssey.data.session.SignInRefusal
 import io.github.nodyssey.data.session.SignInRepository
 import io.github.nodyssey.data.session.TwoFactorChallenge
+import io.github.nodyssey.data.session.signInDiagnosticReport
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.postlist.toSiteError
 import io.github.plaza.core.AppClock
+import io.github.plaza.core.AppVersion
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.runCatchingExceptCancellation
@@ -24,10 +27,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * State holder for 登录 · 原生表单 (h1).
@@ -46,6 +51,8 @@ class SignInViewModel(
     private val signIn: SignInRepository,
     private val session: SessionRepository,
     private val clock: AppClock,
+    private val appVersion: AppVersion? = null,
+    private val diagnosticContext: suspend () -> SignInDiagnosticContext = { SignInDiagnosticContext() },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState: StateFlow<SignInUiState> = _uiState.asStateFlow()
@@ -103,7 +110,7 @@ class SignInViewModel(
         submitJob =
             viewModelScope.launch {
                 _uiState.update {
-                    it.copy(isSubmitting = true, refusal = null, failure = null, sessionNotStored = false)
+                    it.copy(isSubmitting = true, refusal = null, failure = null, failureReport = null, sessionNotStored = false)
                 }
                 runCatchingExceptCancellation {
                     signIn.signIn(
@@ -113,7 +120,7 @@ class SignInViewModel(
                             verificationToken = token,
                         ),
                     )
-                }.onSuccess { applyOutcome(it) }.onFailure(::applyFailure)
+                }.onSuccess { applyOutcome(it) }.onFailure { applyFailure(it) }
             }
     }
 
@@ -126,11 +133,11 @@ class SignInViewModel(
         submitJob =
             viewModelScope.launch {
                 _uiState.update {
-                    it.copy(isSubmitting = true, refusal = null, failure = null, sessionNotStored = false)
+                    it.copy(isSubmitting = true, refusal = null, failure = null, failureReport = null, sessionNotStored = false)
                 }
                 runCatchingExceptCancellation { signIn.verifyTwoFactor(challenge, code) }
                     .onSuccess { applyOutcome(it) }
-                    .onFailure(::applyFailure)
+                    .onFailure { applyFailure(it) }
             }
     }
 
@@ -220,13 +227,34 @@ class SignInViewModel(
      * Neither field is touched. "网络超时，未提交" on card 2 is a promise that pressing 重试 sends the
      * same thing again rather than making the user retype a password.
      */
-    private fun applyFailure(throwable: Throwable) {
+    private suspend fun applyFailure(throwable: Throwable) {
+        val diagnostics = (throwable as? SiteException)?.diagnostics
+        val failedState = _uiState.value
+        val timeMillis = clock.nowMillis()
+        fun report(context: SignInDiagnosticContext): String? = diagnostics?.let {
+            signInDiagnosticReport(
+                failure = it,
+                context = context.copy(appVersion = appVersion ?: context.appVersion),
+                twoFactor = failedState.step == SignInStep.TwoFactor,
+                verificationPassed = failedState.isVerified,
+                timeMillis = timeMillis,
+            )
+        }
         _uiState.update {
             it.copy(
                 isSubmitting = false,
                 failure = throwable.toSiteError(),
                 failureDetail = (throwable as? SiteException)?.detail,
+                failureReport = report(SignInDiagnosticContext()),
             )
+        }
+        if (diagnostics != null) {
+            // A broken/slow settings read must never hide the original connection failure. Show
+            // its numeric facts immediately, then add the context within a short, bounded read.
+            val context = withTimeoutOrNull(DIAGNOSTIC_CONTEXT_TIMEOUT_MILLIS) {
+                runCatchingExceptCancellation { diagnosticContext() }.getOrNull()
+            }
+            if (context != null) _uiState.update { it.copy(failureReport = report(context)) }
         }
     }
 
@@ -269,6 +297,7 @@ class SignInViewModel(
 
         /** Fine enough that the number never appears to skip, cheap enough to leave running. */
         const val TICK_MILLIS = 250L
+        private const val DIAGNOSTIC_CONTEXT_TIMEOUT_MILLIS = 500L
 
         fun factory(container: AppContainer): ViewModelProvider.Factory =
             viewModelFactory {
@@ -277,6 +306,13 @@ class SignInViewModel(
                         signIn = container.signInRepository,
                         session = container.sessionRepository,
                         clock = container.clock,
+                        appVersion = container.appVersion,
+                        diagnosticContext = {
+                            SignInDiagnosticContext(
+                                doh = container.doh?.settings?.config?.first(),
+                                proxy = container.proxySettings.config.first(),
+                            )
+                        },
                     )
                 }
             }
@@ -331,6 +367,8 @@ data class SignInUiState(
     /** A failure of the request itself, shown once in a snackbar. */
     val failure: SiteError? = null,
     val failureDetail: String? = null,
+    /** Kept in memory after the snackbar expires. Only the explicit copy action exports it. */
+    val failureReport: String? = null,
     /**
      * The site accepted the sign-in and no session came out of it.
      *

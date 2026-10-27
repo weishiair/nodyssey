@@ -17,6 +17,7 @@ import io.github.nodyssey.data.inMemoryDatabase
 import io.github.nodyssey.data.local.NodeSeekDatabase
 import io.github.nodyssey.data.local.toEntity
 import io.github.nodyssey.data.session.SessionState
+import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.model.ReactionAction
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.net.SiteError
@@ -24,8 +25,11 @@ import io.github.plaza.core.net.SiteException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -377,6 +381,7 @@ class PostDetailViewModelTest {
         trackedThreads: TrackedThreadStore? = null,
         profiles: ProfileRepository? = null,
         clock: AppClock = this.clock,
+        settings: Flow<UserSettings> = flowOf(UserSettings()),
     ) = PostDetailViewModel(
         postId,
         repository,
@@ -388,6 +393,7 @@ class PostDetailViewModelTest {
         trackedThreads = trackedThreads,
         profiles = profiles,
         clock = clock,
+        settings = settings,
     )
 
     /**
@@ -1656,6 +1662,144 @@ class PostDetailViewModelTest {
         assertEquals(2, attempts)
         assertEquals(4, vm.uiState.value.replyAuthors[5]?.level)
         assertNull(vm.uiState.value.replyAuthors[5]?.joinedDays)
+    }
+
+    @Test
+    fun `a saved account info opt out prevents opening and visible reply profile requests`() = runTest(dispatcher) {
+        givenReplyAuthors()
+        val settings = MutableStateFlow(UserSettings(showAuthorAccountInfo = false))
+        val calls = mutableListOf<Long>()
+        val vm = viewModel(
+            settings = settings,
+            profiles = accountProfiles { uid ->
+                calls += uid
+                UserProfile(uid, "author", "", rank = 4)
+            },
+        )
+        advanceUntilIdle()
+        vm.loadVisibleAuthors(setOf(5))
+        advanceUntilIdle()
+        assertEquals(emptyList<Long>(), calls)
+        assertEquals(4, vm.uiState.value.comments.size)
+
+        settings.value = settings.value.copy(showAuthorAccountInfo = true)
+        advanceUntilIdle()
+        assertEquals(setOf(7L, 5L), calls.toSet())
+        assertEquals(2, calls.size)
+        assertEquals(4, vm.uiState.value.authorLevel)
+        assertEquals(4, vm.uiState.value.replyAuthors[5]?.level)
+
+        settings.value = settings.value.copy(showAuthorAccountInfo = false)
+        advanceUntilIdle()
+        vm.loadVisibleAuthors(setOf(6))
+        advanceUntilIdle()
+        assertEquals(2, calls.size)
+    }
+
+    @Test
+    fun `disabling account info cancels pending profiles and enabling retries without a failure cooldown`() = runTest(dispatcher) {
+        givenReplyAuthors()
+        val settings = MutableStateFlow(UserSettings())
+        val firstGate = CompletableDeferred<Unit>()
+        val retryGate = CompletableDeferred<Unit>()
+        val attempts = mutableMapOf<Long, Int>()
+        val cancelled = mutableSetOf<Long>()
+        val vm = viewModel(
+            settings = settings,
+            profiles = accountProfiles { uid ->
+                val attempt = (attempts[uid] ?: 0) + 1
+                attempts[uid] = attempt
+                if (attempt == 1) {
+                    try {
+                        firstGate.await()
+                    } finally {
+                        if (!firstGate.isCompleted) cancelled += uid
+                    }
+                } else {
+                    retryGate.await()
+                }
+                UserProfile(uid, "author", "", rank = 4)
+            },
+        )
+        advanceUntilIdle()
+        vm.loadVisibleAuthors(setOf(5))
+        runCurrent()
+        assertTrue(vm.uiState.value.isLoadingAuthorInfo)
+        assertEquals(setOf(5L), vm.uiState.value.loadingAuthorUids)
+
+        settings.value = settings.value.copy(showAuthorAccountInfo = false)
+        runCurrent()
+        assertEquals(setOf(7L, 5L), cancelled)
+        assertFalse(vm.uiState.value.isLoadingAuthorInfo)
+        assertTrue(vm.uiState.value.loadingAuthorUids.isEmpty())
+
+        settings.value = settings.value.copy(showAuthorAccountInfo = true)
+        runCurrent()
+        assertEquals(mapOf(7L to 2, 5L to 2), attempts)
+        assertTrue(vm.uiState.value.isLoadingAuthorInfo)
+        assertEquals(setOf(5L), vm.uiState.value.loadingAuthorUids)
+        retryGate.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isLoadingAuthorInfo)
+        assertTrue(vm.uiState.value.loadingAuthorUids.isEmpty())
+        assertEquals(4, vm.uiState.value.authorLevel)
+        assertEquals(4, vm.uiState.value.replyAuthors[5]?.level)
+        assertEquals(listOf("#1", "#2", "#3", "#4"), vm.uiState.value.comments.map { it.floor })
+        assertNull(vm.uiState.value.error)
+    }
+
+    @Test
+    fun `disabling multiple account lookups is safe when cancellation completes inline`() = runTest(dispatcher) {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        givenReplyAuthors()
+        val settings = MutableStateFlow(UserSettings())
+        val gate = CompletableDeferred<Unit>()
+        val attempts = mutableMapOf<Long, Int>()
+        val vm = viewModel(
+            settings = settings,
+            profiles = accountProfiles { uid ->
+                if (uid != 7L) {
+                    attempts[uid] = (attempts[uid] ?: 0) + 1
+                    gate.await()
+                }
+                UserProfile(uid, "author", "", rank = 4)
+            },
+        )
+        advanceUntilIdle()
+        vm.loadVisibleAuthors(setOf(5, 6))
+        assertEquals(setOf(5L, 6L), vm.uiState.value.loadingAuthorUids)
+
+        settings.value = settings.value.copy(showAuthorAccountInfo = false)
+        assertTrue(vm.uiState.value.loadingAuthorUids.isEmpty())
+        settings.value = settings.value.copy(showAuthorAccountInfo = true)
+        assertEquals(mapOf(5L to 2, 6L to 2), attempts)
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(setOf(5L, 6L), vm.uiState.value.replyAuthors.keys)
+        assertTrue(vm.uiState.value.loadingAuthorUids.isEmpty())
+    }
+
+    @Test
+    fun `immediate cached profiles release their loading jobs and a failed reply remains retryable`() = runTest(dispatcher) {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        givenReplyAuthors()
+        var attempts = 0
+        val vm = viewModel(
+            profiles = accountProfiles { uid ->
+                if (uid == 5L && ++attempts == 1) throw SiteException(SiteError.Http(429))
+                UserProfile(uid, "author", "", rank = 4)
+            },
+        )
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isLoadingAuthorInfo)
+        vm.loadVisibleAuthors(setOf(5))
+        assertTrue(vm.uiState.value.loadingAuthorUids.isEmpty())
+        assertNull(vm.uiState.value.replyAuthors[5])
+        clock.advanceBy(60_000)
+        vm.loadVisibleAuthors(setOf(5))
+        assertEquals(2, attempts)
+        assertTrue(vm.uiState.value.loadingAuthorUids.isEmpty())
+        assertEquals(4, vm.uiState.value.replyAuthors[5]?.level)
     }
 
     private fun givenReplyAuthors() {

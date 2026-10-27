@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,7 +43,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingToolbarDefaults.floatingToolbarVerticalNestedScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,6 +84,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -108,6 +109,7 @@ import io.github.nodyssey.ThreadPreview
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.FreeChickenLegs
 import io.github.nodyssey.data.composer.PostEditTarget
+import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.model.PostReactions
 import io.github.nodyssey.model.ReactionAction
@@ -151,7 +153,6 @@ import io.github.nodyssey.ui.resources.dislike_dialog_body
 import io.github.nodyssey.ui.resources.dislike_dialog_confirm
 import io.github.nodyssey.ui.resources.dislike_dialog_title
 import io.github.nodyssey.ui.resources.post_all_replies
-import io.github.nodyssey.ui.resources.post_author_age_days
 import io.github.nodyssey.ui.resources.post_author_empty
 import io.github.nodyssey.ui.resources.post_author_replies
 import io.github.nodyssey.ui.resources.post_author_scan
@@ -187,7 +188,6 @@ import io.github.nodyssey.ui.resources.post_reaction_irreversible
 import io.github.nodyssey.ui.resources.post_reaction_like
 import io.github.nodyssey.ui.resources.post_reaction_spent
 import io.github.nodyssey.ui.resources.post_reading_end
-import io.github.nodyssey.ui.resources.post_reading_tools
 import io.github.nodyssey.ui.resources.post_reply_action
 import io.github.nodyssey.ui.resources.post_reply_to
 import io.github.nodyssey.ui.resources.post_share_image
@@ -208,8 +208,6 @@ import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
 import io.github.plaza.designsys.component.AppendSpinner
-import io.github.plaza.designsys.component.BadgeChip
-import io.github.plaza.designsys.component.BadgeTone
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
@@ -421,7 +419,6 @@ fun PostDetailScreen(
 ) {
     val listState = rememberLazyListState()
     var isScrollbarDragging by remember { mutableStateOf(false) }
-    var readingToolsExpanded by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var confirmTarget by remember { mutableStateOf<ReactionConfirm?>(null) }
 
@@ -669,8 +666,6 @@ fun PostDetailScreen(
             state.isRefreshing ||
             state.isRefreshingTail
     val lastFloor = state.readerLastFloor()
-    val shareThread = rememberShareText()
-    val shareThreadLabel = stringResource(Res.string.action_share)
     val readingItemKeys = remember(state.comments, state.isAppending, state.showReadingEnd) {
         buildList<Any> {
             add("body")
@@ -694,7 +689,6 @@ fun PostDetailScreen(
                 state.pendingScroll == null && prependAnchor == null && !pendingBottom,
         )
     fun jumpToFloor(floor: String) {
-        readingToolsExpanded = false
         val index = if (floor == "#0" && state.firstLoadedPage == 1 && !state.onlyAuthor) 0 else state.indexOfFloor(floor)
         if (index != null) {
             scope.launch {
@@ -708,13 +702,13 @@ fun PostDetailScreen(
 
     Scaffold(
         modifier = modifier,
-        containerColor = threadPageColor(),
+        containerColor = threadPageColor(state.postReplyStyle),
         snackbarHost = {
             SnackbarHost(
                 snackbarHostState,
                 Modifier.padding(
                     bottom = if (state.hasContent && !replyOpen) {
-                        if (readingToolsExpanded) 152.dp else 80.dp
+                        80.dp
                     } else {
                         0.dp
                     },
@@ -733,16 +727,16 @@ fun PostDetailScreen(
                 showBackButton = showBackButton,
                 tracked = state.tracked,
                 onToggleTrack = onToggleTrack,
-                onReadingTools = { readingToolsExpanded = !readingToolsExpanded },
+                onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
+                collected = state.collected,
+                collectPending = state.collectPending,
+                onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
+                pageColor = threadPageColor(state.postReplyStyle),
             )
         },
     ) { padding ->
         Box(
-            Modifier.padding(padding).fillMaxSize().floatingToolbarVerticalNestedScroll(
-                expanded = readingToolsExpanded,
-                onExpand = { if (!isScrollbarDragging) readingToolsExpanded = true },
-                onCollapse = { readingToolsExpanded = false },
-            ),
+            Modifier.padding(padding).fillMaxSize(),
         ) {
             // First in the Box, though it is never drawn: see [FloorShareCapture].
             val sharing = shareImageOf
@@ -858,10 +852,7 @@ fun PostDetailScreen(
                     listState = listState,
                     itemKeys = readingItemKeys,
                     currentFloor = displayedFloor,
-                    onDraggingChanged = {
-                        isScrollbarDragging = it
-                        if (it) readingToolsExpanded = false
-                    },
+                    onDraggingChanged = { isScrollbarDragging = it },
                     modifier = Modifier.align(Alignment.CenterEnd),
                 )
             }
@@ -870,15 +861,7 @@ fun PostDetailScreen(
                 ThreadReadingControls(
                     currentFloor = displayedFloor,
                     lastFloor = lastFloor,
-                    expanded = readingToolsExpanded,
-                    onlyAuthor = state.onlyAuthor,
-                    collected = state.collected,
-                    collectPending = state.collectPending,
                     onJump = { showPageSheet = true },
-                    onOriginal = { jumpToFloor("#0") },
-                    onToggleOnlyAuthor = onToggleOnlyAuthor,
-                    onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
-                    onShare = { shareThread("${state.title}\n$postUrl", shareThreadLabel) },
                     onReply = { onReply(null) },
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
@@ -988,13 +971,11 @@ fun PostDetailScreen(
             },
             onLatest = {
                 showPageSheet = false
-                readingToolsExpanded = false
                 goToLatest()
             },
             onResume = state.resumePosition?.takeUnless { state.onlyAuthor }?.let {
                 {
                     showPageSheet = false
-                    readingToolsExpanded = false
                     onResumeReading()
                 }
             },
@@ -1004,8 +985,9 @@ fun PostDetailScreen(
 
 /** A quiet page surface keeps the individual reply bubbles legible. */
 @Composable
-private fun threadPageColor(): Color {
+private fun threadPageColor(style: PostReplyStyle = PostReplyStyle.CARDS): Color {
     val layers = LocalPlazaLayers.current
+    if (style == PostReplyStyle.FLAT) return layers.card
     return if (layers.page == layers.card && !LocalEinkMode.current) layers.inset else layers.page
 }
 
@@ -1024,7 +1006,11 @@ private fun DetailTopBar(
     /** Null hides 追踪新回复: this build has nowhere to keep the list. */
     tracked: Boolean? = null,
     onToggleTrack: () -> Unit = {},
-    onReadingTools: () -> Unit,
+    onOriginal: (() -> Unit)?,
+    collected: Boolean?,
+    collectPending: Boolean,
+    onCollect: () -> Unit,
+    pageColor: Color,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val shareText = rememberShareText()
@@ -1083,13 +1069,25 @@ private fun DetailTopBar(
                     )
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.post_reading_tools)) },
-                        onClick = {
-                            menuOpen = false
-                            onReadingTools()
-                        },
-                    )
+                    onOriginal?.let { jump ->
+                        DropdownMenuItem(
+                            text = { Text(openOriginalPostLabel) },
+                            onClick = {
+                                menuOpen = false
+                                jump()
+                            },
+                        )
+                    }
+                    collected?.let { saved ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
+                            enabled = !collectPending,
+                            onClick = {
+                                menuOpen = false
+                                onCollect()
+                            },
+                        )
+                    }
                     // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
                     // not about to scroll back up to pull.
                     DropdownMenuItem(
@@ -1130,8 +1128,8 @@ private fun DetailTopBar(
         // The controls and the reading column share one paper surface.
         colors =
         TopAppBarDefaults.topAppBarColors(
-            containerColor = threadPageColor(),
-            scrolledContainerColor = threadPageColor(),
+            containerColor = pageColor,
+            scrolledContainerColor = pageColor,
         ),
         // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
         // has scrolled away, one line of it. The buttons keep their 48dp targets.
@@ -1182,7 +1180,7 @@ private fun ThreadList(
     LazyColumn(
         state = listState,
         contentPadding =
-        PaddingValues(top = Spacing.sm, bottom = 160.dp),
+        PaddingValues(top = Spacing.sm, bottom = 96.dp),
         modifier = modifier
             .fillMaxHeight()
             .readableWidth(),
@@ -1227,6 +1225,8 @@ private fun ThreadList(
                 postId = state.postId,
                 authorLevel = state.authorLevel,
                 authorJoinedDays = state.authorJoinedDays,
+                showAuthorAccountInfo = state.showAuthorAccountInfo,
+                replyStyle = state.postReplyStyle,
                 showBlockedContent = state.showBlockedContent,
                 onOpenBrowser = onOpenBrowser,
                 onImageClick = onImageClick,
@@ -1245,6 +1245,9 @@ private fun ThreadList(
                 onTitleBottom = onTitleBottom,
                 showOpeningPost = state.firstLoadedPage == 1 && !state.onlyAuthor,
             )
+            if (state.postReplyStyle == PostReplyStyle.FLAT) {
+                Spacer(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceContainer))
+            }
         }
 
         if (state.hasContent) {
@@ -1284,16 +1287,17 @@ private fun ThreadList(
             // Inside this floor's own item rather than an item of its own, so every index helper
             // below that mirrors the list's order stays one comment, one row.
             if (state.startsNewReplies(index)) NewRepliesDivider()
-            val shape = RoundedCornerShape(topStart = 7.dp, topEnd = 19.dp, bottomStart = 19.dp, bottomEnd = 19.dp)
+            val cards = state.postReplyStyle == PostReplyStyle.CARDS
             Surface(
-                modifier = Modifier.padding(start = 12.dp, end = 16.dp, bottom = 9.dp).fillMaxWidth(),
-                shape = shape,
+                modifier = Modifier.padding(start = if (cards) 12.dp else 0.dp, end = if (cards) 12.dp else 0.dp, bottom = if (cards) 9.dp else 0.dp).fillMaxWidth(),
+                shape = if (cards) RoundedCornerShape(16.dp) else RectangleShape,
                 color = if (comment.floor == highlightedFloor && highlightedFloor != null) MaterialTheme.colorScheme.primaryContainer else LocalPlazaLayers.current.card,
             ) {
                 BlockAware(content = comment, revealed = state.showBlockedContent) {
                     CommentRow(
                         comment = comment,
                         authorInfo = comment.authorUid?.let(state.replyAuthors::get),
+                        showAuthorAccountInfo = state.showAuthorAccountInfo,
                         onOpenBrowser = onOpenBrowser,
                         onImageClick = onImageClick,
                         onJumpToFloor = onJumpToFloor,
@@ -1302,7 +1306,7 @@ private fun ThreadList(
                         onReply = onReply,
                         onQuote = onQuote,
                         onEdit = onEdit,
-                        showDivider = false,
+                        showDivider = !cards && index < state.comments.lastIndex,
                         onMore = { onOpenFloorActions(FloorActions(comment, onReply, onQuote, onEdit)) },
                         onAuthorClick = onAuthorClick,
                         voteContent = voteContent,
@@ -1570,6 +1574,8 @@ private fun ThreadOpeningPost(
     onTitleBottom: (Int) -> Unit = {},
     /** A retained body belongs to page 1; it must never be repeated above a later-page window. */
     showOpeningPost: Boolean = true,
+    showAuthorAccountInfo: Boolean = true,
+    replyStyle: PostReplyStyle = PostReplyStyle.CARDS,
 ) {
     // [BlockAware]'s job, done here rather than around this composable: a wrapper that swapped the
     // whole opening post out would take the shared elements with it, which is the thing this
@@ -1584,8 +1590,8 @@ private fun ThreadOpeningPost(
 
     Column(
         modifier = Modifier
-            .padding(horizontal = 12.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .padding(horizontal = if (replyStyle == PostReplyStyle.CARDS) 12.dp else 0.dp)
+            .clip(if (replyStyle == PostReplyStyle.CARDS) RoundedCornerShape(16.dp) else RectangleShape)
             .background(LocalPlazaLayers.current.card)
             .fillMaxWidth()
             .onPlaced { opening.coordinates = it }
@@ -1610,7 +1616,7 @@ private fun ThreadOpeningPost(
         )
         if (!showOpeningPost) return@Column
         Column(
-            modifier = Modifier.padding(start = ThreadContentInset, end = ThreadContentInset, bottom = Spacing.lg),
+            modifier = Modifier.padding(start = ThreadContentInset, end = ThreadContentInset),
             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) opening@{
             if (body != null && blocked) {
@@ -1630,10 +1636,10 @@ private fun ThreadOpeningPost(
                     authorName = body?.authorName ?: preview?.authorName.orEmpty(),
                     modifier = Modifier.weight(1f),
                     identity = Modifier.authorClickable(body?.authorUid, onAuthorClick),
-                    accountBadge = { AuthorAccountBadge(authorLevel, authorJoinedDays) },
+                    accountBadge = { if (showAuthorAccountInfo) AuthorAccountBadge(authorLevel, authorJoinedDays) },
                     badges = {
                         if (body != null) {
-                            FloorBadges(body, hasAccountLevel = authorLevel != null)
+                            FloorBadges(body, hasAccountLevel = showAuthorAccountInfo && authorLevel != null)
                         }
                         if (body != null) {
                             UserNoteTag(body.authorUid)
@@ -1644,7 +1650,10 @@ private fun ThreadOpeningPost(
             }
 
             if (body == null) {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Column(
+                    modifier = Modifier.padding(bottom = Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
                     listOf(0.98f, 0.94f, 0.99f, 0.62f).forEach { SkeletonBar(it, 14.dp) }
                 }
                 return@opening
@@ -1788,6 +1797,7 @@ private fun CommentsHeader(
 private fun CommentRow(
     comment: PostContent,
     authorInfo: ReplyAuthorInfo?,
+    showAuthorAccountInfo: Boolean,
     onOpenBrowser: (String) -> Unit,
     onImageClick: (String) -> Unit,
     onJumpToFloor: (String) -> Unit,
@@ -1803,7 +1813,7 @@ private fun CommentRow(
     voteContent: @Composable (Long) -> Unit,
     stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)?,
 ) {
-    FloorRow(modifier = Modifier.floorLongPressSemantics(onMore), showDivider = showDivider) {
+    FloorRow(modifier = Modifier.floorLongPressSemantics(onMore), bottomPadding = 0.dp, showDivider = showDivider) {
         Row(
             modifier = Modifier.fillMaxWidth().floorLongPress(onMore),
             verticalAlignment = Alignment.Top,
@@ -1832,8 +1842,8 @@ private fun CommentRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.authorClickable(comment.authorUid, onAuthorClick),
                     )
-                    AuthorAccountBadge(authorInfo?.level, authorInfo?.joinedDays)
-                    FloorBadges(comment, hasAccountLevel = authorInfo?.level != null)
+                    if (showAuthorAccountInfo) AuthorAccountBadge(authorInfo?.level, authorInfo?.joinedDays)
+                    FloorBadges(comment, hasAccountLevel = showAuthorAccountInfo && authorInfo?.level != null)
                     UserNoteTag(comment.authorUid)
                 }
                 FloorTimeLine(comment)
@@ -1881,6 +1891,7 @@ private fun CommentRow(
 private fun FloorRow(
     modifier: Modifier = Modifier,
     verticalPadding: Dp = 14.dp,
+    bottomPadding: Dp = verticalPadding,
     showDivider: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -1888,7 +1899,7 @@ private fun FloorRow(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = ThreadContentInset, vertical = verticalPadding),
+                .padding(start = ThreadContentInset, end = ThreadContentInset, top = verticalPadding, bottom = bottomPadding),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
             content = content,
         )
@@ -2058,23 +2069,20 @@ private fun CommentFoot(
     onMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    FlowRow(
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         ReactionPill(ReactionAction.Upvote, reactions, pending, onReact)
-        FlowRow(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.End),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
-            FloorActionButton(PlazaIcons.FormatQuote, Res.string.post_quote_action, onClick = onQuote)
-            when {
-                onEdit != null -> FloorActionButton(Icons.Default.Edit, Res.string.post_edit_action, onClick = onEdit)
-                onReply != null -> FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply)
-            }
-            FloorMoreButton(onMore)
+        Spacer(Modifier.weight(1f))
+        FloorActionButton(PlazaIcons.FormatQuote, Res.string.post_quote_action, onClick = onQuote)
+        when {
+            onEdit != null -> FloorActionButton(Icons.Default.Edit, Res.string.post_edit_action, onClick = onEdit)
+            onReply != null -> FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply)
         }
+        FloorMoreButton(onMore)
     }
 }
 
@@ -2110,16 +2118,33 @@ private fun FloorActionButton(
             disabledContainerColor = container,
             disabledContentColor = if (accented || pending) content else content.copy(alpha = 0.45f),
         ),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
         modifier = Modifier
-            .height(36.dp)
+            .heightIn(min = 44.dp)
             .widthIn(min = 44.dp)
             .semantics { contentDescription = description },
     ) {
         if (pending) {
-            PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = 20.dp)
+            PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = 18.dp)
         } else {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            // Equal vector boxes are not equal marks: ThumbUp fills almost its whole viewport,
+            // whereas FormatQuote has generous internal whitespace. Match their visible size
+            // and centre of ink while keeping every button on the same minimum touch target.
+            val glyphSize = when (label) {
+                Res.string.post_reaction_like -> 16.dp
+                Res.string.post_quote_action -> 22.dp
+                else -> 20.dp
+            }
+            val glyphOffset = when (label) {
+                Res.string.post_reaction_like -> 1.dp
+                Res.string.post_reply_action -> (-0.5).dp
+                else -> 0.dp
+            }
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(glyphSize).offset(y = glyphOffset),
+            )
         }
         if (count.isNotEmpty()) {
             Text(count, style = footLabelStyle(), modifier = Modifier.padding(start = Spacing.xs))
@@ -2483,16 +2508,6 @@ private fun FloorBadges(content: PostContent, hasAccountLevel: Boolean = false) 
         }
     val remaining = if (hasAccountLevel) labels.filterNot { ACCOUNT_LEVEL_BADGE.matches(it) } else labels
     if (remaining.isNotEmpty()) RoleBadgeRow(remaining)
-}
-
-/** Registration age and rank are account facts, with the same tone for new and established users. */
-@Composable
-private fun AuthorAccountBadge(level: Int?, days: Int?) {
-    val parts = buildList {
-        if (level != null) add("Lv $level")
-        if (days != null) add(stringResource(Res.string.post_author_age_days, days))
-    }
-    if (parts.isNotEmpty()) BadgeChip(parts.joinToString(" | "), BadgeTone.Neutral)
 }
 
 private val ACCOUNT_LEVEL_BADGE = Regex("Lv\\.?\\s*\\d+", RegexOption.IGNORE_CASE)

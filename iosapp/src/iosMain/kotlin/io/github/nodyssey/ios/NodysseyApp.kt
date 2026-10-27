@@ -148,5 +148,5 @@ object NodysseyApp {
     }
 
     private fun imageLoader(context: PlatformContext, container: IosAppContainer): ImageLoader =
-        nodysseyImageLoader(context) { container.urlSession }
+        nodysseyImageLoader(context) { container.fetchForumImage(it) }
 }
