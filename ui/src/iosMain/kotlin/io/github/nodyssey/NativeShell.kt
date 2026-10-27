@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.uikit.OnFocusBehavior
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
@@ -251,7 +252,11 @@ private class NativeShell(
         val entry = providers.getValue(destination)(key)
         val owner = PageOwner()
         val controller =
-            ComposeUIViewController {
+            ComposeUIViewController(
+                configure = {
+                    if (key.makesRoomForKeyboard()) onFocusBehavior = OnFocusBehavior.DoNothing
+                },
+            ) {
                 NodysseyChrome(container, settings) {
                     CompositionLocalProvider(
                         // The page's own store rather than the controller's default one, so that a
@@ -473,3 +478,29 @@ private object SafariUriHandler : UriHandler {
         UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any>(), completionHandler = null)
     }
 }
+
+/**
+ * Pages (including their sheets) that already make room for the IME via `imePadding` or
+ * `paddingWithKeyboard`. The controller configuration also applies to its Compose dialog layers.
+ *
+ * As diagnosed in eddielee214/nodyssey-wa@789b82bc, default focus panning and IME padding can
+ * move the focused field in response to each other: `OffsetToFocusedRect` repeatedly invalidates
+ * layout until the main thread is stuck and the iOS watchdog kills the app. Disable panning only
+ * for these pages; others still need the default. Sign-in's two-factor step shares SignInKey,
+ * not a separate controller.
+ * ThemeSettingsKey includes the seed-color sheet; its rename dialog also inherits this setting but
+ * the default DialogProperties already limits its layout by the keyboard inset.
+ *
+ * Revisit this list when an IME-handling screen or sheet moves; remove the workaround when the
+ * upstream focus/padding interaction is fixed and verified on iOS with the default restored.
+ */
+private fun NavKey.makesRoomForKeyboard(): Boolean =
+    this is PostComposerKey ||
+        this is PostDetailKey ||
+        this is AccountProfileFieldsKey ||
+        this is AccountSecurityKey ||
+        this is MessageThreadKey ||
+        this is SignInKey ||
+        this is DohSettingsKey ||
+        this is StickerAddKey ||
+        this is ThemeSettingsKey
