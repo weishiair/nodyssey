@@ -89,8 +89,8 @@ data class ColorSchemeCookie(
  * Text that classifies a 200-with-HTML the parsers cannot use.
  *
  * A forum behind Cloudflare answers a blocked request with a page, not a status code, so the body is
- * the only thing that says what happened. Each list is "any one of these appearing in the body means
- * this", and the order they are consulted in is [ChallengeDetector]'s, not this type's.
+ * the only thing that says what happened. Restriction wording is checked against the page's visible
+ * response text, excluding user content; the order is [ChallengeDetector]'s, not this type's.
  */
 data class PageMarkers(
     /**
@@ -104,6 +104,12 @@ data class PageMarkers(
     val usablePage: List<String>,
     /** The site's own wording for "this needs an account". */
     val loginRequired: List<String>,
+    /**
+     * User-controlled page regions which can quote a refusal without being one: topic titles,
+     * articles and signatures. The site supplies selectors because only it knows their markup.
+     * Script/style/template data and editable text fields are always excluded by the detector.
+     */
+    val restrictionIgnoredSelectors: List<String> = emptyList(),
     /**
      * The site's own wording for "your level is too low", consulted *before* [loginRequired].
      *

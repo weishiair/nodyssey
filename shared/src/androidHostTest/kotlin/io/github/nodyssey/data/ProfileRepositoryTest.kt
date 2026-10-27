@@ -1,13 +1,19 @@
 package io.github.nodyssey.data
 
+import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.html.Fixtures
 import io.github.nodyssey.core.net.JsonSource
 import io.github.nodyssey.core.net.NodeSeekJsonClient
 import io.github.nodyssey.data.local.NodeSeekDatabase
 import io.github.plaza.core.AppClock
+import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.HtmlSource
+import io.github.plaza.core.net.RecordingTransport
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
+import io.github.plaza.core.net.SiteHtmlClient
+import io.github.plaza.core.net.httpResponse
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -87,6 +93,29 @@ class ProfileRepositoryTest {
             assertEquals(1, profile.rank)
             assertEquals(292, profile.chickenCount)
             assertEquals(2, profile.starCount)
+        }
+
+    @Test
+    fun `a permission error in a feed title does not hide the signed in profile`() =
+        runTest {
+            val repository = NetworkProfileRepository(
+                htmlSource = SiteHtmlClient(
+                    transport = RecordingTransport(httpResponse(Fixtures.load("feed-permission-discussion.html"))),
+                    dispatchers = AppDispatchers(io = Dispatchers.Unconfined, default = Dispatchers.Unconfined),
+                    config = NodeSeekSite.CONFIG,
+                ),
+                jsonSource = FakeProfileJsonSource(error = SiteException(SiteError.Http(500))),
+                profileDao = database.profileDao(),
+                currentSessionFingerprint = { 7 },
+                isSignedIn = { true },
+                clock = AppClock { 0L },
+            )
+
+            val profile = repository.profile(refresh = true)
+
+            assertEquals(42L, profile.uid)
+            assertEquals("Example", profile.name)
+            assertEquals(42L, repository.observeProfile(7).first()?.uid)
         }
 
     /** The profile-area screens each ask on entry; a minute-long cache keeps that to one fetch. */

@@ -55,6 +55,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
 
         NodysseyApp.shared.start { controller in
+            if let tabs = controller as? UITabBarController {
+                // UIKit's nil scrollEdgeAppearance makes the bar transparent at a scroll edge.
+                // Match both states so refreshing, changing tabs and popping back to a root cannot
+                // drop its background. The semantic colour follows the shell's light/dark override.
+                let appearance = UITabBarAppearance()
+                appearance.configureWithOpaqueBackground()
+                appearance.backgroundColor = .systemBackground
+                tabs.tabBar.standardAppearance = appearance
+                tabs.tabBar.scrollEdgeAppearance = appearance
+                tabs.tabBar.isTranslucent = false
+            }
             window.rootViewController = controller
         }
     }

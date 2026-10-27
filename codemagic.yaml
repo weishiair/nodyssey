@@ -1,0 +1,149 @@
+# Start this workflow manually in Codemagic. No signing credentials are required;
+# the resulting device IPA is intended for users to sign before installing.
+workflows:
+  ios-unsigned:
+    name: Nodyssey iOS unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    environment:
+      java: 21
+      xcode: "26.6"
+      vars:
+        GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches/modules-2
+        - $HOME/.gradle/wrapper
+        - $HOME/.konan
+        - $HOME/.cargo/registry
+        - $HOME/.cargo/git
+        - native/ios-network/target
+    scripts:
+      - name: Prepare the multiplatform build
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          chmod +x gradlew
+          sdk_dir="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/share/android-sdk}}"
+          test -d "$sdk_dir"
+          printf 'sdk.dir=%s\n' "$sdk_dir" > local.properties
+          # Android plugins need an SDK directory during KMP configuration.
+          # Native tests and the iOS archive do not build an Android target,
+          # so use the preinstalled SDK without installing Android platforms.
+          java -version
+          xcodebuild -version
+      - name: Prepare and test the pinned DoH ECH network core
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export PATH="$HOME/.cargo/bin:$PATH"
+          if ! command -v rustup >/dev/null 2>&1; then
+            mkdir -p "$CM_BUILD_DIR/build"
+            curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+              https://sh.rustup.rs -o "$CM_BUILD_DIR/build/rustup-init.sh"
+            sh "$CM_BUILD_DIR/build/rustup-init.sh" -y --profile minimal --default-toolchain none
+          fi
+          cd native/ios-network
+          rustup show
+          cargo fmt --check
+          cargo test --locked
+      - name: Run the shared Kotlin Native tests
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export PATH="$HOME/.cargo/bin:$PATH"
+          ./gradlew :shared:macosArm64Test --max-workers=2
+      - name: Build and verify the unsigned iPhone IPA
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export PATH="$HOME/.cargo/bin:$PATH"
+          version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
+          code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]
+          [[ "$code" =~ ^[1-9][0-9]*$ ]]
+          output="$CM_BUILD_DIR/build/ios-unsigned"
+          mkdir -p "$output"
+          xcodebuild \
+            -project iosapp/Nodyssey.xcodeproj \
+            -scheme Nodyssey \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$output/Nodyssey.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$version" \
+            CURRENT_PROJECT_VERSION="$code" 2>&1 | tee "$output/xcodebuild.log"
+          app="$output/Nodyssey.xcarchive/Products/Applications/Nodyssey.app"
+          test -d "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = "$version"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = "$code"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" = 'io.github.nodyssey'
+          executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
+          test "$(lipo -archs "$app/$executable")" = 'arm64'
+          python3 .github/scripts/native-network-notices.py "$app/NativeNetworkLicenses.txt"
+          mkdir -p "$output/Payload"
+          cp -R "$app" "$output/Payload/"
+          name="nodyssey-$version.ipa"
+          (cd "$output" && zip -qry "$name" Payload)
+          unzip -t "$output/$name" > "$output/ipa-zip-check.txt"
+          git rev-parse HEAD > "$output/source-commit.txt"
+          printf 'version=%s\nbuild=%s\nsigning=unsigned\n' "$version" "$code" > "$output/build-info.txt"
+          (cd "$output" && shasum -a 256 "$name" > SHA256SUMS.txt)
+      - name: Build and verify the iOS Simulator App Preview
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export PATH="$HOME/.cargo/bin:$PATH"
+          version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
+          code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
+          output="$CM_BUILD_DIR/build/ios-simulator"
+          mkdir -p "$output"
+          xcodebuild \
+            -project iosapp/Nodyssey.xcodeproj \
+            -scheme Nodyssey \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$output/DerivedData" \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            MARKETING_VERSION="$version" \
+            CURRENT_PROJECT_VERSION="$code" 2>&1 | tee "$output/xcodebuild.log"
+          app="$output/DerivedData/Build/Products/Debug-iphonesimulator/Nodyssey.app"
+          test -d "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = "$version"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = "$code"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" = 'io.github.nodyssey'
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleSupportedPlatforms:0' "$app/Info.plist")" = 'iPhoneSimulator'
+          executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
+          test "$(lipo -archs "$app/$executable")" = 'arm64'
+          xcrun vtool -show-build "$app/$executable" | tee "$output/binary-platform.txt"
+          grep -q 'platform IOSSIMULATOR' "$output/binary-platform.txt"
+          python3 .github/scripts/native-network-notices.py "$app/NativeNetworkLicenses.txt"
+          cp -R "$app" "$output/Nodyssey.app"
+          name="nodyssey-$version-simulator-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$output/Nodyssey.app" "$output/$name"
+          unzip -t "$output/$name" > "$output/app-zip-check.txt"
+          git rev-parse HEAD > "$output/source-commit.txt"
+          printf 'version=%s\nbuild=%s\nplatform=iPhoneSimulator\narchitecture=arm64\n' "$version" "$code" > "$output/build-info.txt"
+          (cd "$output" && shasum -a 256 "$name" > SHA256SUMS.txt)
+    artifacts:
+      - build/ios-unsigned/*.ipa
+      - build/ios-unsigned/*.txt
+      - build/ios-unsigned/xcodebuild.log
+      - build/ios-simulator/Nodyssey.app
+      - build/ios-simulator/*.zip
+      - build/ios-simulator/*.txt
+      - build/ios-simulator/xcodebuild.log
+      - shared/build/test-results/macosArm64Test/*.xml
+      - native/ios-network/rust-toolchain.toml
+    publishing:
+      scripts:
+        - name: Stop Gradle
+          script: ./gradlew --stop

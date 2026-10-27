@@ -118,17 +118,17 @@ class ChallengeDetectorTest {
 
     /**
      * The captured page keeps the sentence in one text node, so this is the shape we do *not* have:
-     * a re-render that wraps the number still has to classify, level or no level. Losing 「Lv5」 off
-     * a title is a worse screen; falling back to the login wall would be a wrong one.
+     * a re-render that wraps the number still has to classify. Restriction checks read visible text,
+     * so inline markup no longer hides the level from the pattern.
      */
     @Test
-    fun `a level wall whose number is wrapped in markup classifies without one`() {
+    fun `a level wall whose number is wrapped in markup still carries its level`() {
         val html =
             """
             <html><body><div id="nsk-body"><h1>查看本帖需要<b>Lv5</b>，您的权限不足😑，
             请赚取🍗升级您的用户等级</h1></div></body></html>
             """.trimIndent()
-        assertEquals(SiteError.LevelRequired(requiredLevel = null), detector.detect(html, 200, emptyMap(), URL))
+        assertEquals(SiteError.LevelRequired(requiredLevel = 5), detector.detect(html, 200, emptyMap(), URL))
     }
 
     /**
