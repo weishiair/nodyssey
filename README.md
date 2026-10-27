@@ -1,78 +1,87 @@
 <div align="center">
 
-> **Nodyssey 非官方分支**：[下载本分支](https://github.com/weishiair/nodyssey/releases)。基于 [5151561/nodyssey](https://github.com/5151561/nodyssey)，保留原项目署名与 GPL-3.0 许可证。从 1.3.0 起使用简洁版本号，旧 ECH 版本可直接覆盖升级。
-> 内置 `https://resolver.weishiair.de/dns-query`，Android 8 及以上支持 ECH；应用内更新仅跟随本分支。详细说明见 [分支说明](docs/ech-fork.md)。
-
 # Nodyssey
 
-[NodeSeek](https://www.nodeseek.com/) 的非官方开源 Android 客户端，Kotlin + Jetpack Compose，帖子渲染为原生 Compose 内容。
+**一个为 NodeSeek 而生的开源客户端**
 
-[![Release](https://img.shields.io/github/v/release/weishiair/nodyssey?label=Release&color=2C6E7F)](https://github.com/weishiair/nodyssey/releases)
-[![Downloads](https://img.shields.io/github/downloads/weishiair/nodyssey/total?label=Downloads&color=2C6E7F)](https://github.com/weishiair/nodyssey/releases)
-[![Stars](https://img.shields.io/github/stars/weishiair/nodyssey?style=flat&logo=github&label=Stars)](https://github.com/weishiair/nodyssey/stargazers)
-[![CI](https://img.shields.io/github/actions/workflow/status/weishiair/nodyssey/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/weishiair/nodyssey/actions/workflows/ci.yml)
+舒适地阅读、交流与探索。在支持的网络环境下，借助内置 DoH 与 ECH，**不配置代理也能尝试直连 NodeSeek**。
+
+[下载 Android / iOS](https://github.com/weishiair/nodyssey/releases/latest) · [功能与更新](CHANGELOG.md) · [反馈问题](https://github.com/weishiair/nodyssey/issues) · [Telegram 交流群](https://t.me/+JGCIMJmPrj0wZGVh)
+
+[![Release](https://img.shields.io/github/v/release/weishiair/nodyssey?label=Release&color=426b86)](https://github.com/weishiair/nodyssey/releases)
+[![Downloads](https://img.shields.io/github/downloads/weishiair/nodyssey/total?label=Downloads&color=426b86)](https://github.com/weishiair/nodyssey/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/weishiair/nodyssey/ci.yml?branch=main&label=CI&logo=githubactions)](https://github.com/weishiair/nodyssey/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/weishiair/nodyssey?label=License)](LICENSE)
-[![Telegram](https://img.shields.io/badge/Telegram-交流群-26A5E4?logo=telegram&logoColor=white)](https://t.me/+JGCIMJmPrj0wZGVh)
-
-[![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://github.com/weishiair/nodyssey/releases)
-[![Kotlin](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
-[![Compose](https://img.shields.io/badge/Jetpack_Compose-M3_Expressive-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
-
-[![Website](https://img.shields.io/badge/宣传页-nodyssey-2C6E7F?logo=githubpages&logoColor=white)](https://weishiair.github.io/nodyssey/)
-
-<img src="docs/screenshots/post-list-light.png" width="200" alt="帖子列表" />
-<img src="docs/screenshots/post-detail-dark.png" width="200" alt="帖子详情" />
-<img src="docs/screenshots/notifications-light.png" width="200" alt="消息通知" />
-<img src="docs/screenshots/profile-light.png" width="200" alt="我的" />
 
 </div>
 
-## 下载
+> 本项目是 [Nodyssey](https://github.com/5151561/nodyssey) 的非官方分支，与 NodeSeek 官方无关。保留原项目署名，并遵循 GPL-3.0 许可证。
 
-到 [Releases](https://github.com/weishiair/nodyssey/releases) 下载最新 APK，应用内也可以检查更新。各版本变化见 [CHANGELOG.md](CHANGELOG.md)。
+## 界面预览
 
-> **关于 iOS**：本分支同时提供未签名 IPA，需要自行签名后安装；以 Android 优化为主，iOS 功能和网络支持可能不同，尚未进行真机验证。
+| 帖子列表 · 浅色 | 连续阅读 · 浅色 | 帖子列表 · 深色 | 回复卡片 · 深色 |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/readme/feed-light.png" alt="浅色帖子列表" width="220" /> | <img src="docs/screenshots/readme/thread-light.png" alt="浅色帖子详情和连续阅读" width="220" /> | <img src="docs/screenshots/readme/feed-dark.png" alt="深色帖子列表" width="220" /> | <img src="docs/screenshots/readme/thread-dark.png" alt="深色回复卡片" width="220" /> |
 
-## 功能
+<sub>以上为 Android Compose 界面渲染图，使用示例帖子和账号数据，并非实机或 iOS 截图；实际界面可能因设备、设置与版本而有所不同。</sub>
 
-- **浏览与互动**：发帖、评论、编辑；点赞 / 反对 / 投喂鸡腿、收藏、签到；投票帖阅读与投票
-- **消息与社交**：通知与未读数、私信、关注 / 粉丝、用户空间
-- **账号**：鸡腿与星辰流水、星辰转账与收款码、等级进度、账号设置
-- **阅读体验**：离线缓存、已读标记、浏览历史与阅读位置、图片预览 / 保存 / 分享、六种图床上传
-- **帖子排版**：通栏与轻卡片可选，默认轻卡片；保留签名档，作者等级与注册天数默认显示，可在「设置 → 内容」关闭
-- **界面**：Material 3 Expressive，宽屏自动换侧边栏；简体 / 繁體 / English 三语
-- **默认配色**：浅色模式使用纯白，深色模式使用中性黑灰，引用块和悬浮控件分层显示；已有的自选配色继续保留
+## 免代理直连，少一点折腾
 
-## 构建
+Nodyssey 内置加密 DNS（DoH）和 ECH 支持：DoH 通过加密连接解析域名，ECH 在服务端及客户端条件满足时保护 TLS 握手中的域名信息。配合内置的 **Weishiair DoH（ECH）**，可以在部分网络中尝试不使用代理访问 NodeSeek。
 
-需要 JDK 21 和 Android SDK 37。
+**开始使用：**
+
+1. 打开 **设置 → 加密 DNS**（网络一栏），启用加密 DNS。
+2. 选择 **Weishiair DoH（ECH）** 并保存；首次启用时该服务是默认选择，已有用户的设置会保留。
+3. 如要尝试直连，在 **设置 → 代理**（网络一栏） 中确认未启用论坛代理；遇到问题可以打开 **网络自检** 查看连接状态。
+
+> **连接能力取决于网络环境。** DoH/ECH 不是 VPN，也不保证所有网络都能直连；目标 IP 不可达等问题仍可能导致连接失败。应用内代理开启时，走代理的请求不会使用上述直连路径。网页登录和人机验证使用系统 WebView，与原生请求的网络链路不同，不能保证同样使用 DoH/ECH。
+>
+> Android 8–16 使用应用内的 ECH TLS 实现，Android 17 及以上使用系统实现。iOS 原生请求也支持相应的 DoH/ECH 链路，实际效果仍取决于设备与网络。详见 [分支网络说明](docs/ech-fork.md)和 [iOS 网络实现](docs/ios-doh-ech.md)。
+
+## 让阅读更舒服
+
+- **连续阅读**：上下翻页接续回复、楼层定位、记录阅读位置；想回到正文时可以快速返回。
+- **更自在的排版**：回复可选通栏或轻卡片，支持引用、签名档和楼主标记；作者等级与注册天数也可按需关闭。
+- **随心换肤**：纯白与中性深色模式，加上多套预设和自定义主题；阅读字号可以调整。
+- **完整的论坛体验**：浏览、发帖、回复、收藏、投票、签到，以及通知、私信、关注和用户空间。
+- **为日常使用准备**：离线缓存、浏览历史、图片预览与上传、网络自检，以及 NodeSeek / DeepFlood 站点切换。
+
+部分功能和平台支持可能不同，请以应用内实际界面为准。
+
+## 下载与安装
+
+前往 [GitHub Releases](https://github.com/weishiair/nodyssey/releases/latest) 下载最新正式版：
+
+| 平台 | 文件 | 安装说明 |
+| --- | --- | --- |
+| Android 8.0+ | `nodyssey-v版本号.apk` | 使用本分支既有签名；可覆盖升级本分支旧版，保留数据。 |
+| iOS | `nodyssey-v版本号.ipa` | **未签名**，需使用自己的签名方式安装；iOS 功能与网络体验可能和 Android 不同。 |
+| 开发排障 | `mapping-v版本号.txt` | Android 崩溃堆栈反混淆用的对照表，普通用户无需下载。 |
+
+应用内更新仅跟随本分支，不会替换为上游版本。历史版本和更新记录见 [Releases](https://github.com/weishiair/nodyssey/releases) 与 [CHANGELOG.md](CHANGELOG.md)。
+
+## 构建与参与
+
+Android 构建需要 JDK 21 和 Android SDK 37：
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-模块划分和架构约定见 [docs/architecture.md](docs/architecture.md) 与 [docs/README.md](docs/README.md)。
+模块和架构见 [docs/architecture.md](docs/architecture.md) 与 [docs/README.md](docs/README.md)；iOS 构建流程见 [docs/codemagic-ios.md](docs/codemagic-ios.md)。
 
-## 参与
+- 使用中遇到问题？在 [Issues](https://github.com/weishiair/nodyssey/issues/new/choose) 反馈，附上版本、设备和必要的错误信息；**不要公开密码、Cookie 或其他敏感信息**。
+- 欢迎加入 [Telegram 交流群](https://t.me/+JGCIMJmPrj0wZGVh)讨论使用体验和更新。
+- 提交代码前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- 也可以访问项目的 [介绍页](https://weishiair.github.io/nodyssey/)。
 
-- 交流群：[Telegram](https://t.me/+JGCIMJmPrj0wZGVh)，交流 Nodyssey 使用体验、反馈问题与讨论更新；App 内可从「设置 → 关于 Nodyssey → Telegram 交流群」进入。
-- 反馈问题：[Issues](https://github.com/weishiair/nodyssey/issues/new/choose)，请带上 App 版本、机型和 Android 版本
-- 使用帮助：应用内「设置 → 关于 Nodyssey → 使用帮助」；仍有疑问可在本分支 Issues 提问。
-- 提 PR 前请先读 [CONTRIBUTING.md](CONTRIBUTING.md)
+## 致谢与许可证
 
-## 致谢
+- [5151561/nodyssey](https://github.com/5151561/nodyssey)（GPL-3.0）：本分支基于原项目开发。
+- [tyrad/nodeseek](https://github.com/tyrad/nodeseek)（MIT）：iOS 客户端和站点结构的参考。
+- [mrzhiin/seekmate](https://github.com/mrzhiin/seekmate)（MIT）：部分 JSON 端点的发现来源。
+- [Woodll / Nodeseek Pro](https://greasyfork.org/zh-CN/scripts/567109-nodeseek-pro)（GPL-3.0）：作者等级与注册天数标签、等级渐变配色的参考。
+- [edge-smart-doh](https://github.com/1molchuan/edge-smart-doh)：内置 DoH 服务的基础。
 
-- [5151561/nodyssey](https://github.com/5151561/nodyssey)（GPL-3.0）—— 本分支基于此项目开发，保留原项目署名与许可证。
-- [tyrad/nodeseek](https://github.com/tyrad/nodeseek)（iOS 客户端，MIT）—— 站点结构的逆向参考
-- [mrzhiin/seekmate](https://github.com/mrzhiin/seekmate)（React Native 客户端，MIT）—— 部分 JSON 端点的发现来源
-- [Woodll / Nodeseek Pro](https://greasyfork.org/zh-CN/scripts/567109-nodeseek-pro)（GPL-3.0）—— 作者等级与注册天数标签的灵感和等级渐变配色参考。
-
-本分支继承原项目的实现，并在 GPL-3.0 许可下继续改进。
-
-## 说明
-
-本项目与 NodeSeek 官方无关，是社区自制客户端。请求频率保持克制，不做自动化刷分；仓库中不保存任何 Cookie 或凭据。
-
-## 许可
-
-[GPL-3.0](LICENSE)
+本项目遵循 [GPL-3.0](LICENSE) 许可证，感谢所有上游项目与贡献者。
