@@ -107,9 +107,10 @@ Before submitting, run the same gates as `.github/workflows/ci.yml`. After build
   `arm64-v8a` + `armeabi-v7a`, no LeakCanary. The expected size is about 10–12 MB; do not substitute
   an all-ABI Debug APK unless explicitly requested.
 - Check the published stable version and previous test builds before assigning a version. After
-  stable `1.3.4` (89), `1.3.5-test.1` (91), `1.3.5-test.2` (92), `1.3.5-test.3` (93) and
-  `1.3.5-test.4` (94) are built; the next test increments to `1.3.5-test.5` (95). Subsequent tests
-  increment both `-test.N` and Android `versionCode`; never reuse an older code.
+  stable `1.3.4` (89), `1.3.5-test.1` (91), `1.3.5-test.2` (92), `1.3.5-test.3` (93),
+  `1.3.5-test.4` (94) and `1.3.5-test.5` (95) are built; the next test increments to
+  `1.3.5-test.6` (96). Subsequent tests increment both `-test.N` and Android `versionCode`; never
+  reuse an older code.
 - Keep the version in `gradle.properties`, name the artifact `nodyssey-v<versionName>.apk`, and
   publish test tags as GitHub prereleases. Legacy `-dev.N` tags remain supported.
 - The fork's normal install identity is `io.github.nodyssey.debug`, selected with
@@ -203,7 +204,7 @@ are disposable.
   `android` or `docs` (for example `feature/original-thread-layout`). One feature per branch; do not
   mix an Android screen change and an iOS fix unless the user asked for a combined build. Legacy
   names such as `ios/port-wa-fixes` and `codex/terminal-reports` stay.
-- Test snapshots use `test/<versionName>` (`test/1.3.5-test.4`). Cut one from `dev` **after** its
+- Test snapshots use `test/<versionName>` (`test/1.3.5-test.5`). Cut one from `dev` **after** its
   features are merged — or from a combined commit the user explicitly asked for — change only
   `gradle.properties` (both `versionCode` and `versionName`), build, tag `v<versionName>` as a
   GitHub prerelease, and never merge the test branch back. Delete it after publishing if you like;
