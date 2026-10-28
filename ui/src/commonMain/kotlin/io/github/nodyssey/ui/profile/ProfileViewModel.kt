@@ -167,8 +167,21 @@ class ProfileViewModel(
                     }
                 }
                     .onFailure { throwable ->
-                        _uiState.update {
-                            it.copy(isLoading = false, error = throwable.toSiteError())
+                        val error = throwable.toSiteError()
+                        val signedOut =
+                            error == SiteError.LoginRequired || error == SiteError.SessionUnrecognised
+                        if (signedOut && !_uiState.value.hasProfile) {
+                            // The site answered the profile request as a guest while the cookie jar
+                            // still said signed in — a stale session. Showing the login prompt is
+                            // the only actionable screen; a retry on the same cookie cannot succeed.
+                            // Clear the jar off this coroutine because the session collector below
+                            // cancels it on the signed-out transition.
+                            _uiState.value = ProfileUiState()
+                            viewModelScope.launch { session.signOut() }
+                        } else {
+                            _uiState.update {
+                                it.copy(isLoading = false, error = error)
+                            }
                         }
                     }
             }

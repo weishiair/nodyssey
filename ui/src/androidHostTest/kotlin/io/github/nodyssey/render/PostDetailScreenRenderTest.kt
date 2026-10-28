@@ -114,6 +114,24 @@ class PostDetailScreenRenderTest {
     }
 
     @Test
+    fun `the original layout with signature links and quotes`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SIGNED_REPLIES.copy(postReplyStyle = PostReplyStyle.ORIGINAL), pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-original-layout")
+    }
+
+    @Test
+    fun `the original layout in neutral dark`() {
+        composeRule.setContent { Screen(darkTheme = true, state = SIGNED_REPLIES.copy(postReplyStyle = PostReplyStyle.ORIGINAL), pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-original-layout-dark")
+    }
+
+    @Test
+    fun `the original opening post with replies`() {
+        composeRule.setContent { Screen(darkTheme = false, state = SHORT_STATE.copy(postReplyStyle = PostReplyStyle.ORIGINAL), pureWhite = true) }
+        composeRule.onRoot().captureRender("post-detail-original-opening")
+    }
+
+    @Test
     fun `flat replies in dark`() {
         composeRule.setContent { Screen(darkTheme = true, state = SIGNED_REPLIES.copy(postReplyStyle = PostReplyStyle.FLAT), pureWhite = true) }
         composeRule.onRoot().captureRender("post-detail-flat-dark")

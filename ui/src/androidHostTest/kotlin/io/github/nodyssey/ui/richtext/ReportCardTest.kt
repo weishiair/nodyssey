@@ -137,7 +137,7 @@ class ReportCardTest {
     @Test
     fun `a long press inside the full screen original does not cross selection hierarchies`() {
         showCodeBlock(report(), format = ReportFormat.SOURCE)
-        compose.onNodeWithText("全屏查看").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("全屏查看").performClick()
 
         // The banner is in the inline block as well as the dialog; the dialog's is the later node.
         compose.onAllNodes(hasText(BANNER, substring = true)).onLast()

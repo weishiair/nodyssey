@@ -27,10 +27,17 @@ data class AnsiSpan(
  * terminal's. Recovering the stream in the first place is not — a site that cannot put a raw `ESC`
  * in its HTML has to encode it somehow, and that trick belongs to whoever knows the site's markup.
  * So the caller hands this a source string and keeps the recovery to itself.
+ *
+ * The decoder lays the stream out on a terminal screen rather than appending it to a string. The
+ * reports use carriage returns, backspaces and cursor-width CJK to overstrike their bar graphs and
+ * align their tables; dropping those controls (as this used to) left every bar and every value after
+ * one shifted, which read as a rendering bug because it was one. The screen below honours the moves
+ * and rebuilds the final rows, so what is drawn is the screen a terminal would have shown.
  */
 object AnsiDecoder {
 
     private const val ESC = '\u001B'
+    private const val TAB_STOP = 8
 
     /** A CSI sequence runs until the first byte in this range, which also says what it does. */
     private val FINAL_BYTE = '@'..'~'
@@ -41,29 +48,174 @@ object AnsiDecoder {
         val columns: Int,
     )
 
+    /** One written glyph, its width in terminal cells, and the SGR state it was written under. */
+    private data class Cell(
+        val text: String,
+        val width: Int,
+        val style: CellStyle,
+    )
+
+    private data class CellStyle(
+        val fg: Int?,
+        val bg: Int?,
+        val bold: Boolean,
+        val underline: Boolean,
+    ) {
+        val styled: Boolean get() = fg != null || bg != null || bold || underline
+    }
+
+    private val DefaultStyle = CellStyle(fg = null, bg = null, bold = false, underline = false)
+
+    /**
+     * A terminal's rows, cursor and overstrike state.
+     *
+     * A continuation cell of a wide glyph is left as `null`; [Cell.width] on the glyph's first cell
+     * says the next column belongs to it, so a later write can clear both halves before replacing it.
+     */
+    private class Screen {
+        private val rows = mutableListOf<MutableList<Cell?>>()
+        private var row = 0
+        private var col = 0
+
+        init {
+            ensure(row)
+        }
+
+        fun newline() {
+            row++
+            col = 0
+            ensure(row)
+        }
+
+        fun carriageReturn() {
+            col = 0
+        }
+
+        fun backspace() {
+            if (col > 0) col--
+        }
+
+        fun tab() {
+            col = (col / TAB_STOP + 1) * TAB_STOP
+        }
+
+        fun write(text: String, style: CellStyle) {
+            val width = TerminalColumns.widthOf(text)
+            if (width == 0) {
+                appendCombining(text)
+                return
+            }
+            ensure(row)
+            val line = rows[row]
+            // Landing inside a wide glyph clears that glyph as a whole; a half replaced leaves the
+            // other half drawing over the next character.
+            if (col > 0 && line.getOrNull(col - 1)?.width == 2) {
+                line[col - 1] = null
+                if (col < line.size) line[col] = null
+            }
+            clearAt(line, col)
+            if (width == 2) clearAt(line, col + 1)
+            while (line.size < col + width) line.add(null)
+            line[col] = Cell(text, width, style)
+            col += width
+        }
+
+        fun decoded(): Decoded {
+            val builder = StringBuilder()
+            val spans = mutableListOf<AnsiSpan>()
+            var offset = 0
+            var runStart = 0
+            var runStyle = DefaultStyle
+
+            rows.forEachIndexed { rowIndex, line ->
+                val last = line.indexOfLast { it != null }
+                if (last >= 0) {
+                    var column = 0
+                    while (column <= last) {
+                        val cell = line.getOrNull(column)
+                        val style = cell?.style ?: DefaultStyle
+                        if (style != runStyle) {
+                            addRun(spans, runStart, offset, runStyle)
+                            runStart = offset
+                            runStyle = style
+                        }
+                        val content = cell?.text ?: " "
+                        builder.append(content)
+                        offset += content.length
+                        column += cell?.width ?: 1
+                    }
+                }
+                if (rowIndex < rows.lastIndex) {
+                    // A style survives the newline: a report wrapped in one SGR run is one span,
+                    // which is what lets a parser rebase it into a part as a single range.
+                    builder.append('\n')
+                    offset++
+                }
+            }
+            addRun(spans, runStart, offset, runStyle)
+
+            val text = builder.toString().trimEnd()
+            return Decoded(
+                text = text,
+                spans = spans.mapNotNull { span -> span.clampedTo(text.length) },
+                columns = TerminalColumns.widthOf(text),
+            )
+        }
+
+        private fun addRun(
+            spans: MutableList<AnsiSpan>,
+            start: Int,
+            end: Int,
+            style: CellStyle,
+        ) {
+            if (style.styled && end > start) {
+                spans += AnsiSpan(start, end, style.fg, style.bg, style.bold, style.underline)
+            }
+        }
+
+        private fun clearAt(line: MutableList<Cell?>, at: Int) {
+            val cell = line.getOrNull(at) ?: return
+            if (cell.width == 2) {
+                line[at] = null
+                if (at + 1 < line.size) line[at + 1] = null
+            } else {
+                val previous = line.getOrNull(at - 1)
+                if (previous?.width == 2) {
+                    line[at - 1] = null
+                    line[at] = null
+                } else {
+                    line[at] = null
+                }
+            }
+        }
+
+        private fun appendCombining(text: String) {
+            if (col == 0) return
+            val line = rows.getOrNull(row) ?: return
+            val previous = line.getOrNull(col - 1) ?: return
+            line[col - 1] = previous.copy(text = previous.text + text)
+        }
+
+        private fun ensure(at: Int) {
+            while (rows.size <= at) rows.add(mutableListOf())
+        }
+    }
+
     /**
      * Strips the escape sequences and returns what they were saying about the text they enclosed.
      *
-     * Ordinary code goes through this unchanged apart from stray control characters, so there is no
-     * need to know in advance whether a block is a terminal report.
+     * Ordinary code goes through the same screen, which is why it stays unchanged: it has no
+     * controls to honour and no wide glyphs unless it contains CJK.
      */
     fun decode(source: String): Decoded {
-        val text = StringBuilder(source.length)
-        val spans = mutableListOf<AnsiSpan>()
+        val screen = Screen()
 
         var fg: Int? = null
         var bg: Int? = null
         var bold = false
         var underline = false
-        var runStart = 0
 
-        fun closeRun() {
-            val end = text.length
-            if (end > runStart && (fg != null || bg != null || bold || underline)) {
-                spans += AnsiSpan(runStart, end, fg, bg, bold, underline)
-            }
-            runStart = end
-        }
+        fun style() = CellStyle(fg = fg, bg = bg, bold = bold, underline = underline)
 
         fun applySgr(parameters: String) {
             // `ESC[m` is `ESC[0m`, and so is any parameter we cannot read.
@@ -115,35 +267,46 @@ object AnsiDecoder {
                     if (end >= source.length) break
 
                     if (source[end] == 'm') {
-                        closeRun()
                         applySgr(source.substring(index + 2, end))
                     }
                     index = end + 1
                 }
 
-                char == '\n' || char == '\t' -> {
-                    text.append(char)
+                char == '\n' -> {
+                    screen.newline()
                     index++
                 }
 
-                // Backspace, carriage return and the rest are overstrike instructions a Compose
-                // text layout cannot honour; drawn literally they are worse than absent.
+                char == '\r' -> {
+                    screen.carriageReturn()
+                    index++
+                }
+
+                char == '\b' -> {
+                    screen.backspace()
+                    index++
+                }
+
+                char == '\t' -> {
+                    screen.tab()
+                    index++
+                }
+
                 char.code < 0x20 || char.code == 0x7F -> index++
 
                 else -> {
-                    text.append(char)
-                    index++
+                    val pair =
+                        char.isHighSurrogate() &&
+                            index + 1 < source.length &&
+                            source[index + 1].isLowSurrogate()
+                    val text = if (pair) source.substring(index, index + 2) else char.toString()
+                    screen.write(text, style())
+                    index += text.length
                 }
             }
         }
-        closeRun()
 
-        val trimmed = text.toString().trimEnd()
-        return Decoded(
-            text = trimmed,
-            spans = spans.mapNotNull { span -> span.clampedTo(trimmed.length) },
-            columns = TerminalColumns.widthOf(trimmed),
-        )
+        return screen.decoded()
     }
 
     private fun AnsiSpan.clampedTo(length: Int): AnsiSpan? = when {

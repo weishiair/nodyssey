@@ -7,7 +7,7 @@
 - 从 1.3.0 起，应用名统一为 `Nodyssey`，版本号使用 `1.3.0` 这样的常规格式，不再附加 ECH；ECH 继续作为加密 DNS 与 TLS 功能提供。
 - 包名 `io.github.nodyssey.debug`，可与官方版共存。沿用旧 ECH 版本的同一包名和签名，可直接覆盖升级并保留数据。
 - Android 8–16 使用内置 Conscrypt，Android 17 及以上使用系统 ECH。
-- 提供纯白及清爽蓝、薄荷绿、暖米色、柔雾紫主题，纯白为默认配色，深色模式对应中性黑灰；帖子支持通栏与轻卡片，默认轻卡片，引用块和悬浮控件单独分层，保留签名档与连续阅读。已有的自选配色继续保留。Release 包不包含 LeakCanary。
+- 提供纯白及清爽蓝、薄荷绿、暖米色、柔雾紫主题，纯白为默认配色，深色模式对应中性黑灰；帖子支持通栏、轻卡片与官方原版，默认轻卡片，引用块和悬浮控件单独分层，保留签名档与连续阅读。已有的自选配色继续保留。Release 包不包含 LeakCanary。
 - 「设置 → 内容」可切换回复样式、关闭作者等级与注册天数；账号信息默认显示，读取时有加载动画，关闭后不再补查作者资料。
 
 ## 内置 DoH
@@ -24,6 +24,27 @@
 
 应用只从 `https://weishiair.github.io/nodyssey/` 的静态清单获取更新和更新日志，下载地址仅允许 `weishiair/nodyssey` 的 GitHub Release，下载后验证 SHA-256。
 
-升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。测试版使用 `1.3.3-dev.1` 这样的格式，正式版使用 `1.3.2` 这样的格式。
+升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。正式版 `1.3.5` 使用 Android versionCode 100，先前测试构建已分配至 99；下一次测试使用 `1.3.6-test.1`（101）。后续测试递增 `test.N` 和 versionCode，正式版使用 `1.3.5` 这样的格式；旧 `-dev.N` 版本继续兼容。
 
-新版本发布包含签名 APK 的 `v1.3.2` GitHub Release，APK 使用 `nodyssey-v1.3.2.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
+新版本发布包含签名 APK 的 `v1.3.5` GitHub Release，APK 使用 `nodyssey-v1.3.5.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
+
+## Android 打包约定
+
+日常测试同样交付 Release APK，开启 R8 与资源压缩，只包含 `arm64-v8a` 和 `armeabi-v7a`，不包含 LeakCanary，体积通常约 10–12 MB。版本号统一取自 `gradle.properties`，不要沿用已发布的正式版号或仅改 APK 文件名。
+
+```powershell
+.\gradlew.bat :app:assembleRelease '-Pnodyssey.echRelease=true'
+```
+
+签名通过 `NODYSSEY_KEYSTORE_FILE`、`NODYSSEY_KEYSTORE_PASSWORD`、`NODYSSEY_KEY_ALIAS`、`NODYSSEY_KEY_PASSWORD` 注入，沿用本分支既有证书和 `io.github.nodyssey.debug` 包名，以便覆盖安装并保留数据。缺少密钥时上述命令生成未签名包，不能作为可安装包交付，也不自动改成临时包名或其他签名。
+
+交付前用 SDK 的 `aapt2 dump badging` 与 `apksigner verify --print-certs` 核对版本号、versionCode、包名、ARM 架构、非调试状态和签名，再核对大小；文件名使用 `nodyssey-v1.3.5-test.1.apk` 这样的格式。构建后执行 `.\gradlew.bat --stop`。正式发布才创建 `v1.3.5`；测试发布创建 `v1.3.5-test.1` 并标为 prerelease。
+
+本机 Windows 签名库固定存放在用户目录的 `.nodyssey/signing/release.keystore`，与仓库、桌面临时文件分开。四个签名变量保存在当前 Windows 用户的环境中。已经运行的终端或 AI 进程需要先加载用户环境，再执行打包命令：
+
+```powershell
+. "$env:USERPROFILE\.nodyssey\signing\load-signing.ps1"
+.\gradlew.bat :app:assembleRelease '-Pnodyssey.echRelease=true'
+```
+
+既有发布证书 SHA-256 为 `71218866231eae5bf61a1192b2df0180d6d65d55e6aa08f0e52176dbcad197f8`。证书显示名称为 `Android Debug`，辨认时以指纹为准。签名库和密码应另外保存到受保护的备份位置，不能提交到 Git。

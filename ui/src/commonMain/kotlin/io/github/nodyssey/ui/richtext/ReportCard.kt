@@ -2,7 +2,9 @@ package io.github.nodyssey.ui.richtext
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -13,15 +15,20 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,8 +44,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import io.github.nodyssey.core.report.HARDWARE_TOTAL_SCORE_COLUMN
 import io.github.nodyssey.core.report.QualityReport
 import io.github.nodyssey.data.settings.ReportCompareEntry
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
@@ -50,7 +58,9 @@ import io.github.nodyssey.ui.resources.action_expand
 import io.github.nodyssey.ui.resources.report_compare_add
 import io.github.nodyssey.ui.resources.report_compare_open
 import io.github.nodyssey.ui.resources.report_compare_remove
+import io.github.nodyssey.ui.resources.report_score_rank
 import io.github.nodyssey.ui.resources.report_show_source
+import io.github.nodyssey.ui.resources.report_total_score
 import io.github.plaza.designsys.component.SpecRow
 import io.github.plaza.designsys.component.SpecTable
 import io.github.plaza.designsys.component.TonalTag
@@ -90,14 +100,17 @@ fun ReportCard(
 ) {
     var expanded by rememberSaveable(report.title, report.target) { mutableStateOf(true) }
 
+    val summary = remember(report) { report.scoreSummary() }
+
     Column(
         modifier =
         modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            // Recessed into the floor's card, the way a code block is: the inset layer, which in
-            // dark mode is darker than the card rather than a tone that vanishes into it.
-            .background(LocalPlazaLayers.current.inset),
+            .clip(RoundedCornerShape(16.dp))
+            // A document on the page rather than a recessed slab: the report is the content the
+            // reader came for, and the summary and sections need a surface that can carry a border.
+            .background(LocalPlazaLayers.current.card)
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(16.dp)),
     ) {
         ReportHeader(
             report = report,
@@ -115,11 +128,12 @@ fun ReportCard(
                         top = Spacing.md,
                         bottom = Spacing.sm,
                     ),
-                    // md rather than lg: the sections' own type dropped to 13sp, and the old gap
-                    // read as a break between cards rather than between sections of one card.
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
-                    report.sections.forEach { ReportSection(it) }
+                    summary?.let { ScoreHero(it) }
+                    report.sections
+                        .filterNot { it.title == summary?.sectionTitle }
+                        .forEach { ReportSection(it) }
                     if (report.footnotes.isNotEmpty()) Footnotes(report.footnotes)
                 }
                 CardActions(report = report, onShowSource = onShowSource)
@@ -127,6 +141,116 @@ fun ReportCard(
         }
     }
 }
+
+/** The score table a hardware report ends with, lifted into a hero above the details. */
+private data class ScoreSummary(
+    val total: String,
+    val rank: String?,
+    val metrics: List<Metric>,
+    val sectionTitle: String,
+) {
+    data class Metric(val label: String, val score: String, val rank: String?)
+}
+
+private fun QualityReport.scoreSummary(): ScoreSummary? {
+    val section =
+        sections.firstOrNull { section ->
+            section.blocks.any { it is QualityReport.Block.Table && it.columns.firstOrNull() == HARDWARE_TOTAL_SCORE_COLUMN }
+        } ?: return null
+    val table =
+        section.blocks
+            .filterIsInstance<QualityReport.Block.Table>()
+            .firstOrNull { it.columns.firstOrNull() == HARDWARE_TOTAL_SCORE_COLUMN } ?: return null
+    val scores = table.rows.getOrNull(0)?.cells.orEmpty()
+    val ranks = table.rows.getOrNull(1)?.cells.orEmpty()
+    val total = scores.getOrNull(0)?.text ?: return null
+    return ScoreSummary(
+        total = total,
+        rank = ranks.getOrNull(0)?.text,
+        metrics =
+        table.columns.drop(1).mapIndexed { index, label ->
+            ScoreSummary.Metric(
+                label = label,
+                score = scores.getOrNull(index + 1)?.text ?: "—",
+                rank = ranks.getOrNull(index + 1)?.text,
+            )
+        },
+        sectionTitle = section.title,
+    )
+}
+
+@Composable
+private fun ScoreHero(summary: ScoreSummary) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = LocalPlazaLayers.current.inset,
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.report_total_score),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = summary.total.groupDigits(),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = TABULAR_FIGURES),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                summary.rank?.let { rank ->
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.report_score_rank, rank),
+                            style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = TABULAR_FIGURES),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                summary.metrics.forEach { metric ->
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = metric.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = metric.score.groupDigits(),
+                            style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = TABULAR_FIGURES),
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                        )
+                        metric.rank?.let { rank ->
+                            Text(
+                                text = rank,
+                                style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = TABULAR_FIGURES),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Splits a plain score into terminal-readable groups; percentages and `N/A` pass through. */
+private fun String.groupDigits(): String =
+    if (length > 3 && all { it.isDigit() }) reversed().chunked(3).joinToString(",").reversed() else this
 
 @Composable
 private fun ReportHeader(
@@ -147,7 +271,8 @@ private fun ReportHeader(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = report.title,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 report.target?.let { target ->
@@ -199,11 +324,22 @@ private fun ReportHeader(
 private fun ReportSection(section: QualityReport.Section) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         if (section.title.isNotBlank()) {
-            Text(
-                text = section.title,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .height(14.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                )
+                Text(
+                    text = section.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(start = Spacing.sm),
+                )
+            }
         }
         section.blocks.forEach { block ->
             when (block) {
@@ -350,8 +486,8 @@ private fun ReportTable(table: QualityReport.Block.Table) {
             )
         },
         labelMinWidth = LABEL_WIDTH,
-        // The report is already the recessed layer; a table on it steps back up to the card.
-        containerColor = LocalPlazaLayers.current.card,
+        // The report is the card; a table steps back down to the inset layer.
+        containerColor = LocalPlazaLayers.current.inset,
     )
 }
 
@@ -413,13 +549,6 @@ private fun CardActions(
         }
     }
 }
-
-internal val ReportTerminalStyle =
-    androidx.compose.ui.text.TextStyle(
-        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-        fontSize = 12.sp,
-        lineHeight = 18.sp,
-    )
 
 /**
  * The width a field row reserves for its label before the value starts.

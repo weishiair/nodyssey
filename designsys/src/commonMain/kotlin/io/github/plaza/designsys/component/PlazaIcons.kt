@@ -298,6 +298,16 @@ object PlazaIcons {
         )
     }
 
+    /** Opens a full-screen viewer; distinct from leaving the app through OpenInNew. */
+    val Fullscreen: ImageVector by lazy {
+        materialIcon(
+            name = "Fullscreen",
+            pathData =
+            "M7,14H5v5h5v-2H7v-3zM5,10h2V7h3V5H5v5z" +
+                "M17,17h-3v2h5v-5h-2v3zM14,5v2h3v3h2V5h-5z",
+        )
+    }
+
     /** Leaves the app for the site. */
     val OpenInNew: ImageVector by lazy {
         materialIcon(

@@ -101,6 +101,33 @@ The project requires JDK 21 and Android SDK 37. Use the checked-in Gradle wrappe
 
 Before submitting, run the same gates as `.github/workflows/ci.yml`. After builds, run `./gradlew --stop` so Gradle daemons do not remain in memory.
 
+### Android packaging preferences
+
+- A request to build an APK means the optimized **Release** APK: R8 and resource shrinking on,
+  `arm64-v8a` + `armeabi-v7a`, no LeakCanary. The expected size is about 10–12 MB; do not substitute
+  an all-ABI Debug APK unless explicitly requested.
+- Check the published stable version and previous test builds before assigning a version. After
+  stable `1.3.4` (89), `1.3.5-test.1` (91), `1.3.5-test.2` (92), `1.3.5-test.3` (93),
+  `1.3.5-test.4` (94), `1.3.5-test.5` (95), the iOS tests `1.3.5-ios-test.1` (96),
+  `1.3.5-ios-test.2` (97), `1.3.5-ios-test.3` (98) and `1.3.5-ios-test.4` (99) are assigned.
+  Stable `1.3.5` uses 100; the next test is `1.3.6-test.1` (101).
+  Subsequent tests increment both `-test.N` and Android `versionCode`; never reuse an older code.
+- Keep the version in `gradle.properties`, name the artifact `nodyssey-v<versionName>.apk`, and
+  publish test tags as GitHub prereleases. Legacy `-dev.N` tags remain supported.
+- The fork's normal install identity is `io.github.nodyssey.debug`, selected with
+  `-Pnodyssey.echRelease=true`, and its existing signing key. Do not silently replace either with
+  a temporary package ID or another certificate. If the matching key is unavailable, explain that
+  limitation; an unsigned APK is not an installable deliverable.
+- On the configured Windows machine, keep the signing files outside the checkout under
+  `%USERPROFILE%\.nodyssey\signing`. The four signing variables are saved in the Windows user's
+  environment. If an already running terminal or agent has not inherited them, dot-source
+  `$env:USERPROFILE\.nodyssey\signing\load-signing.ps1` before invoking Gradle. Never print passwords.
+- The published signing certificate's SHA-256 is
+  `71218866231eae5bf61a1192b2df0180d6d65d55e6aa08f0e52176dbcad197f8`.
+  Compare fingerprints rather than the certificate's `Android Debug` display name.
+- Before delivery, inspect the APK's version, application ID, ABIs, non-debuggable flag, signature
+  and actual size. See `docs/ech-fork.md` for the build command.
+
 ## Dependencies & Official APIs
 
 `gradle/libs.versions.toml` is the single source of truth for every version, and it is kept current
@@ -173,12 +200,12 @@ are disposable.
   Never put a test version bump on `main`.
 - `dev` is the integration line for the next release. Feature and fix branches merge here, and test
   snapshots are cut from here. Keep its `gradle.properties` at the last stable version
-  (`1.3.4 / 89` until a release) — the test branch owns the bump.
+  (`1.3.5 / 100` after this release) — the test branch owns the bump.
 - Feature and fix branches use `<type>/<slug>`, with `type` one of `feature`, `fix`, `ios`,
   `android` or `docs` (for example `feature/original-thread-layout`). One feature per branch; do not
   mix an Android screen change and an iOS fix unless the user asked for a combined build. Legacy
   names such as `ios/port-wa-fixes` and `codex/terminal-reports` stay.
-- Test snapshots use `test/<versionName>` (`test/1.3.5-test.2`). Cut one from `dev` **after** its
+- Test snapshots use `test/<versionName>` (`test/1.3.5-test.5`). Cut one from `dev` **after** its
   features are merged — or from a combined commit the user explicitly asked for — change only
   `gradle.properties` (both `versionCode` and `versionName`), build, tag `v<versionName>` as a
   GitHub prerelease, and never merge the test branch back. Delete it after publishing if you like;

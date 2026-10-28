@@ -10,6 +10,11 @@ on:
         type: choice
         options: [all, android, ios]
         default: all
+      ios_runner:
+        description: iOS build host (Intel can build arm64 apps but cannot run ARM Mac tests)
+        type: choice
+        options: [macos-15, macos-26, macos-15-intel]
+        default: macos-15
 
 permissions:
   contents: read
@@ -125,10 +130,24 @@ jobs:
 
   ios:
     if: inputs.platform != 'android'
-    runs-on: macos-15
+    runs-on: ${{ inputs.ios_runner || 'macos-15' }}
     timeout-minutes: 90
+    env:
+      # macos-15 defaults to Xcode 16.4 / SDK 18.5. That keeps the legacy tab bar even on iOS 26+.
+      # This Xcode is installed on all three selectable runner images.
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
+      - name: Verify the Xcode and iOS SDK for Liquid Glass
+        shell: bash
+        run: |
+          test -d "$DEVELOPER_DIR"
+          xcodebuild -version
+          sdk_version=$(xcrun --sdk iphoneos --show-sdk-version)
+          if [[ ! "$sdk_version" =~ ^([0-9]+)\. ]] || (( ${BASH_REMATCH[1]} < 26 )); then
+            echo "::error::Liquid Glass requires linking with iOS SDK 26 or newer; selected $sdk_version."
+            exit 1
+          fi
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -139,8 +158,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: konan-${{ runner.os }}-
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
       - uses: gradle/actions/setup-gradle@v5
         with:
           cache-read-only: false
@@ -169,7 +188,13 @@ jobs:
           echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
           echo "BUILD_CODE=$code" >> "$GITHUB_ENV"
       - name: Run common tests on Kotlin Native
+        if: runner.arch == 'ARM64'
         run: ./gradlew :shared:macosArm64Test --max-workers=2
+      - name: Run common tests on the JVM for the Intel fallback
+        if: runner.arch == 'X64'
+        run: |
+          echo '::notice::Intel fallback: macosArm64Test cannot execute on this host. Running shared JVM tests; the iOS arm64 targets are still compiled below.'
+          ./gradlew :shared:jvmTest --max-workers=2
       - name: Build the unsigned iPhone app
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8"
@@ -198,13 +223,20 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" = 'io.github.nodyssey'
           executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
           test "$(lipo -archs "$app/$executable")" = 'arm64'
+          sdk_name=$(/usr/libexec/PlistBuddy -c 'Print DTSDKName' "$app/Info.plist")
+          [[ "$sdk_name" =~ ^iphoneos([0-9]+)\. ]]
+          (( ${BASH_REMATCH[1]} >= 26 ))
           mkdir -p "$RUNNER_TEMP/Payload" "$RUNNER_TEMP/ios-test-dist"
+          xcrun vtool -show-build "$app/$executable" > "$RUNNER_TEMP/ios-test-dist/binary-platform.txt"
+          grep -Eq '^[[:space:]]*platform IOS$' "$RUNNER_TEMP/ios-test-dist/binary-platform.txt"
+          binary_sdk=$(awk '$1 == "sdk" { print $2 }' "$RUNNER_TEMP/ios-test-dist/binary-platform.txt")
+          (( ${binary_sdk%%.*} >= 26 ))
           cp -R "$app" "$RUNNER_TEMP/Payload/"
           name="nodyssey-$BUILD_VERSION.ipa"
           (cd "$RUNNER_TEMP" && zip -qry "ios-test-dist/$name" Payload)
           unzip -t "$RUNNER_TEMP/ios-test-dist/$name" > "$RUNNER_TEMP/ipa-zip-check.txt"
           printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/ios-test-dist/source-commit.txt"
-          printf 'version=%s\nbuild=%s\nsigning=unsigned\n' "$BUILD_VERSION" "$BUILD_CODE" > "$RUNNER_TEMP/ios-test-dist/build-info.txt"
+          printf 'version=%s\nbuild=%s\nsigning=unsigned\nsdk=%s\n' "$BUILD_VERSION" "$BUILD_CODE" "$sdk_name" > "$RUNNER_TEMP/ios-test-dist/build-info.txt"
           (cd "$RUNNER_TEMP/ios-test-dist" && shasum -a 256 "$name" > SHA256SUMS.txt)
       - name: Upload the unsigned IPA
         uses: actions/upload-artifact@v7

@@ -42,7 +42,7 @@ Nodyssey 内置加密 DNS（DoH）和 ECH 支持：DoH 通过加密连接解析�
 ## 让阅读更舒服
 
 - **连续阅读**：上下翻页接续回复、楼层定位、记录阅读位置；想回到正文时可以快速返回。
-- **更自在的排版**：回复可选通栏或轻卡片，支持引用、签名档和楼主标记；作者等级与注册天数也可按需关闭。
+- **更自在的排版**：回复可选通栏、轻卡片或官方原版，支持引用、签名档和楼主标记；作者等级与注册天数也可按需关闭。
 - **随心换肤**：纯白与中性深色模式，加上多套预设和自定义主题；阅读字号可以调整。
 - **完整的论坛体验**：浏览、发帖、回复、收藏、投票、签到，以及通知、私信、关注和用户空间。
 - **为日常使用准备**：离线缓存、浏览历史、图片预览与上传、网络自检，以及 NodeSeek / DeepFlood 站点切换。
@@ -69,7 +69,7 @@ Android 构建需要 JDK 21 和 Android SDK 37：
 ./gradlew :app:assembleDebug
 ```
 
-模块和架构见 [docs/architecture.md](docs/architecture.md) 与 [docs/README.md](docs/README.md)；iOS 构建流程见 [docs/codemagic-ios.md](docs/codemagic-ios.md)。
+模块和架构见 [docs/architecture.md](docs/architecture.md) 与 [docs/README.md](docs/README.md)；iOS 构建流程见 [docs/ios-build.md](docs/ios-build.md)。
 
 - 使用中遇到问题？在 [Issues](https://github.com/weishiair/nodyssey/issues/new/choose) 反馈，附上版本、设备和必要的错误信息；**不要公开密码、Cookie 或其他敏感信息**。
 - 欢迎加入 [Telegram 交流群](https://t.me/+JGCIMJmPrj0wZGVh)讨论使用体验和更新。

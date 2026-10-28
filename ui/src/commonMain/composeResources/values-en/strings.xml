@@ -27,7 +27,15 @@
     <string name="action_expand">Expand</string>
     <string name="action_collapse">Collapse</string>
     <string name="report_show_source">See the raw report</string>
+    <string name="report_total_score">Total score</string>
+    <string name="report_score_rank">Rank %1$s</string>
     <string name="report_open_fullscreen">Full screen</string>
+    <string name="report_zoom_fit">Fit width</string>
+    <string name="report_zoom_hint">Pinch to zoom · Swipe sideways to read</string>
+    <string name="report_zoom_in">Zoom in on report</string>
+    <string name="report_zoom_out">Zoom out of report</string>
+    <string name="report_zoom_actual_size">Restore original text size</string>
+    <string name="report_zoom_percent">%1$d%%</string>
     <string name="report_compare_add">Add to compare</string>
     <string name="report_compare_remove">Remove from compare</string>
     <string name="report_compare_open">Compare (%1$d)</string>
@@ -132,14 +140,14 @@
     <string name="composer_emoji_group_chick">Little Yellow Chick</string>
     <string name="composer_emoji_stickers_pending">The forum stickers are not wired up yet — the two emoji groups below are what there is</string>
 
-    <string name="post_comments_header">%1$d replies loaded</string>
+    <string name="post_comments_header">Comments · %1$d</string>
     <string name="post_body_empty">This post has no body</string>
     <string name="post_open_original">See the body</string>
     <string name="post_comments_empty">Nobody has replied yet</string>
     <string name="post_comments_empty_hint">Be the first — though v1 is still read-only</string>
     <string name="post_link_copied">Link copied</string>
     <string name="post_code_copied">Code copied</string>
-    <string name="post_auto_paging">Auto-load both ways</string>
+    <string name="post_auto_paging">Auto-load</string>
     <string name="post_load_previous">Load previous · Page %1$d</string>
     <string name="post_loading_previous">Loading page %1$d…</string>
     <string name="post_new_replies_divider">New replies</string>
@@ -380,8 +388,8 @@
     <string name="settings_app_links_summary_on">Opens in the app</string>
     <string name="settings_app_links_summary_off">Opens in the browser</string>
     <string name="settings_report_format">Benchmark reports</string>
-    <string name="settings_report_format_adapted">Laid out</string>
-    <string name="settings_report_format_source">As posted</string>
+    <string name="settings_report_format_adapted">Data cards</string>
+    <string name="settings_report_format_source">Terminal</string>
     <string name="settings_home_page_bar">Page bar on home</string>
     <string name="settings_home_page_bar_hint">Shows the page number at the bottom right of home</string>
     <string name="settings_clipboard_post">Detect copied post links</string>
@@ -1671,6 +1679,7 @@
     <string name="settings_post_reply_style_hint">Choose the layout for reading replies</string>
     <string name="settings_post_reply_style_flat">Full width</string>
     <string name="settings_post_reply_style_cards">Light cards</string>
+    <string name="settings_post_reply_style_original">Original</string>
     <string name="settings_show_author_account_info">Show account age</string>
     <string name="settings_show_author_account_info_hint">Show author levels and account age on posts and replies</string>
     <string name="sign_in_diagnostics">View sign-in diagnostics</string>

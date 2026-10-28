@@ -51,10 +51,29 @@ class AnsiDecoderTest {
         assertTrue(span.underline)
     }
 
-    /** Reports use backspace to overstrike their bar graphs; a text layout cannot honour it. */
+    /** Reports use carriage return and backspace to overstrike their bar graphs. */
     @Test
-    fun `drops control characters that are not newline or tab`() {
-        assertEquals("945|", AnsiDecoder.decode("945\r|").text)
+    fun `honours carriage return and backspace overstrikes`() {
+        assertEquals("|45", AnsiDecoder.decode("945\r|").text)
+        assertEquals("94|", AnsiDecoder.decode("945\b|").text)
+        assertEquals("aXc", AnsiDecoder.decode("abc\b\bX").text)
+    }
+
+    @Test
+    fun `overstriking a CJK glyph clears both of its cells`() {
+        assertEquals("机XX", AnsiDecoder.decode("机房\b\bXX").text)
+    }
+
+    @Test
+    fun `overstriking replaces the colour of the cell it covers`() {
+        val decoded = AnsiDecoder.decode("$ESC[31mab$ESC[0m\b$ESC[32mc")
+
+        assertEquals("ac", decoded.text)
+        assertEquals(2, decoded.spans.size)
+        assertEquals(0 to 1, decoded.spans[0].start to decoded.spans[0].end)
+        assertEquals(1, decoded.spans[0].fg)
+        assertEquals(1 to 2, decoded.spans[1].start to decoded.spans[1].end)
+        assertEquals(2, decoded.spans[1].fg)
     }
 
     @Test
@@ -68,11 +87,17 @@ class AnsiDecoderTest {
     }
 
     @Test
-    fun `leaves ordinary code alone`() {
+    fun `leaves ordinary code alone apart from tab stops`() {
         val decoded = AnsiDecoder.decode("curl -sL https://example.invalid/x.sh | bash\n\tindented")
 
-        assertEquals("curl -sL https://example.invalid/x.sh | bash\n\tindented", decoded.text)
+        assertEquals("curl -sL https://example.invalid/x.sh | bash\n        indented", decoded.text)
         assertTrue(decoded.spans.isEmpty())
+    }
+
+    @Test
+    fun `moves a tab to the next eight-column stop`() {
+        assertEquals("a       b", AnsiDecoder.decode("a\tb").text)
+        assertEquals("ab      c", AnsiDecoder.decode("ab\tc").text)
     }
 
     @Test

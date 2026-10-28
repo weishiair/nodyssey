@@ -97,6 +97,7 @@ import io.github.nodyssey.ui.resources.settings_post_reply_style
 import io.github.nodyssey.ui.resources.settings_post_reply_style_cards
 import io.github.nodyssey.ui.resources.settings_post_reply_style_flat
 import io.github.nodyssey.ui.resources.settings_post_reply_style_hint
+import io.github.nodyssey.ui.resources.settings_post_reply_style_original
 import io.github.nodyssey.ui.resources.settings_predictive_back
 import io.github.nodyssey.ui.resources.settings_predictive_back_hint
 import io.github.nodyssey.ui.resources.settings_proxy_entry
@@ -464,10 +465,9 @@ fun SettingsScreen(
                     title = stringResource(Res.string.settings_post_reply_style),
                     subtitle = stringResource(Res.string.settings_post_reply_style_hint),
                 ) {
-                    ChoiceSegments(
-                        labels = listOf(stringResource(Res.string.settings_post_reply_style_flat), stringResource(Res.string.settings_post_reply_style_cards)),
-                        selectedIndex = if (state.settings.postReplyStyle == PostReplyStyle.FLAT) 0 else 1,
-                        onSelect = { onPostReplyStyleChange(if (it == 0) PostReplyStyle.FLAT else PostReplyStyle.CARDS) },
+                    ConnectedPostReplyStyleButtons(
+                        selected = state.settings.postReplyStyle,
+                        onSelected = onPostReplyStyleChange,
                     )
                 }
                 GroupedRow(
@@ -832,8 +832,30 @@ private fun ConnectedReportFormatButtons(
 ) {
     val choices =
         listOf(
-            ReportFormat.ADAPTED to stringResource(Res.string.settings_report_format_adapted),
             ReportFormat.SOURCE to stringResource(Res.string.settings_report_format_source),
+            ReportFormat.ADAPTED to stringResource(Res.string.settings_report_format_adapted),
+        )
+    ChoiceSegments(
+        labels = choices.map { it.second },
+        selectedIndex = choices.indexOfFirst { it.first == selected },
+        onSelect = { onSelected(choices[it].first) },
+    )
+}
+
+/**
+ * 通栏 / 轻卡片 / 原版, in the order the app has offered them: the two layouts added in 1.3.4 first,
+ * then the upstream thread layout. [PostReplyStyle.CARDS] is still the default.
+ */
+@Composable
+private fun ConnectedPostReplyStyleButtons(
+    selected: PostReplyStyle,
+    onSelected: (PostReplyStyle) -> Unit,
+) {
+    val choices =
+        listOf(
+            PostReplyStyle.FLAT to stringResource(Res.string.settings_post_reply_style_flat),
+            PostReplyStyle.CARDS to stringResource(Res.string.settings_post_reply_style_cards),
+            PostReplyStyle.ORIGINAL to stringResource(Res.string.settings_post_reply_style_original),
         )
     ChoiceSegments(
         labels = choices.map { it.second },
