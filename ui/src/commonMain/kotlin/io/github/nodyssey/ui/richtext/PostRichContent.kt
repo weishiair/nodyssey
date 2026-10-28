@@ -1,5 +1,7 @@
 package io.github.nodyssey.ui.richtext
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +20,7 @@ import io.github.plaza.designsys.richtext.RichContent
 import io.github.plaza.designsys.richtext.StardustReceiveCard
 import io.github.plaza.designsys.richtext.VotePlaceholderCard
 import io.github.plaza.designsys.theme.PostBody
+import io.github.plaza.designsys.theme.Spacing
 
 /**
  * [RichContent] with the one thing NodeSeek adds to a code block: benchmark reports.
@@ -84,13 +87,20 @@ fun PostRichContent(
  */
 @Composable
 private fun CodeOrReport(node: RichNode.CodeBlock) {
-    val report = remember(node) { QualityReportParser.parse(node.code, node.spans) }
-    if (report == null) {
+    val parts = remember(node) { QualityReportParser.parseAll(node.code, node.spans) }
+    if (parts.isEmpty()) {
         CodeBlockView(node)
         return
     }
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        parts.forEach { part -> ReportPart(part) }
+    }
+}
 
-    var showingSource by rememberSaveable(node.code) { mutableStateOf(false) }
+@Composable
+private fun ReportPart(part: QualityReportParser.Part) {
+    val report = part.report
+    var showingSource by rememberSaveable(part.source) { mutableStateOf(false) }
 
     when (LocalReportFormat.current) {
         ReportFormat.ADAPTED -> ReportCard(report = report, onShowSource = { showingSource = true })
@@ -98,9 +108,9 @@ private fun CodeOrReport(node: RichNode.CodeBlock) {
         ReportFormat.SOURCE ->
             ReportSourceBlock(
                 title = report.title,
-                source = node.code,
-                spans = node.spans,
-                columns = node.columns,
+                target = report.target,
+                source = part.source,
+                spans = part.spans,
                 onExpand = { showingSource = true },
             )
     }
@@ -108,9 +118,9 @@ private fun CodeOrReport(node: RichNode.CodeBlock) {
     if (showingSource) {
         ReportSourceDialog(
             title = report.title,
-            source = node.code,
-            spans = node.spans,
-            columns = node.columns,
+            target = report.target,
+            source = part.source,
+            spans = part.spans,
             onDismiss = { showingSource = false },
         )
     }

@@ -38,7 +38,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.nodyssey.core.report.QualityReport
 import io.github.nodyssey.data.settings.ReportCompareEntry
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
@@ -413,13 +412,6 @@ private fun CardActions(
         }
     }
 }
-
-internal val ReportTerminalStyle =
-    androidx.compose.ui.text.TextStyle(
-        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-        fontSize = 12.sp,
-        lineHeight = 18.sp,
-    )
 
 /**
  * The width a field row reserves for its label before the value starts.

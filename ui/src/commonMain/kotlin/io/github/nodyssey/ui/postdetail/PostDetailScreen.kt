@@ -48,6 +48,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
@@ -85,6 +86,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -104,6 +106,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.ThreadPreview
 import io.github.nodyssey.core.NodeSeekSite
@@ -157,6 +160,7 @@ import io.github.nodyssey.ui.resources.post_author_empty
 import io.github.nodyssey.ui.resources.post_author_replies
 import io.github.nodyssey.ui.resources.post_author_scan
 import io.github.nodyssey.ui.resources.post_author_scan_retry
+import io.github.nodyssey.ui.resources.post_auto_paging
 import io.github.nodyssey.ui.resources.post_badge_awarded
 import io.github.nodyssey.ui.resources.post_badge_original_poster
 import io.github.nodyssey.ui.resources.post_body_copied
@@ -166,6 +170,7 @@ import io.github.nodyssey.ui.resources.post_collected_action
 import io.github.nodyssey.ui.resources.post_comment_blocked
 import io.github.nodyssey.ui.resources.post_comment_blocked_show
 import io.github.nodyssey.ui.resources.post_comments_empty
+import io.github.nodyssey.ui.resources.post_comments_header
 import io.github.nodyssey.ui.resources.post_copy_body
 import io.github.nodyssey.ui.resources.post_edit_action
 import io.github.nodyssey.ui.resources.post_edited
@@ -182,6 +187,7 @@ import io.github.nodyssey.ui.resources.post_quote_floor
 import io.github.nodyssey.ui.resources.post_reaction_chicken
 import io.github.nodyssey.ui.resources.post_reaction_cost
 import io.github.nodyssey.ui.resources.post_reaction_dislike
+import io.github.nodyssey.ui.resources.post_reaction_feed
 import io.github.nodyssey.ui.resources.post_reaction_free
 import io.github.nodyssey.ui.resources.post_reaction_free_today
 import io.github.nodyssey.ui.resources.post_reaction_irreversible
@@ -208,7 +214,10 @@ import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
 import io.github.plaza.designsys.component.AppendSpinner
+import io.github.plaza.designsys.component.AvatarShape
 import io.github.plaza.designsys.component.GroupedListItem
+import io.github.plaza.designsys.component.LayerCard
+import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
 import io.github.plaza.designsys.component.PlazaIcons
@@ -983,12 +992,39 @@ fun PostDetailScreen(
     }
 }
 
-/** A quiet page surface keeps the individual reply bubbles legible. */
+/** The official layout has no page inset behind its card; the two 1.3.4 layouts each pick their own. */
 @Composable
 private fun threadPageColor(style: PostReplyStyle = PostReplyStyle.CARDS): Color {
     val layers = LocalPlazaLayers.current
+    if (style == PostReplyStyle.ORIGINAL) return layers.page
     if (style == PostReplyStyle.FLAT) return layers.card
     return if (layers.page == layers.card && !LocalEinkMode.current) layers.inset else layers.page
+}
+
+/**
+ * The container one reply sits in for the two layouts added in 1.3.4 — 通栏's full-width row, or
+ * 轻卡片's symmetric 16dp card. 原版 does not use this: its floors run flat with the avatar beside
+ * the whole reply, so [OriginalCommentRow] draws its own row and hairline.
+ */
+@Composable
+private fun ReplySurface(
+    cards: Boolean,
+    highlighted: Boolean,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier =
+        Modifier
+            .padding(
+                start = if (cards) 12.dp else 0.dp,
+                end = if (cards) 12.dp else 0.dp,
+                bottom = if (cards) 9.dp else 0.dp,
+            ).fillMaxWidth(),
+        shape = if (cards) RoundedCornerShape(16.dp) else RectangleShape,
+        color = if (highlighted) MaterialTheme.colorScheme.primaryContainer else LocalPlazaLayers.current.card,
+    ) {
+        content()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1177,13 +1213,19 @@ private fun ThreadList(
     onTitleBottom: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val original = state.postReplyStyle == PostReplyStyle.ORIGINAL
     LazyColumn(
         // No bounce under pull-to-refresh, at either end of the thread; see the feed's list in
         // `PostListScreen`.
         overscrollEffect = null,
         state = listState,
         contentPadding =
-        PaddingValues(top = Spacing.sm, bottom = 96.dp),
+        if (original) {
+            // The official page's own 8dp gutter; each floor adds its 10dp inset inside it.
+            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.xs, bottom = 96.dp)
+        } else {
+            PaddingValues(top = Spacing.sm, bottom = 96.dp)
+        },
         modifier = modifier
             .fillMaxHeight()
             .readableWidth(),
@@ -1219,35 +1261,66 @@ private fun ThreadList(
                         )
                     }
                 }
-            ThreadOpeningPost(
-                title = state.title,
-                isAwarded = state.isAwarded,
-                onOpenOriginalPost = onOpenOriginalPost,
-                body = body,
-                preview = state.preview,
-                postId = state.postId,
-                authorLevel = state.authorLevel,
-                authorJoinedDays = state.authorJoinedDays,
-                showAuthorAccountInfo = state.showAuthorAccountInfo,
-                replyStyle = state.postReplyStyle,
-                showBlockedContent = state.showBlockedContent,
-                onOpenBrowser = onOpenBrowser,
-                onImageClick = onImageClick,
-                onJumpToFloor = onJumpToFloor,
-                pendingReaction = body?.let { state.pendingReactionFor(it) },
-                onReact = { action -> body?.let { onReact(it, action) } },
-                onAuthorClick = onAuthorClick,
-                // The opening post keeps the site's own set: no 回复 or 引用 of it, 编辑 on your own.
-                onMore = body?.let { { onOpenFloorActions(FloorActions(it, onReply = null, onQuote = null, onEdit)) } },
-                collected = state.collected,
-                collectionCount = state.collectionCount,
-                collectPending = state.collectPending,
-                onCollect = onCollect,
-                voteContent = voteContent,
-                stardustContent = stardustContent,
-                onTitleBottom = onTitleBottom,
-                showOpeningPost = state.firstLoadedPage == 1 && !state.onlyAuthor,
-            )
+            if (original) {
+                OriginalOpeningPost(
+                    title = state.title,
+                    isAwarded = state.isAwarded,
+                    onOpenOriginalPost = onOpenOriginalPost,
+                    body = body,
+                    preview = state.preview,
+                    postId = state.postId,
+                    authorLevel = state.authorLevel,
+                    authorJoinedDays = state.authorJoinedDays,
+                    showAuthorAccountInfo = state.showAuthorAccountInfo,
+                    showBlockedContent = state.showBlockedContent,
+                    onOpenBrowser = onOpenBrowser,
+                    onImageClick = onImageClick,
+                    onJumpToFloor = onJumpToFloor,
+                    pendingReaction = body?.let { state.pendingReactionFor(it) },
+                    onReact = { action -> body?.let { onReact(it, action) } },
+                    onAuthorClick = onAuthorClick,
+                    // The opening post keeps the site's own set: no 回复 or 引用 of it, 编辑 on your own.
+                    onMore = body?.let { { onOpenFloorActions(FloorActions(it, onReply = null, onQuote = null, onEdit)) } },
+                    collected = state.collected,
+                    collectionCount = state.collectionCount,
+                    collectPending = state.collectPending,
+                    onCollect = onCollect,
+                    voteContent = voteContent,
+                    stardustContent = stardustContent,
+                    onTitleBottom = onTitleBottom,
+                    showOpeningPost = state.firstLoadedPage == 1 && !state.onlyAuthor,
+                )
+            } else {
+                ThreadOpeningPost(
+                    title = state.title,
+                    isAwarded = state.isAwarded,
+                    onOpenOriginalPost = onOpenOriginalPost,
+                    body = body,
+                    preview = state.preview,
+                    postId = state.postId,
+                    authorLevel = state.authorLevel,
+                    authorJoinedDays = state.authorJoinedDays,
+                    showAuthorAccountInfo = state.showAuthorAccountInfo,
+                    replyStyle = state.postReplyStyle,
+                    showBlockedContent = state.showBlockedContent,
+                    onOpenBrowser = onOpenBrowser,
+                    onImageClick = onImageClick,
+                    onJumpToFloor = onJumpToFloor,
+                    pendingReaction = body?.let { state.pendingReactionFor(it) },
+                    onReact = { action -> body?.let { onReact(it, action) } },
+                    onAuthorClick = onAuthorClick,
+                    // The opening post keeps the site's own set: no 回复 or 引用 of it, 编辑 on your own.
+                    onMore = body?.let { { onOpenFloorActions(FloorActions(it, onReply = null, onQuote = null, onEdit)) } },
+                    collected = state.collected,
+                    collectionCount = state.collectionCount,
+                    collectPending = state.collectPending,
+                    onCollect = onCollect,
+                    voteContent = voteContent,
+                    stardustContent = stardustContent,
+                    onTitleBottom = onTitleBottom,
+                    showOpeningPost = state.firstLoadedPage == 1 && !state.onlyAuthor,
+                )
+            }
             if (state.postReplyStyle == PostReplyStyle.FLAT) {
                 Spacer(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceContainer))
             }
@@ -1255,7 +1328,13 @@ private fun ThreadList(
 
         if (state.hasContent) {
             item(key = "comments-header") {
-                CommentsHeader(state = state, onLoadPrevious = onLoadPrevious, onToggleOnlyAuthor = onToggleOnlyAuthor, onRetryAuthor = onRetryAuthor)
+                CommentsHeader(
+                    state = state,
+                    onLoadPrevious = onLoadPrevious,
+                    onToggleOnlyAuthor = onToggleOnlyAuthor,
+                    onRetryAuthor = onRetryAuthor,
+                    original = original,
+                )
             }
         } else {
             // "共 0 条回复" would be a claim, and nobody has counted yet.
@@ -1290,14 +1369,10 @@ private fun ThreadList(
             // Inside this floor's own item rather than an item of its own, so every index helper
             // below that mirrors the list's order stays one comment, one row.
             if (state.startsNewReplies(index)) NewRepliesDivider()
-            val cards = state.postReplyStyle == PostReplyStyle.CARDS
-            Surface(
-                modifier = Modifier.padding(start = if (cards) 12.dp else 0.dp, end = if (cards) 12.dp else 0.dp, bottom = if (cards) 9.dp else 0.dp).fillMaxWidth(),
-                shape = if (cards) RoundedCornerShape(16.dp) else RectangleShape,
-                color = if (comment.floor == highlightedFloor && highlightedFloor != null) MaterialTheme.colorScheme.primaryContainer else LocalPlazaLayers.current.card,
-            ) {
-                BlockAware(content = comment, revealed = state.showBlockedContent) {
-                    CommentRow(
+            val highlighted = comment.floor == highlightedFloor && highlightedFloor != null
+            if (original) {
+                BlockAware(content = comment, revealed = state.showBlockedContent, original = true) {
+                    OriginalCommentRow(
                         comment = comment,
                         authorInfo = comment.authorUid?.let(state.replyAuthors::get),
                         showAuthorAccountInfo = state.showAuthorAccountInfo,
@@ -1307,14 +1382,39 @@ private fun ThreadList(
                         pendingReaction = state.pendingReactionFor(comment),
                         onReact = { action -> onReact(comment, action) },
                         onReply = onReply,
-                        onQuote = onQuote,
                         onEdit = onEdit,
-                        showDivider = !cards && index < state.comments.lastIndex,
                         onMore = { onOpenFloorActions(FloorActions(comment, onReply, onQuote, onEdit)) },
                         onAuthorClick = onAuthorClick,
                         voteContent = voteContent,
                         stardustContent = stardustContent,
+                        highlighted = highlighted,
                     )
+                }
+            } else {
+                ReplySurface(
+                    cards = state.postReplyStyle == PostReplyStyle.CARDS,
+                    highlighted = highlighted,
+                ) {
+                    BlockAware(content = comment, revealed = state.showBlockedContent) {
+                        CommentRow(
+                            comment = comment,
+                            authorInfo = comment.authorUid?.let(state.replyAuthors::get),
+                            showAuthorAccountInfo = state.showAuthorAccountInfo,
+                            onOpenBrowser = onOpenBrowser,
+                            onImageClick = onImageClick,
+                            onJumpToFloor = onJumpToFloor,
+                            pendingReaction = state.pendingReactionFor(comment),
+                            onReact = { action -> onReact(comment, action) },
+                            onReply = onReply,
+                            onQuote = onQuote,
+                            onEdit = onEdit,
+                            showDivider = state.postReplyStyle == PostReplyStyle.FLAT && index < state.comments.lastIndex,
+                            onMore = { onOpenFloorActions(FloorActions(comment, onReply, onQuote, onEdit)) },
+                            onAuthorClick = onAuthorClick,
+                            voteContent = voteContent,
+                            stardustContent = stardustContent,
+                        )
+                    }
                 }
             }
         }
@@ -1350,11 +1450,20 @@ private fun ThreadList(
 private fun BlockAware(
     content: PostContent,
     revealed: Boolean,
+    /** 原版's rows sit 10dp in and separate with a full-width hairline; the 1.3.4 rows carry their own. */
+    original: Boolean = false,
     floor: @Composable () -> Unit,
 ) {
     var openedHere by rememberSaveable(content.commentId) { mutableStateOf(false) }
     if (!content.isBlocked || revealed || openedHere) {
         floor()
+    } else if (original) {
+        Column(Modifier.fillMaxWidth()) {
+            Box(Modifier.padding(horizontal = OriginalFloorInset, vertical = Spacing.sm)) {
+                BlockedFloorRow(floor = content.floor, onShow = { openedHere = true })
+            }
+            HorizontalDivider(color = LocalPlazaLayers.current.divider.copy(alpha = 0.5f))
+        }
     } else {
         // A row like the floor it stands in for, but a slim one: it is a line, not a post.
         FloorRow(verticalPadding = 0.dp) {
@@ -1492,10 +1601,15 @@ private fun ThreadAuthorRow(
     avatarUrl: String?,
     authorName: String,
     modifier: Modifier = Modifier,
+    avatarSize: Dp = ThreadAvatarSize,
+    /** 原版 keeps the site's squircle; the 1.3.4 layouts round the opening post's avatar. */
+    avatarShape: Shape = CircleShape,
     /** Put on the avatar and the name only — the badges, note and time beside them are not a way in. */
     identity: Modifier = Modifier,
     accountBadge: @Composable () -> Unit = {},
     badges: @Composable () -> Unit = {},
+    /** The line under the name — a reply's time, or the opening post's in the official layout. */
+    subtitle: @Composable () -> Unit = {},
 ) {
     Row(
         // Top, not centred: the avatar is shorter than the name and time beside it, and centring it
@@ -1508,30 +1622,32 @@ private fun ThreadAuthorRow(
         UserAvatar(
             url = avatarUrl,
             name = authorName,
-            size = ThreadAvatarSize,
-            shape = CircleShape,
+            size = avatarSize,
+            shape = avatarShape,
             modifier = Modifier
                 .sharedThreadAvatar(postId)
                 .then(identity)
                 // The name beside it is the same way in, and the one a screen reader is told about.
                 .clearAndSetSemantics {},
         )
-        // Keep the name, account facts and role badges together, wrapping only when space runs out.
-        FlowRow(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = authorName,
-                style = floorNameStyle(),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.sharedThreadAuthor(postId).then(identity),
-            )
-            accountBadge()
-            badges()
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // Keep the name, account facts and role badges together, wrapping only when space runs out.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = authorName,
+                    style = floorNameStyle(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.sharedThreadAuthor(postId).then(identity),
+                )
+                accountBadge()
+                badges()
+            }
+            subtitle()
         }
     }
 }
@@ -1578,6 +1694,7 @@ private fun ThreadOpeningPost(
     /** A retained body belongs to page 1; it must never be repeated above a later-page window. */
     showOpeningPost: Boolean = true,
     showAuthorAccountInfo: Boolean = true,
+    /** 通栏 lets the opening post run to the screen edges; 轻卡片 keeps it on its card. */
     replyStyle: PostReplyStyle = PostReplyStyle.CARDS,
 ) {
     // [BlockAware]'s job, done here rather than around this composable: a wrapper that swapped the
@@ -1593,8 +1710,8 @@ private fun ThreadOpeningPost(
 
     Column(
         modifier = Modifier
-            .padding(horizontal = if (replyStyle == PostReplyStyle.CARDS) 12.dp else 0.dp)
-            .clip(if (replyStyle == PostReplyStyle.CARDS) RoundedCornerShape(16.dp) else RectangleShape)
+            .padding(horizontal = if (replyStyle == PostReplyStyle.FLAT) 0.dp else 12.dp)
+            .clip(if (replyStyle == PostReplyStyle.FLAT) RectangleShape else RoundedCornerShape(16.dp))
             .background(LocalPlazaLayers.current.card)
             .fillMaxWidth()
             .onPlaced { opening.coordinates = it }
@@ -1705,6 +1822,156 @@ private fun ThreadOpeningPost(
     }
 }
 
+/**
+ * The opening post as the upstream build drew it: one [LayerCard] on the page, its text 14dp inside
+ * the card and the page's 8dp gutter outside, with the title, author, body and actions stacked at a
+ * 10dp gap. This is the part of 原版 the 1.3.4 layouts replaced with their own full-width or card
+ * treatments; everything inside — shared elements, tags, reactions, collection — is the current one.
+ */
+@Composable
+private fun OriginalOpeningPost(
+    title: String,
+    isAwarded: Boolean,
+    onOpenOriginalPost: (() -> Unit)?,
+    body: PostContent?,
+    preview: ThreadPreview?,
+    postId: Long,
+    authorLevel: Int?,
+    authorJoinedDays: Int?,
+    showAuthorAccountInfo: Boolean,
+    showBlockedContent: Boolean,
+    onOpenBrowser: (String) -> Unit,
+    onImageClick: (String) -> Unit,
+    onJumpToFloor: (String) -> Unit,
+    pendingReaction: ReactionAction?,
+    onReact: (ReactionAction) -> Unit,
+    onAuthorClick: (Long) -> Unit,
+    /** Opens the post's 1c panel; null until there is a post to act on. */
+    onMore: (() -> Unit)?,
+    collected: Boolean?,
+    collectionCount: Int?,
+    collectPending: Boolean,
+    onCollect: () -> Unit,
+    voteContent: @Composable (Long) -> Unit,
+    stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)?,
+    onTitleBottom: (Int) -> Unit = {},
+    /** A retained body belongs to page 1; it must never be repeated above a later-page window. */
+    showOpeningPost: Boolean = true,
+) {
+    // See [ThreadOpeningPost] on why the blocked state is handled inside the shared card rather
+    // than by wrapping this composable: the title and its shared elements must stay put.
+    var revealedHere by rememberSaveable(body?.commentId) { mutableStateOf(false) }
+    val blocked = body != null && body.isBlocked && !showBlockedContent && !revealedHere
+    val longPress = onMore.takeIf { showOpeningPost && !blocked }
+    val opening = remember { OpeningCoordinates() }
+
+    LayerCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .onPlaced { opening.coordinates = it }
+            .floorLongPressSemantics(longPress),
+        contentPadding = OriginalOpeningPadding,
+        verticalArrangement = Arrangement.spacedBy(OriginalOpeningGap),
+    ) {
+        ThreadHeader(
+            title = title,
+            postId = postId,
+            body = body,
+            isAwarded = isAwarded,
+            preview = preview,
+            onOpenOriginalPost = onOpenOriginalPost,
+            onTitlePlaced = { titleCoordinates ->
+                opening.coordinates?.takeIf { it.isAttached }?.let { coordinates ->
+                    val bottom = coordinates.localPositionOf(titleCoordinates, Offset(0f, titleCoordinates.size.height.toFloat())).y
+                    onTitleBottom(bottom.roundToInt())
+                }
+            },
+            modifier = Modifier.floorLongPress(longPress),
+        )
+        if (!showOpeningPost) return@LayerCard
+        if (body != null && blocked) {
+            BlockedFloorRow(floor = body.floor, onShow = { revealedHere = true })
+            return@LayerCard
+        }
+
+        Row(
+            modifier = Modifier.floorLongPress(longPress),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            // The avatar and the name open the author's space; the rest of the row does not.
+            ThreadAuthorRow(
+                postId = postId,
+                avatarUrl = body?.avatarUrl ?: preview?.avatarUrl,
+                authorName = body?.authorName ?: preview?.authorName.orEmpty(),
+                modifier = Modifier.weight(1f),
+                avatarSize = Sizes.avatarOriginalPost,
+                avatarShape = AvatarShape,
+                identity = Modifier.authorClickable(body?.authorUid, onAuthorClick),
+                accountBadge = { if (showAuthorAccountInfo) AuthorAccountBadge(authorLevel, authorJoinedDays) },
+                badges = {
+                    if (body != null) {
+                        FloorBadges(body, hasAccountLevel = showAuthorAccountInfo && authorLevel != null)
+                    }
+                    if (body != null) {
+                        UserNoteTag(body.authorUid)
+                    }
+                },
+                // The official opening post puts the time under the name, not at the far edge.
+                subtitle = { if (body != null) FloorTimeLine(body) else MetaLinePlaceholder() },
+            )
+            body?.floor?.let { FloorLabel(it) }
+        }
+
+        if (body == null) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                listOf(0.98f, 0.94f, 0.99f, 0.62f).forEach { SkeletonBar(it, 14.dp) }
+            }
+            return@LayerCard
+        }
+
+        if (body.nodes.isEmpty()) {
+            Text(
+                text = stringResource(Res.string.post_body_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            ReportOriginFloor(body.floor) {
+                ImageActionsFrom(body.authorName, body.floor) {
+                    PostRichContent(
+                        nodes = body.nodes,
+                        onLinkClick = onOpenBrowser,
+                        onImageClick = onImageClick,
+                        onQuoteRefClick = { onJumpToFloor(it.floor) },
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        voteContent = voteContent,
+                        stardustContent = stardustContent,
+                    )
+                }
+            }
+        }
+        UserSignature(
+            nodes = body.signatureNodes,
+            bodyStyle = MaterialTheme.typography.bodyMedium,
+            onOpenBrowser = onOpenBrowser,
+            onImageClick = onImageClick,
+            onJumpToFloor = onJumpToFloor,
+        )
+        OriginalOpeningActions(
+            reactions = body.reactions,
+            pending = pendingReaction,
+            onReact = onReact,
+            collected = collected,
+            collectionCount = collectionCount,
+            collectPending = collectPending,
+            onCollect = onCollect,
+            onMore = onMore,
+            modifier = Modifier.floorLongPress(longPress),
+        )
+    }
+}
+
 /** The opening item as last placed — see `onTitleBottom` on [ThreadOpeningPost]. */
 private class OpeningCoordinates {
     var coordinates: LayoutCoordinates? = null
@@ -1724,6 +1991,26 @@ private val ThreadContentInset = Spacing.lg
 
 private val ThreadAvatarSize = 32.dp
 
+/**
+ * The official build's reply size: `bodyMedium` stepped down to 14/22, one step under the opening
+ * post's 15/25. The two 1.3.4 layouts set replies at the opening post's size; 原版 keeps the step.
+ */
+@Composable
+private fun originalReplyBodyStyle(): TextStyle =
+    MaterialTheme.typography.bodyMedium.let {
+        it.copy(fontSize = it.fontSize * (14f / 15f), lineHeight = it.lineHeight * (22f / 25f))
+    }
+
+/**
+ * The official build's geometry: the list sits 8dp off each edge and every floor adds 10dp, so a
+ * reply's name and body start 18dp in — closer to the page than the 1.3.4 layouts' 24dp.
+ */
+private val OriginalFloorInset = 10.dp
+
+private val OriginalOpeningPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 14.dp, bottom = Spacing.sm)
+
+private val OriginalOpeningGap = 8.dp
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CommentsHeader(
@@ -1731,31 +2018,78 @@ private fun CommentsHeader(
     onLoadPrevious: () -> Unit,
     onToggleOnlyAuthor: () -> Unit,
     onRetryAuthor: () -> Unit,
+    /** 原版 uses the upstream's 评论 · N header and its tighter floor inset. */
+    original: Boolean = false,
 ) {
     FlowRow(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 2.dp),
+        modifier =
+        Modifier
+            .fillMaxWidth()
+            .padding(
+                start = if (original) OriginalFloorInset else 16.dp,
+                end = if (original) OriginalFloorInset else 12.dp,
+                top = if (original) Spacing.xs else 6.dp,
+                bottom = if (original) 0.dp else 2.dp,
+            ),
         horizontalArrangement = Arrangement.SpaceBetween,
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        val count = state.replyCount?.let { " $it" }.orEmpty() + if (state.onlyAuthor && (state.isScanningAuthor || state.authorScanError != null)) "+" else ""
+        val plus = if (state.onlyAuthor && (state.isScanningAuthor || state.authorScanError != null)) "+" else ""
+        val title =
+            if (original) {
+                stringResource(Res.string.post_comments_header, state.replyCount ?: state.comments.size) + plus
+            } else {
+                stringResource(if (state.onlyAuthor) Res.string.post_author_replies else Res.string.post_all_replies) +
+                    state.replyCount?.let { " $it" }.orEmpty() + plus
+            }
         Text(
-            stringResource(if (state.onlyAuthor) Res.string.post_author_replies else Res.string.post_all_replies) + count,
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            title,
+            style =
+            if (original) {
+                MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = TABULAR_FIGURES)
+            } else {
+                MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+            },
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(
-                onClick = onToggleOnlyAuthor,
-                shape = CircleShape,
-                colors = ButtonDefaults.textButtonColors(containerColor = if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, contentColor = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-            ) {
-                Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelSmall)
+            if (original) {
+                // The official header is one compact line: a small 只看楼主 and 自动续页, not the
+                // 1.3.4 row's 48dp TextButton and static sort label.
+                Text(
+                    text = stringResource(Res.string.post_only_author),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                        .clickable(onClick = onToggleOnlyAuthor)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+                Text(
+                    text = stringResource(Res.string.post_auto_paging),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            } else {
+                TextButton(
+                    onClick = onToggleOnlyAuthor,
+                    shape = CircleShape,
+                    colors = ButtonDefaults.textButtonColors(containerColor = if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, contentColor = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                ) {
+                    Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelSmall)
+                }
+                Text(stringResource(Res.string.post_sort_ascending), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
-            Text(stringResource(Res.string.post_sort_ascending), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
         }
     }
     if (state.isScanningAuthor || state.isPrepending) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = if (original) OriginalFloorInset else 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             PlazaSpinner(size = 14.dp, strokeWidth = 1.5.dp)
             Text(
                 if (state.isScanningAuthor) {
@@ -1887,7 +2221,166 @@ private fun CommentRow(
 }
 
 /**
- * Shared floor content and gutters. Reply bubbles provide their own separation; standalone rows
+ * One floor as the upstream build drew it: the avatar stands beside the whole reply — header, body,
+ * signature and actions — rather than beside the name only, and a full-width hairline separates it
+ * from the next. The 1.3.4 layouts moved the body below the header and gave each reply a surface;
+ * this is the layout the official app used before the fork.
+ *
+ * Everything the fork added still lives here: the 等级/注册天数 badge, the note tag, the report
+ * origin, the reaction row and the long-press panel.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OriginalCommentRow(
+    comment: PostContent,
+    authorInfo: ReplyAuthorInfo?,
+    showAuthorAccountInfo: Boolean,
+    onOpenBrowser: (String) -> Unit,
+    onImageClick: (String) -> Unit,
+    onJumpToFloor: (String) -> Unit,
+    pendingReaction: ReactionAction?,
+    onReact: (ReactionAction) -> Unit,
+    /** Null on this account's own floor, where [onEdit] takes its place. */
+    onReply: (() -> Unit)?,
+    onEdit: (() -> Unit)?,
+    onMore: () -> Unit,
+    onAuthorClick: (Long) -> Unit,
+    voteContent: @Composable (Long) -> Unit,
+    stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)?,
+    highlighted: Boolean,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(if (highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                .padding(
+                    start = OriginalFloorInset,
+                    end = OriginalFloorInset,
+                    top = 8.dp,
+                    bottom = 0.dp,
+                ).floorLongPressSemantics(onMore),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.Top,
+        ) {
+            UserAvatar(
+                url = comment.avatarUrl,
+                name = comment.authorName,
+                size = Sizes.avatarComment,
+                modifier = Modifier
+                    .authorClickable(comment.authorUid, onAuthorClick)
+                    // The name beside it is the same way in, and the one a screen reader is told about.
+                    .clearAndSetSemantics {},
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(Modifier.floorLongPress(onMore)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        FlowRow(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            itemVerticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = comment.authorName,
+                                style = floorNameStyle(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.authorClickable(comment.authorUid, onAuthorClick),
+                            )
+                            if (showAuthorAccountInfo) AuthorAccountBadge(authorInfo?.level, authorInfo?.joinedDays)
+                            FloorBadges(comment, hasAccountLevel = showAuthorAccountInfo && authorInfo?.level != null)
+                            UserNoteTag(comment.authorUid)
+                        }
+                        comment.floor?.let { FloorLabel(it) }
+                    }
+                    FloorTimeLine(comment)
+                }
+                ReportOriginFloor(comment.floor) {
+                    ImageActionsFrom(comment.authorName, comment.floor) {
+                        PostRichContent(
+                            nodes = comment.nodes,
+                            onLinkClick = onOpenBrowser,
+                            onImageClick = onImageClick,
+                            onQuoteRefClick = { ref -> onJumpToFloor(ref.floor) },
+                            textStyle = originalReplyBodyStyle(),
+                            voteContent = voteContent,
+                            stardustContent = stardustContent,
+                        )
+                    }
+                }
+                UserSignature(
+                    nodes = comment.signatureNodes,
+                    bodyStyle = originalReplyBodyStyle(),
+                    onOpenBrowser = onOpenBrowser,
+                    onImageClick = onImageClick,
+                    onJumpToFloor = onJumpToFloor,
+                )
+                OriginalCommentFoot(
+                    reactions = comment.reactions,
+                    pending = pendingReaction,
+                    onReact = onReact,
+                    onReply = onReply,
+                    onEdit = onEdit,
+                    onMore = onMore,
+                    modifier = Modifier.floorLongPress(onMore),
+                )
+            }
+        }
+        HorizontalDivider(color = LocalPlazaLayers.current.divider.copy(alpha = 0.5f))
+    }
+}
+
+/**
+ * The official floor's foot: 点赞 and 投喂 with their tallies on the left, 回复 — 编辑 on this
+ * account's own floor — and the ⋯ on the right. It is a step shorter than the 1.3.4 foot, which is
+ * what keeps the official floor's rows as tight as the pre-fork build's; 引用 stays in the ⋯ panel.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OriginalCommentFoot(
+    reactions: PostReactions?,
+    pending: ReactionAction?,
+    onReact: (ReactionAction) -> Unit,
+    onReply: (() -> Unit)?,
+    onEdit: (() -> Unit)?,
+    onMore: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // The official row is 30dp tall; Material's 48dp minimum touch target would put the gap back
+    // between the body and the divider that this style is meant to remove.
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        FlowRow(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            listOf(ReactionAction.Upvote, ReactionAction.ChickenLeg).forEach { action ->
+                FloorActionButton(
+                    icon = action.icon(),
+                    label = action.labelRes(),
+                    count = reactions?.countOf(action)?.takeIf { it > 0 }?.toString().orEmpty(),
+                    spent = reactions?.hasSpent(action) == true,
+                    pending = pending == action,
+                    onClick = if (reactions != null && pending == null) ({ onReact(action) }) else null,
+                    compact = true,
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            when {
+                onEdit != null -> FloorActionButton(Icons.Default.Edit, Res.string.post_edit_action, onClick = onEdit, compact = true)
+                onReply != null -> FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply, compact = true)
+            }
+            FloorMoreButton(onMore, compact = true)
+        }
+    }
+}
+
+/**
+ * Shared floor content and gutters. A reply surface provides its own separation; standalone rows
  * and shared-image captures can retain the optional divider.
  */
 @Composable
@@ -2041,6 +2534,119 @@ private fun OpeningPostActions(
     }
 }
 
+/**
+ * The official opening post's action row: 点赞 and 投喂 as tonal pills with their tallies, then the
+ * bookmark and ⋯ against the far edge. The 1.3.4 row draws the same actions as quiet buttons; the
+ * pills are what the pre-fork build put under the opening post, so 原版 keeps them.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OriginalOpeningActions(
+    reactions: PostReactions?,
+    pending: ReactionAction?,
+    onReact: (ReactionAction) -> Unit,
+    collected: Boolean?,
+    collectionCount: Int?,
+    collectPending: Boolean,
+    onCollect: () -> Unit,
+    onMore: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        FlowRow(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            listOf(ReactionAction.Upvote, ReactionAction.ChickenLeg).forEach { action ->
+                val count = reactions?.countOf(action)?.toString()
+                val text =
+                    if (action == ReactionAction.ChickenLeg) {
+                        listOfNotNull(stringResource(Res.string.post_reaction_feed), count).joinToString(" ")
+                    } else {
+                        count.orEmpty()
+                    }
+                OriginalReactionPill(
+                    action = action,
+                    text = text,
+                    spent = reactions?.hasSpent(action) == true,
+                    pending = pending == action,
+                    onClick = if (reactions != null && pending == null) ({ onReact(action) }) else null,
+                )
+            }
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (collected != null) {
+                    FloorActionButton(
+                        icon = if (collected) PlazaIcons.Bookmark else PlazaIcons.BookmarkBorder,
+                        label = if (collected) Res.string.post_collected_action else Res.string.post_collect_action,
+                        count = collectionCount?.toString().orEmpty(),
+                        selected = collected,
+                        pending = collectPending,
+                        onClick = onCollect.takeUnless { collectPending },
+                        compact = true,
+                    )
+                }
+                if (onMore != null) FloorMoreButton(onMore, compact = true)
+            }
+        }
+    }
+}
+
+/** One tonal pill of the official opening row, at the 32dp the pre-fork build drew. */
+@Composable
+private fun OriginalReactionPill(
+    action: ReactionAction,
+    text: String,
+    spent: Boolean,
+    pending: Boolean,
+    onClick: (() -> Unit)?,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val layers = LocalPlazaLayers.current
+    val (container, content) =
+        when (action) {
+            ReactionAction.Upvote ->
+                if (spent) scheme.primary to scheme.onPrimary else scheme.primaryContainer to scheme.onPrimaryContainer
+
+            else ->
+                if (spent) scheme.tertiaryContainer to scheme.onTertiaryContainer else layers.inset to scheme.onSurface
+        }
+    FilledTonalButton(
+        onClick = onClick ?: {},
+        enabled = onClick != null && !spent && !pending,
+        colors =
+        ButtonDefaults.filledTonalButtonColors(
+            containerColor = container,
+            contentColor = content,
+            disabledContainerColor = if (spent) container else container.copy(alpha = 0.45f),
+            disabledContentColor = if (spent) content else content.copy(alpha = 0.45f),
+        ),
+        border = layers.cardBorderStroke,
+        shape = MaterialTheme.shapes.medium,
+        contentPadding = PaddingValues(horizontal = 10.dp),
+        modifier = Modifier.height(32.dp),
+    ) {
+        if (pending) {
+            PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = 16.dp)
+        } else {
+            Icon(action.icon(), contentDescription = stringResource(action.labelRes()), modifier = Modifier.size(16.dp))
+        }
+        if (text.isNotEmpty()) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, fontFeatureSettings = TABULAR_FIGURES),
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 5.dp),
+            )
+        }
+    }
+}
+
 /** A spent reaction stays accented and inert; the existing confirmation gate still owns spending. */
 @Composable
 private fun ReactionPill(
@@ -2091,8 +2697,8 @@ private fun CommentFoot(
 
 /** The same explicit entry to all floor actions remains available beside the quick actions. */
 @Composable
-private fun FloorMoreButton(onClick: () -> Unit) {
-    FloorActionButton(PlazaIcons.MoreHoriz, Res.string.post_floor_actions, onClick = onClick)
+private fun FloorMoreButton(onClick: () -> Unit, compact: Boolean = false) {
+    FloorActionButton(PlazaIcons.MoreHoriz, Res.string.post_floor_actions, onClick = onClick, compact = compact)
 }
 
 /** Material buttons keep their minimum touch targets while drawing a compact rounded pill. */
@@ -2105,6 +2711,8 @@ private fun FloorActionButton(
     selected: Boolean = false,
     pending: Boolean = false,
     onClick: (() -> Unit)?,
+    /** The official floor's foot sits a step shorter than the 1.3.4 rows; see [OriginalCommentFoot]. */
+    compact: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val accented = spent || selected
@@ -2123,8 +2731,8 @@ private fun FloorActionButton(
         ),
         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
         modifier = Modifier
-            .heightIn(min = 44.dp)
-            .widthIn(min = 44.dp)
+            .height(if (compact) 30.dp else 44.dp)
+            .widthIn(min = if (compact) 30.dp else 44.dp)
             .semantics { contentDescription = description },
     ) {
         if (pending) {
@@ -2133,11 +2741,19 @@ private fun FloorActionButton(
             // Equal vector boxes are not equal marks: ThumbUp fills almost its whole viewport,
             // whereas FormatQuote has generous internal whitespace. Match their visible size
             // and centre of ink while keeping every button on the same minimum touch target.
-            val glyphSize = when (label) {
-                Res.string.post_reaction_like -> 16.dp
-                Res.string.post_quote_action -> 22.dp
-                else -> 20.dp
-            }
+            val glyphSize =
+                if (compact) {
+                    when (label) {
+                        Res.string.post_reaction_like -> 14.dp
+                        else -> 16.dp
+                    }
+                } else {
+                    when (label) {
+                        Res.string.post_reaction_like -> 16.dp
+                        Res.string.post_quote_action -> 22.dp
+                        else -> 20.dp
+                    }
+                }
             val glyphOffset = when (label) {
                 Res.string.post_reaction_like -> 1.dp
                 Res.string.post_reply_action -> (-0.5).dp

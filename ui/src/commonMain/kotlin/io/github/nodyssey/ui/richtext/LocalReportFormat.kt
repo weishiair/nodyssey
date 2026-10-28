@@ -15,6 +15,6 @@ import io.github.plaza.designsys.richtext.RichContent
  * The default is the app's own default, so the failure mode of a missing provider is today's
  * behaviour rather than a broken screen — unlike [RichContent]'s `voteContent`, which is a slot with
  * no sensible default and stays a parameter for exactly that reason. The provider lives in
- * `MainActivity`, beside the one that makes 站外链接 apply everywhere at once.
+ * `NodysseyChrome`, beside the one that makes 站外链接 apply everywhere at once.
  */
-val LocalReportFormat = staticCompositionLocalOf { ReportFormat.ADAPTED }
+val LocalReportFormat = staticCompositionLocalOf { ReportFormat.SOURCE }
