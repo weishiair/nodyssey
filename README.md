@@ -69,7 +69,7 @@ Android 构建需要 JDK 21 和 Android SDK 37：
 ./gradlew :app:assembleDebug
 ```
 
-模块和架构见 [docs/architecture.md](docs/architecture.md) 与 [docs/README.md](docs/README.md)；iOS 构建流程见 [docs/codemagic-ios.md](docs/codemagic-ios.md)。
+模块和架构见 [docs/architecture.md](docs/architecture.md) 与 [docs/README.md](docs/README.md)；iOS 构建流程见 [docs/ios-build.md](docs/ios-build.md)。
 
 - 使用中遇到问题？在 [Issues](https://github.com/weishiair/nodyssey/issues/new/choose) 反馈，附上版本、设备和必要的错误信息；**不要公开密码、Cookie 或其他敏感信息**。
 - 欢迎加入 [Telegram 交流群](https://t.me/+JGCIMJmPrj0wZGVh)讨论使用体验和更新。

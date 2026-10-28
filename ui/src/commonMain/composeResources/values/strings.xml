@@ -12,6 +12,8 @@
     <string name="action_expand">展开</string>
     <string name="action_collapse">收起</string>
     <string name="report_show_source">查看原始报告</string>
+    <string name="report_total_score">总分</string>
+    <string name="report_score_rank">排名 %1$s</string>
     <string name="report_open_fullscreen">全屏查看</string>
     <!-- 原始终端报告的缩放栏；百分比按钮恢复原始字号，适应宽度恢复完整预览 -->
     <string name="report_zoom_fit">适应宽度</string>

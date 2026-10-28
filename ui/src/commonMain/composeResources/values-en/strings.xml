@@ -27,6 +27,8 @@
     <string name="action_expand">Expand</string>
     <string name="action_collapse">Collapse</string>
     <string name="report_show_source">See the raw report</string>
+    <string name="report_total_score">Total score</string>
+    <string name="report_score_rank">Rank %1$s</string>
     <string name="report_open_fullscreen">Full screen</string>
     <string name="report_zoom_fit">Fit width</string>
     <string name="report_zoom_hint">Pinch to zoom · Swipe sideways to read</string>
