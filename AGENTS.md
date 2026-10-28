@@ -169,17 +169,20 @@ are disposable.
 
 ### Branch model
 
-- `main` is the stable line. Features and fixes merge here after verification; release tags are cut
-  from it. Never put a test version bump on `main`.
+- `main` is the stable line. Only `dev` merges here, at release time; release tags are cut from it.
+  Never put a test version bump on `main`.
+- `dev` is the integration line for the next release. Feature and fix branches merge here, and test
+  snapshots are cut from here. Keep its `gradle.properties` at the last stable version
+  (`1.3.4 / 89` until a release) — the test branch owns the bump.
 - Feature and fix branches use `<type>/<slug>`, with `type` one of `feature`, `fix`, `ios`,
   `android` or `docs` (for example `feature/original-thread-layout`). One feature per branch; do not
   mix an Android screen change and an iOS fix unless the user asked for a combined build. Legacy
   names such as `ios/port-wa-fixes` and `codex/terminal-reports` stay.
-- Test snapshots use `test/<versionName>` (`test/1.3.5-test.2`). Cut one from the integration point
-  **after** its features are merged — or from a combined commit the user explicitly asked for —
-  change only `gradle.properties` (both `versionCode` and `versionName`), build, tag
-  `v<versionName>` as a GitHub prerelease, and never merge the test branch back. Delete it after
-  publishing if you like; the tag keeps it.
+- Test snapshots use `test/<versionName>` (`test/1.3.5-test.2`). Cut one from `dev` **after** its
+  features are merged — or from a combined commit the user explicitly asked for — change only
+  `gradle.properties` (both `versionCode` and `versionName`), build, tag `v<versionName>` as a
+  GitHub prerelease, and never merge the test branch back. Delete it after publishing if you like;
+  the tag keeps it.
 - Do not commit another branch's or another agent's uncommitted work. Run `git status` first; when
   the tree is mixed, stage explicit paths instead of `git add -A`.
 
@@ -199,8 +202,12 @@ are disposable.
 - Push only when the user asks, or when the task explicitly includes publishing. Never force-push or
   rewrite a shared branch; never reset, rename or delete a branch without saying where its commits
   went.
-- Feature and fix branches merge into `main` through a pull request. Test branches are snapshots and
-  are not PR'd.
+- Feature and fix branches merge into `dev` through a pull request. `dev` merges into `main` through
+  a separate release pull request, once the accumulated test builds are good. Test branches are
+  snapshots and are not PR'd.
+- Release flow: `feature/*` → `dev` → `test/A` → `test/B` (repeat) → `dev` → `main` → tag. A test
+  build that finds a bug gets a `fix/*` branch into `dev`, then the next `test/N`; never patch the
+  test branch and merge it back.
 - A pull request explains the problem and solution, links relevant issues, lists verification
   commands, and includes before/after screenshots for UI changes. Call out schema, dependency-lock,
   session, or scraping-selector changes explicitly.
