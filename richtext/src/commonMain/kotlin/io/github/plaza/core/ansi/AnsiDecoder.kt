@@ -124,13 +124,13 @@ object AnsiDecoder {
             val builder = StringBuilder()
             val spans = mutableListOf<AnsiSpan>()
             var offset = 0
+            var runStart = 0
+            var runStyle = DefaultStyle
 
             rows.forEachIndexed { rowIndex, line ->
                 val last = line.indexOfLast { it != null }
                 if (last >= 0) {
                     var column = 0
-                    var runStart = offset
-                    var runStyle = DefaultStyle
                     while (column <= last) {
                         val cell = line.getOrNull(column)
                         val style = cell?.style ?: DefaultStyle
@@ -144,13 +144,15 @@ object AnsiDecoder {
                         offset += content.length
                         column += cell?.width ?: 1
                     }
-                    addRun(spans, runStart, offset, runStyle)
                 }
                 if (rowIndex < rows.lastIndex) {
+                    // A style survives the newline: a report wrapped in one SGR run is one span,
+                    // which is what lets a parser rebase it into a part as a single range.
                     builder.append('\n')
                     offset++
                 }
             }
+            addRun(spans, runStart, offset, runStyle)
 
             val text = builder.toString().trimEnd()
             return Decoded(
