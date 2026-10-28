@@ -24,9 +24,9 @@
 
 应用只从 `https://weishiair.github.io/nodyssey/` 的静态清单获取更新和更新日志，下载地址仅允许 `weishiair/nodyssey` 的 GitHub Release，下载后验证 SHA-256。
 
-升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。正式版 `1.3.4` 已于 2026-10-27 发布（Android versionCode 89）；已有测试构建使用 90，下一次测试使用 `1.3.5-test.1`（91）。后续测试递增 `test.N` 和 versionCode，正式版使用 `1.3.5` 这样的格式；旧 `-dev.N` 版本继续兼容。
+升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。正式版 `1.3.5` 使用 Android versionCode 100，先前测试构建已分配至 99；下一次测试使用 `1.3.6-test.1`（101）。后续测试递增 `test.N` 和 versionCode，正式版使用 `1.3.5` 这样的格式；旧 `-dev.N` 版本继续兼容。
 
-新版本发布包含签名 APK 的 `v1.3.2` GitHub Release，APK 使用 `nodyssey-v1.3.2.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
+新版本发布包含签名 APK 的 `v1.3.5` GitHub Release，APK 使用 `nodyssey-v1.3.5.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
 
 ## Android 打包约定
 
