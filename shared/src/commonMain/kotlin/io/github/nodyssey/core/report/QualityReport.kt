@@ -3,6 +3,9 @@ package io.github.nodyssey.core.report
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** The hardware script's score-table header is protocol text, independent of the app language. */
+const val HARDWARE_TOTAL_SCORE_COLUMN = "总分"
+
 /**
  * A NodeQuality benchmark report, read back out of the fixed-width text a terminal drew it as.
  *

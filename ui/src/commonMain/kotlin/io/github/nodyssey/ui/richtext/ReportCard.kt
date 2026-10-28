@@ -46,6 +46,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.github.nodyssey.core.report.HARDWARE_TOTAL_SCORE_COLUMN
 import io.github.nodyssey.core.report.QualityReport
 import io.github.nodyssey.data.settings.ReportCompareEntry
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
@@ -57,7 +58,9 @@ import io.github.nodyssey.ui.resources.action_expand
 import io.github.nodyssey.ui.resources.report_compare_add
 import io.github.nodyssey.ui.resources.report_compare_open
 import io.github.nodyssey.ui.resources.report_compare_remove
+import io.github.nodyssey.ui.resources.report_score_rank
 import io.github.nodyssey.ui.resources.report_show_source
+import io.github.nodyssey.ui.resources.report_total_score
 import io.github.plaza.designsys.component.SpecRow
 import io.github.plaza.designsys.component.SpecTable
 import io.github.plaza.designsys.component.TonalTag
@@ -152,12 +155,12 @@ private data class ScoreSummary(
 private fun QualityReport.scoreSummary(): ScoreSummary? {
     val section =
         sections.firstOrNull { section ->
-            section.blocks.any { it is QualityReport.Block.Table && it.columns.firstOrNull() == "总分" }
+            section.blocks.any { it is QualityReport.Block.Table && it.columns.firstOrNull() == HARDWARE_TOTAL_SCORE_COLUMN }
         } ?: return null
     val table =
         section.blocks
             .filterIsInstance<QualityReport.Block.Table>()
-            .firstOrNull { it.columns.firstOrNull() == "总分" } ?: return null
+            .firstOrNull { it.columns.firstOrNull() == HARDWARE_TOTAL_SCORE_COLUMN } ?: return null
     val scores = table.rows.getOrNull(0)?.cells.orEmpty()
     val ranks = table.rows.getOrNull(1)?.cells.orEmpty()
     val total = scores.getOrNull(0)?.text ?: return null
@@ -190,7 +193,7 @@ private fun ScoreHero(summary: ScoreSummary) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = "总分",
+                        text = stringResource(Res.string.report_total_score),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -207,7 +210,7 @@ private fun ScoreHero(summary: ScoreSummary) {
                         color = MaterialTheme.colorScheme.secondaryContainer,
                     ) {
                         Text(
-                            text = "排名 $rank",
+                            text = stringResource(Res.string.report_score_rank, rank),
                             style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = TABULAR_FIGURES),
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),

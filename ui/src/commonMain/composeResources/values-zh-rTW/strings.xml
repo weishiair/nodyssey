@@ -22,6 +22,8 @@
     <string name="action_expand">展開</string>
     <string name="action_collapse">收合</string>
     <string name="report_show_source">檢視原始報告</string>
+    <string name="report_total_score">總分</string>
+    <string name="report_score_rank">排名 %1$s</string>
     <string name="report_open_fullscreen">全螢幕檢視</string>
     <string name="report_zoom_fit">符合寬度</string>
     <string name="report_zoom_hint">雙指縮放 · 左右滑動檢視</string>
