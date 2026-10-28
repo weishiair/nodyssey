@@ -82,24 +82,64 @@ internal class WebKitSvgRasterizer {
     private val gate = Mutex()
 
     /**
-     * Renders [markup] into PNG bytes [widthPx] × [heightPx], or null when it could not be done — a
-     * load that never finished, a page WebKit would not print, a PDF that would not rasterise.
+     * Renders [markup] into PNG bytes at the size [pixelSize] picks for the document's own size, or
+     * null when it could not be done — a load that never finished, a page WebKit would not print, a
+     * PDF that would not rasterise.
+     *
+     * [intrinsic] may be null, for a document whose size is written in a unit that needs a layout to
+     * resolve (`ch`, `em`) — the 测评 reports are `74ch` by `47em`. WebKit then lays the document out
+     * once at its natural size and is asked what that came to; see [measure]. Skia is not asked
+     * instead, because it draws no `<text>` and a report sent to it came out as its black background
+     * and nothing else.
      *
      * Null is not an error path so much as the *other* renderer's cue: the caller falls back to Skia,
      * which draws the shapes. A document with less in it than it should have beats no document.
      */
     suspend fun rasterize(
         markup: ByteArray,
-        intrinsic: SvgSize,
-        widthPx: Int,
-        heightPx: Int,
+        intrinsic: SvgSize?,
+        pixelSize: (SvgSize) -> Pair<Int, Int>?,
     ): ByteArray? =
         gate.withLock {
             // WebKit's own API contract: a `WKWebView` is a main-thread object from `init` onwards.
             withContext(Dispatchers.Main) {
-                withTimeoutOrNull(RENDER_TIMEOUT_MILLIS) { render(markup, intrinsic, widthPx, heightPx) }
+                withTimeoutOrNull(RENDER_TIMEOUT_MILLIS) {
+                    val size = intrinsic ?: measure(markup) ?: return@withTimeoutOrNull null
+                    val (widthPx, heightPx) = pixelSize(size) ?: return@withTimeoutOrNull null
+                    render(markup, size, widthPx, heightPx)
+                }
             }
         }
+
+    /**
+     * The document's size in CSS pixels as WebKit lays it out, or null when it would not say.
+     *
+     * The same image-in-a-page as [render], but with the `<img>` left at its natural size, so that
+     * `naturalWidth` is the root's `width` resolved against the document's own font — which is what
+     * `74ch` means, and what nothing short of a layout engine can answer.
+     *
+     * A page's script setting does not apply here: `allowsContentJavaScript` stops scripts the page
+     * carries, and this question is asked by the app, not by the page.
+     */
+    private suspend fun measure(markup: ByteArray): SvgSize? {
+        val webView = offscreenWebView(CGRectMake(0.0, 0.0, MEASURE_FRAME, MEASURE_FRAME))
+        val delegate = LoadDelegate()
+        webView.navigationDelegate = delegate
+        try {
+            val page = imagePage(markup, viewportWidth = MEASURE_FRAME.toInt(), imageStyle = "display:block")
+            if (!delegate.awaitLoad { webView.loadHTMLString(page, baseURL = null) }) return null
+            val answer =
+                suspendCancellableCoroutine<String?> { continuation ->
+                    webView.evaluateJavaScript(MEASURE_SCRIPT) { result, _ -> continuation.resume(result as? String) }
+                } ?: return null
+            val numbers = answer.split(' ').mapNotNull(String::toFloatOrNull)
+            if (numbers.size != 2) return null
+            return SvgSize(numbers[0], numbers[1]).takeIf { it.width > 0f && it.height > 0f }
+        } finally {
+            webView.stopLoading()
+            webView.navigationDelegate = null
+        }
+    }
 
     private suspend fun render(
         markup: ByteArray,
@@ -216,14 +256,20 @@ internal class WebKitSvgRasterizer {
      * viewport as the document's own width makes one CSS pixel one point instead, so the image fills
      * the frame the caller built from the same numbers.
      */
-    private fun wrapperPage(markup: ByteArray, intrinsic: SvgSize): String {
+    private fun wrapperPage(markup: ByteArray, intrinsic: SvgSize): String =
+        imagePage(
+            markup,
+            viewportWidth = intrinsic.width.roundToInt().coerceAtLeast(1),
+            imageStyle = "width:100%;height:auto;display:block",
+        )
+
+    private fun imagePage(markup: ByteArray, viewportWidth: Int, imageStyle: String): String {
         val encoded = markup.toNSData().base64EncodedStringWithOptions(0u)
-        val cssWidth = intrinsic.width.roundToInt().coerceAtLeast(1)
         return """
             <!doctype html><html><head><meta charset="utf-8">
-            <meta name="viewport" content="width=$cssWidth">
+            <meta name="viewport" content="width=$viewportWidth">
             <style>html,body{margin:0;padding:0;background:transparent}
-            img{width:100%;height:auto;display:block}</style></head>
+            img{$imageStyle}</style></head>
             <body><img src="data:image/svg+xml;base64,$encoded"></body></html>
         """.trimIndent()
     }
@@ -279,5 +325,11 @@ internal class WebKitSvgRasterizer {
          * renderer that has wedged does not hold the gate against every image behind it.
          */
         const val RENDER_TIMEOUT_MILLIS = 8_000L
+
+        /** Only has to be wide enough not to matter: an `<img>` at its natural size ignores it. */
+        const val MEASURE_FRAME = 1000.0
+
+        /** The `<img>`'s laid-out size, in CSS pixels, as the two decimals-free numbers WebKit holds. */
+        const val MEASURE_SCRIPT = "(function(){var i=document.images[0];return i.naturalWidth+' '+i.naturalHeight})()"
     }
 }

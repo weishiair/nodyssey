@@ -23,6 +23,12 @@
     <string name="action_collapse">收合</string>
     <string name="report_show_source">檢視原始報告</string>
     <string name="report_open_fullscreen">全螢幕檢視</string>
+    <string name="report_zoom_fit">符合寬度</string>
+    <string name="report_zoom_hint">雙指縮放 · 左右滑動檢視</string>
+    <string name="report_zoom_in">放大報告</string>
+    <string name="report_zoom_out">縮小報告</string>
+    <string name="report_zoom_actual_size">還原原始字級</string>
+    <string name="report_zoom_percent">%1$d%%</string>
     <string name="report_compare_add">加入比較</string>
     <string name="report_compare_remove">移出比較</string>
     <string name="report_compare_open">比較 (%1$d)</string>
@@ -126,14 +132,14 @@
     <string name="composer_emoji_group_chick">小黃雞</string>
     <string name="composer_emoji_stickers_pending">站內貼圖素材尚未接入，先用下面兩組 emoji</string>
 
-    <string name="post_comments_header">已載入 %1$d 則回覆</string>
+    <string name="post_comments_header">評論 · %1$d</string>
     <string name="post_body_empty">這篇文章沒有內文</string>
     <string name="post_open_original">檢視內文</string>
     <string name="post_comments_empty">還沒有人回覆</string>
     <string name="post_comments_empty_hint">來當第一個吧——不過 v1 還是唯讀的</string>
     <string name="post_link_copied">連結已複製</string>
     <string name="post_code_copied">程式碼已複製</string>
-    <string name="post_auto_paging">雙向自動續頁</string>
+    <string name="post_auto_paging">自動續頁</string>
     <string name="post_load_previous">載入上一頁 · 第 %1$d 頁</string>
     <string name="post_loading_previous">正在載入第 %1$d 頁…</string>
     <string name="post_new_replies_divider">以下是新回覆</string>
@@ -374,8 +380,8 @@
     <string name="settings_app_links_summary_on">在 App 內開啟</string>
     <string name="settings_app_links_summary_off">在瀏覽器開啟</string>
     <string name="settings_report_format">測評報告</string>
-    <string name="settings_report_format_adapted">適配格式</string>
-    <string name="settings_report_format_source">顯示原文</string>
+    <string name="settings_report_format_adapted">資料卡片</string>
+    <string name="settings_report_format_source">終端原貌</string>
     <string name="settings_home_page_bar">首頁翻頁列</string>
     <string name="settings_home_page_bar_hint">在首頁右下角顯示頁碼</string>
     <string name="settings_clipboard_post">識別剪貼簿中的帖子</string>
@@ -1663,6 +1669,7 @@
     <string name="settings_post_reply_style_hint">選擇連續閱讀的排版方式</string>
     <string name="settings_post_reply_style_flat">通欄</string>
     <string name="settings_post_reply_style_cards">輕卡片</string>
+    <string name="settings_post_reply_style_original">原版</string>
     <string name="settings_show_author_account_info">顯示作者註冊天數</string>
     <string name="settings_show_author_account_info_hint">在主文和回覆中顯示作者等級與註冊天數</string>
     <string name="sign_in_diagnostics">查看登入診斷</string>

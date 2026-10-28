@@ -38,9 +38,9 @@ import kotlin.math.roundToInt
  * The routing is by content rather than by URL because nothing in a URL says which kind of document
  * is behind it — the site serves both from `/avatar/<uid>.png`, extension and all.
  *
- * Every step that could fail falls back to Skia rather than to an error: no readable size, no window
- * to render in, a snapshot the system refused. A card drawn without its text is a poor image; the
- * app's 「图片加载失败」in its place is a worse one, and it is what this platform drew before.
+ * Every step that could fail falls back to Skia rather than to an error: a size not even WebKit could
+ * read, no window to render in, a snapshot the system refused. A card drawn without its text is a poor
+ * image; the app's 「图片加载失败」in its place is a worse one, and it is what this platform drew before.
  */
 @OptIn(ExperimentalCoilApi::class)
 internal class IosSvgDecoder(
@@ -56,9 +56,12 @@ internal class IosSvgDecoder(
         val markup = bytes.decodeToString()
         if (!SvgMarkup.needsFullRenderer(markup)) return skia(bytes)
 
-        val intrinsic = SvgMarkup.intrinsicSize(markup) ?: return skia(bytes)
-        val size = pixelSize(intrinsic) ?: return skia(bytes)
-        val png = rasterizer.rasterize(bytes, intrinsic, size.first, size.second) ?: return skia(bytes)
+        // Null when the root's size is in a unit only a layout engine can resolve — the 测评 reports
+        // are `74ch` by `47em`, and [SvgMarkup] refuses to guess at either. Null is not a reason to
+        // give up here: WebKit is asked how big it drew the document, and only a document whose size
+        // not even WebKit could report falls through to Skia.
+        val intrinsic = SvgMarkup.intrinsicSize(markup)
+        val png = rasterizer.rasterize(bytes, intrinsic, ::pixelSize) ?: return skia(bytes)
         return DecodeResult(
             image = png.toImage() ?: return skia(bytes),
             // The bitmap is one rendering of a document that can always be drawn again larger, which

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.uikit.OnFocusBehavior
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
@@ -251,7 +252,13 @@ private class NativeShell(
         val entry = providers.getValue(destination)(key)
         val owner = PageOwner()
         val controller =
-            ComposeUIViewController {
+            ComposeUIViewController(
+                configure = {
+                    // On the pages that lift themselves over the keyboard, Compose must not lift
+                    // them a second time — see [makesRoomForKeyboard].
+                    if (key.makesRoomForKeyboard()) onFocusBehavior = OnFocusBehavior.DoNothing
+                },
+            ) {
                 NodysseyChrome(container, settings) {
                     CompositionLocalProvider(
                         // The page's own store rather than the controller's default one, so that a
@@ -462,6 +469,29 @@ private val TopLevelDestination.symbol: String
             TopLevelDestination.NOTIFICATIONS -> "bell"
             TopLevelDestination.PROFILE -> "person"
         }
+
+/**
+ * The pages whose screens make room for the keyboard themselves — `imePadding`, or `:designsys`'s
+ * `paddingWithKeyboard`, which is the same insets consumed a `Scaffold` later.
+ *
+ * On those, Compose's default must be off. Left on, it shifts the whole page to keep the focused
+ * field above the keyboard, and the two adjustments chase each other: `OffsetToFocusedRect`
+ * re-measures whenever the padding moves the field, the padding moves it again, and the main thread
+ * spins in layout until the watchdog kills the app (`0x8BADF00D`) — the freezes reported in 发帖 and
+ * 编辑资料. Every other page keeps the default, because it is the only thing keeping their fields in
+ * view: a search box or a settings form there has no padding of its own to fall back on. A screen
+ * that gains `imePadding` belongs on this list.
+ */
+private fun NavKey.makesRoomForKeyboard(): Boolean =
+    this is PostComposerKey ||
+        this is PostDetailKey ||
+        this is AccountProfileFieldsKey ||
+        this is AccountSecurityKey ||
+        this is SignInKey ||
+        this is MessageThreadKey ||
+        this is DohSettingsKey ||
+        this is StickerAddKey ||
+        this is ThemeSettingsKey
 
 /**
  * Safari, which is what the platform `UriHandler` is on this side — the same one `BrowserLinks.ios`
