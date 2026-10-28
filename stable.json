@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "channel": "stable",
-  "versionName": "1.3.4",
-  "tag": "v1.3.4",
-  "publishedOn": "2026-10-27",
-  "notes": "### 改进\n\n- 优化帖子详情排版、连续阅读与分页，支持通栏和轻卡片两种回复样式，并可控制作者等级及注册天数显示。\n- 调整默认浅色和深色配色、引用块和阅读控件，保留自选主题。\n- 登录失败时提供可复制的诊断信息，改进网络和会话异常的提示。\n- iOS 原生网络链路增加 DoH / ECH 支持及相关诊断；网页登录使用系统 WebView，不保证与原生请求使用相同链路。\n- 设置页增加 Telegram 交流群入口。\n\n### 修复\n\n- 改进帖子向上加载、跨页阅读与作者资料加载，减少重复内容对阅读的干扰。\n- 改进权限提示与已登录状态的识别，避免把帖子正文中的权限相关文字误判为页面错误。\n- 改进网络重定向及传输失败的处理。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.3...v1.3.4",
+  "versionName": "1.3.5",
+  "tag": "v1.3.5",
+  "publishedOn": "2026-10-28",
+  "notes": "本次更新重点改善帖子阅读和测评报告展示，并集中修复 iOS 的输入、图片显示与底栏问题。\n\n### 改进\n\n- 设置 › 内容 › 帖子回复样式新增「原版」：主帖独立卡片，回复内容排在头像旁，楼层用分隔线区分，行距与底部操作更紧凑。通栏、轻卡片仍可选择，默认仍为轻卡片。\n- 测评报告默认使用「终端原貌」，支持双指缩放、放大、缩小、恢复原始字号、适应宽度及全屏查看；已有的展示偏好继续保留，也可在设置中选择数据卡片。\n- 终端报告改用支持中文等宽排版的字体，改善中文、边框和表格的列对齐；深色主题采用更接近网页的终端配色，浅色主题提供易读配色。\n- 数据卡片突出硬件报告的总分与排名；测评标签页减少重复留白，文本报告和 TQ 图片使用完整内容宽度。\n- iOS 26/27 使用系统原生液态玻璃底栏，较早系统保留普通有背景的底栏，避免列表文字直接穿过图标。\n\n### 修复\n\n- 同一代码块中的 IPv4、IPv6 测评报告分别展示，避免标题、目标 IP 和内容混在同一卡片中。\n- 修复终端回车、退格、制表符及跨行颜色的处理，减少进度输出覆盖、错位和颜色断裂。\n- 下拉刷新的列表关闭回弹，快速滑到顶部后继续下拉可直接触发刷新，减少反复拉动。\n- iOS：修复语音输入结束时可能因光标越界而闪退的问题。\n- iOS：修复发帖、回复、私信和编辑资料等页面弹出键盘后反复布局、卡死的问题。\n- iOS：修复正文与签名中使用 `ch` / `em` 尺寸的 SVG 测评图显示为空白或黑底的问题。\n- 修复未登录或登录失效时「我的」页面不能正确恢复登录入口的问题。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.4...v1.3.5",
   "apk": {
-    "name": "nodyssey-v1.3.4.apk",
-    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.4/nodyssey-v1.3.4.apk",
-    "sizeBytes": 11088003,
-    "sha256": "ef88ac574fa63f7ae56b919351805643f998a5556d7a583a6973d0e8453155d2"
+    "name": "nodyssey-v1.3.5.apk",
+    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.5/nodyssey-v1.3.5.apk",
+    "sizeBytes": 11853776,
+    "sha256": "1c45b8d7d539a3340be277d8cf6fb9de194cacd071d2f2939fa80cc0d31e6485"
   },
-  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.4"
+  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.5"
 }
