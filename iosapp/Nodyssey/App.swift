@@ -57,13 +57,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
 
         NodysseyApp.shared.start { controller in
-            // iOS 26 and later draw a floating Liquid Glass tab bar. An opaque appearance or
-            // isTranslucent=false paints the full bottom edge behind that floating bar. Leave the
-            // system appearance intact there, including its transparent surrounding area.
-            if #unavailable(iOS 26.0), let tabs = controller as? UITabBarController {
-                // Older systems use an edge-to-edge bar. Match its two states so returning to a
-                // tab root cannot drop the background. The semantic colour follows the shell's
-                // light/dark override.
+            // Keep the tab bar opaque on every iOS version. iOS 26's floating Liquid Glass bar is
+            // beautiful in isolation, but when a list scrolls under it the feed text shows through
+            // the controls; the app is a reading surface first. An opaque appearance paints the
+            // bottom edge behind the floating bar, which is the trade the reader asked for. The
+            // semantic colour follows the shell's light/dark override.
+            if let tabs = controller as? UITabBarController {
                 let appearance = UITabBarAppearance()
                 appearance.configureWithOpaqueBackground()
                 appearance.backgroundColor = .systemBackground

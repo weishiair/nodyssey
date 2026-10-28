@@ -240,12 +240,36 @@ class ProfileRepositoryTest {
             assertEquals(SiteError.SessionUnrecognised, error)
         }
 
-    private suspend fun anonymousPageError(signedIn: Boolean): SiteError {
+    /**
+     * The shape a stale cookie actually produces: a valid bootstrap with no user object.
+     *
+     * It arrives as Unparsable from the profile parser, but the page is the site's guest front
+     * page, so the profile tab must go back to the sign-in prompt rather than a redesign card.
+     */
+    @Test
+    fun `a guest bootstrap page asks for a fresh sign-in instead of the redesign card`() =
+        runTest {
+            val error =
+                pageError(
+                    page = GUEST_PAGE,
+                    signedIn = true,
+                )
+
+            assertEquals(SiteError.LoginRequired, error)
+        }
+
+    private suspend fun anonymousPageError(signedIn: Boolean): SiteError =
+        pageError(ANONYMOUS_PAGE, signedIn)
+
+    private suspend fun pageError(
+        page: String,
+        signedIn: Boolean,
+    ): SiteError {
         val repository =
             NetworkProfileRepository(
                 // Parses, and names no account — the signed-out front page, which is also what a
                 // request that went out without the cookie is answered with.
-                htmlSource = FakeProfileHtmlSource(ANONYMOUS_PAGE),
+                htmlSource = FakeProfileHtmlSource(page),
                 jsonSource = FakeProfileJsonSource(response = "{}"),
                 profileDao = database.profileDao(),
                 currentSessionFingerprint = { 7 },
@@ -262,6 +286,10 @@ class ProfileRepositoryTest {
         /** A front page whose bootstrap blob parses and carries no `uid`. */
         const val ANONYMOUS_PAGE =
             """<html><body><script>window.__config__ = {"user":{}}</script></body></html>"""
+
+        /** `{"user":null}` — the guest front page's bootstrap, which is valid but names nobody. */
+        const val GUEST_PAGE =
+            """<html><body><script id="temp-script">eyJ1c2VyIjpudWxsfQ==</script></body></html>"""
     }
 }
 

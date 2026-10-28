@@ -30,6 +30,7 @@ import kotlinx.datetime.LocalDate
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -69,6 +70,48 @@ class ProfileViewModelTest {
 
             assertEquals(SiteError.Network, viewModel.uiState.value.error)
             assertFalse(viewModel.uiState.value.isLoading)
+        }
+
+    @Test
+    fun `signs out when the site answers the profile with a guest page`() =
+        runTest(dispatcher) {
+            val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+            val viewModel =
+                ProfileViewModel(
+                    session = session,
+                    profileRepository =
+                    FakeProfileRepository(
+                        error = SiteException(SiteError.LoginRequired),
+                    ),
+                    assetsRepository = FakeAssetsRepository(),
+                )
+
+            advanceUntilIdle()
+
+            assertFalse(session.state.value.isSignedIn)
+            assertFalse(viewModel.uiState.value.isSignedIn)
+            assertNull(viewModel.uiState.value.error)
+        }
+
+    @Test
+    fun `signs out when the site does not recognise the held session`() =
+        runTest(dispatcher) {
+            val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+            val viewModel =
+                ProfileViewModel(
+                    session = session,
+                    profileRepository =
+                    FakeProfileRepository(
+                        error = SiteException(SiteError.SessionUnrecognised),
+                    ),
+                    assetsRepository = FakeAssetsRepository(),
+                )
+
+            advanceUntilIdle()
+
+            assertFalse(session.state.value.isSignedIn)
+            assertFalse(viewModel.uiState.value.isSignedIn)
+            assertNull(viewModel.uiState.value.error)
         }
 
     @Test

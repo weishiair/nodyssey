@@ -197,14 +197,26 @@ class NetworkProfileRepository(
         // users to a "站点改版" card whose retry can never succeed; reporting either as
         // LoginRequired unconditionally sent a user who had *just signed in* back to a sign-in
         // wall, which is the same dead end wearing the other hat.
+        //
+        // A signed-out page can also carry a perfectly valid bootstrap that simply has no user
+        // object in it. That one arrives as Unparsable from the profile parser, not as
+        // LoginRequired, and is the shape a stale cookie produces: the app thinks it is signed in,
+        // the site serves the guest page, and the profile tab used to end on 这个页面读不出来.
+        // Treat that as the site's explicit "no session" answer so the tab can go back to the
+        // login prompt instead of a retry that will never succeed.
+        val html = htmlSource.getHtml("/")
         val bootstrap =
             try {
-                parseProfilePage(htmlSource.getHtml("/"))
+                parseProfilePage(html)
             } catch (exception: SiteException) {
-                if (exception.error == SiteError.LoginRequired) {
-                    throw SiteException(anonymousAnswer(), exception)
+                when {
+                    exception.error == SiteError.LoginRequired -> throw SiteException(anonymousAnswer(), exception)
+
+                    exception.error == SiteError.Unparsable && bootstrapNamesNobody(html) ->
+                        throw SiteException(SiteError.LoginRequired, exception)
+
+                    else -> throw exception
                 }
-                throw exception
             }
         val uid = bootstrap.uid ?: throw SiteException(anonymousAnswer())
         selfUidState.value = uid
@@ -223,6 +235,28 @@ class NetworkProfileRepository(
         selfIsAdmin = (account?.isAdmin ?: false) || (bootstrap.isAdmin ?: false)
 
         return bootstrap.merge(account).toProfile()
+    }
+
+    /**
+     * Whether the page's bootstrap decoded but carried no profile object.
+     *
+     * A valid-but-guest bootstrap is evidence of a signed-out page, not of a redesign: a redesign
+     * that still knows how to write the bootstrap is a much smaller failure surface than a retry
+     * loop on a page that will always answer the same way. Invalid base64 or malformed JSON stays
+     * [SiteError.Unparsable] and keeps the redesign explanation.
+     */
+    private fun bootstrapNamesNobody(html: String): Boolean {
+        val decoded =
+            try {
+                SiteBootstrap.decode(html)
+            } catch (exception: SiteException) {
+                return false
+            }
+        return try {
+            parseProfileJson(decoded) == null
+        } catch (exception: SiteException) {
+            false
+        }
     }
 
     /**
