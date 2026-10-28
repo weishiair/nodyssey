@@ -108,8 +108,9 @@ Before submitting, run the same gates as `.github/workflows/ci.yml`. After build
   an all-ABI Debug APK unless explicitly requested.
 - Check the published stable version and previous test builds before assigning a version. After
   stable `1.3.4` (89), `1.3.5-test.1` (91), `1.3.5-test.2` (92), `1.3.5-test.3` (93),
-  `1.3.5-test.4` (94), `1.3.5-test.5` (95), the iOS test `1.3.5-ios-test.1` (96) and the prepared
-  iOS test `1.3.5-ios-test.2` (97) are assigned; the next test increments to `1.3.5-test.6` (98).
+  `1.3.5-test.4` (94), `1.3.5-test.5` (95), the iOS tests `1.3.5-ios-test.1` (96),
+  `1.3.5-ios-test.2` (97), `1.3.5-ios-test.3` (98) and the prepared `1.3.5-ios-test.4` (99) are assigned;
+  the next Android test increments to `1.3.5-test.6` (100).
   Subsequent tests increment both `-test.N` and Android `versionCode`; never reuse an older code.
 - Keep the version in `gradle.properties`, name the artifact `nodyssey-v<versionName>.apk`, and
   publish test tags as GitHub prereleases. Legacy `-dev.N` tags remain supported.
