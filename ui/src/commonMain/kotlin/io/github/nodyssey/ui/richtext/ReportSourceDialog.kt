@@ -62,6 +62,7 @@ import io.github.plaza.core.ansi.AnsiSpan
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberTerminalText
+import io.github.plaza.designsys.component.terminalFontFamily
 import io.github.plaza.designsys.component.terminalGround
 import io.github.plaza.designsys.component.terminalInk
 import io.github.plaza.designsys.theme.Spacing
@@ -187,7 +188,8 @@ private fun TerminalBody(
     modifier: Modifier = Modifier,
 ) {
     val coloured = rememberTerminalText(source, spans)
-    val autoSize = remember { TextAutoSize.StepBased(minFontSize = 1.sp, maxFontSize = ReportTerminalStyle.fontSize, stepSize = 0.1.sp) }
+    val terminalStyle = ReportTerminalStyle.copy(fontFamily = terminalFontFamily())
+    val autoSize = remember { TextAutoSize.StepBased(minFontSize = 1.sp, maxFontSize = terminalStyle.fontSize, stepSize = 0.1.sp) }
     var fitted by remember(source) { mutableFloatStateOf(1f) }
     // Null keeps the initial overview fitted after rotation. An explicit zoom is a reading choice.
     var selectedScale by rememberSaveable(source) { mutableStateOf<Float?>(null) }
@@ -213,13 +215,13 @@ private fun TerminalBody(
                     Text(
                         text = coloured,
                         modifier = if (selectedScale == null) Modifier.fillMaxWidth() else Modifier,
-                        style = ReportTerminalStyle.scaledBy(if (selectedScale == null) 1f else scale),
+                        style = terminalStyle.scaledBy(if (selectedScale == null) 1f else scale),
                         color = terminalInk(),
                         softWrap = false,
                         autoSize = if (selectedScale == null) autoSize else null,
                         onTextLayout = { result ->
                             if (selectedScale == null) {
-                                fitted = result.layoutInput.style.fontSize.value / ReportTerminalStyle.fontSize.value
+                                fitted = result.layoutInput.style.fontSize.value / terminalStyle.fontSize.value
                             }
                         },
                     )

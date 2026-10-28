@@ -1,0 +1,11 @@
+Terminal monospace font in this app
+====================================
+
+Font: Noto Sans Mono CJK SC, subset for the benchmark reports.
+Subset: ASCII, the report punctuation and box-drawing ranges, and GB2312 level-1 Chinese.
+
+Copyright 2014-2021 Adobe (http://www.adobe.com/).
+Noto is a trademark of Google Inc.
+
+Licensed under the SIL Open Font License, Version 1.1. The license text is in
+`terminal_mono_OFL.txt` beside this notice.

@@ -105,6 +105,7 @@ import io.github.plaza.designsys.component.prefetchLinksOnPress
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberTerminalText
 import io.github.plaza.designsys.component.specTableFits
+import io.github.plaza.designsys.component.terminalFontFamily
 import io.github.plaza.designsys.component.terminalGround
 import io.github.plaza.designsys.component.terminalInk
 import io.github.plaza.designsys.editor.previousGraphemeBoundary
@@ -1027,7 +1028,7 @@ fun CodeBlockView(node: RichNode.CodeBlock) {
             // Code must never reflow, so it scrolls sideways instead of wrapping.
             Text(
                 text = code,
-                style = CodeStyle,
+                style = if (terminal) CodeStyle.copy(fontFamily = terminalFontFamily()) else CodeStyle,
                 color = ink,
                 softWrap = false,
                 modifier =
