@@ -39,3 +39,12 @@
 签名通过 `NODYSSEY_KEYSTORE_FILE`、`NODYSSEY_KEYSTORE_PASSWORD`、`NODYSSEY_KEY_ALIAS`、`NODYSSEY_KEY_PASSWORD` 注入，沿用本分支既有证书和 `io.github.nodyssey.debug` 包名，以便覆盖安装并保留数据。缺少密钥时上述命令生成未签名包，不能作为可安装包交付，也不自动改成临时包名或其他签名。
 
 交付前用 SDK 的 `aapt2 dump badging` 与 `apksigner verify --print-certs` 核对版本号、versionCode、包名、ARM 架构、非调试状态和签名，再核对大小；文件名使用 `nodyssey-v1.3.5-test.1.apk` 这样的格式。构建后执行 `.\gradlew.bat --stop`。正式发布才创建 `v1.3.5`；测试发布创建 `v1.3.5-test.1` 并标为 prerelease。
+
+本机 Windows 签名库固定存放在用户目录的 `.nodyssey/signing/release.keystore`，与仓库、桌面临时文件分开。四个签名变量保存在当前 Windows 用户的环境中。已经运行的终端或 AI 进程需要先加载用户环境，再执行打包命令：
+
+```powershell
+. "$env:USERPROFILE\.nodyssey\signing\load-signing.ps1"
+.\gradlew.bat :app:assembleRelease '-Pnodyssey.echRelease=true'
+```
+
+既有发布证书 SHA-256 为 `71218866231eae5bf61a1192b2df0180d6d65d55e6aa08f0e52176dbcad197f8`。证书显示名称为 `Android Debug`，辨认时以指纹为准。签名库和密码应另外保存到受保护的备份位置，不能提交到 Git。

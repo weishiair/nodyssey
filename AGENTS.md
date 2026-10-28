@@ -115,6 +115,13 @@ Before submitting, run the same gates as `.github/workflows/ci.yml`. After build
   `-Pnodyssey.echRelease=true`, and its existing signing key. Do not silently replace either with
   a temporary package ID or another certificate. If the matching key is unavailable, explain that
   limitation; an unsigned APK is not an installable deliverable.
+- On the configured Windows machine, keep the signing files outside the checkout under
+  `%USERPROFILE%\.nodyssey\signing`. The four signing variables are saved in the Windows user's
+  environment. If an already running terminal or agent has not inherited them, dot-source
+  `$env:USERPROFILE\.nodyssey\signing\load-signing.ps1` before invoking Gradle. Never print passwords.
+- The published signing certificate's SHA-256 is
+  `71218866231eae5bf61a1192b2df0180d6d65d55e6aa08f0e52176dbcad197f8`.
+  Compare fingerprints rather than the certificate's `Android Debug` display name.
 - Before delivery, inspect the APK's version, application ID, ABIs, non-debuggable flag, signature
   and actual size. See `docs/ech-fork.md` for the build command.
 
