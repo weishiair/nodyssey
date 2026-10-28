@@ -14,7 +14,7 @@ import java.io.File
 import java.nio.file.Files
 
 /**
- * A stored 测评报告 value this build cannot read falls back to the card.
+ * A stored 测评报告 value this build cannot read falls back to the original terminal.
  *
  * The stored form is the enum name, so a renamed
  * constant would otherwise hand the renderer a format it has no case for. Defaulting keeps that a
@@ -24,7 +24,7 @@ class ReportFormatSettingTest {
     @Test
     fun `a value this build does not know falls back to the default`() =
         runTest {
-            assertEquals(ReportFormat.ADAPTED, storedFormat("TERMINAL"))
+            assertEquals(ReportFormat.SOURCE, storedFormat("TERMINAL"))
         }
 
     private suspend fun CoroutineScope.storedFormat(raw: String): ReportFormat {

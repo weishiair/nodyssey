@@ -537,9 +537,7 @@ private fun TabGroup(
     Column(
         modifier =
         Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .background(LocalPlazaLayers.current.inset),
+            .fillMaxWidth(),
     ) {
         SecondaryScrollableTabRow(
             selectedTabIndex = index,
@@ -562,7 +560,6 @@ private fun TabGroup(
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         RichBlockColumn(
             nodes = node.tabs[index].children,
             onLinkClick = onLinkClick,
@@ -572,7 +569,7 @@ private fun TabGroup(
             voteContent = voteContent,
             codeBlockContent = codeBlockContent,
             stardustContent = stardustContent,
-            modifier = Modifier.padding(Spacing.md),
+            modifier = Modifier.padding(top = Spacing.sm),
         )
     }
 }

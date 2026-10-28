@@ -89,12 +89,51 @@ object QualityReportParser {
     /** ...and each of those rows at least this many cells, or it is just a value with spaces in it. */
     private const val MIN_TABLE_CELLS = 3
 
+    /** One original report, with colour offsets rebased after splitting a pasted terminal block. */
+    data class Part(
+        val report: QualityReport,
+        val source: String,
+        val spans: List<AnsiSpan>,
+    )
+
+    /** IPv4 and IPv6 reports are often pasted into the same code fence. Keep their identities. */
+    fun parseAll(code: String, spans: List<AnsiSpan> = emptyList()): List<Part> {
+        val lines = code.lines()
+        val rules = lines.indices.filter { RULE.matches(lines[it].trim()) }
+        val starts = rules.zipWithNext().mapNotNull { (from, until) ->
+            if (lines[from].trim() != lines[until].trim()) return@mapNotNull null
+            val banner = lines.subList(from + 1, until)
+            val named = banner.any { TITLE.matches(it.trim()) }
+            val project = banner.any { PROJECT.containsMatchIn(it) }
+            val dated = banner.any { META.containsMatchIn(it) }
+            from.takeIf { named || (project && dated) }
+        }
+        if (starts.size < 2) return listOfNotNull(parse(code, spans)?.let { Part(it, code, spans) })
+
+        val offsets = lineOffsets(lines, code)
+        val parts = starts.mapIndexed { index, start ->
+            val from = if (index == 0) 0 else offsets[start]
+            val until = starts.getOrNull(index + 1)?.let { offsets[it] } ?: code.length
+            val source = code.substring(from, until).trimEnd()
+            val end = from + source.length
+            val localSpans = spans.mapNotNull { span ->
+                val left = maxOf(span.start, from)
+                val right = minOf(span.end, end)
+                if (left < right) span.copy(start = left - from, end = right - from) else null
+            }
+            parse(source, localSpans)?.let { Part(it, source, localSpans) }
+        }
+        // A malformed prefix must not make part of the posted text disappear.
+        if (parts.any { it == null }) return listOfNotNull(parse(code, spans)?.let { Part(it, code, spans) })
+        return parts.filterNotNull()
+    }
+
     fun parse(
         code: String,
         spans: List<AnsiSpan> = emptyList(),
     ): QualityReport? {
         val lines = code.lines()
-        val offsets = lineOffsets(lines)
+        val offsets = lineOffsets(lines, code)
 
         val rules = lines.indices.filter { RULE.matches(lines[it].trim()) }
         if (rules.size < 2) return null
@@ -690,11 +729,13 @@ object QualityReportParser {
     private fun tightenCjk(text: String): String =
         Regex("""(?<=[一-鿿]) (?=[一-鿿])""").replace(text, "")
 
-    private fun lineOffsets(lines: List<String>): List<Int> {
+    private fun lineOffsets(lines: List<String>, source: String): List<Int> {
         var offset = 0
         return lines.map {
             val start = offset
-            offset += it.length + 1
+            offset += it.length
+            if (source.getOrNull(offset) == '\r') offset++
+            if (source.getOrNull(offset) == '\n') offset++
             start
         }
     }

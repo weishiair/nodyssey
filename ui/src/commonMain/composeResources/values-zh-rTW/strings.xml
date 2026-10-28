@@ -23,6 +23,12 @@
     <string name="action_collapse">收合</string>
     <string name="report_show_source">檢視原始報告</string>
     <string name="report_open_fullscreen">全螢幕檢視</string>
+    <string name="report_zoom_fit">符合寬度</string>
+    <string name="report_zoom_hint">雙指縮放 · 左右滑動檢視</string>
+    <string name="report_zoom_in">放大報告</string>
+    <string name="report_zoom_out">縮小報告</string>
+    <string name="report_zoom_actual_size">還原原始字級</string>
+    <string name="report_zoom_percent">%1$d%%</string>
     <string name="report_compare_add">加入比較</string>
     <string name="report_compare_remove">移出比較</string>
     <string name="report_compare_open">比較 (%1$d)</string>
@@ -374,8 +380,8 @@
     <string name="settings_app_links_summary_on">在 App 內開啟</string>
     <string name="settings_app_links_summary_off">在瀏覽器開啟</string>
     <string name="settings_report_format">測評報告</string>
-    <string name="settings_report_format_adapted">適配格式</string>
-    <string name="settings_report_format_source">顯示原文</string>
+    <string name="settings_report_format_adapted">資料卡片</string>
+    <string name="settings_report_format_source">終端原貌</string>
     <string name="settings_home_page_bar">首頁翻頁列</string>
     <string name="settings_home_page_bar_hint">在首頁右下角顯示頁碼</string>
     <string name="settings_clipboard_post">識別剪貼簿中的帖子</string>

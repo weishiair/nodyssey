@@ -832,8 +832,8 @@ private fun ConnectedReportFormatButtons(
 ) {
     val choices =
         listOf(
-            ReportFormat.ADAPTED to stringResource(Res.string.settings_report_format_adapted),
             ReportFormat.SOURCE to stringResource(Res.string.settings_report_format_source),
+            ReportFormat.ADAPTED to stringResource(Res.string.settings_report_format_adapted),
         )
     ChoiceSegments(
         labels = choices.map { it.second },

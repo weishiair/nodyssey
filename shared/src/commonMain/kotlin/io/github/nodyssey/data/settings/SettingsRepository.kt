@@ -101,7 +101,7 @@ class SettingsRepository(
                 imagesOnWifiOnly = preferences[KEY_IMAGES_WIFI_ONLY] ?: false,
                 reportFormat = preferences[KEY_REPORT_FORMAT]
                     ?.let { runCatching { ReportFormat.valueOf(it) }.getOrNull() }
-                    ?: ReportFormat.ADAPTED,
+                    ?: ReportFormat.SOURCE,
                 feedSort = preferences[KEY_FEED_SORT]
                     ?.let { runCatching { FeedSort.valueOf(it) }.getOrNull() }
                     ?: FeedSort.LAST_REPLY,
@@ -889,7 +889,7 @@ data class UserSettings(
     val stickerSize: Int = SettingsRepository.DEFAULT_STICKER_SIZE_SP,
     val imagesOnWifiOnly: Boolean = false,
     /** How a NodeQuality-style benchmark report is drawn in a post; see [ReportFormat]. */
-    val reportFormat: ReportFormat = ReportFormat.ADAPTED,
+    val reportFormat: ReportFormat = ReportFormat.SOURCE,
     /**
      * 首页 › 排序 — 新评论 or 新帖子, kept across launches.
      *

@@ -28,6 +28,12 @@
     <string name="action_collapse">Collapse</string>
     <string name="report_show_source">See the raw report</string>
     <string name="report_open_fullscreen">Full screen</string>
+    <string name="report_zoom_fit">Fit width</string>
+    <string name="report_zoom_hint">Pinch to zoom · Swipe sideways to read</string>
+    <string name="report_zoom_in">Zoom in on report</string>
+    <string name="report_zoom_out">Zoom out of report</string>
+    <string name="report_zoom_actual_size">Restore original text size</string>
+    <string name="report_zoom_percent">%1$d%%</string>
     <string name="report_compare_add">Add to compare</string>
     <string name="report_compare_remove">Remove from compare</string>
     <string name="report_compare_open">Compare (%1$d)</string>
@@ -380,8 +386,8 @@
     <string name="settings_app_links_summary_on">Opens in the app</string>
     <string name="settings_app_links_summary_off">Opens in the browser</string>
     <string name="settings_report_format">Benchmark reports</string>
-    <string name="settings_report_format_adapted">Laid out</string>
-    <string name="settings_report_format_source">As posted</string>
+    <string name="settings_report_format_adapted">Data cards</string>
+    <string name="settings_report_format_source">Terminal</string>
     <string name="settings_home_page_bar">Page bar on home</string>
     <string name="settings_home_page_bar_hint">Shows the page number at the bottom right of home</string>
     <string name="settings_clipboard_post">Detect copied post links</string>
