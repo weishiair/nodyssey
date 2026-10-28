@@ -9,7 +9,7 @@ name: Release
 # — `v2-experiment`, a tag someone pushes to mark a branch point — and publishing a signed APK off
 # one of those is the failure it actually prevents.
 #
-# `vX.Y.Z-dev.N` is the one other shape the guard accepts: a test build, signed and published the
+# `vX.Y.Z-test.N` (and legacy `-dev.N`) is also accepted: a test build, signed and published the
 # same way, but as a GitHub prerelease. `releases/latest` (what the in-app update checker reads,
 # see GitHubReleaseSource.kt) excludes prereleases by construction, so a dev tag never reaches
 # users who didn't go looking for it.
@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to release, e.g. v1.0.2 or v1.0.2-dev.1'
+        description: 'Existing tag to release, e.g. v1.3.5 or v1.3.5-test.1'
         required: true
 
 concurrency:
@@ -61,13 +61,13 @@ jobs:
           tag="${{ github.event.inputs.tag || github.ref_name }}"
           # `v*` also matches `v2-experiment`, and workflow_dispatch takes whatever is typed into it —
           # including another app's tag, which would be built as Nodyssey and published under its name.
-          if ! printf '%s' "$tag" | grep -qE '^v[0-9]+(\.[0-9]+)*(-dev\.[0-9]+)?$'; then
-            echo "::error::$tag is not a Nodyssey release tag; those are shaped vX.Y.Z or vX.Y.Z-dev.N." >&2
+          if ! printf '%s' "$tag" | grep -qE '^v[0-9]+(\.[0-9]+)*(-(test|dev)\.[0-9]+)?$'; then
+            echo "::error::$tag is not a Nodyssey release tag; those are shaped vX.Y.Z, vX.Y.Z-test.N or legacy vX.Y.Z-dev.N." >&2
             exit 1
           fi
           version="${tag#v}"
           is_dev=false
-          if printf '%s' "$tag" | grep -qE -- '-dev\.[0-9]+$'; then
+          if printf '%s' "$tag" | grep -qE -- '-(test|dev)\.[0-9]+$'; then
             is_dev=true
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
