@@ -60,10 +60,10 @@ import io.github.nodyssey.ui.resources.report_zoom_out
 import io.github.nodyssey.ui.resources.report_zoom_percent
 import io.github.plaza.core.ansi.AnsiSpan
 import io.github.plaza.designsys.component.PlazaIcons
-import io.github.plaza.designsys.component.TerminalGround
-import io.github.plaza.designsys.component.TerminalInk
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberTerminalText
+import io.github.plaza.designsys.component.terminalGround
+import io.github.plaza.designsys.component.terminalInk
 import io.github.plaza.designsys.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -84,14 +84,14 @@ fun ReportSourceDialog(
         // A dialog is a separate layout root. Its text must not join the post's selection manager:
         // a long press during a pinch would otherwise map coordinates across different hierarchies.
         DisableSelection {
-            Surface(color = TerminalGround, contentColor = TerminalInk) {
+            Surface(color = terminalGround(), contentColor = terminalInk()) {
                 Column(Modifier.fillMaxSize().systemBarsPadding()) {
                     TerminalHeader(title, target, source, onDismiss = onDismiss)
                     TerminalDivider()
                     Text(
                         text = stringResource(Res.string.report_zoom_hint),
                         style = MaterialTheme.typography.labelSmall,
-                        color = TerminalInk.copy(alpha = 0.65f),
+                        color = terminalInk().copy(alpha = 0.65f),
                         modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
                     )
                     TerminalBody(source, spans, fullscreen = true, modifier = Modifier.weight(1f))
@@ -114,9 +114,9 @@ fun ReportSourceBlock(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = TerminalGround,
-        contentColor = TerminalInk,
-        border = BorderStroke(1.dp, TerminalInk.copy(alpha = 0.12f)),
+        color = terminalGround(),
+        contentColor = terminalInk(),
+        border = BorderStroke(1.dp, terminalInk().copy(alpha = 0.12f)),
     ) {
         // Selection competes with pinching; the header's copy action always copies the whole source.
         DisableSelection {
@@ -142,7 +142,7 @@ private fun TerminalHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(TerminalInk.copy(alpha = 0.04f))
+            .background(terminalInk().copy(alpha = 0.04f))
             .padding(start = Spacing.md, end = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -157,7 +157,7 @@ private fun TerminalHeader(
                 Text(
                     text = it,
                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                    color = TerminalInk.copy(alpha = 0.7f),
+                    color = terminalInk().copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -214,7 +214,7 @@ private fun TerminalBody(
                         text = coloured,
                         modifier = if (selectedScale == null) Modifier.fillMaxWidth() else Modifier,
                         style = ReportTerminalStyle.scaledBy(if (selectedScale == null) 1f else scale),
-                        color = TerminalInk,
+                        color = terminalInk(),
                         softWrap = false,
                         autoSize = if (selectedScale == null) autoSize else null,
                         onTextLayout = { result ->
@@ -241,14 +241,14 @@ private fun TerminalZoomControls(
     onFit: () -> Unit,
     onScale: (Float) -> Unit,
 ) {
-    val colours = ButtonDefaults.textButtonColors(contentColor = TerminalInk)
+    val colours = ButtonDefaults.textButtonColors(contentColor = terminalInk())
     val actualSize = stringResource(Res.string.report_zoom_actual_size)
     val smaller = stringResource(Res.string.report_zoom_out)
     val larger = stringResource(Res.string.report_zoom_in)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(TerminalInk.copy(alpha = 0.04f))
+            .background(terminalInk().copy(alpha = 0.04f))
             .padding(horizontal = Spacing.xs),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -277,7 +277,7 @@ private fun TerminalZoomControls(
 }
 
 @Composable
-private fun TerminalDivider() = HorizontalDivider(color = TerminalInk.copy(alpha = 0.1f))
+private fun TerminalDivider() = HorizontalDivider(color = terminalInk().copy(alpha = 0.1f))
 
 private fun TextStyle.scaledBy(scale: Float): TextStyle =
     copy(fontSize = fontSize * scale)

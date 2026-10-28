@@ -96,8 +96,6 @@ import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SkippedImagePlaceholder
 import io.github.plaza.designsys.component.SpecTable
-import io.github.plaza.designsys.component.TerminalGround
-import io.github.plaza.designsys.component.TerminalInk
 import io.github.plaza.designsys.component.WrapCell
 import io.github.plaza.designsys.component.WrapCellImage
 import io.github.plaza.designsys.component.WrapTable
@@ -107,6 +105,8 @@ import io.github.plaza.designsys.component.prefetchLinksOnPress
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberTerminalText
 import io.github.plaza.designsys.component.specTableFits
+import io.github.plaza.designsys.component.terminalGround
+import io.github.plaza.designsys.component.terminalInk
 import io.github.plaza.designsys.editor.previousGraphemeBoundary
 import io.github.plaza.designsys.image.ImageLoadFailure
 import io.github.plaza.designsys.image.ImagesDeferredException
@@ -994,14 +994,14 @@ fun CodeBlockView(node: RichNode.CodeBlock) {
     val confirmation = stringResource(Res.string.richtext_code_copied)
     val copyLabel = stringResource(Res.string.richtext_action_copy)
 
-    // A block carrying colour runs is terminal output, and it is drawn on the terminal's own ground
-    // in both themes — see [rememberTerminalText] for why that palette cannot move onto a light
-    // surface. Ordinary code keeps the app's surface, where it has always been.
+    // A block carrying colour runs is terminal output, and it is drawn on the terminal's own
+    // ground: a dark palette in a dark theme, a paper one in a light theme. Ordinary code keeps the
+    // app's surface, where it has always been.
     val terminal = node.spans.isNotEmpty()
     val code = rememberTerminalText(node.code, node.spans)
-    val ground = if (terminal) TerminalGround else LocalPlazaLayers.current.inset
-    val ink = if (terminal) TerminalInk else MaterialTheme.colorScheme.onSurface
-    val chrome = if (terminal) TerminalInk.copy(alpha = TERMINAL_CHROME_ALPHA) else MaterialTheme.colorScheme.onSurfaceVariant
+    val ground = if (terminal) terminalGround() else LocalPlazaLayers.current.inset
+    val ink = if (terminal) terminalInk() else MaterialTheme.colorScheme.onSurface
+    val chrome = if (terminal) terminalInk().copy(alpha = TERMINAL_CHROME_ALPHA) else MaterialTheme.colorScheme.onSurfaceVariant
 
     val language = node.language?.takeIf { it.isNotBlank() }
 
