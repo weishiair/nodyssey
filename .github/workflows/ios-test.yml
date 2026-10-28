@@ -10,6 +10,11 @@ on:
         type: choice
         options: [all, android, ios]
         default: all
+      ios_runner:
+        description: iOS build host (Intel can build arm64 apps but cannot run ARM Mac tests)
+        type: choice
+        options: [macos-15, macos-26, macos-15-intel]
+        default: macos-15
 
 permissions:
   contents: read
@@ -125,11 +130,11 @@ jobs:
 
   ios:
     if: inputs.platform != 'android'
-    runs-on: macos-15
+    runs-on: ${{ inputs.ios_runner || 'macos-15' }}
     timeout-minutes: 90
     env:
       # macos-15 defaults to Xcode 16.4 / SDK 18.5. That keeps the legacy tab bar even on iOS 26+.
-      # This Xcode is installed on both the arm64 and Intel macos-15 images.
+      # This Xcode is installed on all three selectable runner images.
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
@@ -153,8 +158,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: konan-${{ runner.os }}-
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
       - uses: gradle/actions/setup-gradle@v5
         with:
           cache-read-only: false
@@ -183,7 +188,13 @@ jobs:
           echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
           echo "BUILD_CODE=$code" >> "$GITHUB_ENV"
       - name: Run common tests on Kotlin Native
+        if: runner.arch == 'ARM64'
         run: ./gradlew :shared:macosArm64Test --max-workers=2
+      - name: Run common tests on the JVM for the Intel fallback
+        if: runner.arch == 'X64'
+        run: |
+          echo '::notice::Intel fallback: macosArm64Test cannot execute on this host. Running shared JVM tests; the iOS arm64 targets are still compiled below.'
+          ./gradlew :shared:jvmTest --max-workers=2
       - name: Build the unsigned iPhone app
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8"

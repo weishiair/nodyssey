@@ -3,6 +3,11 @@
 手动运行 `.github/workflows/ios-test.yml` 的 **Build Android and iOS test apps**，选择测试分支，
 将 `platform` 设为 `ios`。版本仍取自该测试分支的 `gradle.properties`。
 
+`ios_runner` 默认是 `macos-15`，也可选 `macos-26`。GitHub 的 ARM runner 容量不足、
+长时间排队时，可选 `macos-15-intel` 交叉编译同样的 iPhone / 模拟器 arm64 产物。
+Intel 无法执行 `macosArm64Test`，该模式明确跳过此项并运行 `:shared:jvmTest`；
+不能将其视为通过了 Kotlin/Native 运行测试。常规 ARM runner 仍保留原生测试门禁。
+
 ## 底栏与构建 SDK
 
 iOS 26 及以上使用 UIKit 的原生液态玻璃底栏，不设置自定义背景或关闭半透明。
