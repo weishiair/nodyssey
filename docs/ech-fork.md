@@ -24,6 +24,18 @@
 
 应用只从 `https://weishiair.github.io/nodyssey/` 的静态清单获取更新和更新日志，下载地址仅允许 `weishiair/nodyssey` 的 GitHub Release，下载后验证 SHA-256。
 
-升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。测试版使用 `1.3.3-dev.1` 这样的格式，正式版使用 `1.3.2` 这样的格式。
+升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。正式版 `1.3.4` 已于 2026-10-27 发布（Android versionCode 89）；已有测试构建使用 90，下一次测试使用 `1.3.5-test.1`（91）。后续测试递增 `test.N` 和 versionCode，正式版使用 `1.3.5` 这样的格式；旧 `-dev.N` 版本继续兼容。
 
 新版本发布包含签名 APK 的 `v1.3.2` GitHub Release，APK 使用 `nodyssey-v1.3.2.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
+
+## Android 打包约定
+
+日常测试同样交付 Release APK，开启 R8 与资源压缩，只包含 `arm64-v8a` 和 `armeabi-v7a`，不包含 LeakCanary，体积通常约 10–12 MB。版本号统一取自 `gradle.properties`，不要沿用已发布的正式版号或仅改 APK 文件名。
+
+```powershell
+.\gradlew.bat :app:assembleRelease '-Pnodyssey.echRelease=true'
+```
+
+签名通过 `NODYSSEY_KEYSTORE_FILE`、`NODYSSEY_KEYSTORE_PASSWORD`、`NODYSSEY_KEY_ALIAS`、`NODYSSEY_KEY_PASSWORD` 注入，沿用本分支既有证书和 `io.github.nodyssey.debug` 包名，以便覆盖安装并保留数据。缺少密钥时上述命令生成未签名包，不能作为可安装包交付，也不自动改成临时包名或其他签名。
+
+交付前用 SDK 的 `aapt2 dump badging` 与 `apksigner verify --print-certs` 核对版本号、versionCode、包名、ARM 架构、非调试状态和签名，再核对大小；文件名使用 `nodyssey-v1.3.5-test.1.apk` 这样的格式。构建后执行 `.\gradlew.bat --stop`。正式发布才创建 `v1.3.5`；测试发布创建 `v1.3.5-test.1` 并标为 prerelease。
