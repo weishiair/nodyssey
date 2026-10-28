@@ -162,9 +162,48 @@ A test earns its place by failing on a realistic logic bug. Before writing one, 
 - **Tests written to drive an implementation are scaffolding.** Delete them before the change is delivered unless they also clear the bar above.
 - **"Covered elsewhere" is a claim to check.** Before deleting a test because another one covers it, confirm that the other test still exists and exercises the same branch.
 
-## Commit & Pull Request Guidelines
+## Branching & Commit Workflow
 
-Follow the history’s short, imperative summaries, in Chinese or English, such as `修复正文图片排版` or `Add offline cache`. Keep commits focused. Pull requests should explain the problem and solution, link relevant issues, list verification commands, and include before/after screenshots for UI changes. Call out schema, dependency-lock, session, or scraping-selector changes explicitly.
+Branches are the unit of review: one feature per branch, one purpose per branch, and test snapshots
+are disposable.
+
+### Branch model
+
+- `main` is the stable line. Features and fixes merge here after verification; release tags are cut
+  from it. Never put a test version bump on `main`.
+- Feature and fix branches use `<type>/<slug>`, with `type` one of `feature`, `fix`, `ios`,
+  `android` or `docs` (for example `feature/original-thread-layout`). One feature per branch; do not
+  mix an Android screen change and an iOS fix unless the user asked for a combined build. Legacy
+  names such as `ios/port-wa-fixes` and `codex/terminal-reports` stay.
+- Test snapshots use `test/<versionName>` (`test/1.3.5-test.2`). Cut one from the integration point
+  **after** its features are merged — or from a combined commit the user explicitly asked for —
+  change only `gradle.properties` (both `versionCode` and `versionName`), build, tag
+  `v<versionName>` as a GitHub prerelease, and never merge the test branch back. Delete it after
+  publishing if you like; the tag keeps it.
+- Do not commit another branch's or another agent's uncommitted work. Run `git status` first; when
+  the tree is mixed, stage explicit paths instead of `git add -A`.
+
+### Commits
+
+- One logical change per commit. Use the history's short imperative subject in Chinese or English
+  (`修复正文图片排版`, `Add offline cache`); the body says why and lists what was verified.
+- Keep version bumps and test-build preparation in their own commit, on the test branch — not with
+  the feature.
+- Before committing: run `spotlessCheck`, the focused tests for the touched module, and
+  `git diff --check`. Report any known pre-existing failures instead of hiding them.
+- Never commit build outputs, APKs, keystores, signing files, passwords, or credentials. See
+  Security & Configuration.
+
+### Push, merge and pull requests
+
+- Push only when the user asks, or when the task explicitly includes publishing. Never force-push or
+  rewrite a shared branch; never reset, rename or delete a branch without saying where its commits
+  went.
+- Feature and fix branches merge into `main` through a pull request. Test branches are snapshots and
+  are not PR'd.
+- A pull request explains the problem and solution, links relevant issues, lists verification
+  commands, and includes before/after screenshots for UI changes. Call out schema, dependency-lock,
+  session, or scraping-selector changes explicitly.
 
 ## Security & Configuration
 
