@@ -14,19 +14,19 @@ import androidx.compose.ui.text.style.TextDecoration
 import io.github.plaza.core.ansi.AnsiSpan
 
 /**
- * The ground a terminal block is drawn on in a dark theme: One Dark's background, which is where
- * [rememberTerminalText]'s dark palette came from too.
+ * The ground a terminal block is drawn on in a dark theme: the black the NodeSeek post page uses for
+ * terminal output, and the same ground [rememberTerminalText]'s dark palette is read on.
  *
  * Kept as a public constant for callers that already know they are drawing the dark terminal; the
  * composable [terminalGround] picks this or the light paper ground from the current theme.
  */
-val TerminalGround = Color(0xFF282C34)
+val TerminalGround = Color(0xFF000000)
 
 /**
- * The default ink on [TerminalGround] — One Dark's foreground, the same colour the dark palette's
- * unstyled runs fall back to.
+ * The default ink on [TerminalGround] — the near-white the web terminal uses, and the colour the dark
+ * palette's unstyled runs fall back to.
  */
-val TerminalInk = Color(0xFFD7DAE0)
+val TerminalInk = Color(0xFFE6E6E6)
 
 /** The ground the current theme's terminal should sit on. */
 @Composable
@@ -130,51 +130,52 @@ private data class TerminalPalette(
 /**
  * The sixteen colours as text on [TerminalGround].
  *
- * One Dark's palette. Index 0 is grey rather than black: a terminal's own black is its background,
- * so `ESC[30m` drawn literally would be invisible, and the scripts do use it — as the ink inside a
- * coloured badge, where it survives here as a legible dark grey.
+ * The web terminal's xterm palette — the same vivid green, yellow and red the NodeSeek post page
+ * shows — on a black ground. Index 0 is grey rather than black: a terminal's own black is its
+ * background, so `ESC[30m` drawn literally would be invisible, and the scripts do use it — as the
+ * ink inside a coloured badge, where it survives here as a legible dark grey.
  */
 private val DarkTerminalPalette =
     TerminalPalette(
         foreground =
         listOf(
-            Color(0xFF5C6370),
-            Color(0xFFE06C75),
-            Color(0xFF98C379),
-            Color(0xFFE5C07B),
-            Color(0xFF61AFEF),
-            Color(0xFFC678DD),
-            Color(0xFF56B6C2),
-            Color(0xFFABB2BF),
-            Color(0xFF6B7280),
-            Color(0xFFFF8A94),
-            Color(0xFFB5DF9A),
-            Color(0xFFF0D08C),
-            Color(0xFF83CBFF),
-            Color(0xFFDA9BF0),
-            Color(0xFF6FD3DF),
-            Color(0xFFD7DAE0),
+            Color(0xFF7F7F7F),
+            Color(0xFFCD0000),
+            Color(0xFF00CD00),
+            Color(0xFFCDCD00),
+            Color(0xFF0000EE),
+            Color(0xFFCD00CD),
+            Color(0xFF00CDCD),
+            Color(0xFFE5E5E5),
+            Color(0xFF7F7F7F),
+            Color(0xFFFF0000),
+            Color(0xFF00FF00),
+            Color(0xFFFFFF00),
+            Color(0xFF5C5CFF),
+            Color(0xFFFF00FF),
+            Color(0xFF00FFFF),
+            Color(0xFFFFFFFF),
         ),
         background =
         listOf(
-            Color(0xFF21252B),
-            Color(0xFF8C2F38),
-            Color(0xFF3E6B33),
-            Color(0xFF7A5C15),
-            Color(0xFF2A5C8A),
-            Color(0xFF6B3080),
-            Color(0xFF2A6570),
-            Color(0xFFD7DAE0),
-            Color(0xFF3A3F4B),
-            Color(0xFFA33B45),
-            Color(0xFF4C7F3E),
-            Color(0xFF8F6D1A),
-            Color(0xFF336FA3),
-            Color(0xFF7E3A96),
-            Color(0xFF337885),
-            Color(0xFFF1F3F6),
+            Color(0xFF1A1A1A),
+            Color(0xFFAA0000),
+            Color(0xFF00E676),
+            Color(0xFFFFEB3B),
+            Color(0xFF0000AA),
+            Color(0xFFAA00AA),
+            Color(0xFF00AAAA),
+            Color(0xFFFFFFFF),
+            Color(0xFF333333),
+            Color(0xFFFF5555),
+            Color(0xFF00FF00),
+            Color(0xFFFFFF00),
+            Color(0xFF5555FF),
+            Color(0xFFFF55FF),
+            Color(0xFF00FFFF),
+            Color(0xFFFFFFFF),
         ),
-        chipInk = Color(0xFF1B1F27),
+        chipInk = Color(0xFF000000),
     )
 
 /** A paper terminal for a light theme: dark ink, darker hues, and tinted fills. */
