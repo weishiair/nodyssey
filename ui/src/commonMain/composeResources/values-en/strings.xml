@@ -381,6 +381,10 @@
     <string name="settings_sticker_uniform_hint">Stickers are drawn at a fixed size</string>
     <string name="settings_sticker_size">Sticker size</string>
     <string name="settings_sticker_preview_caption">Stickers are this big</string>
+    <string name="settings_search_avatar">Show avatars in search results</string>
+    <string name="settings_search_avatar_hint">The author\'s face at the left of each result card, so a person is easier to spot. Off gives the title more room.</string>
+    <string name="settings_search_avatar_size">Avatar size</string>
+    <string name="settings_search_avatar_preview">A face is often easier to spot than a name</string>
     <string name="settings_text_preview">This is a preview of the reading size: post text and list titles are shown at this size.</string>
     <string name="settings_content">Content</string>
     <string name="settings_app_links">Site links</string>
@@ -795,6 +799,8 @@
     <string name="status_sign_in_title_board">「%1$s」needs you signed in</string>
     <string name="status_sign_in_body">Sign in to your %1$s account to read this board. A successful sign-in comes back here and reloads.</string>
     <string name="status_sign_in_secondary">Look at another board first</string>
+    <string name="status_search_sign_in_title">Sign in to search</string>
+    <string name="status_search_sign_in_body">%1$s only searches for a signed-in account. A successful sign-in comes back here and runs this search again.</string>
     <string name="status_session_stale_title">Your session was not recognised</string>
     <string name="status_session_stale_body">The app is holding a session and the site answered this request as though you were signed out. Retrying usually settles it; if it keeps happening, the session has expired and signing in again will fix it.</string>
 

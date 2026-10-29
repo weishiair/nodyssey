@@ -474,6 +474,12 @@
     <string name="settings_sticker_size">表情大小</string>
     <!-- The sample line the 表情大小 slider redraws live, next to two real stickers -->
     <string name="settings_sticker_preview_caption">表情就这么大</string>
+    <!-- 设置 › 外观 › 搜索结果显示头像：结果卡片左侧的楼主头像，可关、可调大小 -->
+    <string name="settings_search_avatar">搜索结果显示头像</string>
+    <string name="settings_search_avatar_hint">结果卡片左侧显示楼主头像，找人更快；关掉后标题能多几个字</string>
+    <string name="settings_search_avatar_size">头像大小</string>
+    <!-- 头像大小滑块的预览卡片标题 -->
+    <string name="settings_search_avatar_preview">用头像找人，往往比认名字快</string>
     <!-- 阅读字号的预览句：说明自己在预览什么，不借一段假帖子 -->
     <string name="settings_text_preview">这是阅读字号的预览，帖子正文和列表标题会按这个大小显示。</string>
     <string name="settings_content">内容</string>
@@ -953,6 +959,9 @@
     <string name="status_sign_in_title_board">「%1$s」需要登录后查看</string>
     <string name="status_sign_in_body">登录 %1$s 账号后即可浏览本版块的内容。登录成功会自动返回并重新加载。</string>
     <string name="status_sign_in_secondary">先逛逛别的版块</string>
+    <!-- 搜索 needs a session of its own: signed out, `/search` answers with a 302 to Google. -->
+    <string name="status_search_sign_in_title">搜索需要登录</string>
+    <string name="status_search_sign_in_body">%1$s 的搜索只对已登录账号开放。登录成功会自动回到这里，把这次搜索重新搜一遍。</string>
     <string name="status_session_stale_title">登录状态没被认出来</string>
     <string name="status_session_stale_body">应用手上有登录信息，站点这次却当作未登录返回。多数情况下重试一次就好；如果一直这样，说明这份登录已经失效，重新登录即可。</string>
 

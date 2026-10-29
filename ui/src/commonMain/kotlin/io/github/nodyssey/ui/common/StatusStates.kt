@@ -61,6 +61,8 @@ import io.github.nodyssey.ui.resources.status_query_too_short_body
 import io.github.nodyssey.ui.resources.status_query_too_short_title
 import io.github.nodyssey.ui.resources.status_rate_limited_body
 import io.github.nodyssey.ui.resources.status_rate_limited_title
+import io.github.nodyssey.ui.resources.status_search_sign_in_body
+import io.github.nodyssey.ui.resources.status_search_sign_in_title
 import io.github.nodyssey.ui.resources.status_session_stale_body
 import io.github.nodyssey.ui.resources.status_session_stale_title
 import io.github.nodyssey.ui.resources.status_sign_in_body
@@ -458,6 +460,32 @@ fun SignedOutState(
         iconColor = MaterialTheme.colorScheme.onPrimaryContainer,
         title = stringResource(Res.string.status_signed_out_title),
         description = stringResource(Res.string.status_signed_out_body),
+        primaryAction = StatusAction(stringResource(Res.string.action_sign_in), onSignIn),
+        modifier = modifier,
+    )
+}
+
+/**
+ * 搜索's sign-in wall: the same door as [SiteErrorState]'s LoginRequired, with its own sentence.
+ *
+ * Apart from that branch because its sentence is about a 版块 — 「登录后即可浏览本版块的内容」 —
+ * and the reader who pressed 搜索 on a board they can already read is not locked out of the board,
+ * or of anything else: the site simply does not search for nobody. The two also differ in what the
+ * buttons can promise. Nothing was requested, so there is no 重试 worth offering, and the word they
+ * typed is already waiting either side of the sign-in screen — which is what the description says.
+ */
+@Composable
+fun SearchSignInState(
+    onSignIn: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    StatusView(
+        icon = Icons.Default.Lock,
+        shape = StatusShapes.SignIn,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        iconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        title = stringResource(Res.string.status_search_sign_in_title),
+        description = stringResource(Res.string.status_search_sign_in_body, siteName),
         primaryAction = StatusAction(stringResource(Res.string.action_sign_in), onSignIn),
         modifier = modifier,
     )

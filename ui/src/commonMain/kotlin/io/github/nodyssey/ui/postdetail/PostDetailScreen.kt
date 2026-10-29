@@ -1540,6 +1540,10 @@ private fun ThreadHeader(
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         val category = body?.categoryTitle ?: preview?.categoryTitle
+        // The row that opened this thread names its own key namespace; see THREAD_ORIGIN_*.
+        // Empty for a notification, a deep link or a saved thread from before the field existed,
+        // which matches no row and leaves the header as it was.
+        val origin = preview?.origin ?: ""
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             FlowRow(
                 modifier = Modifier.weight(1f),
@@ -1554,7 +1558,7 @@ private fun ThreadHeader(
                 BoardTag(
                     title = category,
                     slug = preview?.categorySlug,
-                    modifier = Modifier.sharedThreadBoard(postId),
+                    modifier = Modifier.sharedThreadBoard(postId, origin),
                 )
                 // A labelled tag rather than the list's bare diamond: here there is room to name the thing.
                 if (isAwarded) {
@@ -1579,7 +1583,7 @@ private fun ThreadHeader(
             style = postCardTitleStyle().hangLeadingPunctuation(title),
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
-                .sharedThreadTitle(postId)
+                .sharedThreadTitle(postId, origin)
                 .onPlaced(onTitlePlaced),
         )
     }
@@ -1598,6 +1602,8 @@ private fun ThreadHeader(
 @Composable
 private fun ThreadAuthorRow(
     postId: Long,
+    /** The list the flight started from; see [ThreadHeader]'s origin. */
+    origin: String,
     avatarUrl: String?,
     authorName: String,
     modifier: Modifier = Modifier,
@@ -1625,7 +1631,7 @@ private fun ThreadAuthorRow(
             size = avatarSize,
             shape = avatarShape,
             modifier = Modifier
-                .sharedThreadAvatar(postId)
+                .sharedThreadAvatar(postId, origin)
                 .then(identity)
                 // The name beside it is the same way in, and the one a screen reader is told about.
                 .clearAndSetSemantics {},
@@ -1642,7 +1648,7 @@ private fun ThreadAuthorRow(
                     style = floorNameStyle(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.sharedThreadAuthor(postId).then(identity),
+                    modifier = Modifier.sharedThreadAuthor(postId, origin).then(identity),
                 )
                 accountBadge()
                 badges()
@@ -1752,6 +1758,7 @@ private fun ThreadOpeningPost(
                 // The avatar and the name open the author's space; the rest of the row does not.
                 ThreadAuthorRow(
                     postId = postId,
+                    origin = preview?.origin ?: "",
                     avatarUrl = body?.avatarUrl ?: preview?.avatarUrl,
                     authorName = body?.authorName ?: preview?.authorName.orEmpty(),
                     modifier = Modifier.weight(1f),
@@ -1902,6 +1909,7 @@ private fun OriginalOpeningPost(
             // The avatar and the name open the author's space; the rest of the row does not.
             ThreadAuthorRow(
                 postId = postId,
+                origin = preview?.origin ?: "",
                 avatarUrl = body?.avatarUrl ?: preview?.avatarUrl,
                 authorName = body?.authorName ?: preview?.authorName.orEmpty(),
                 modifier = Modifier.weight(1f),

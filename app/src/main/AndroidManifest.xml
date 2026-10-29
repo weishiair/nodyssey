@@ -50,8 +50,24 @@
         fetched from signed-in-only boards; settings remain safe to carry over.
         See res/xml/backup_rules.xml and res/xml/data_extraction_rules.xml.
     -->
+    <!--
+        Predictive back is opt-in below Android 16. targetSdk 36 turns it on by default only on an
+        Android 16 device; on Android 14–15 the framework still answers false, sends back on release
+        alone, and never delivers the progress that `NavDisplay`'s predictive pop and 预测式返回动画
+        are built to preview. Android 13 has no progress callback at all.
+
+        Opting in moves back handling from `onBackPressed` to `OnBackInvokedCallback`. Nothing here
+        overrides `onBackPressed`; every handler goes through `OnBackPressedDispatcher` —
+        `PlazaBackHandler` in the screens, Nav3's own `NavigationBackHandler` for the stack — so no
+        callback is left on the old path.
+
+        `UnusedAttribute` is suppressed rather than the attribute dropped: minSdk 26 means lint calls
+        an API 33 attribute unused, but a platform that predates it ignores the attribute and keeps
+        its legacy back, which is exactly the fallback wanted there.
+    -->
     <application
         android:name=".NodysseyApp"
+        android:enableOnBackInvokedCallback="true"
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -60,7 +76,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Nodyssey">
+        android:theme="@style/Theme.Nodyssey"
+        tools:ignore="UnusedAttribute">
         <!--
             adjustResize belongs on the activity; on <application> the platform never reads it, so
             the window fell back to the default pan. Panning slides the whole window out of the top

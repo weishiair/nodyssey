@@ -100,7 +100,15 @@ class ProfileRepositoryTest {
         runTest {
             val repository = NetworkProfileRepository(
                 htmlSource = SiteHtmlClient(
-                    transport = RecordingTransport(httpResponse(Fixtures.load("feed-permission-discussion.html"))),
+                    transport = RecordingTransport(
+                        httpResponse(
+                            body = Fixtures.load("feed-permission-discussion.html"),
+                            // The answer has to come from the site. A page from anywhere else is
+                            // classified as the site refusing to serve one — see `SiteHtmlClient`,
+                            // where the anonymous `/search` 302 is what taught it to look.
+                            url = NodeSeekSite.BASE_URL + "/",
+                        ),
+                    ),
                     dispatchers = AppDispatchers(io = Dispatchers.Unconfined, default = Dispatchers.Unconfined),
                     config = NodeSeekSite.CONFIG,
                 ),

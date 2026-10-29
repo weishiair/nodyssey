@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -79,6 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
@@ -99,6 +101,7 @@ import io.github.nodyssey.ui.common.NavigationBarScrollConnection
 import io.github.nodyssey.ui.common.NavigationDirectionThreshold
 import io.github.nodyssey.ui.common.NoSearchResultsState
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.SearchSignInState
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.SortMenuItem
 import io.github.nodyssey.ui.common.TabPager
@@ -145,6 +148,7 @@ import io.github.plaza.designsys.component.PillTabRow
 import io.github.plaza.designsys.component.PlazaChipDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.UnderlineTabRow
@@ -719,6 +723,15 @@ private fun SearchResults(
     onSignIn: () -> Unit,
     onVerify: (String) -> Unit,
 ) {
+    // NodeSeek searches only for a signed-in account, so there is nothing to ask for signed out:
+    // `/search` answers an anonymous reader with a 302 to a Google `site:` search rather than with
+    // a page, and following it is what turned this screen into 连不上 NodeSeek. The query is
+    // already waiting in the ViewModel for the sign-in screen to come back.
+    if (!state.isSignedIn) {
+        SearchSignInState(onSignIn = onSignIn)
+        return
+    }
+
     if (target == SearchTarget.USERS) {
         when (val loadState = state.userLoadState) {
             SearchLoadState.Idle,
@@ -781,6 +794,8 @@ private fun SearchResults(
                     posts = posts,
                     highlight = state.submittedQuery,
                     onPostClick = onPostClick,
+                    // 设置 › 外观 › 搜索结果显示头像 decides both; off means the old slimmer card.
+                    avatarSize = state.searchAvatarSize.dp.takeIf { state.showSearchAvatar },
                 )
             }
         }
@@ -793,12 +808,24 @@ private fun PostResults(
     posts: LazyPagingItems<FeedPost>,
     highlight: String?,
     onPostClick: (Long) -> Unit,
+    avatarSize: Dp?,
 ) {
+    val listState = rememberLazyListState()
+    if (avatarSize != null) {
+        // The same warm-up the feed does: one page hands over fifty addresses, not fifty pictures.
+        PrefetchAvatars(
+            listState = listState,
+            itemCount = posts.itemCount,
+            size = avatarSize,
+            urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
+        )
+    }
     PullToRefreshBox(
         isRefreshing = posts.loadState.refresh is LoadState.Loading,
         onRefresh = posts::refresh,
     ) {
         LazyColumn(
+            state = listState,
             // No bounce under pull-to-refresh; see the feed's list in `PostListScreen`.
             overscrollEffect = null,
             contentPadding = PaddingValues(start = LayerPageGutter, end = LayerPageGutter, bottom = Spacing.lg),
@@ -810,13 +837,14 @@ private fun PostResults(
             ) { index ->
                 // Same pager, same reason as the feed: a counted-but-unloaded row keeps its space.
                 when (val post = posts[index]) {
-                    null -> SearchPostCardPlaceholder()
+                    null -> SearchPostCardPlaceholder(avatarSize = avatarSize)
 
                     else ->
                         SearchPostCard(
                             post = post,
                             highlight = highlight,
                             onClick = { onPostClick(post.summary.postId) },
+                            avatarSize = avatarSize,
                         )
                 }
             }

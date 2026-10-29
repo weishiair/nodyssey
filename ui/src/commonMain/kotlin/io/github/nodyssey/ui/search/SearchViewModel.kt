@@ -17,6 +17,7 @@ import io.github.nodyssey.data.PostRepository
 import io.github.nodyssey.data.SearchRepository
 import io.github.nodyssey.data.UserSearchResult
 import io.github.nodyssey.data.emptyLoadedPagingData
+import io.github.nodyssey.data.session.SessionState
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.model.FeedSort
@@ -45,6 +46,16 @@ class SearchViewModel(
     private val categoryRepository: CategoryRepository,
     private val settings: SettingsRepository,
     /**
+     * Who the app is, as the cookie jar says it.
+     *
+     * NodeSeek searches only for a signed-in account: signed out, `/search` does not answer with a
+     * page at all — it answers **302** to a Google `site:` search (measured 2026-10-29, see
+     * [io.github.plaza.core.net.SiteHtmlClient]). Following that is how a search came back as
+     * 连不上 NodeSeek. So this screen asks before a request goes out, and a query typed while
+     * signed out waits in [pendingQuery] instead of being spent on an answer the site refuses.
+     */
+    private val session: StateFlow<SessionState>,
+    /**
      * What another app asked to search for — 在 NodeSeek 搜索 in a text selection — or null for the
      * empty box the app bar opens. Searched once, here, rather than by the screen: a ViewModel is
      * built once per entry, so neither a recomposition nor a rotation can run it a second time.
@@ -59,7 +70,7 @@ class SearchViewModel(
      */
     val query = TextFieldState()
 
-    private val _uiState = MutableStateFlow(SearchUiState())
+    private val _uiState = MutableStateFlow(SearchUiState(isSignedIn = session.value.isSignedIn))
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     /**
@@ -91,6 +102,16 @@ class SearchViewModel(
 
     private var userJob: Job? = null
 
+    /**
+     * The search a signed-out reader asked for, kept until the sign-in screen comes back.
+     *
+     * 登录 is pushed on top of this screen rather than replacing it, so the ViewModel outlives the
+     * detour and can run the search on the way back — the same "登录成功会自动返回并重新加载"
+     * promise every other wall in the app makes. Cleared the moment the box is edited: the waiting
+     * word no longer describes what is in it, and the edit's own submit replaces it.
+     */
+    private var pendingQuery: String? = null
+
     init {
         observeQuery()
         categoryRepository.boards
@@ -102,9 +123,14 @@ class SearchViewModel(
                     it.copy(
                         searchHistory = userSettings.searchHistory,
                         recentBoards = userSettings.recentBoards,
+                        showSearchAvatar = userSettings.showSearchAvatar,
+                        searchAvatarSize = userSettings.searchAvatarSize,
                     )
                 }
             }.launchIn(viewModelScope)
+        session
+            .onEach { sessionState -> onSessionChanged(sessionState) }
+            .launchIn(viewModelScope)
         viewModelScope.launch { categoryRepository.refreshIfNeeded() }
         initialQuery?.takeIf(String::isNotBlank)?.let { initial ->
             query.setTextAndPlaceCursorAtEnd(initial)
@@ -122,6 +148,7 @@ class SearchViewModel(
         viewModelScope.launch {
             snapshotFlow { query.text.toString() }.collect { value ->
                 if (value == _uiState.value.submittedQuery) return@collect
+                pendingQuery = null
                 _uiState.update { it.copy(submittedQuery = null, userLoadState = SearchLoadState.Idle, postResultsQuery = null) }
                 postRequest.value = null
                 userJob?.cancel()
@@ -146,20 +173,10 @@ class SearchViewModel(
     }
 
     fun submitSearch() {
-        val state = _uiState.value
         // Straight off the field, not off a mirror: what gets searched has to be what is in the box
         // at the moment the key was pressed.
         val typed = query.text.toString()
-        executeSearch(
-            query = typed,
-            historyEntry =
-            SearchHistoryEntry(
-                query = typed,
-                target = state.target,
-                categorySlug = if (state.target == SearchTarget.POSTS) state.selectedBoard else null,
-                sort = state.sort,
-            ),
-        )
+        executeSearch(query = typed, historyEntry = _uiState.value.historyEntryFor(typed))
     }
 
     fun selectHistory(entry: SearchHistoryEntry) {
@@ -227,16 +244,7 @@ class SearchViewModel(
     private fun rerunSubmittedSearch() {
         val state = _uiState.value
         if (state.submittedQuery == null) return
-        executeSearch(
-            query = state.submittedQuery,
-            historyEntry =
-            SearchHistoryEntry(
-                query = state.submittedQuery,
-                target = SearchTarget.POSTS,
-                categorySlug = state.selectedBoard,
-                sort = state.sort,
-            ),
-        )
+        executeSearch(query = state.submittedQuery, historyEntry = state.historyEntryFor(state.submittedQuery))
     }
 
     private fun executeSearch(
@@ -256,6 +264,17 @@ class SearchViewModel(
                 userLoadState = SearchLoadState.Idle,
             )
         }
+        // Signed out, the search ends here rather than at the site: `/search` would answer a 302 to
+        // Google and the reader would be told the network was down. The query is still submitted as
+        // far as the screen is concerned — that is the screen they asked for, and the wall says why
+        // it is empty — and it waits in [pendingQuery] for the sign-in screen.
+        if (!_uiState.value.isSignedIn) {
+            pendingQuery = normalized
+            postRequest.value = null
+            _uiState.update { it.copy(postResultsQuery = null) }
+            return
+        }
+        pendingQuery = null
         historyEntry?.copy(query = normalized)?.let { entry ->
             viewModelScope.launch { settings.addSearchHistory(entry) }
         }
@@ -276,12 +295,18 @@ class SearchViewModel(
      * [distinctUntilChanged] recognise it, keep the pager, and serve the cached page.
      */
     private fun startPostSearch(query: String) {
+        // Signed out, nothing goes out. Reached with a submitted query by the 帖子 tab being swiped
+        // back into view after a blocked submit, which is why the guard is here as well as in
+        // [executeSearch].
+        if (!_uiState.value.isSignedIn) return
         val state = _uiState.value
         postRequest.value = PostSearchRequest(query = query, board = state.selectedBoard, sort = state.sort)
         _uiState.update { it.copy(postResultsQuery = query) }
     }
 
     private fun startUserSearch(query: String) {
+        // As above: the users tab is gated at submit, and this closes the lazy tab-switch path.
+        if (!_uiState.value.isSignedIn) return
         userJob?.cancel()
         _uiState.update { it.copy(userLoadState = SearchLoadState.Loading) }
         userJob =
@@ -302,6 +327,32 @@ class SearchViewModel(
             }
     }
 
+    /**
+     * Publishes the session, and runs whatever was waiting for it.
+     *
+     * Only on the way in: a session that was already there has nothing pending, and a sign-out must
+     * not re-run anything. The waiting query is what [executeSearch] parked when it was asked for
+     * while signed out, so the reader comes back from the sign-in screen to the results they asked
+     * for rather than to a wall over a word they already typed.
+     */
+    private fun onSessionChanged(sessionState: SessionState) {
+        val wasSignedIn = _uiState.value.isSignedIn
+        _uiState.update { it.copy(isSignedIn = sessionState.isSignedIn) }
+        val pending = pendingQuery
+        if (wasSignedIn || !sessionState.isSignedIn || pending == null) return
+        pendingQuery = null
+        executeSearch(query = pending, historyEntry = _uiState.value.historyEntryFor(pending))
+    }
+
+    /** The history row this search is, in the scope the screen is scoped to right now. */
+    private fun SearchUiState.historyEntryFor(query: String): SearchHistoryEntry =
+        SearchHistoryEntry(
+            query = query,
+            target = target,
+            categorySlug = selectedBoard.takeIf { target == SearchTarget.POSTS },
+            sort = sort,
+        )
+
     companion object {
         fun factory(
             container: AppContainer,
@@ -314,6 +365,7 @@ class SearchViewModel(
                         searchRepository = container.searchRepository,
                         categoryRepository = container.categoryRepository,
                         settings = container.settingsRepository,
+                        session = container.sessionRepository.state,
                         initialQuery = initialQuery,
                     )
                 }
@@ -334,6 +386,12 @@ sealed interface SearchLoadState {
 data class SearchUiState(
     /** What was actually searched for. Null while the box holds text nobody has submitted yet. */
     val submittedQuery: String? = null,
+    /**
+     * Whether the app holds a session. False draws the wall instead of the results: NodeSeek does not
+     * search for an anonymous reader, so asking is a request the site answers by sending the reader
+     * elsewhere — see [SearchViewModel].
+     */
+    val isSignedIn: Boolean = false,
     val target: SearchTarget = SearchTarget.POSTS,
     val searchHistory: List<SearchHistoryEntry> = emptyList(),
     val recentBoards: List<String> = emptyList(),
@@ -349,6 +407,15 @@ data class SearchUiState(
      * page swiped into view meanwhile shows a load in progress rather than "no results".
      */
     val postResultsQuery: String? = null,
+    /**
+     * 搜索结果显示头像 — whether a result card draws the author's face, and how large.
+     *
+     * Both come from the settings store rather than from this screen: the size is a preference about
+     * every search a reader runs, not about the one on screen, and turning it off has to survive a
+     * restart.
+     */
+    val showSearchAvatar: Boolean = true,
+    val searchAvatarSize: Int = SettingsRepository.DEFAULT_SEARCH_AVATAR_DP,
 )
 
 /** `/search` reads the boards' own `sortBy`, and reads it as 新帖子 when it is absent. */

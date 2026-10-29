@@ -59,6 +59,7 @@ class UserSpaceScreenRenderTest {
             onBack = {},
             onTabSelected = {},
             onPostClick = { _, _ -> },
+            onCommentClick = { _, _ -> },
             onRetryProfile = {},
             onMessage = {},
             onEditProfile = {},
