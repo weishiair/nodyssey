@@ -47,6 +47,10 @@ const val THREAD_ORIGIN_MY_TOPICS = "mytopics"
 /** A user's space is its uid, not merely `space`: two space pages can sit on one stack. */
 fun spaceOrigin(uid: Long): String = "space-$uid"
 
+/** The initial query identifies the search entry even if its submitted query later changes. */
+fun searchOrigin(initialQuery: String?): String =
+    "search-${initialQuery?.let { "query:$it" } ?: "default"}"
+
 /**
  * The four things a feed row and a thread state about the same post.
  *
@@ -81,8 +85,8 @@ private enum class ThreadPart {
 @Composable
 fun Modifier.sharedThreadTitle(
     postId: Long,
-    origin: String,
-): Modifier = sharedThreadBounds(ThreadPart.TITLE, postId, origin)
+    origin: String?,
+): Modifier = if (origin == null) this else sharedThreadBounds(ThreadPart.TITLE, postId, origin)
 
 /**
  * The author's name: 12sp in the row's meta line, `titleSmall` beside the larger avatar in the
@@ -91,8 +95,8 @@ fun Modifier.sharedThreadTitle(
 @Composable
 fun Modifier.sharedThreadAuthor(
     postId: Long,
-    origin: String,
-): Modifier = sharedThreadBounds(ThreadPart.AUTHOR, postId, origin)
+    origin: String?,
+): Modifier = if (origin == null) this else sharedThreadBounds(ThreadPart.AUTHOR, postId, origin)
 
 /**
  * The avatar: 34dp in the row, 40dp in the thread, and the *same picture* at both ends — so this one
@@ -106,8 +110,8 @@ fun Modifier.sharedThreadAuthor(
 @Composable
 fun Modifier.sharedThreadAvatar(
     postId: Long,
-    origin: String,
-): Modifier = sharedThreadElement(ThreadPart.AVATAR, postId, origin)
+    origin: String?,
+): Modifier = if (origin == null) this else sharedThreadElement(ThreadPart.AVATAR, postId, origin)
 
 /**
  * The board tag, which is the one part drawn identically at both ends — same component, same text,
@@ -117,8 +121,8 @@ fun Modifier.sharedThreadAvatar(
 @Composable
 fun Modifier.sharedThreadBoard(
     postId: Long,
-    origin: String,
-): Modifier = sharedThreadElement(ThreadPart.BOARD, postId, origin)
+    origin: String?,
+): Modifier = if (origin == null) this else sharedThreadElement(ThreadPart.BOARD, postId, origin)
 
 /**
  * The app's own spatial motion, so everything that travels does so on the same curve as the rest of
@@ -141,12 +145,13 @@ private fun Modifier.sharedThreadBounds(
     // Deliberately read only after the null check above: it throws outside a NavDisplay entry.
     val animatedScope = LocalNavAnimatedContentScope.current
     val boundsTransform = threadBoundsTransform()
+    val effectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     return with(transition) {
         this@sharedThreadBounds.sharedBounds(
             sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId"),
             animatedVisibilityScope = animatedScope,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = fadeIn(effectsSpec),
+            exit = fadeOut(effectsSpec),
             boundsTransform = boundsTransform,
             resizeMode =
             SharedTransitionScope.ResizeMode.scaleToBounds(

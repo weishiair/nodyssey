@@ -1,5 +1,6 @@
 package io.github.nodyssey
 
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -46,11 +47,14 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.NavMetadataKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.get
+import androidx.navigation3.runtime.metadata
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.NotificationTab
@@ -437,6 +441,7 @@ fun MainNavigation(
             stackScopedEntryProvider(
                 TopLevelDestination.HOME,
                 destinationProvider(homeStack, dependencies),
+                backStack = homeStack,
                 predictiveBack = { currentPredictiveBack },
             )
         }
@@ -445,6 +450,7 @@ fun MainNavigation(
             stackScopedEntryProvider(
                 TopLevelDestination.NOTIFICATIONS,
                 destinationProvider(notificationsStack, dependencies),
+                backStack = notificationsStack,
                 predictiveBack = { currentPredictiveBack },
             )
         }
@@ -453,6 +459,7 @@ fun MainNavigation(
             stackScopedEntryProvider(
                 TopLevelDestination.PROFILE,
                 destinationProvider(profileStack, dependencies),
+                backStack = profileStack,
                 predictiveBack = { currentPredictiveBack },
             )
         }
@@ -876,21 +883,39 @@ internal fun emptyDetailTextOf(key: NavKey): StringResource =
 internal fun stackScopedEntryProvider(
     destination: TopLevelDestination,
     provider: (NavKey) -> NavEntry<NavKey>,
+    backStack: List<NavKey>,
     predictiveBack: () -> Boolean = { true },
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val entry = provider(key)
+    val transition = entry.metadata[NavDisplay.TransitionKey]
     val popTransition = entry.metadata[NavDisplay.PopTransitionKey]
     NavEntry(
         key = key,
         contentKey = "${destination.name}:${entry.contentKey}",
         // Entry metadata wins over NavDisplay defaults, including the thread/image-viewer fade.
         // Read the live setting inside the spec: these providers outlive changes in Settings.
-        metadata = entry.metadata + paneMetadataOf(key, destination) + NavDisplay.popTransitionSpec {
-            if (predictiveBack()) popTransition?.invoke(this) else SNAP_CONTENT_TRANSFORM
+        metadata = entry.metadata + paneMetadataOf(key, destination) + metadata {
+            put(TabDestinationKey, destination)
+        } + NavDisplay.transitionSpec {
+            if (isTabSwitch()) SNAP_CONTENT_TRANSFORM else transition?.invoke(this)
+        } + NavDisplay.popTransitionSpec {
+            if (isTabSwitch() || !predictiveBack()) SNAP_CONTENT_TRANSFORM else popTransition?.invoke(this)
         },
     ) {
-        entry.Content()
+        // NavDisplay's None pop and SharedContentConfig.isEnabled cannot synchronously dispose a
+        // scene interrupted mid-entrance. Omit removed content so it cannot intercept input; remove
+        // this guard when NavDisplay can finish an interrupted non-animated pop immediately.
+        if (predictiveBack() || backStack.any { it === key }) entry.Content()
     }
+}
+
+private data object TabDestinationKey : NavMetadataKey<TopLevelDestination>
+
+/** Peer destinations switch in place; predictive back retains its separate gesture spec. */
+private fun AnimatedContentTransitionScope<Scene<*>>.isTabSwitch(): Boolean {
+    val from = initialState.entries.lastOrNull()?.metadata?.get(TabDestinationKey)
+    val to = targetState.entries.lastOrNull()?.metadata?.get(TabDestinationKey)
+    return from != null && to != null && from != to
 }
 
 /**
