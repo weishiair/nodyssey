@@ -124,6 +124,8 @@ class SearchScreenTest {
         SearchUiState(
             submittedQuery = "轻量",
             postResultsQuery = "轻量",
+            // Search needs a session, so the results these tests scroll are the signed-in ones.
+            isSignedIn = true,
             target = SearchTarget.POSTS,
             boards = boards,
         )
@@ -145,6 +147,21 @@ class SearchScreenTest {
 
         composeRule.onNodeWithContentDescription("高级搜索").assertIsDisplayed()
         composeRule.onNodeWithText("帖子").assertIsDisplayed()
+    }
+
+    /**
+     * Signed out, the results area is the wall and not a list.
+     *
+     * The consequence this pins is the one the screenshots could not: no rows are drawn, because
+     * none will ever arrive — the site does not search for an anonymous reader. Without the branch
+     * the pager underneath would sit on 加载中 forever over a query that was never sent.
+     */
+    @Test
+    fun `signed out draws the wall where the results would be`() {
+        setScreen(searchedState().copy(isSignedIn = false))
+
+        composeRule.onNodeWithText("搜索需要登录").assertIsDisplayed()
+        composeRule.onNode(resultList).assertDoesNotExist()
     }
 
     /** Leaving must not stick the host with a bar nobody is left to bring back. */
