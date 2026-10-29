@@ -375,6 +375,10 @@
     <string name="settings_sticker_uniform_hint">貼圖按固定尺寸顯示</string>
     <string name="settings_sticker_size">表情大小</string>
     <string name="settings_sticker_preview_caption">表情就這麼大</string>
+    <string name="settings_search_avatar">搜尋結果顯示頭像</string>
+    <string name="settings_search_avatar_hint">結果卡片左側顯示樓主頭像，找人更快；關掉後標題能多幾個字</string>
+    <string name="settings_search_avatar_size">頭像大小</string>
+    <string name="settings_search_avatar_preview">用頭像找人，往往比認名字快</string>
     <string name="settings_text_preview">這是閱讀字級的預覽，文章內文和清單標題會按這個大小顯示。</string>
     <string name="settings_content">內容</string>
     <string name="settings_app_links">站內連結</string>

@@ -474,6 +474,12 @@
     <string name="settings_sticker_size">表情大小</string>
     <!-- The sample line the 表情大小 slider redraws live, next to two real stickers -->
     <string name="settings_sticker_preview_caption">表情就这么大</string>
+    <!-- 设置 › 外观 › 搜索结果显示头像：结果卡片左侧的楼主头像，可关、可调大小 -->
+    <string name="settings_search_avatar">搜索结果显示头像</string>
+    <string name="settings_search_avatar_hint">结果卡片左侧显示楼主头像，找人更快；关掉后标题能多几个字</string>
+    <string name="settings_search_avatar_size">头像大小</string>
+    <!-- 头像大小滑块的预览卡片标题 -->
+    <string name="settings_search_avatar_preview">用头像找人，往往比认名字快</string>
     <!-- 阅读字号的预览句：说明自己在预览什么，不借一段假帖子 -->
     <string name="settings_text_preview">这是阅读字号的预览，帖子正文和列表标题会按这个大小显示。</string>
     <string name="settings_content">内容</string>

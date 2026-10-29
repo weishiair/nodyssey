@@ -175,6 +175,14 @@ class SettingsViewModel(
         viewModelScope.launch { settings.setStickerSize(value) }
     }
 
+    fun setSearchAvatarEnabled(value: Boolean) {
+        viewModelScope.launch { settings.setSearchAvatarEnabled(value) }
+    }
+
+    fun setSearchAvatarSize(value: Int) {
+        viewModelScope.launch { settings.setSearchAvatarSize(value) }
+    }
+
     fun setImagesOnWifiOnly(value: Boolean) {
         viewModelScope.launch { settings.setImagesOnWifiOnly(value) }
     }

@@ -381,6 +381,10 @@
     <string name="settings_sticker_uniform_hint">Stickers are drawn at a fixed size</string>
     <string name="settings_sticker_size">Sticker size</string>
     <string name="settings_sticker_preview_caption">Stickers are this big</string>
+    <string name="settings_search_avatar">Show avatars in search results</string>
+    <string name="settings_search_avatar_hint">The author\'s face at the left of each result card, so a person is easier to spot. Off gives the title more room.</string>
+    <string name="settings_search_avatar_size">Avatar size</string>
+    <string name="settings_search_avatar_preview">A face is often easier to spot than a name</string>
     <string name="settings_text_preview">This is a preview of the reading size: post text and list titles are shown at this size.</string>
     <string name="settings_content">Content</string>
     <string name="settings_app_links">Site links</string>

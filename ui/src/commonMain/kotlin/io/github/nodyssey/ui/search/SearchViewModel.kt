@@ -102,6 +102,8 @@ class SearchViewModel(
                     it.copy(
                         searchHistory = userSettings.searchHistory,
                         recentBoards = userSettings.recentBoards,
+                        showSearchAvatar = userSettings.showSearchAvatar,
+                        searchAvatarSize = userSettings.searchAvatarSize,
                     )
                 }
             }.launchIn(viewModelScope)
@@ -349,6 +351,15 @@ data class SearchUiState(
      * page swiped into view meanwhile shows a load in progress rather than "no results".
      */
     val postResultsQuery: String? = null,
+    /**
+     * 搜索结果显示头像 — whether a result card draws the author's face, and how large.
+     *
+     * Both come from the settings store rather than from this screen: the size is a preference about
+     * every search a reader runs, not about the one on screen, and turning it off has to survive a
+     * restart.
+     */
+    val showSearchAvatar: Boolean = true,
+    val searchAvatarSize: Int = SettingsRepository.DEFAULT_SEARCH_AVATAR_DP,
 )
 
 /** `/search` reads the boards' own `sortBy`, and reads it as 新帖子 when it is absent. */
