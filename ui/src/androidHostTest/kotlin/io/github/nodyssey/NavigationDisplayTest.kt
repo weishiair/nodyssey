@@ -76,7 +76,9 @@ class NavigationDisplayTest {
             provider = { key ->
                 NavEntry(
                     key = key,
-                    metadata = if (entryFade && key is PostDetailKey) {
+                    metadata = if (shared && key is PostDetailKey) {
+                        stationaryPageEntrance()
+                    } else if (entryFade && key is PostDetailKey) {
                         NavDisplay.popTransitionSpec { fadeIn() togetherWith fadeOut() }
                     } else {
                         emptyMap()

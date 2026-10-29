@@ -232,7 +232,6 @@ fun MainNavigation(
     }
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
-    val currentEinkMode by rememberUpdatedState(LocalEinkMode.current)
     val currentPredictiveBack by rememberUpdatedState(navigationSettings.predictiveBack)
     val listDetailSceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
@@ -375,7 +374,6 @@ fun MainNavigation(
             homeReselectRequests = { homeReselectRequests },
             notificationsScrollToTopRequests = { notificationsScrollToTopRequests },
             isListDetailExpanded = { currentListDetailExpanded },
-            isEinkMode = { currentEinkMode },
             onTabBarHiddenByScroll = { tabBarHiddenByScroll = it },
             selectTab = { currentTab = it },
             scope = scope,
@@ -753,7 +751,6 @@ internal fun destinationProvider(
             homeReselectRequests = dependencies.homeReselectRequests,
             notificationsScrollToTopRequests = dependencies.notificationsScrollToTopRequests,
             isListDetailExpanded = dependencies.isListDetailExpanded,
-            isEinkMode = dependencies.isEinkMode,
             onTabBarHiddenByScroll = dependencies.onTabBarHiddenByScroll,
             openExternalUrl = dependencies.openExternalUrl,
             openWebUrl = openWebUrl,
@@ -892,7 +889,7 @@ internal fun stackScopedEntryProvider(
     NavEntry(
         key = key,
         contentKey = "${destination.name}:${entry.contentKey}",
-        // Entry metadata wins over NavDisplay defaults, including the thread/image-viewer fade.
+        // Entry metadata wins over NavDisplay defaults, including stationary thread/viewer backgrounds.
         // Read the live setting inside the spec: these providers outlive changes in Settings.
         metadata = entry.metadata + paneMetadataOf(key, destination) + metadata {
             put(TabDestinationKey, destination)

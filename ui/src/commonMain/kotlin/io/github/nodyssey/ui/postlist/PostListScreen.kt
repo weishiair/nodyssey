@@ -1,6 +1,5 @@
 package io.github.nodyssey.ui.postlist
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -728,102 +727,99 @@ private fun BoardFeed(
     // cannot point at.
     val elsewhere = onBrowseElsewhere.takeIf { board.slug != null }
 
-    // Crossfade rather than a hard swap: a skeleton that snaps to content flashes, and the
-    // structure underneath is identical anyway, so there is nothing to animate but opacity.
-    Crossfade(targetState = showSkeleton, label = "feed-skeleton") { skeleton ->
-        when {
-            skeleton -> FeedSkeleton()
+    // Replace the loading placeholder as soon as rows arrive, without composing two overlapping feeds.
+    when {
+        showSkeleton -> FeedSkeleton()
 
-            // An error only takes over the screen when there is nothing cached to show. With
-            // rows on screen the failure is not worth losing the content over.
-            posts.itemCount == 0 && refreshState is LoadState.Error -> {
-                val error = refreshState.error.toSiteError()
-                SiteErrorState(
-                    error = error,
-                    onRetry = posts::refresh,
-                    // Both recoveries open a browser, but not the same page: a challenge is
-                    // cleared on the list URL, a locked board on the sign-in page.
-                    //
-                    // 去验证 is named rather than left to fall back on [onOpenBrowser]. They
-                    // happen to be the same closure here, and the fallback is what let other
-                    // screens hand a challenge to a plain reading web view without anything
-                    // saying so.
-                    onOpenBrowser = { onRecoverInBrowser(error.webViewUrl(NodeSeekSite.BASE_URL)) },
-                    onVerify = onRecoverInBrowser,
-                    onSignIn = onSignInClick,
-                    boardTitle = board.title.takeIf { board.slug != null },
-                    onBrowseElsewhere = elsewhere,
-                )
-            }
-
-            posts.itemCount == 0 && refreshState is LoadState.NotLoading ->
-                EmptyFeedState(onBrowseElsewhere = elsewhere)
-
-            else -> {
-                // The rows carry their author's face, and one HTML page hands over fifty
-                // addresses at once — but not fifty pictures. Without this the reader
-                // scrolls onto a row and then waits for it; see [PrefetchAvatars].
+        // An error only takes over the screen when there is nothing cached to show. With
+        // rows on screen the failure is not worth losing the content over.
+        posts.itemCount == 0 && refreshState is LoadState.Error -> {
+            val error = refreshState.error.toSiteError()
+            SiteErrorState(
+                error = error,
+                onRetry = posts::refresh,
+                // Both recoveries open a browser, but not the same page: a challenge is
+                // cleared on the list URL, a locked board on the sign-in page.
                 //
-                // `peek` rather than `get`: asking for a row this far ahead must not be
-                // read as the reader arriving there and pull the next page in early.
-                PrefetchAvatars(
-                    listState = listState,
-                    itemCount = posts.itemCount,
-                    size = CardAvatarSize,
-                    urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
-                )
-                PullToRefreshBox(
-                    isRefreshing = refreshState is LoadState.Loading,
-                    onRefresh = posts::refresh,
-                ) {
-                    LazyColumn(
-                        // No bounce: a list under pull-to-refresh has the indicator for that. On
-                        // iOS the bounce turned a fling into the top of the feed into a stretch, and
-                        // the drag that followed went into pulling that stretch back — so a reader
-                        // who kept pulling got no refresh until the list had come to rest and they
-                        // pulled again.
-                        overscrollEffect = null,
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            // The direction detector goes outside the app bar's connection so
-                            // it reads the raw gesture. Nested first, the app bar would eat
-                            // the first 64dp of every downward scroll into its own collapse
-                            // and the navigation bar would only start hiding afterwards.
-                            .nestedScroll(navigationBarScrollConnection)
-                            .nestedScroll(topBarScrollBehavior.nestedScrollConnection)
-                            .readableWidth(),
-                        // Room under the last card for the FAB, so the foot of the feed can be read
-                        // without the button sitting on it.
-                        contentPadding = PaddingValues(
-                            start = LayerPageGutter,
-                            end = LayerPageGutter,
-                            top = Spacing.xs,
-                            bottom = FeedBottomClearance + bottomInset,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(LayerCardGap),
-                    ) {
-                        items(
-                            count = posts.itemCount,
-                            key = posts.itemKey { it.summary.postId },
-                        ) { index ->
-                            // Null is a counted row outside the loaded window, not a missing
-                            // one. Skipping it would collapse the space it is holding and
-                            // undo the stable indices placeholders were turned on for.
-                            when (val post = posts[index]) {
-                                null -> FeedRowPlaceholder()
+                // 去验证 is named rather than left to fall back on [onOpenBrowser]. They
+                // happen to be the same closure here, and the fallback is what let other
+                // screens hand a challenge to a plain reading web view without anything
+                // saying so.
+                onOpenBrowser = { onRecoverInBrowser(error.webViewUrl(NodeSeekSite.BASE_URL)) },
+                onVerify = onRecoverInBrowser,
+                onSignIn = onSignInClick,
+                boardTitle = board.title.takeIf { board.slug != null },
+                onBrowseElsewhere = elsewhere,
+            )
+        }
 
-                                else ->
-                                    PostRow(
-                                        post = post,
-                                        onClick = { onPostClick(post) },
-                                        sharedWithThread = true,
-                                    )
-                            }
+        posts.itemCount == 0 && refreshState is LoadState.NotLoading ->
+            EmptyFeedState(onBrowseElsewhere = elsewhere)
+
+        else -> {
+            // The rows carry their author's face, and one HTML page hands over fifty
+            // addresses at once — but not fifty pictures. Without this the reader
+            // scrolls onto a row and then waits for it; see [PrefetchAvatars].
+            //
+            // `peek` rather than `get`: asking for a row this far ahead must not be
+            // read as the reader arriving there and pull the next page in early.
+            PrefetchAvatars(
+                listState = listState,
+                itemCount = posts.itemCount,
+                size = CardAvatarSize,
+                urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
+            )
+            PullToRefreshBox(
+                isRefreshing = refreshState is LoadState.Loading,
+                onRefresh = posts::refresh,
+            ) {
+                LazyColumn(
+                    // No bounce: a list under pull-to-refresh has the indicator for that. On
+                    // iOS the bounce turned a fling into the top of the feed into a stretch, and
+                    // the drag that followed went into pulling that stretch back — so a reader
+                    // who kept pulling got no refresh until the list had come to rest and they
+                    // pulled again.
+                    overscrollEffect = null,
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        // The direction detector goes outside the app bar's connection so
+                        // it reads the raw gesture. Nested first, the app bar would eat
+                        // the first 64dp of every downward scroll into its own collapse
+                        // and the navigation bar would only start hiding afterwards.
+                        .nestedScroll(navigationBarScrollConnection)
+                        .nestedScroll(topBarScrollBehavior.nestedScrollConnection)
+                        .readableWidth(),
+                    // Room under the last card for the FAB, so the foot of the feed can be read
+                    // without the button sitting on it.
+                    contentPadding = PaddingValues(
+                        start = LayerPageGutter,
+                        end = LayerPageGutter,
+                        top = Spacing.xs,
+                        bottom = FeedBottomClearance + bottomInset,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(LayerCardGap),
+                ) {
+                    items(
+                        count = posts.itemCount,
+                        key = posts.itemKey { it.summary.postId },
+                    ) { index ->
+                        // Null is a counted row outside the loaded window, not a missing
+                        // one. Skipping it would collapse the space it is holding and
+                        // undo the stable indices placeholders were turned on for.
+                        when (val post = posts[index]) {
+                            null -> FeedRowPlaceholder()
+
+                            else ->
+                                PostRow(
+                                    post = post,
+                                    onClick = { onPostClick(post) },
+                                    sharedWithThread = true,
+                                )
                         }
-                        if (appendState is LoadState.Loading) {
-                            item(key = "append-spinner") { AppendSpinner() }
-                        }
+                    }
+                    if (appendState is LoadState.Loading) {
+                        item(key = "append-spinner") { AppendSpinner() }
                     }
                 }
             }

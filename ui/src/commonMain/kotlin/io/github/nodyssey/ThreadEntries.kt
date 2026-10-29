@@ -1,9 +1,5 @@
 package io.github.nodyssey
 
-import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,17 +32,11 @@ import io.github.nodyssey.ui.vote.VoteViewModel
 internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = with(nav) {
     entry<ImageViewerKey>(
         /*
-         * Fades rather than the default slide.
-         *
-         * Every other destination is a page that follows the one before it, and sliding says
-         * so. This one is the picture already on screen, filled out — it is the same object
-         * seen closer, not a place the user travelled to, and sliding it in from the edge
-         * reads as having left the thread rather than having zoomed into it.
+         * The picture opens in place. Its background switches immediately, while zooming and
+         * paging stay inside the viewer. Predictive back uses the display's gesture transition.
          */
         metadata =
-        NavDisplay.transitionSpec { nav.fadeOrCut() } +
-            NavDisplay.popTransitionSpec { nav.fadeOrCut() } +
-            NavDisplay.predictivePopTransitionSpec { _ -> nav.fadeOrCut() },
+        stationaryPageEntrance() + NavDisplay.popTransitionSpec { SNAP_CONTENT_TRANSFORM },
     ) { key ->
         val saver = rememberImageGallerySaver(container.dispatchers)
         val viewModel: ImageViewerViewModel =
@@ -67,18 +57,13 @@ internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = wi
 
     entry<PostDetailKey>(
         /*
-         * Fades rather than the default slide — but only for a thread opened from a row that
-         * handed over its title.
-         *
-         * A slide and a shared element contradict each other: the title would detach from
-         * the page it belongs to and fly across a screen that is itself travelling sideways.
-         * Fading the two pages leaves the title as the only thing moving, which is the whole
-         * point of moving it. Where no row supplied a title there is nothing to fly — a
-         * notification, a deep link, the composer — and those keep the slide, which is still
-         * the honest description of what happened: a page arrived from somewhere else.
+         * Keep both page backgrounds stationary when a row supplies the shared thread header.
+         * Only the shared elements travel during entrance. Return uses the display's slide so
+         * the outgoing page moves away while shared elements finish, rather than covering the list.
+         * Threads without a preview retain the display's directional entrance too.
          */
         metadata = { key ->
-            if (key.preview == null) emptyMap() else threadOpenTransition(nav)
+            if (key.preview == null) emptyMap() else stationaryPageEntrance()
         },
     ) { key ->
         // Keyed so navigating to a different post builds a fresh ViewModel.
@@ -191,25 +176,10 @@ internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = wi
 }
 
 /**
- * What a thread opened from a list row animates as. See the `entry<PostDetailKey>` metadata for why
- * this is not the default slide, and [io.github.nodyssey.ui.common.sharedThreadTitle] for the thing
- * the fade is clearing the way for.
+ * Replace the scene background on entrance without suppressing child shared-element animations.
+ * Ordinary and predictive back retain the display's directional slide unless a caller overrides it.
  */
-private fun threadOpenTransition(nav: StackEntryScope) =
-    NavDisplay.transitionSpec { nav.fadeOrCut() } +
-        NavDisplay.popTransitionSpec { nav.fadeOrCut() } +
-        NavDisplay.predictivePopTransitionSpec { _ -> nav.fadeOrCut() }
-
-/**
- * The fade, or nothing at all on electronic paper.
- *
- * These two destinations carry their own transition, which means they override the cut `NavDisplay`
- * is given for 墨水屏模式 — an entry's metadata wins over the display's default. Read inside the spec
- * lambda rather than when the entry is built, because the provider around it is built once and
- * outlives any number of visits to the setting.
- */
-private fun StackEntryScope.fadeOrCut(): ContentTransform =
-    if (isEinkMode()) SNAP_CONTENT_TRANSFORM else fadeIn() togetherWith fadeOut()
+internal fun stationaryPageEntrance() = NavDisplay.transitionSpec { SNAP_CONTENT_TRANSFORM }
 
 private fun imageViewerKeyFor(urls: List<String>, url: String): ImageViewerKey =
     ImageViewerKey(urls = urls, index = urls.indexOf(url).coerceAtLeast(0))
