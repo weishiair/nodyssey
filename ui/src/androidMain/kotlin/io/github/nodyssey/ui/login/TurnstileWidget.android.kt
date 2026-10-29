@@ -11,6 +11,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -44,6 +45,16 @@ actual fun TurnstileWidget(
     onUnavailable: () -> Unit,
     modifier: Modifier,
 ) {
+    when (LocalWebViewNetworkState.current) {
+        WebViewNetworkState.Applying -> return
+
+        WebViewNetworkState.Unavailable -> {
+            LaunchedEffect(Unit) { onUnavailable() }
+            return
+        }
+
+        WebViewNetworkState.Ready -> Unit
+    }
     // The page outlives a recomposition; the lambdas do not. Reading them through
     // `rememberUpdatedState` is what keeps a token arriving late from being handed to a stale one.
     val currentToken by rememberUpdatedState(onToken)

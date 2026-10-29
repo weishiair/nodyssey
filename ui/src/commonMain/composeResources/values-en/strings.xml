@@ -435,7 +435,8 @@
     <string name="proxy_scope_hint">On, image uploads and update checks connect directly; off, every request the app makes goes through the proxy</string>
     <string name="proxy_advanced_title">Nodes like VLESS and VMess</string>
     <string name="proxy_advanced_hint">The app itself only speaks HTTP and SOCKS5. With a client like Clash or mihomo on the phone, open its mixed port there, put 127.0.0.1 and that port here, and let it deal with the node protocol.</string>
-    <string name="proxy_webview_hint">Signing in uses the system WebView, which has its own networking and is untouched by anything here.</string>
+    <string name="proxy_webview_hint">Web sign-in and verification on Android also use this proxy. External browsers and web sign-in on other platforms use the system network.</string>
+    <string name="proxy_webview_unavailable">Unable to enable the proxy for web sign-in. Check the proxy settings or update Android System WebView.</string>
     <string name="settings_doh_entry">Encrypted DNS</string>
     <string name="settings_doh_summary_chain">%2$d servers, %1$s first</string>
     <string name="doh_title">Encrypted DNS</string>
@@ -1336,7 +1337,7 @@
     <string name="sign_in_one_tap">Sign in with %1$s</string>
     <string name="sign_in_one_tap_hint">Authorise on the site’s own page; you come back signed in.</string>
     <string name="sign_in_or_with_account">Or with a %1$s account</string>
-    <string name="sign_in_session_not_stored">The forum accepted your account and password, but this device could not store the session. Sign in on the web instead.</string>
+    <string name="sign_in_session_not_stored">The forum reported a successful sign-in, but the app could not read a session. Use web sign-in or copy the login diagnostics.</string>
 
     <string name="sign_in_verify_expired">The check has expired — do it again</string>
     <string name="sign_in_verify_not_wired">The verification could not load. Check your connection or use web sign-in.</string>
@@ -1684,4 +1685,11 @@
     <string name="settings_show_author_account_info_hint">Show author levels and account age on posts and replies</string>
     <string name="sign_in_diagnostics">View sign-in diagnostics</string>
     <string name="sign_in_diagnostics_privacy">Kept only on this sign-in screen and never uploaded automatically. No account, password, verification code or cookies are included. Copy it to share with the developer.</string>
+    <string name="sign_in_use_email">Sign in with an email code</string>
+    <string name="sign_in_email_body">Receive a code at the email address linked to your account to sign in.</string>
+    <string name="sign_in_email_label">Account email</string>
+    <string name="sign_in_email_code">Email verification code</string>
+    <string name="sign_in_email_send">Send code</string>
+    <string name="sign_in_email_resend">Resend in %1$d seconds</string>
+    <string name="sign_in_email_sent">A code was sent to %1$s. Check your inbox and spam folder.</string>
 </resources>

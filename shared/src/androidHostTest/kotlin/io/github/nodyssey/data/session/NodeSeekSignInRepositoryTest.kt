@@ -24,6 +24,70 @@ import org.junit.Test
 class NodeSeekSignInRepositoryTest {
 
     @Test
+    fun `a successful password response that redirects to email is not a completed login`() = runTest {
+        val repository = NodeSeekSignInRepository(RecordingWrites("""{"success":true,"redirect":"/emailSignIn.html?email=reader%2Btest%40example.com"}"""))
+        assertEquals(
+            SignInOutcome.EmailRequired(EmailSignInChallenge("reader+test@example.com")),
+            repository.signIn(SignInCredentials("reader", "password", "proof")),
+        )
+    }
+
+    @Test
+    fun `a successful second factor can still require email verification`() = runTest {
+        val repository = NodeSeekSignInRepository(RecordingWrites("""{"success":true,"redirect":"https://www.nodeseek.com/emailSignIn.html"}"""))
+        assertEquals(SignInOutcome.EmailRequired(EmailSignInChallenge()), repository.verifyTwoFactor(TwoFactorChallenge("reader", "session"), "123456"))
+    }
+
+    @Test
+    fun `a redirect on an unrelated host cannot populate the native email form`() = runTest {
+        val repository = NodeSeekSignInRepository(RecordingWrites("""{"success":true,"redirect":"https://evil.test/emailSignIn.html?email=attacker%40example.com"}"""))
+        assertEquals(SignInOutcome.Signed, repository.signIn(SignInCredentials("reader", "password", "proof")))
+    }
+
+    @Test
+    fun `email login requests a totp email code with proof in the body and no password`() = runTest {
+        val source = RecordingWrites("""{"success":true}""")
+        assertEquals(EmailCodeOutcome.Sent, NodeSeekSignInRepository(source).requestEmailCode("reader@example.com", "proof"))
+        val call = source.calls.single()
+        assertEquals(NodeSeekJsonClient.PATH_EMAIL_CODE, call.path)
+        assertEquals("${io.github.nodyssey.core.NodeSeekSite.BASE_URL}/emailSignIn.html", call.referer)
+        val body = Json.parseToJsonElement(call.body).jsonObject
+        assertEquals("totp", body.getValue("mode").jsonPrimitive.content)
+        assertEquals("reader@example.com", body.getValue("email").jsonPrimitive.content)
+        assertEquals("proof", body.getValue("token").jsonPrimitive.content)
+        assertEquals("turnstile", body.getValue("source").jsonPrimitive.content)
+        assertEquals("v3", body.getValue("version").jsonPrimitive.content)
+        assertTrue(call.headers.isEmpty())
+        assertTrue("password" !in body)
+    }
+
+    @Test
+    fun `email verification sends the address and code to the email login endpoint`() = runTest {
+        val source = RecordingWrites("""{"success":false,"message":"expired code"}""")
+        assertEquals(SignInOutcome.Refused(SignInRefusal.EmailCode, "expired code"), NodeSeekSignInRepository(source).verifyEmail("reader@example.com", "123456"))
+        val call = source.calls.single()
+        assertEquals(NodeSeekJsonClient.PATH_ACCOUNT_EMAIL_SIGN_IN, call.path)
+        val body = Json.parseToJsonElement(call.body).jsonObject
+        assertEquals(setOf("email", "code"), body.keys)
+        assertEquals("123456", body.getValue("code").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `the OTP error code returns to credentials even when the human message has no code`() = runTest {
+        val repository = NodeSeekSignInRepository(RecordingWrites("""{"success":false,"error":"OTP_EXPIRED_OR_NOT_EXIST","message":"session expired"}"""))
+        assertEquals(SignInOutcome.Refused(SignInRefusal.TwoFactorSessionExpired, "session expired"), repository.verifyTwoFactor(TwoFactorChallenge("reader", "session"), "123456"))
+    }
+
+    @Test
+    fun `an unavailable diagnostic provider does not turn an accepted sign-in into a failure`() = runTest {
+        val repository = NodeSeekSignInRepository(
+            RecordingWrites("""{"success":true}"""),
+            cookieWriteDiagnostics = { error("Platform provider unavailable") },
+        )
+        assertEquals(SignInOutcome.Signed, repository.signIn(SignInCredentials("reader", "password", null)))
+    }
+
+    @Test
     fun `the credentials leg posts the username, the password and the captcha headers`() =
         runTest {
             val source = RecordingWrites("""{"success":true,"redirect":"/"}""")

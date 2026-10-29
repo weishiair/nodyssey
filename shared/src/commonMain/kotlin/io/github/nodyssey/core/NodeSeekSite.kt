@@ -493,6 +493,7 @@ object NodeSeekSite {
     fun memberMentionPath(name: String): String = "/member?t=${name.urlEncode()}"
 
     const val SIGN_IN_PATH = "/signIn.html"
+    const val EMAIL_SIGN_IN_PATH = "/emailSignIn.html"
 
     /**
      * The Cloudflare Turnstile sitekey the sign-in form renders with.

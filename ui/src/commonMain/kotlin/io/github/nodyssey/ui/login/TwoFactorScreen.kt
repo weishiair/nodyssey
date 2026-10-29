@@ -54,6 +54,7 @@ import io.github.nodyssey.ui.resources.sign_in_2fa_rejected
 import io.github.nodyssey.ui.resources.sign_in_2fa_submit
 import io.github.nodyssey.ui.resources.sign_in_2fa_title
 import io.github.nodyssey.ui.resources.sign_in_submitting
+import io.github.nodyssey.ui.resources.sign_in_use_email
 import io.github.nodyssey.ui.resources.sign_in_use_web
 import io.github.plaza.designsys.component.digitsOnly
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -73,9 +74,8 @@ import org.jetbrains.compose.resources.stringResource
  *
  * The board's 使用恢复码 button is not here. The site's own answer to a lost authenticator is
  * 邮箱登录 — a separate sign-in method with its own flow — not a recovery code, and there is no
- * recovery-code field on the endpoint to post one to. 改用网页登录 at the foot of the page is the
- * honest version of that escape — kept under the pinned button although board 9c leaves it off,
- * because it is the only way out for a reader whose authenticator is not to hand.
+ * recovery-code field on the endpoint to post one to. The email-code action opens that separate
+ * native flow; web sign-in remains available for other verification the site may ask for.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +89,7 @@ fun TwoFactorScreen(
     onSubmit: () -> Unit,
     onUseWebSignIn: () -> Unit,
     modifier: Modifier = Modifier,
+    onUseEmailSignIn: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -173,6 +174,9 @@ fun TwoFactorScreen(
                 }
                 TextButton(onClick = onUseWebSignIn) {
                     Text(stringResource(Res.string.sign_in_use_web), fontWeight = FontWeight.SemiBold)
+                }
+                TextButton(onClick = onUseEmailSignIn, enabled = !state.isSubmitting) {
+                    Text(stringResource(Res.string.sign_in_use_email))
                 }
             }
         }

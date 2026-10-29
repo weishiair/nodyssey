@@ -10,6 +10,8 @@ import io.github.plaza.core.net.SiteException
  * back `need2FA` with an `otpSession`, and the second leg posts that session plus the six digits —
  * without the credentials and without the verification token. [NodeSeekSignInRepository] holds the
  * wire detail; this interface is what the screen is written against.
+ * Email verification is a separate flow: request a code, then exchange the email and code for a
+ * session. A successful password/OTP response can require that flow before sign-in is complete.
  *
  * Refusals come back as [SignInOutcome.Refused] rather than thrown. A wrong password is not a
  * failure of the request: the site read it, understood it and said no, and h1 answers that inline —
@@ -17,6 +19,9 @@ import io.github.plaza.core.net.SiteException
  * would land in the snackbar the *transport* failures use. That distinction is the whole of card 2.
  */
 interface SignInRepository {
+    /** Facts about the last response and platform cookie writes, without any credential values. */
+    fun sessionDiagnostics(): String? = null
+
     /**
      * @throws SiteException when the request could not be made or the answer could not be read.
      */
@@ -30,7 +35,20 @@ interface SignInRepository {
      * [SignInOutcome.TwoFactorRequired].
      */
     suspend fun verifyTwoFactor(challenge: TwoFactorChallenge, code: String): SignInOutcome
+
+    suspend fun requestEmailCode(email: String, verificationToken: String): EmailCodeOutcome =
+        throw UnsupportedOperationException("Email sign-in is unavailable")
+
+    suspend fun verifyEmail(email: String, code: String): SignInOutcome =
+        throw UnsupportedOperationException("Email sign-in is unavailable")
 }
+
+sealed interface EmailCodeOutcome {
+    data object Sent : EmailCodeOutcome
+    data class Refused(val detail: String?) : EmailCodeOutcome
+}
+
+data class EmailSignInChallenge(val email: String? = null)
 
 /**
  * @param account what the user typed in 用户名 / 邮箱, sent as the endpoint's `username`. The site's
@@ -61,13 +79,16 @@ data class TwoFactorChallenge(
 /** How far a sign-in attempt got. */
 sealed interface SignInOutcome {
     /**
-     * Done — the session cookie is in the shared jar.
+     * The API reports a completed sign-in; the caller must confirm the shared session is readable.
      *
      * Carries nothing because there is nothing to carry: cookies *are* the session here, and the
      * caller's next move is [SessionRepository.sync], not reading a token out of this. The `redirect`
      * the site sends alongside is a web-page concern and is dropped.
      */
     data object Signed : SignInOutcome
+
+    /** A successful password check can redirect to email verification without issuing a session. */
+    data class EmailRequired(val challenge: EmailSignInChallenge) : SignInOutcome
 
     /** The account has a second factor; ask for it and call [SignInRepository.verifyTwoFactor]. */
     data class TwoFactorRequired(val challenge: TwoFactorChallenge) : SignInOutcome
@@ -85,12 +106,12 @@ sealed interface SignInOutcome {
 /**
  * Which control on h1 a refusal points at.
  *
- * Three cases and not one more, because three is what the wire distinguishes: the endpoint answers
- * `{"success":false,"message":…}` and names exactly one machine-readable code,
- * [NodeSeekSignInRepository.OTP_SESSION_DEAD]. Anything finer — "wrong password" apart from "locked
- * out" — would be this app inventing a distinction out of a sentence meant for a human to read.
+ * Credential, authenticator and email-code refusals stay on their own forms. An expired OTP
+ * session is the one machine-readable refusal that requires returning to the password step.
  */
 enum class SignInRefusal {
+    EmailCode,
+
     /** The credentials leg said no. Marks the password field; keeps what was typed. */
     Credentials,
 

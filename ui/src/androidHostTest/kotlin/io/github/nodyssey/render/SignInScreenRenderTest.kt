@@ -11,6 +11,7 @@ import io.github.nodyssey.core.Site
 import io.github.nodyssey.data.session.SignInOutcome
 import io.github.nodyssey.data.session.SignInRefusal
 import io.github.nodyssey.data.session.TwoFactorChallenge
+import io.github.nodyssey.ui.login.EmailSignInScreen
 import io.github.nodyssey.ui.login.SignInScreen
 import io.github.nodyssey.ui.login.SignInStep
 import io.github.nodyssey.ui.login.SignInUiState
@@ -146,5 +147,30 @@ class SignInScreenRenderTest {
                 verification = VerificationState.Passed("token"),
                 refusal = SignInOutcome.Refused(SignInRefusal.Credentials, "用户名或密码不对，再检查一下"),
             )
+    }
+
+    @Test
+    fun `email sign-in in light`() = renderEmail(dark = false)
+
+    @Test
+    fun `email sign-in in dark`() = renderEmail(dark = true)
+
+    private fun renderEmail(dark: Boolean) {
+        composeRule.setContent {
+            PlazaTheme(darkTheme = dark) {
+                EmailSignInScreen(
+                    state = SignInUiState(step = SignInStep.Email, email = "reader@example.com", emailCodeSentTo = "reader@example.com", verification = VerificationState.Expired),
+                    emailState = rememberTextFieldState("reader@example.com"),
+                    codeState = rememberTextFieldState(),
+                    resendSeconds = 45,
+                    snackbarHostState = remember { SnackbarHostState() },
+                    onBack = {},
+                    onSend = {},
+                    onSubmit = {},
+                    onUseWebSignIn = {},
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("email-sign-in-${if (dark) "dark" else "light"}")
     }
 }

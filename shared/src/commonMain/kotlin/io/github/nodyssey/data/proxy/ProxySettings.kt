@@ -35,8 +35,8 @@ enum class ProxyScope { EVERYTHING, FORUM_ONLY }
  * attachments Coil pulls through the forum client, and, unless [scope] says otherwise, image-host
  * uploads and the update check too.
  *
- * The login WebView is not covered: it is Chromium's network stack, not OkHttp's, and it reads the
- * system proxy rather than this setting. `ProxySettingsScreen` says so on screen.
+ * Android also applies this to its authentication WebViews through ProxyController and a local
+ * CONNECT adapter for authenticated proxies. Other platforms' WebViews use their system network.
  *
  * [port] of `0` means "not typed yet", not port 0 — no listener answers on it, so treating it as
  * unset costs nothing.

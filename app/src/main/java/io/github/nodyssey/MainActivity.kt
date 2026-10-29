@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.nodyssey.core.net.ProvideWebViewProxy
 import io.github.nodyssey.data.AttendanceMode
 import io.github.nodyssey.data.composer.PickedImage
 import io.github.nodyssey.data.settings.SettingsRepository
@@ -102,13 +103,15 @@ class MainActivity : ComponentActivity() {
                             app.switchSite(site)
                         },
                     ) {
-                        NodysseyRoot(
-                            container = runtime.graph,
-                            initialSettings = initialSettings,
-                            initialTab = if (runtime.graph === container) initialTab else TopLevelDestination.HOME,
-                            launchRequest = launchRequest,
-                            onLaunchRequestHandled = { launchRequest = null },
-                        )
+                        ProvideWebViewProxy(app.webViewProxy) {
+                            NodysseyRoot(
+                                container = runtime.graph,
+                                initialSettings = initialSettings,
+                                initialTab = if (runtime.graph === container) initialTab else TopLevelDestination.HOME,
+                                launchRequest = launchRequest,
+                                onLaunchRequestHandled = { launchRequest = null },
+                            )
+                        }
                     }
                 }
             }
