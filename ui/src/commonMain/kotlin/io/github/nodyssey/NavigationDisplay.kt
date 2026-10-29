@@ -11,6 +11,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.scene.Scene
@@ -45,6 +47,8 @@ internal fun <T : Any> NodysseyNavDisplay(
         )
         val backState = rememberNavigationBackState(sceneState, predictiveBack, onBack)
         NavDisplay(
+            // Page slides stay inside the content pane; shared elements use the outer overlay.
+            modifier = Modifier.clipToBounds(),
             sceneState = sceneState,
             navigationEventState = backState,
             transitionSpec = {
