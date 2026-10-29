@@ -14,6 +14,7 @@ import io.github.nodyssey.data.SearchRepository
 import io.github.nodyssey.data.UserSearchResult
 import io.github.nodyssey.data.inMemoryDatabase
 import io.github.nodyssey.data.local.NodeSeekDatabase
+import io.github.nodyssey.data.session.SessionState
 import io.github.nodyssey.data.testSettingsRepository
 import io.github.nodyssey.model.FeedSort
 import io.github.nodyssey.model.SearchTarget
@@ -22,6 +23,8 @@ import io.github.plaza.core.net.SiteException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -31,6 +34,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -81,13 +86,17 @@ class SearchViewModelTest {
         database.close()
     }
 
-    private fun TestScope.viewModel() =
-        SearchViewModel(
-            postRepository = OfflineFirstPostRepository(database, remote, clock),
-            searchRepository = NoUsersSearchRepository,
-            categoryRepository = CategoryRepository(failingJson, database.boardDao(), clock),
-            settings = testSettingsRepository(backgroundScope),
-        )
+    private fun TestScope.viewModel(
+        // Signed in by default: every test above this one is about what a search does, and a search
+        // is something only an account is allowed to run. The two that are about the wall say so.
+        session: StateFlow<SessionState> = MutableStateFlow(SessionState(isSignedIn = true)),
+    ) = SearchViewModel(
+        postRepository = OfflineFirstPostRepository(database, remote, clock),
+        searchRepository = NoUsersSearchRepository,
+        categoryRepository = CategoryRepository(failingJson, database.boardDao(), clock),
+        settings = testSettingsRepository(backgroundScope),
+        session = session,
+    )
 
     /**
      * Types into the box the way the UI does.
@@ -247,6 +256,52 @@ class SearchViewModelTest {
             advanceUntilIdle()
 
             assertEquals(0, remote.searchRequests.size)
+        }
+
+    /**
+     * Signed out, a search goes nowhere at all.
+     *
+     * It is not a request that fails: `/search` answers an anonymous reader with a 302 to Google,
+     * which is what used to come back as 连不上 NodeSeek — a network failure reported for a site
+     * that had answered immediately and said 请先登录.
+     */
+    @Test
+    fun `a signed-out search spends no request`() =
+        runTest(dispatcher) {
+            val vm = viewModel(session = MutableStateFlow(SessionState(isSignedIn = false)))
+            type(vm, "android")
+
+            vm.submitSearch()
+            advanceUntilIdle()
+            vm.postResults.ids()
+
+            assertEquals(0, remote.searchRequests.size)
+            // Still submitted as far as the screen is concerned: the wall is the answer, and it
+            // replaces the history rather than the field.
+            assertEquals("android", vm.uiState.value.submittedQuery)
+            assertFalse(vm.uiState.value.isSignedIn)
+        }
+
+    /**
+     * The wall's 登录 pushes the sign-in screen on top of this one, so the ViewModel is still here
+     * when the reader comes back. What they asked for runs without them typing it again.
+     */
+    @Test
+    fun `a search blocked by the wall runs once the session arrives`() =
+        runTest(dispatcher) {
+            val session = MutableStateFlow(SessionState(isSignedIn = false))
+            val vm = viewModel(session)
+            type(vm, "android")
+            vm.submitSearch()
+            advanceUntilIdle()
+
+            session.value = SessionState(isSignedIn = true)
+            advanceUntilIdle()
+            vm.postResults.ids()
+
+            assertEquals(listOf("android"), remote.searchRequests.map { it.query })
+            assertEquals("android", vm.uiState.value.postResultsQuery)
+            assertTrue(vm.uiState.value.isSignedIn)
         }
 
     @Test

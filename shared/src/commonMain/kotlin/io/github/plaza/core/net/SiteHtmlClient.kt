@@ -29,10 +29,20 @@ class SiteHtmlClient(
     private val challengeDetector: ChallengeDetector = ChallengeDetector(config.markers),
 ) : HtmlSource {
 
+    /**
+     * The hosts a page for this site can legitimately come from.
+     *
+     * [SiteConfig.sessionUrls] is exactly that list — the site's own origin plus any alias it answers
+     * on — so an answer from anywhere else is not this site's page. See [refuseForeignAnswer].
+     */
+    private val siteHosts: Set<String> =
+        (config.sessionUrls + config.baseUrl).mapNotNull { WebUrl.parse(it)?.host?.lowercase() }.toSet()
+
     /** Returns the page body, or throws [SiteException] describing why it is unusable. */
     override suspend fun getHtml(path: String): String = withContext(dispatchers.io) {
         val response = transport.execute(pageRequest(path))
         val url = absoluteUrl(path) ?: error("Invalid path: $path")
+        refuseForeignAnswer(response)
         challengeDetector.detect(response.body, response.code, response.headers, url)?.let { failure ->
             throw SiteException(failure)
         }
@@ -73,5 +83,28 @@ class SiteHtmlClient(
             trimmed.startsWith("/") -> config.baseUrl + trimmed
             else -> "${config.baseUrl}/$trimmed"
         }
+    }
+
+    /**
+     * An answer from another host is the site's refusal, not its content.
+     *
+     * NodeSeek's `/search` is the case, and it is why this exists. Signed out, the route does not
+     * answer with a page at all: it answers **302** to
+     * `https://www.google.com/search?q=site%3Awww.nodeseek.com&q=…` (measured 2026-10-29 with the
+     * app's own browser headers), and a transport follows it, because following a redirect is what a
+     * transport does. Two things then go wrong. The request spends a trip to a host this app has no
+     * business reading, carrying the reader's query with it. And on a network where Google is
+     * unreachable — the ordinary case for this app's readers — the redirect target does not answer,
+     * so what surfaces is a transport failure, which every screen renders as 连不上 NodeSeek: the
+     * exact opposite of what happened, since the site answered at once and its answer was 请先登录.
+     *
+     * [SiteError.LoginRequired] rather than a new case because that is the refusal's own meaning: the
+     * recovery a screen offers for it — sign in, then try again — is the one that works. It stays a
+     * page-level rule and does not touch [resolveRedirect], whose whole job is to report a redirect.
+     */
+    private fun refuseForeignAnswer(response: HttpResponse) {
+        val answered = WebUrl.parse(response.url)?.host?.lowercase() ?: return
+        if (answered in siteHosts) return
+        throw SiteException(SiteError.LoginRequired)
     }
 }

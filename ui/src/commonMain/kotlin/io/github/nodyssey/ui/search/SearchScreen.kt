@@ -101,6 +101,7 @@ import io.github.nodyssey.ui.common.NavigationBarScrollConnection
 import io.github.nodyssey.ui.common.NavigationDirectionThreshold
 import io.github.nodyssey.ui.common.NoSearchResultsState
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.SearchSignInState
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.SortMenuItem
 import io.github.nodyssey.ui.common.TabPager
@@ -722,6 +723,15 @@ private fun SearchResults(
     onSignIn: () -> Unit,
     onVerify: (String) -> Unit,
 ) {
+    // NodeSeek searches only for a signed-in account, so there is nothing to ask for signed out:
+    // `/search` answers an anonymous reader with a 302 to a Google `site:` search rather than with
+    // a page, and following it is what turned this screen into 连不上 NodeSeek. The query is
+    // already waiting in the ViewModel for the sign-in screen to come back.
+    if (!state.isSignedIn) {
+        SearchSignInState(onSignIn = onSignIn)
+        return
+    }
+
     if (target == SearchTarget.USERS) {
         when (val loadState = state.userLoadState) {
             SearchLoadState.Idle,
