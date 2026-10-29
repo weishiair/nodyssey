@@ -44,6 +44,10 @@ import io.github.nodyssey.ui.common.PostBadges
 import io.github.nodyssey.ui.common.PostReplyStat
 import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.postCardTitleStyle
+import io.github.nodyssey.ui.common.sharedThreadAuthor
+import io.github.nodyssey.ui.common.sharedThreadAvatar
+import io.github.nodyssey.ui.common.sharedThreadBoard
+import io.github.nodyssey.ui.common.sharedThreadTitle
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.credit_level
 import io.github.nodyssey.ui.resources.search_user_comments
@@ -89,6 +93,8 @@ internal fun SearchPostCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     avatarSize: Dp? = null,
+    /** Null for the appearance settings' sample, which is not a navigation source. */
+    origin: String? = null,
 ) {
     val summary = post.summary
     LayerCard(
@@ -98,7 +104,7 @@ internal fun SearchPostCard(
         contentPadding = ResultCardPadding,
     ) {
         if (avatarSize == null) {
-            CardText(post, summary, highlight, Modifier.fillMaxWidth())
+            CardText(post, summary, highlight, origin, Modifier.fillMaxWidth())
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(ResultAvatarGap)) {
                 UserAvatar(
@@ -107,9 +113,9 @@ internal fun SearchPostCard(
                     size = avatarSize,
                     // A line box carries leading above the glyphs, and a face a couple of pixels
                     // above the words it belongs to reads as a misalignment rather than as air.
-                    modifier = Modifier.padding(top = 1.dp),
+                    modifier = Modifier.padding(top = 1.dp).sharedThreadAvatar(summary.postId, origin),
                 )
-                CardText(post, summary, highlight, Modifier.weight(1f))
+                CardText(post, summary, highlight, origin, Modifier.weight(1f))
             }
         }
     }
@@ -121,6 +127,7 @@ private fun CardText(
     post: FeedPost,
     summary: PostSummary,
     highlight: String?,
+    origin: String?,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(ResultCardGap)) {
@@ -132,18 +139,27 @@ private fun CardText(
             color = if (post.isRead) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             fontWeight = if (post.isRead) FontWeight.Medium else FontWeight.SemiBold,
             maxLines = 2,
+            modifier = Modifier.sharedThreadTitle(summary.postId, origin),
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            BoardTag(title = summary.categoryTitle, slug = summary.categorySlug)
+            BoardTag(
+                title = summary.categoryTitle,
+                slug = summary.categorySlug,
+                modifier = Modifier.sharedThreadBoard(summary.postId, origin),
+            )
             Row(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                MetaText(summary.authorName, Modifier.weight(1f, fill = false), singleLine = true)
+                MetaText(
+                    summary.authorName,
+                    Modifier.weight(1f, fill = false).sharedThreadAuthor(summary.postId, origin),
+                    singleLine = true,
+                )
                 UserNoteTag(summary.authorUid, Modifier.weight(1f, fill = false))
                 summary.lastActiveText?.let {
                     MetaText("·", singleLine = true)

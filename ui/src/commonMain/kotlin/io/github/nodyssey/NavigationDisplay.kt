@@ -32,9 +32,7 @@ internal fun <T : Any> NodysseyNavDisplay(
     sharedThreadTransitions: Boolean = true,
 ) {
     CompositionLocalProvider(
-        // Shared bounds are child animations of the scene; even a None pop otherwise waits for
-        // their spring to finish while the outgoing page keeps receiving pointer events.
-        LocalThreadTransition provides sharedTransitionScope.takeUnless { !sharedThreadTransitions || eink || !predictiveBack },
+        LocalThreadTransition provides sharedTransitionScope.takeUnless { !sharedThreadTransitions || eink },
     ) {
         val sceneState = rememberSceneState(
             entries = entries,
