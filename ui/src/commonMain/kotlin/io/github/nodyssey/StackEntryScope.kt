@@ -33,7 +33,6 @@ internal class NavigationDependencies(
     val homeReselectRequests: () -> Int,
     val notificationsScrollToTopRequests: () -> Int,
     val isListDetailExpanded: () -> Boolean,
-    val isEinkMode: () -> Boolean,
     val onTabBarHiddenByScroll: (Boolean) -> Unit,
     /** Brings a tab to the front. The host owns which tab is current, so it owns the switch too. */
     val selectTab: (TopLevelDestination) -> Unit,
@@ -79,12 +78,6 @@ internal class StackEntryScope(
     val homeReselectRequests: () -> Int,
     val notificationsScrollToTopRequests: () -> Int,
     val isListDetailExpanded: () -> Boolean,
-    /**
-     * 墨水屏模式, read through a lambda for the reason [isListDetailExpanded] is: the entry provider
-     * beside this scope is built once and kept, so a value captured here would be whatever the
-     * setting was at that moment, forever.
-     */
-    val isEinkMode: () -> Boolean,
     val onTabBarHiddenByScroll: (Boolean) -> Unit,
     /** A browser link — Custom Tab or the system browser, per the user's setting. */
     val openExternalUrl: (String) -> Unit,

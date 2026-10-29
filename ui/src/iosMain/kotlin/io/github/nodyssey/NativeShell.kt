@@ -179,7 +179,6 @@ private class NativeShell(
             homeReselectRequests = { homeReselectRequests },
             notificationsScrollToTopRequests = { notificationsScrollToTopRequests },
             isListDetailExpanded = { false },
-            isEinkMode = { settings.einkMode },
             onTabBarHiddenByScroll = {},
             selectTab = { root.selectedIndex = it.ordinal.toULong() },
             scope = scope,
