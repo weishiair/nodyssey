@@ -18,11 +18,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
@@ -30,6 +30,8 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberDecoratedNavEntries
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.navigationevent.NavigationEvent
 import androidx.navigationevent.NavigationEventDispatcher
@@ -57,6 +59,7 @@ class NavigationDisplayTest {
     private val predictive = mutableStateOf(false)
     private val list = LazyListState()
     private val input = BackInput()
+    private var detailClicks = 0
     private lateinit var sharedScope: SharedTransitionScope
 
     private fun show(
@@ -105,7 +108,7 @@ class NavigationDisplayTest {
                             Modifier
                                 .fillMaxSize()
                                 .then(if (shared) Modifier.sharedThreadSurface(THREAD_ORIGIN_FEED) else Modifier)
-                                .clickable {},
+                                .clickable { detailClicks++ },
                         ) {
                             Text("Thread", modifier = if (shared) Modifier.sharedThreadTitle(1L, THREAD_ORIGIN_FEED) else Modifier)
                             if (shared) Box(Modifier.size(40.dp).sharedThreadAvatar(1L, THREAD_ORIGIN_FEED))
@@ -119,7 +122,11 @@ class NavigationDisplayTest {
                 MaterialTheme {
                     SharedTransitionLayout(Modifier.fillMaxSize().testTag("screen")) {
                         sharedScope = this
-                        val entries = remember(stack.toList()) { stack.map(provider) }
+                        val entries = rememberDecoratedNavEntries(
+                            backStack = stack,
+                            entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
+                            entryProvider = provider,
+                        )
                         NodysseyNavDisplay(
                             entries = entries,
                             predictiveBack = predictive.value,
@@ -225,6 +232,23 @@ class NavigationDisplayTest {
         compose.runOnIdle { assertEquals(listOf(PostListKey), stack.toList()) }
         compose.mainClock.autoAdvance = false
         assertImmediateScroll()
+    }
+
+    @Test
+    fun `cancelling back during shared entrance leaves the thread interactive`() {
+        show(shared = true, initiallyPredictive = true, settleEntrance = false)
+        compose.runOnIdle { input.startAndProgress(NavigationEvent.EDGE_LEFT) }
+        advanceSceneFrames()
+        compose.runOnIdle { input.cancel() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        compose.onNodeWithTag("screen").performTouchInput {
+            click(Offset(width * 0.9f, height * 0.7f))
+        }
+        compose.runOnIdle {
+            assertEquals(2, stack.size)
+            assertEquals("The restored thread must receive the first tap after cancellation", 1, detailClicks)
+        }
     }
 
     private class BackInput : NavigationEventInput() {

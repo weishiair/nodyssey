@@ -2,12 +2,20 @@ package io.github.nodyssey.ui.common
 
 import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.SharedTransitionDefaults
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -31,6 +39,42 @@ import androidx.navigation3.ui.LocalNavAnimatedContentScope
  *   where it was.
  */
 val LocalThreadTransition = compositionLocalOf<SharedTransitionScope?> { null }
+
+private val LocalThreadSharedContentConfig =
+    compositionLocalOf<SharedTransitionScope.SharedContentConfig> { SharedTransitionDefaults.SharedContentConfig }
+
+/**
+ * A new thread shares its entrance once. Back moves the intact page, including its header.
+ *
+ * Saved with the navigation entry: revealing this thread after an author page or image viewer is
+ * still a return, even though AnimatedContent composes its entering header again. Disabling an
+ * ongoing match also interrupts a quick back during entrance rather than flying the header home.
+ */
+@Composable
+internal fun ThreadSharedEntrance(content: @Composable () -> Unit) {
+    if (LocalThreadTransition.current == null) {
+        content()
+        return
+    }
+    val visibility = LocalNavAnimatedContentScope.current.transition
+    var entranceFinished by rememberSaveable { mutableStateOf(false) }
+    val config = remember(visibility) {
+        object : SharedTransitionScope.SharedContentConfig {
+            override val SharedTransitionScope.SharedContentState.isEnabled: Boolean
+                get() = !entranceFinished &&
+                    visibility.currentState == EnterExitState.PreEnter &&
+                    visibility.targetState == EnterExitState.Visible
+
+            override val shouldKeepEnabledForOngoingAnimation: Boolean = false
+        }
+    }
+    LaunchedEffect(visibility.currentState, visibility.targetState) {
+        if (visibility.currentState != EnterExitState.PreEnter || visibility.targetState != EnterExitState.Visible) {
+            entranceFinished = true
+        }
+    }
+    CompositionLocalProvider(LocalThreadSharedContentConfig provides config, content = content)
+}
 
 /**
  * Which list a row is travelling from, as part of the key that pairs it with the thread header.
@@ -175,9 +219,10 @@ private fun Modifier.sharedThreadBounds(
     val animatedScope = LocalNavAnimatedContentScope.current
     val boundsTransform = threadBoundsTransform()
     val effectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    val config = LocalThreadSharedContentConfig.current
     return with(transition) {
         this@sharedThreadBounds.sharedBounds(
-            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId"),
+            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId", config),
             animatedVisibilityScope = animatedScope,
             enter = fadeIn(effectsSpec),
             exit = fadeOut(effectsSpec),
@@ -201,9 +246,10 @@ private fun Modifier.sharedThreadElement(
     val transition = LocalThreadTransition.current ?: return this
     val animatedScope = LocalNavAnimatedContentScope.current
     val boundsTransform = threadBoundsTransform()
+    val config = LocalThreadSharedContentConfig.current
     return with(transition) {
         this@sharedThreadElement.sharedElement(
-            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId"),
+            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId", config),
             animatedVisibilityScope = animatedScope,
             boundsTransform = boundsTransform,
             zIndexInOverlay = THREAD_CONTENT_Z_INDEX,
