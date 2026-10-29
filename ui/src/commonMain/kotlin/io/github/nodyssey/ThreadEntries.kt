@@ -60,8 +60,8 @@ internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = wi
     entry<PostDetailKey>(
         /*
          * Keep both page backgrounds stationary when a row supplies the shared thread header.
-         * Only the shared elements travel during entrance. Return uses the display's slide so
-         * the outgoing page moves away while shared elements finish, rather than covering the list.
+         * Only the shared elements travel during entrance. Return uses the display's short slide
+         * with the header attached to the outgoing page, revealing the stationary list underneath.
          * Threads without a preview retain the display's directional entrance too.
          */
         metadata = { key ->

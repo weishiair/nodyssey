@@ -62,6 +62,7 @@ import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
+import io.github.nodyssey.ui.common.ThreadSharedEntrance
 import io.github.nodyssey.ui.common.appName
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.clipboardPostToOffer
@@ -902,7 +903,9 @@ internal fun stackScopedEntryProvider(
         // NavDisplay's None pop and SharedContentConfig.isEnabled cannot synchronously dispose a
         // scene interrupted mid-entrance. Omit removed content so it cannot intercept input; remove
         // this guard when NavDisplay can finish an interrupted non-animated pop immediately.
-        if (predictiveBack() || backStack.any { it === key }) entry.Content()
+        if (predictiveBack() || backStack.any { it === key }) {
+            if (key is PostDetailKey) ThreadSharedEntrance { entry.Content() } else entry.Content()
+        }
     }
 }
 
