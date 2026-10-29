@@ -32,6 +32,22 @@ import androidx.navigation3.ui.LocalNavAnimatedContentScope
 val LocalThreadTransition = compositionLocalOf<SharedTransitionScope?> { null }
 
 /**
+ * Which list a row is travelling from, as part of the key that pairs it with the thread header.
+ *
+ * The key's other job is to keep two *rows* from pairing. 首页 and a user's space can both show the
+ * same post, and a transition between them composes both lists at once — one key with two live
+ * claims is a state the shared-element machinery has no answer for. Each list names its own origin
+ * and the header matches only the one handed over in [io.github.nodyssey.ThreadPreview.origin]; an
+ * empty origin (a deep link, a notification, a saved thread from before the field existed) matches
+ * no row and leaves the thread on its ordinary slide.
+ */
+const val THREAD_ORIGIN_FEED = "feed"
+const val THREAD_ORIGIN_MY_TOPICS = "mytopics"
+
+/** A user's space is its uid, not merely `space`: two space pages can sit on one stack. */
+fun spaceOrigin(uid: Long): String = "space-$uid"
+
+/**
  * The four things a feed row and a thread state about the same post.
  *
  * A row is not a summary of the thread so much as the same four facts laid out in one line, and
@@ -63,16 +79,20 @@ private enum class ThreadPart {
  * flight.
  */
 @Composable
-fun Modifier.sharedThreadTitle(postId: Long): Modifier =
-    sharedThreadBounds(ThreadPart.TITLE, postId)
+fun Modifier.sharedThreadTitle(
+    postId: Long,
+    origin: String,
+): Modifier = sharedThreadBounds(ThreadPart.TITLE, postId, origin)
 
 /**
  * The author's name: 12sp in the row's meta line, `titleSmall` beside the larger avatar in the
  * thread. Bounds again, for the title's reason — same name, different type.
  */
 @Composable
-fun Modifier.sharedThreadAuthor(postId: Long): Modifier =
-    sharedThreadBounds(ThreadPart.AUTHOR, postId)
+fun Modifier.sharedThreadAuthor(
+    postId: Long,
+    origin: String,
+): Modifier = sharedThreadBounds(ThreadPart.AUTHOR, postId, origin)
 
 /**
  * The avatar: 34dp in the row, 40dp in the thread, and the *same picture* at both ends — so this one
@@ -84,8 +104,10 @@ fun Modifier.sharedThreadAuthor(postId: Long): Modifier =
  * would be a claim that they are the same thing.
  */
 @Composable
-fun Modifier.sharedThreadAvatar(postId: Long): Modifier =
-    sharedThreadElement(ThreadPart.AVATAR, postId)
+fun Modifier.sharedThreadAvatar(
+    postId: Long,
+    origin: String,
+): Modifier = sharedThreadElement(ThreadPart.AVATAR, postId, origin)
 
 /**
  * The board tag, which is the one part drawn identically at both ends — same component, same text,
@@ -93,8 +115,10 @@ fun Modifier.sharedThreadAvatar(postId: Long): Modifier =
  * and simply moves.
  */
 @Composable
-fun Modifier.sharedThreadBoard(postId: Long): Modifier =
-    sharedThreadElement(ThreadPart.BOARD, postId)
+fun Modifier.sharedThreadBoard(
+    postId: Long,
+    origin: String,
+): Modifier = sharedThreadElement(ThreadPart.BOARD, postId, origin)
 
 /**
  * The app's own spatial motion, so everything that travels does so on the same curve as the rest of
@@ -111,6 +135,7 @@ private fun threadBoundsTransform(): BoundsTransform {
 private fun Modifier.sharedThreadBounds(
     part: ThreadPart,
     postId: Long,
+    origin: String,
 ): Modifier {
     val transition = LocalThreadTransition.current ?: return this
     // Deliberately read only after the null check above: it throws outside a NavDisplay entry.
@@ -118,7 +143,7 @@ private fun Modifier.sharedThreadBounds(
     val boundsTransform = threadBoundsTransform()
     return with(transition) {
         this@sharedThreadBounds.sharedBounds(
-            sharedContentState = rememberSharedContentState("${part.name}-$postId"),
+            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId"),
             animatedVisibilityScope = animatedScope,
             enter = fadeIn(),
             exit = fadeOut(),
@@ -136,13 +161,14 @@ private fun Modifier.sharedThreadBounds(
 private fun Modifier.sharedThreadElement(
     part: ThreadPart,
     postId: Long,
+    origin: String,
 ): Modifier {
     val transition = LocalThreadTransition.current ?: return this
     val animatedScope = LocalNavAnimatedContentScope.current
     val boundsTransform = threadBoundsTransform()
     return with(transition) {
         this@sharedThreadElement.sharedElement(
-            sharedContentState = rememberSharedContentState("${part.name}-$postId"),
+            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId"),
             animatedVisibilityScope = animatedScope,
             boundsTransform = boundsTransform,
         )

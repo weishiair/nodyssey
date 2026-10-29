@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.data.SpacePost
 import io.github.nodyssey.ui.assets.AssetsRoute
 import io.github.nodyssey.ui.assets.AssetsViewModel
 import io.github.nodyssey.ui.assets.CreditRoute
@@ -15,6 +16,8 @@ import io.github.nodyssey.ui.assets.StardustRoute
 import io.github.nodyssey.ui.assets.StardustViewModel
 import io.github.nodyssey.ui.bookmarks.BookmarksRoute
 import io.github.nodyssey.ui.bookmarks.BookmarksViewModel
+import io.github.nodyssey.ui.common.THREAD_ORIGIN_MY_TOPICS
+import io.github.nodyssey.ui.common.spaceOrigin
 import io.github.nodyssey.ui.history.ReadHistoryRoute
 import io.github.nodyssey.ui.history.ReadHistoryViewModel
 import io.github.nodyssey.ui.login.WebViewGoal
@@ -46,7 +49,18 @@ internal fun EntryProviderScope<NavKey>.spaceEntries(nav: StackEntryScope) = wit
         UserSpaceRoute(
             viewModel = viewModel,
             onBack = { backStack.removeLastOrNull() },
-            onPostClick = { postId, floor -> backStack.add(PostDetailKey(postId, floor)) },
+            onPostClick = { post, floor ->
+                backStack.add(
+                    PostDetailKey(
+                        post.postId,
+                        floor = floor,
+                        preview = post.threadPreview(spaceOrigin(key.uid)),
+                    ),
+                )
+            },
+            // A comment has only the thread and the floor to open; there is nothing in the row for
+            // the header to draw on its first frame, so it keeps the ordinary slide.
+            onCommentClick = { postId, floor -> backStack.add(PostDetailKey(postId, floor)) },
             // The same conversation screen 私信 opens from the notification tab (board 7f).
             // It reads and writes this thread through the site's own message endpoints, so
             // there is nothing here the web view was needed for.
@@ -91,7 +105,9 @@ internal fun EntryProviderScope<NavKey>.spaceEntries(nav: StackEntryScope) = wit
         MyTopicsRoute(
             viewModel = viewModel,
             onBack = { backStack.removeLastOrNull() },
-            onPostClick = { postId -> backStack.add(PostDetailKey(postId)) },
+            onPostClick = { post ->
+                backStack.add(PostDetailKey(post.postId, preview = post.threadPreview(THREAD_ORIGIN_MY_TOPICS)))
+            },
             onBrowseFeed = openHomeTab,
             // `/space` needs the session's cookies, so a wall here is cleared in the app's own web
             // view rather than in the cookie-less system browser.
@@ -204,3 +220,24 @@ internal fun EntryProviderScope<NavKey>.spaceEntries(nav: StackEntryScope) = wit
         )
     }
 }
+
+/**
+ * What a space or 我的主题帖 row already knows about the thread it opens.
+ *
+ * The thread header draws these before the request returns, and they are what the row's title,
+ * name and board tag fly into. A row the site gave no author is not a preview with a blank name —
+ * the header would show that blank until the request corrected it — so it hands back nothing, and
+ * the thread keeps its ordinary slide the way a notification or a deep link does. The avatar is
+ * absent for the same reason it is absent from the row: this payload carries none.
+ */
+internal fun SpacePost.threadPreview(origin: String): ThreadPreview? =
+    authorName?.let { author ->
+        ThreadPreview(
+            title = title,
+            authorName = author,
+            categoryTitle = categoryTitle,
+            categorySlug = categorySlug,
+            replyCount = commentCount,
+            origin = origin,
+        )
+    }
