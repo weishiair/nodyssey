@@ -632,6 +632,9 @@ fun PostListScreen(
                     posts = postsFor(board.slug),
                     listState = feedStates.listState(board.slug, state.sort),
                     onPostClick = onPostClick,
+                    // Pager prefetch can compose the same post in neighbouring boards. Only the
+                    // settled page may pair with the thread; hidden rows must not claim its keys.
+                    sharedWithThread = index == pagerState.settledPage && !pagerState.isScrollInProgress,
                     onSignInClick = onSignInClick,
                     onRecoverInBrowser = onRecoverInBrowser,
                     onBrowseElsewhere = { onBoardClick(null) },
@@ -712,6 +715,7 @@ private fun BoardFeed(
     posts: LazyPagingItems<FeedPost>,
     listState: LazyListState,
     onPostClick: (FeedPost) -> Unit,
+    sharedWithThread: Boolean,
     onSignInClick: () -> Unit,
     onRecoverInBrowser: (String) -> Unit,
     onBrowseElsewhere: () -> Unit,
@@ -814,7 +818,7 @@ private fun BoardFeed(
                                 PostRow(
                                     post = post,
                                     onClick = { onPostClick(post) },
-                                    sharedWithThread = true,
+                                    sharedWithThread = sharedWithThread,
                                 )
                         }
                     }

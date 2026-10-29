@@ -2,6 +2,7 @@ package io.github.nodyssey
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.EntryProviderScope
@@ -9,6 +10,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.ui.common.rememberShareImage
+import io.github.nodyssey.ui.common.sharedThreadSurface
 import io.github.nodyssey.ui.composer.PostComposerRoute
 import io.github.nodyssey.ui.composer.PostComposerViewModel
 import io.github.nodyssey.ui.composer.ReplyComposerViewModel
@@ -87,6 +89,7 @@ internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = wi
                 factory = ReplyComposerViewModel.factory(container, key.postId),
             )
         PostDetailRoute(
+            modifier = Modifier.sharedThreadSurface(key.preview?.origin),
             viewModel = viewModel,
             replyViewModel = replyViewModel,
             // By identity: the stack hands the entry this very key, and an equal key further down

@@ -1,6 +1,7 @@
 package io.github.nodyssey.ui.common
 
 import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -70,6 +71,34 @@ private enum class ThreadPart {
     AVATAR,
     AUTHOR,
     BOARD,
+}
+
+private const val THREAD_SURFACE_Z_INDEX = 1f
+private const val THREAD_CONTENT_Z_INDEX = 2f
+
+/**
+ * Keep an arriving thread's opaque surface under its travelling header in the same overlay.
+ *
+ * Shared elements bypass the scene's drawing layer. Leaving their destination surface in that
+ * layer lets an outgoing scene in the shared overlay cover it: the header flies over the old list
+ * and the thread background only appears when the overlay is released. The official overlay
+ * modifier moves the existing surface with its header, without another copy or an opacity change.
+ * Only the destination is elevated; outgoing pages keep their ordinary and predictive back slide.
+ */
+@Composable
+fun Modifier.sharedThreadSurface(origin: String?): Modifier {
+    if (origin.isNullOrEmpty()) return this
+    val sharedScope = LocalThreadTransition.current ?: return this
+    val animatedScope = LocalNavAnimatedContentScope.current
+    return with(sharedScope) {
+        this@sharedThreadSurface.renderInSharedTransitionScopeOverlay(
+            zIndexInOverlay = THREAD_SURFACE_Z_INDEX,
+            renderInOverlay = {
+                isTransitionActive &&
+                    animatedScope.transition.targetState == EnterExitState.Visible
+            },
+        )
+    }
 }
 
 /**
@@ -153,6 +182,7 @@ private fun Modifier.sharedThreadBounds(
             enter = fadeIn(effectsSpec),
             exit = fadeOut(effectsSpec),
             boundsTransform = boundsTransform,
+            zIndexInOverlay = THREAD_CONTENT_Z_INDEX,
             resizeMode =
             SharedTransitionScope.ResizeMode.scaleToBounds(
                 contentScale = ContentScale.FillWidth,
@@ -176,6 +206,7 @@ private fun Modifier.sharedThreadElement(
             sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId"),
             animatedVisibilityScope = animatedScope,
             boundsTransform = boundsTransform,
+            zIndexInOverlay = THREAD_CONTENT_Z_INDEX,
         )
     }
 }
