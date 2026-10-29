@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.data.FeedPost
 import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.settings.AppLanguage
@@ -42,6 +43,7 @@ import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.ThemeMode
 import io.github.nodyssey.data.settings.UserSettings
+import io.github.nodyssey.model.PostSummary
 import io.github.nodyssey.ui.account.shortNameRes
 import io.github.nodyssey.ui.common.UpdateDot
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
@@ -107,6 +109,10 @@ import io.github.nodyssey.ui.resources.settings_refresh_rate_value
 import io.github.nodyssey.ui.resources.settings_report_format
 import io.github.nodyssey.ui.resources.settings_report_format_adapted
 import io.github.nodyssey.ui.resources.settings_report_format_source
+import io.github.nodyssey.ui.resources.settings_search_avatar
+import io.github.nodyssey.ui.resources.settings_search_avatar_hint
+import io.github.nodyssey.ui.resources.settings_search_avatar_preview
+import io.github.nodyssey.ui.resources.settings_search_avatar_size
 import io.github.nodyssey.ui.resources.settings_search_history_limit
 import io.github.nodyssey.ui.resources.settings_search_history_limit_count
 import io.github.nodyssey.ui.resources.settings_search_history_limit_hint
@@ -134,6 +140,7 @@ import io.github.nodyssey.ui.resources.sticker_manage_tab_mine
 import io.github.nodyssey.ui.resources.sticker_manage_tab_subs
 import io.github.nodyssey.ui.resources.sticker_manage_title
 import io.github.nodyssey.ui.richtext.PostRichContent
+import io.github.nodyssey.ui.search.SearchPostCard
 import io.github.nodyssey.ui.settings.theme.ThemeSummaryDot
 import io.github.nodyssey.ui.settings.theme.themeSummary
 import io.github.nodyssey.ui.sticker.LocalStickerLibrary
@@ -197,6 +204,8 @@ fun SettingsRoute(
         onFontScaleChange = viewModel::setFontScale,
         onStickerUniformSizeChange = viewModel::setStickerUniformSize,
         onStickerSizeChange = viewModel::setStickerSize,
+        onSearchAvatarChange = viewModel::setSearchAvatarEnabled,
+        onSearchAvatarSizeChange = viewModel::setSearchAvatarSize,
         onImagesOnWifiOnlyChange = viewModel::setImagesOnWifiOnly,
         onReportFormatChange = viewModel::setReportFormat,
         onHomePageBarChange = viewModel::setHomePageBar,
@@ -256,6 +265,8 @@ fun SettingsScreen(
     onSearchHistoryLimitChange: (Int) -> Unit = {},
     /** Null hides 识别剪贴板中的帖子: a platform where reading the clipboard costs a prompt each time. */
     onClipboardPostPromptChange: ((Boolean) -> Unit)? = null,
+    onSearchAvatarChange: (Boolean) -> Unit = {},
+    onSearchAvatarSizeChange: (Int) -> Unit = {},
 ) {
     var bodyFontSize by remember(state.settings.fontScale) {
         mutableFloatStateOf(fontScaleToBodySize(state.settings.fontScale))
@@ -264,6 +275,10 @@ fun SettingsScreen(
     // a write per frame would push a settings emission through every open post body.
     var stickerSize by remember(state.settings.stickerSize) {
         mutableFloatStateOf(state.settings.stickerSize.toFloat())
+    }
+    // Same deal as the two above: the preview follows the thumb, and only the release is stored.
+    var searchAvatarSize by remember(state.settings.searchAvatarSize) {
+        mutableFloatStateOf(state.settings.searchAvatarSize.toFloat())
     }
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
@@ -415,9 +430,37 @@ fun SettingsScreen(
                         StickerSizePreview(sizeSp = stickerSize.roundToInt())
                     }
                 }
+                // A result list is read by scanning, and a face is found before a name is — but every
+                // dp of face is a dp the title does not get, so the trade is the reader's to make.
+                GroupedRow(
+                    icon = PlazaIcons.PersonSearch,
+                    title = stringResource(Res.string.settings_search_avatar),
+                    subtitle = stringResource(Res.string.settings_search_avatar_hint),
+                    checked = state.settings.showSearchAvatar,
+                    onCheckedChange = onSearchAvatarChange,
+                    trailing = { GroupedListItemSwitch(checked = state.settings.showSearchAvatar) },
+                )
+                if (state.settings.showSearchAvatar) {
+                    SettingsBlock(
+                        title = stringResource(Res.string.settings_search_avatar_size),
+                        value = searchAvatarSize.roundToInt().toString(),
+                    ) {
+                        SettingsSlider(
+                            value = searchAvatarSize,
+                            onValueChange = { searchAvatarSize = it },
+                            onValueChangeFinished = { onSearchAvatarSizeChange(searchAvatarSize.roundToInt()) },
+                            valueRange = SEARCH_AVATAR_SIZE_RANGE,
+                            // 20..44dp in 1dp stops: the whole range is two and a half lines of
+                            // type wide, so a coarser step would make the slider a switch.
+                            steps = SEARCH_AVATAR_SIZE_STEPS,
+                            modifier = Modifier.testTag(SEARCH_AVATAR_SLIDER_TAG),
+                        )
+                        SearchAvatarPreview(sizeDp = searchAvatarSize.roundToInt())
+                    }
+                }
                 // 语言 is one more thing about how the interface looks, so it rides in this group
                 // rather than opening a section of its own — and it is the group's last row, which
-                // is why neither of the two above claims the rounded bottom edge any more.
+                // is why none of the blocks above can claim the rounded bottom edge.
                 AppLanguageRow(
                     selected = state.settings.appLanguage,
                     onSelect = onAppLanguageChange,
@@ -921,6 +964,59 @@ private val STICKER_SIZE_RANGE =
     SettingsRepository.MIN_STICKER_SIZE_SP.toFloat()..SettingsRepository.MAX_STICKER_SIZE_SP.toFloat()
 private const val STICKER_SIZE_STEPS = 13
 internal const val STICKER_SIZE_SLIDER_TAG = "sticker-size-slider"
+
+private val SEARCH_AVATAR_SIZE_RANGE =
+    SettingsRepository.MIN_SEARCH_AVATAR_DP.toFloat()..SettingsRepository.MAX_SEARCH_AVATAR_DP.toFloat()
+private const val SEARCH_AVATAR_SIZE_STEPS = 23
+internal const val SEARCH_AVATAR_SLIDER_TAG = "search-avatar-slider"
+
+/**
+ * A result card at the size being dragged, rather than a number beside a label.
+ *
+ * It is the screen's own [SearchPostCard], so the preview cannot drift from the thing it is
+ * previewing — and the title beside the face answers the question the slider actually asks: how much
+ * of a result the face costs.
+ */
+@Composable
+private fun SearchAvatarPreview(sizeDp: Int) {
+    val title = stringResource(Res.string.settings_search_avatar_preview)
+    Surface(
+        color = LocalPlazaLayers.current.inset,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        SearchPostCard(
+            post = remember(title) { searchAvatarPreviewPost(title) },
+            highlight = null,
+            onClick = {},
+            avatarSize = sizeDp.dp,
+            modifier = Modifier.padding(Spacing.md),
+        )
+    }
+}
+
+private fun searchAvatarPreviewPost(title: String) =
+    FeedPost(
+        summary =
+        PostSummary(
+            postId = 0,
+            title = title,
+            authorName = "nodyssey",
+            authorUid = 0,
+            avatarUrl = null,
+            // No board on purpose: the question is the face against the title, and a tag would
+            // take width away from the thing being judged.
+            categoryTitle = null,
+            categorySlug = null,
+            viewCount = null,
+            commentCount = 3,
+            lastActiveText = "1d",
+            lastActiveTitle = null,
+            isPinned = false,
+            isLocked = false,
+        ),
+        isRead = false,
+        newCommentCount = 0,
+    )
 
 private val BODY_FONT_SIZE_RANGE = 14f..24f
 private const val BODY_FONT_SIZE_STEPS = 9

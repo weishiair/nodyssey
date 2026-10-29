@@ -98,6 +98,9 @@ class SettingsRepository(
                 stickerUniformSize = preferences[KEY_STICKER_UNIFORM_SIZE] ?: true,
                 stickerSize = (preferences[KEY_STICKER_SIZE] ?: DEFAULT_STICKER_SIZE_SP)
                     .coerceIn(MIN_STICKER_SIZE_SP, MAX_STICKER_SIZE_SP),
+                showSearchAvatar = preferences[KEY_SEARCH_AVATAR] ?: true,
+                searchAvatarSize = (preferences[KEY_SEARCH_AVATAR_DP] ?: DEFAULT_SEARCH_AVATAR_DP)
+                    .coerceIn(MIN_SEARCH_AVATAR_DP, MAX_SEARCH_AVATAR_DP),
                 imagesOnWifiOnly = preferences[KEY_IMAGES_WIFI_ONLY] ?: false,
                 reportFormat = preferences[KEY_REPORT_FORMAT]
                     ?.let { runCatching { ReportFormat.valueOf(it) }.getOrNull() }
@@ -267,6 +270,16 @@ class SettingsRepository(
     /** The side of that square, in sp. Only read while 表情统一缩限 is on. */
     suspend fun setStickerSize(sizeSp: Int) =
         edit { it[KEY_STICKER_SIZE] = sizeSp.coerceIn(MIN_STICKER_SIZE_SP, MAX_STICKER_SIZE_SP) }
+
+    /**
+     * 搜索结果显示头像. On — the default — every post result draws its author's face at the head of
+     * the card. Off is for the reader who wants the list tighter and every line of the title.
+     */
+    suspend fun setSearchAvatarEnabled(enabled: Boolean) = edit { it[KEY_SEARCH_AVATAR] = enabled }
+
+    /** The side of that face, in dp. Only read while 搜索结果显示头像 is on. */
+    suspend fun setSearchAvatarSize(sizeDp: Int) =
+        edit { it[KEY_SEARCH_AVATAR_DP] = sizeDp.coerceIn(MIN_SEARCH_AVATAR_DP, MAX_SEARCH_AVATAR_DP) }
 
     suspend fun setImagesOnWifiOnly(enabled: Boolean) = edit { it[KEY_IMAGES_WIFI_ONLY] = enabled }
 
@@ -608,6 +621,16 @@ class SettingsRepository(
         const val MAX_STICKER_SIZE_SP = 90
         const val DEFAULT_STICKER_SIZE_SP = MIN_STICKER_SIZE_SP
 
+        /*
+         * 搜索结果头像大小, in dp. The bottom is the size a row's avatar has elsewhere in the app — the
+         * feed's cards draw 20 — and the top is a user result's 44, so the range is the app's own
+         * vocabulary rather than a new one. 36 is the middle the round settled on: big enough that a
+         * face is the thing the eye lands on first, small enough to leave a two-line title its room.
+         */
+        const val MIN_SEARCH_AVATAR_DP = 20
+        const val MAX_SEARCH_AVATAR_DP = 44
+        const val DEFAULT_SEARCH_AVATAR_DP = 36
+
         /** WorkManager's own floor is 15 minutes, which is why the choices start there — board f4. */
         val POLL_MINUTE_CHOICES = listOf(15, 30, 60)
         const val DEFAULT_POLL_MINUTES = 30
@@ -682,6 +705,8 @@ class SettingsRepository(
         private val KEY_SEARCH_HISTORY_LIMIT = intPreferencesKey("search_history_limit")
         private val KEY_STICKER_UNIFORM_SIZE = booleanPreferencesKey("sticker_uniform_size")
         private val KEY_STICKER_SIZE = intPreferencesKey("sticker_size_sp")
+        private val KEY_SEARCH_AVATAR = booleanPreferencesKey("search_avatar")
+        private val KEY_SEARCH_AVATAR_DP = intPreferencesKey("search_avatar_dp")
         private val KEY_IMAGES_WIFI_ONLY = booleanPreferencesKey("images_on_wifi_only")
         private val KEY_REPORT_FORMAT = stringPreferencesKey("report_format")
         private val KEY_RECENT_SEARCHES = stringPreferencesKey("recent_searches")
@@ -887,6 +912,16 @@ data class UserSettings(
     val stickerUniformSize: Boolean = true,
     /** The side of that square in sp, between [SettingsRepository.MIN_STICKER_SIZE_SP] and its max. */
     val stickerSize: Int = SettingsRepository.DEFAULT_STICKER_SIZE_SP,
+    /**
+     * 搜索结果显示头像 — whether a post result carries its author's face.
+     *
+     * A result list is read by scanning, and a face is found before a name is: this is the one
+     * preference that makes the search screen look unlike the rest of the app, so it is asked for
+     * rather than fixed. On is what the card was designed around.
+     */
+    val showSearchAvatar: Boolean = true,
+    /** The side of that face in dp, between [SettingsRepository.MIN_SEARCH_AVATAR_DP] and its max. */
+    val searchAvatarSize: Int = SettingsRepository.DEFAULT_SEARCH_AVATAR_DP,
     val imagesOnWifiOnly: Boolean = false,
     /** How a NodeQuality-style benchmark report is drawn in a post; see [ReportFormat]. */
     val reportFormat: ReportFormat = ReportFormat.SOURCE,
