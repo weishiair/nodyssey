@@ -66,6 +66,7 @@ class UserSpaceTabsTest {
                     onBack = {},
                     onTabSelected = { tab = it },
                     onPostClick = { _, _ -> },
+                    onCommentClick = { _, _ -> },
                     onRetryProfile = {},
                     onMessage = {},
                     onEditProfile = {},

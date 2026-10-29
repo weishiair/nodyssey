@@ -106,6 +106,7 @@ import io.github.nodyssey.ui.common.PostReplyStat
 import io.github.nodyssey.ui.common.SelectableMenuItem
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.SortMenuItem
+import io.github.nodyssey.ui.common.THREAD_ORIGIN_FEED
 import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.collectPagesAtRest
 import io.github.nodyssey.ui.common.compactCount
@@ -1285,7 +1286,7 @@ internal fun PostRow(
                 url = summary.avatarUrl,
                 name = summary.authorName,
                 size = CardAvatarSize,
-                modifier = Modifier.thenIf(sharedWithThread) { Modifier.sharedThreadAvatar(summary.postId) },
+                modifier = Modifier.thenIf(sharedWithThread) { Modifier.sharedThreadAvatar(summary.postId, THREAD_ORIGIN_FEED) },
             )
             // Its own row taking all the room the badges leave, so a long name gives way before the
             // board tag does and the badges stay against the end.
@@ -1302,13 +1303,13 @@ internal fun PostRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .weight(1f, fill = false)
-                        .thenIf(sharedWithThread) { Modifier.sharedThreadAuthor(summary.postId) },
+                        .thenIf(sharedWithThread) { Modifier.sharedThreadAuthor(summary.postId, THREAD_ORIGIN_FEED) },
                 )
                 UserNoteTag(summary.authorUid, Modifier.weight(1f, fill = false))
                 BoardTag(
                     title = summary.categoryTitle,
                     slug = summary.categorySlug,
-                    modifier = Modifier.thenIf(sharedWithThread) { Modifier.sharedThreadBoard(summary.postId) },
+                    modifier = Modifier.thenIf(sharedWithThread) { Modifier.sharedThreadBoard(summary.postId, THREAD_ORIGIN_FEED) },
                 )
             }
             PostBadges(summary, showAward = showAwardBadge)
@@ -1320,7 +1321,7 @@ internal fun PostRow(
             fontWeight = FontWeight.SemiBold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.thenIf(sharedWithThread) { Modifier.sharedThreadTitle(summary.postId) },
+            modifier = Modifier.thenIf(sharedWithThread) { Modifier.sharedThreadTitle(summary.postId, THREAD_ORIGIN_FEED) },
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,

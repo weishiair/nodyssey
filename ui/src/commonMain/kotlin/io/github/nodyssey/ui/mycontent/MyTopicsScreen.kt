@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.SpacePost
+import io.github.nodyssey.ui.common.THREAD_ORIGIN_MY_TOPICS
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.my_content_empty_action
 import io.github.nodyssey.ui.resources.my_topics_count
@@ -27,7 +28,7 @@ import org.jetbrains.compose.resources.stringResource
 fun MyTopicsRoute(
     viewModel: MyTopicsViewModel,
     onBack: () -> Unit,
-    onPostClick: (Long) -> Unit,
+    onPostClick: (SpacePost) -> Unit,
     onBrowseFeed: () -> Unit,
     onOpenBrowser: () -> Unit,
     onSignIn: () -> Unit,
@@ -55,6 +56,6 @@ fun MyTopicsRoute(
         onVerify = onVerify,
         modifier = modifier,
     ) { post: SpacePost ->
-        SpacePostRow(post = post, onClick = { onPostClick(post.postId) })
+        SpacePostRow(post = post, origin = THREAD_ORIGIN_MY_TOPICS, onClick = { onPostClick(post) })
     }
 }

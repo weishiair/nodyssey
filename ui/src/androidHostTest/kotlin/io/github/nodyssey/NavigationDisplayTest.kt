@@ -34,6 +34,7 @@ import androidx.navigationevent.NavigationEventDispatcher
 import androidx.navigationevent.NavigationEventDispatcherOwner
 import androidx.navigationevent.NavigationEventInput
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import io.github.nodyssey.ui.common.THREAD_ORIGIN_FEED
 import io.github.nodyssey.ui.common.sharedThreadTitle
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import org.junit.Assert.assertTrue
@@ -76,7 +77,7 @@ class NavigationDisplayTest {
                                 Box(Modifier.fillMaxWidth().height(48.dp)) {
                                     Text(
                                         "Post $index",
-                                        modifier = if (shared && index == 0) Modifier.sharedThreadTitle(1L) else Modifier,
+                                        modifier = if (shared && index == 0) Modifier.sharedThreadTitle(1L, THREAD_ORIGIN_FEED) else Modifier,
                                     )
                                 }
                             }
@@ -84,7 +85,7 @@ class NavigationDisplayTest {
                     } else {
                         // An outgoing page still in AnimatedContent intercepts the next drag.
                         Box(Modifier.fillMaxSize().clickable {}) {
-                            Text("Thread", modifier = if (shared) Modifier.sharedThreadTitle(1L) else Modifier)
+                            Text("Thread", modifier = if (shared) Modifier.sharedThreadTitle(1L, THREAD_ORIGIN_FEED) else Modifier)
                         }
                     }
                 }
