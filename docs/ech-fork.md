@@ -18,7 +18,11 @@
 
 首次启用加密 DNS 时默认选择此服务。覆盖安装会保留已保存的开关、服务器选择和排序，新服务补入列表后不自动改动选择。
 
-服务基于 [edge-smart-doh](https://github.com/1molchuan/edge-smart-doh)，提供优选 Cloudflare 地址并补充 ECH 配置；还需要客户端支持 ECH，且目标地址在当前网络中可达。登录 WebView 使用独立的网络栈。
+服务基于 [edge-smart-doh](https://github.com/1molchuan/edge-smart-doh)，提供优选 Cloudflare 地址并补充 ECH 配置；还需要客户端支持 ECH，且目标地址在当前网络中可达。登录 WebView 使用独立的网络栈，不使用 App 的 DoH/ECH；Android 的网页登录、人机验证和登录弹窗会使用已保存的 App 内代理。无认证代理直接通过 AndroidX `ProxyController` 配置；带认证的 HTTP/SOCKS5 通过仅监听本机的 CONNECT 适配层转发，目标域名由代理解析，HTTPS 证书校验仍由 WebView 完成。关闭内置代理后恢复系统网络设置，外部浏览器不受影响。
+
+原生登录收到成功响应后，会等系统 Cookie 写入回调再检查登录状态。如果仍没有可读会话，登录页提供脱敏诊断，包含响应中的会话 Cookie 名称、最近写入结果和 WebView 版本，不含账号、密码或 Cookie 值。普通网络自检的 HTTP 200 只能说明探测请求成功，不能说明登录响应已经发出或保存了会话 Cookie。
+
+密码登录或两步验证返回 `success` 并跳转邮箱验证页时，原生登录会继续到邮箱验证码表单；这一步不再被当成已经登录，也不会误报 Cookie 保存失败。密码页和两步验证页也提供独立的邮箱登录入口。发码使用站点的 `/api/email`（`mode=totp`），邮箱验证码提交到 `/api/account/emailSignIn`；支持发码冷却、验证失败重试，以及使用已经从网页收到的验证码。
 
 ## 分支更新
 

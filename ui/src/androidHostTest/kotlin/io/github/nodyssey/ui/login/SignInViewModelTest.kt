@@ -1,6 +1,8 @@
 package io.github.nodyssey.ui.login
 
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.data.session.EmailCodeOutcome
+import io.github.nodyssey.data.session.EmailSignInChallenge
 import io.github.nodyssey.data.session.FakeSessionCookieStore
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.session.SignInCredentials
@@ -27,6 +29,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -62,12 +65,12 @@ class SignInViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(repository: FakeSignInRepository) =
+    private fun viewModel(repository: FakeSignInRepository, clock: AppClock = AppClock { FIXED_MILLIS }) =
         viewModels.track(
             SignInViewModel(
                 signIn = repository,
                 session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies)),
-                clock = AppClock { FIXED_MILLIS },
+                clock = clock,
             ),
         )
 
@@ -216,6 +219,8 @@ class SignInViewModelTest {
             val state = vm.uiState.value
             assertFalse("nothing was stored, so nothing was signed in", state.signedIn)
             assertTrue(state.sessionNotStored)
+            val report = requireNotNull(state.failureReport)
+            listOf("nssk", "hunter2hunter2", "turnstile-token").forEach { assertFalse(report.contains(it)) }
             assertNull("the site did not refuse — it accepted", state.refusal)
             assertEquals("the password was right; it is still there", "hunter2hunter2", vm.passwordState.text.toString())
             // Spent with the attempt the site accepted, so a second press asks the widget for a new one.
@@ -407,6 +412,100 @@ class SignInViewModelTest {
         /** 1970-01-01T00:00:12Z — twelve seconds into a 30-second TOTP window, so 18 are left. */
         const val FIXED_MILLIS = 12_000L
     }
+
+    @Test
+    fun `an email redirect asks for email verification instead of blaming cookie storage`() = runTest(dispatcher) {
+        val repository = FakeSignInRepository(outcome = SignInOutcome.EmailRequired(EmailSignInChallenge("reader@example.com")))
+        val vm = readyViewModel(repository)
+        vm.submitCredentials()
+        advanceUntilIdle()
+        assertEquals(SignInStep.Email, vm.uiState.value.step)
+        assertEquals("reader@example.com", vm.emailState.text.toString())
+        assertFalse(vm.uiState.value.signedIn)
+        assertFalse(vm.uiState.value.sessionNotStored)
+        assertFalse("The password attempt spent its Turnstile token", vm.uiState.value.isVerified)
+    }
+
+    @Test
+    fun `email sends are deduplicated and cannot bypass the cooldown with another proof`() = runTest(dispatcher) {
+        val repository = FakeSignInRepository(jar = cookies)
+        val vm = viewModel(repository, AppClock { FIXED_MILLIS + testScheduler.currentTime })
+        vm.useEmailSignIn()
+        vm.emailState.typeText("reader@example.com")
+        runCurrent()
+        vm.onVerified("proof-1")
+        vm.requestEmailCode()
+        vm.requestEmailCode()
+        advanceUntilIdle()
+        assertEquals(listOf("reader@example.com" to "proof-1"), repository.emailRequests)
+        vm.onVerified("proof-2")
+        vm.requestEmailCode()
+        advanceUntilIdle()
+        assertEquals(1, repository.emailRequests.size)
+        advanceTimeBy(60_000)
+        vm.requestEmailCode()
+        advanceUntilIdle()
+        assertEquals(listOf("reader@example.com" to "proof-1", "reader@example.com" to "proof-2"), repository.emailRequests)
+    }
+
+    @Test
+    fun `changing the email clears the previous address code before it can be submitted`() = runTest(dispatcher) {
+        val repository = FakeSignInRepository(jar = cookies)
+        val vm = viewModel(repository)
+        vm.useEmailSignIn()
+        vm.emailState.typeText("reader@example.com")
+        runCurrent()
+        vm.onVerified("proof")
+        vm.requestEmailCode()
+        advanceUntilIdle()
+        vm.emailCodeState.typeText("123456")
+        vm.emailState.typeText("other@example.com")
+        runCurrent()
+        vm.submitEmailCode()
+        advanceUntilIdle()
+        assertNull(repository.emailVerification)
+        assertFalse(vm.uiState.value.canSubmitEmailCode)
+    }
+
+    @Test
+    fun `a code already received on the website can be submitted without sending another email`() = runTest(dispatcher) {
+        val repository = FakeSignInRepository(jar = cookies)
+        val vm = viewModel(repository)
+        vm.useEmailSignIn()
+        vm.emailState.typeText("reader@example.com")
+        runCurrent()
+        vm.emailCodeState.typeText("0123456789abcdef01234567")
+        runCurrent()
+        vm.submitEmailCode()
+        advanceUntilIdle()
+        assertTrue(repository.emailRequests.isEmpty())
+        assertEquals("reader@example.com" to "0123456789abcdef01234567", repository.emailVerification)
+        assertTrue(vm.uiState.value.signedIn)
+    }
+
+    @Test
+    fun `a wrong email code stays on the email step and a retry can establish the session`() = runTest(dispatcher) {
+        val repository = FakeSignInRepository(outcome = SignInOutcome.Refused(SignInRefusal.EmailCode, "invalid code"), jar = cookies)
+        val vm = viewModel(repository)
+        vm.useEmailSignIn()
+        vm.emailState.typeText("reader@example.com")
+        runCurrent()
+        vm.onVerified("proof")
+        vm.requestEmailCode()
+        advanceUntilIdle()
+        vm.emailCodeState.typeText("123456")
+        runCurrent()
+        vm.submitEmailCode()
+        advanceUntilIdle()
+        assertEquals(SignInStep.Email, vm.uiState.value.step)
+        assertEquals(SignInRefusal.EmailCode, vm.uiState.value.refusal?.reason)
+        assertFalse(vm.uiState.value.signedIn)
+        repository.outcome = SignInOutcome.Signed
+        vm.retry()
+        advanceUntilIdle()
+        assertEquals("reader@example.com" to "123456", repository.emailVerification)
+        assertTrue(vm.uiState.value.signedIn)
+    }
 }
 
 /**
@@ -426,6 +525,20 @@ private class FakeSignInRepository(
         private set
     var verified: Pair<TwoFactorChallenge, String>? = null
         private set
+    val emailRequests = mutableListOf<Pair<String, String>>()
+    var emailVerification: Pair<String, String>? = null
+
+    override suspend fun requestEmailCode(email: String, verificationToken: String): EmailCodeOutcome {
+        emailRequests += email to verificationToken
+        failure?.let { throw it }
+        return EmailCodeOutcome.Sent
+    }
+
+    override suspend fun verifyEmail(email: String, code: String): SignInOutcome {
+        emailVerification = email to code
+        failure?.let { throw it }
+        return outcome.alsoStoreSession()
+    }
 
     override suspend fun signIn(credentials: SignInCredentials): SignInOutcome {
         sent = credentials

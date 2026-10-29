@@ -23,11 +23,20 @@ fun signInDiagnosticReport(
     twoFactor: Boolean,
     verificationPassed: Boolean,
     timeMillis: Long,
+    emailSignIn: Boolean = false,
 ): String = buildString {
     appendLine("Nodyssey login diagnostics")
     appendLine("App: ${context.appVersion?.let { "${it.name} (${it.code})" } ?: "unknown"}")
     appendLine("Time (Unix ms): $timeMillis")
-    appendLine("Step: ${if (twoFactor) "two-factor" else "credentials"}")
+    appendLine(
+        "Step: ${if (emailSignIn) {
+            "email"
+        } else if (twoFactor) {
+            "two-factor"
+        } else {
+            "credentials"
+        }}",
+    )
     appendLine("Verification ready: $verificationPassed")
     val doh = context.doh
     appendLine(

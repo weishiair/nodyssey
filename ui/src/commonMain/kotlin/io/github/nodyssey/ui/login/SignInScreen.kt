@@ -83,6 +83,7 @@ import io.github.nodyssey.ui.resources.sign_in_submitting
 import io.github.nodyssey.ui.resources.sign_in_subtitle
 import io.github.nodyssey.ui.resources.sign_in_terms
 import io.github.nodyssey.ui.resources.sign_in_title
+import io.github.nodyssey.ui.resources.sign_in_use_email
 import io.github.nodyssey.ui.resources.sign_in_use_web
 import io.github.nodyssey.ui.resources.sign_in_verify_brand
 import io.github.nodyssey.ui.resources.sign_in_verify_expired
@@ -162,7 +163,7 @@ fun SignInRoute(
 
     LaunchedEffect(state.signedIn) {
         if (!state.signedIn) return@LaunchedEffect
-        autofillManager?.commit()
+        if (state.step == SignInStep.Email) autofillManager?.cancel() else autofillManager?.commit()
         onSignedIn()
     }
 
@@ -190,6 +191,15 @@ fun SignInRoute(
         }
     }
 
+    val emailResendSeconds by produceState(0, state.step, state.emailResendAtMillis) {
+        if (state.step != SignInStep.Email) return@produceState
+        do {
+            value = viewModel.secondsUntilEmailResend()
+            if (value == 0) break
+            delay(SignInViewModel.TICK_MILLIS)
+        } while (true)
+    }
+
     when (state.step) {
         SignInStep.Credentials ->
             SignInScreen(
@@ -202,6 +212,7 @@ fun SignInRoute(
                 onOpenSiteSignInPage = onOpenSiteSignInPage,
                 onUseWebSignIn = onUseWebSignIn,
                 onOneTapSignIn = onOneTapSignIn,
+                onUseEmailSignIn = viewModel::useEmailSignIn,
                 modifier = modifier,
                 turnstile = {
                     TurnstileWidget(
@@ -229,8 +240,34 @@ fun SignInRoute(
                 onBack = viewModel::leaveTwoFactor,
                 onSubmit = viewModel::submitTwoFactor,
                 onUseWebSignIn = onUseWebSignIn,
+                onUseEmailSignIn = viewModel::useEmailSignIn,
                 modifier = modifier,
             )
+
+        SignInStep.Email -> EmailSignInScreen(
+            state = state,
+            emailState = viewModel.emailState,
+            codeState = viewModel.emailCodeState,
+            resendSeconds = emailResendSeconds,
+            snackbarHostState = snackbarHostState,
+            onBack = viewModel::leaveEmailSignIn,
+            onSend = viewModel::requestEmailCode,
+            onSubmit = viewModel::submitEmailCode,
+            onUseWebSignIn = onUseWebSignIn,
+            modifier = modifier,
+            turnstile = {
+                TurnstileWidget(
+                    sitekey = sitekey,
+                    darkTheme = MaterialTheme.colorScheme.surface.luminance() < LIGHT_SURFACE_LUMINANCE,
+                    userAgent = userAgent,
+                    resetSignal = state.verificationGeneration,
+                    onToken = viewModel::onVerified,
+                    onExpired = viewModel::onVerificationExpired,
+                    onUnavailable = viewModel::onVerificationUnavailable,
+                    modifier = Modifier.fillMaxWidth().height(TURNSTILE_HEIGHT_DP.dp),
+                )
+            },
+        )
     }
 }
 
@@ -264,6 +301,7 @@ fun SignInScreen(
     /** 一键登录: opens the site's own page for it. Never called for a site that has none. */
     onOneTapSignIn: () -> Unit,
     modifier: Modifier = Modifier,
+    onUseEmailSignIn: () -> Unit = {},
     /**
      * h1's 人机验证 widget.
      *
@@ -427,6 +465,10 @@ fun SignInScreen(
 
             SignInDiagnosticsAction(state.failureReport)
 
+            TextButton(onClick = onUseEmailSignIn, enabled = !state.isSubmitting, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.sign_in_use_email))
+            }
+
             Column(
                 modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -518,7 +560,7 @@ private fun PasswordSupport(state: SignInUiState, onForgotPassword: () -> Unit) 
  * the screen needs a fresh token from it.
  */
 @Composable
-private fun VerificationBlock(verification: VerificationState, turnstile: @Composable () -> Unit) {
+internal fun VerificationBlock(verification: VerificationState, turnstile: @Composable () -> Unit) {
     Column(
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         modifier = Modifier.fillMaxWidth(),

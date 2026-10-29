@@ -78,9 +78,10 @@ class SessionRepository(
     /**
      * [sync], for the one caller that has just been *told* a session exists.
      *
-     * The store underneath is the platform's, and on Android that is `CookieManager`, whose write
-     * has a completion callback the jar does not wait on — so a read taken on the next line can miss
-     * a cookie that is still on its way in. Everywhere else that costs nothing, because nothing else
+     * The store underneath is the platform's. Android's HTTP jar waits for its write callback,
+     * but browser writes, other transports and a callback that timed out can still arrive late.
+     * A read taken on the next line can miss a cookie that is still on its way in. Elsewhere that
+     * costs nothing, because nothing else
      * asks the question the instant a `Set-Cookie` lands. Here it decides whether the user is told
      * their sign-in did not take, and being wrong about that sends someone who *is* signed in to go
      * do it again somewhere else.

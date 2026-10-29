@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.nodyssey.data.session.EmailCodeOutcome
+import io.github.nodyssey.data.session.EmailSignInChallenge
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.session.SignInCredentials
 import io.github.nodyssey.data.session.SignInDiagnosticContext
@@ -62,8 +64,11 @@ class SignInViewModel(
 
     /** Card 3's box — six digits, filtered by the screen's own input transformation. */
     val codeState = TextFieldState()
+    val emailState = TextFieldState()
+    val emailCodeState = TextFieldState()
 
     private var submitJob: Job? = null
+    private var emailRetry: (() -> Unit)? = null
 
     init {
         snapshotFlow { accountState.text.toString() }
@@ -76,6 +81,17 @@ class SignInViewModel(
             .launchIn(viewModelScope)
         snapshotFlow { codeState.text.toString() }
             .onEach { value -> _uiState.update { it.copy(code = value) } }
+            .launchIn(viewModelScope)
+        snapshotFlow { emailState.text.toString().trim() }
+            .onEach { value ->
+                val changed = _uiState.value.email != value
+                if (changed) emailCodeState.clearText()
+                _uiState.update {
+                    it.copy(email = value, emailCode = if (changed) "" else it.emailCode, emailCodeSentTo = it.emailCodeSentTo?.takeIf { sent -> sent == value })
+                }
+            }.launchIn(viewModelScope)
+        snapshotFlow { emailCodeState.text.toString().trim() }
+            .onEach { value -> _uiState.update { it.copy(emailCode = value) } }
             .launchIn(viewModelScope)
     }
 
@@ -147,6 +163,77 @@ class SignInViewModel(
         returnToCredentials(refusal = null)
     }
 
+    fun useEmailSignIn() {
+        if (submitJob?.isActive == true) return
+        enterEmail(EmailSignInChallenge(accountState.text.toString().takeIf { '@' in it }))
+    }
+
+    private fun enterEmail(challenge: EmailSignInChallenge) {
+        val email = challenge.email ?: emailState.text.toString()
+        emailState.edit { replace(0, length, email) }
+        emailCodeState.clearText()
+        codeState.clearText()
+        _uiState.update {
+            it.spend().copy(
+                step = SignInStep.Email,
+                email = email.trim(),
+                emailCode = "",
+                emailCodeSentTo = null,
+                emailMessage = null,
+                emailSendRefused = false,
+                challenge = null,
+                code = "",
+                isSubmitting = false,
+                refusal = null,
+                failure = null,
+                failureReport = null,
+                sessionNotStored = false,
+            )
+        }
+    }
+
+    fun leaveEmailSignIn() {
+        if (submitJob?.isActive == true) return
+        emailCodeState.clearText()
+        returnToCredentials(refusal = null)
+    }
+
+    fun secondsUntilEmailResend(): Int =
+        ((_uiState.value.emailResendAtMillis - clock.nowMillis()).coerceAtLeast(0L) + 999L).div(1_000L).toInt()
+
+    fun requestEmailCode() {
+        if (submitJob?.isActive == true || !_uiState.value.canRequestEmailCode || secondsUntilEmailResend() > 0) return
+        val token = (_uiState.value.verification as? VerificationState.Passed)?.token ?: return
+        val email = emailState.text.toString().trim()
+        emailRetry = ::requestEmailCode
+        submitJob = viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, emailMessage = null, emailSendRefused = false, refusal = null, failure = null, failureReport = null) }
+            runCatchingExceptCancellation { signIn.requestEmailCode(email, token) }
+                .onSuccess { outcome ->
+                    _uiState.update { state ->
+                        val spent = state.spend().copy(isSubmitting = false)
+                        when (outcome) {
+                            EmailCodeOutcome.Sent -> spent.copy(emailCodeSentTo = email, emailResendAtMillis = clock.nowMillis() + EMAIL_RESEND_MILLIS)
+                            is EmailCodeOutcome.Refused -> spent.copy(emailMessage = outcome.detail, emailSendRefused = true)
+                        }
+                    }
+                }.onFailure { applyFailure(it) }
+        }
+    }
+
+    fun submitEmailCode() {
+        if (submitJob?.isActive == true || !_uiState.value.canSubmitEmailCode) return
+        val email = emailState.text.toString().trim()
+        val code = emailCodeState.text.toString().trim()
+        if (code.isBlank()) return
+        emailRetry = ::submitEmailCode
+        submitJob = viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, refusal = null, failure = null, failureReport = null, sessionNotStored = false) }
+            runCatchingExceptCancellation { signIn.verifyEmail(email, code) }
+                .onSuccess { applyOutcome(it) }.onFailure { applyFailure(it) }
+        }
+    }
+
     fun consumeFailure() = _uiState.update { it.copy(failure = null, failureDetail = null) }
 
     /** The snackbar's 重试 — the same submit, with the same input, for whichever step is showing. */
@@ -155,11 +242,14 @@ class SignInViewModel(
         when (_uiState.value.step) {
             SignInStep.Credentials -> submitCredentials()
             SignInStep.TwoFactor -> submitTwoFactor()
+            SignInStep.Email -> emailRetry?.invoke()
         }
     }
 
     private suspend fun applyOutcome(outcome: SignInOutcome) {
         when (outcome) {
+            is SignInOutcome.EmailRequired -> enterEmail(outcome.challenge)
+
             SignInOutcome.Signed -> {
                 // Publish rather than peek: this is exactly the moment the rest of the app is meant
                 // to notice, and it is the app's own request that changed the jar — no challenge is
@@ -187,11 +277,18 @@ class SignInViewModel(
                     _uiState.update {
                         it.spend().copy(
                             isSubmitting = false,
-                            step = SignInStep.Credentials,
+                            step = if (it.step == SignInStep.Email) SignInStep.Email else SignInStep.Credentials,
                             code = "",
                             challenge = null,
                             refusal = null,
                             sessionNotStored = true,
+                            failureReport = buildString {
+                                appendLine("Nodyssey login session diagnostics")
+                                appendLine("App: ${appVersion?.let { "${it.name} (${it.code})" } ?: "unknown"}")
+                                appendLine("Time (Unix ms): ${clock.nowMillis()}")
+                                appendLine("API accepted sign-in; no readable session after cookie sync")
+                                signIn.sessionDiagnostics()?.let { append(it) }
+                            },
                         )
                     }
                 }
@@ -238,6 +335,7 @@ class SignInViewModel(
                 twoFactor = failedState.step == SignInStep.TwoFactor,
                 verificationPassed = failedState.isVerified,
                 timeMillis = timeMillis,
+                emailSignIn = failedState.step == SignInStep.Email,
             )
         }
         _uiState.update {
@@ -292,6 +390,8 @@ class SignInViewModel(
     }
 
     companion object {
+        private const val EMAIL_RESEND_MILLIS = 60_000L
+
         /** The TOTP step every authenticator app uses, and the one the site's enrolment URI implies. */
         const val TOTP_PERIOD_SECONDS = 30
 
@@ -320,7 +420,7 @@ class SignInViewModel(
 }
 
 /** Which of h1's two pages is showing. */
-enum class SignInStep { Credentials, TwoFactor }
+enum class SignInStep { Credentials, TwoFactor, Email }
 
 /**
  * Where h1's 人机验证 block stands.
@@ -351,6 +451,12 @@ data class SignInUiState(
     /** Not the password — see the note on [SignInViewModel]. */
     val passwordLength: Int = 0,
     val code: String = "",
+    val email: String = "",
+    val emailCode: String = "",
+    val emailCodeSentTo: String? = null,
+    val emailResendAtMillis: Long = 0L,
+    val emailMessage: String? = null,
+    val emailSendRefused: Boolean = false,
     val verification: VerificationState = VerificationState.Pending,
     /**
      * Bumped every time a token is spent, and handed to the widget as its reset signal.
@@ -395,8 +501,14 @@ data class SignInUiState(
     val canSubmitCode: Boolean
         get() = !isSubmitting && challenge != null && code.length == TWO_FACTOR_CODE_LENGTH
 
+    val canRequestEmailCode: Boolean
+        get() = step == SignInStep.Email && !isSubmitting && email.contains('@') && email.substringAfter('@').contains('.') && verification is VerificationState.Passed
+
+    val canSubmitEmailCode: Boolean
+        get() = step == SignInStep.Email && !isSubmitting && email.contains('@') && emailCode.isNotBlank()
+
     /** True when the refusal belongs to the two fields on card 1 rather than to the code box. */
-    val hasCredentialRefusal: Boolean get() = refusal != null && refusal.reason != SignInRefusal.TwoFactorCode
+    val hasCredentialRefusal: Boolean get() = refusal?.reason == SignInRefusal.Credentials
 
     val hasCodeRefusal: Boolean get() = refusal?.reason == SignInRefusal.TwoFactorCode
 

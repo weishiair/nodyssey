@@ -785,7 +785,15 @@ class DefaultAppContainer(
         )
     }
 
-    override val signInRepository: SignInRepository by lazy { NodeSeekSignInRepository(jsonClient) }
+    override val signInRepository: SignInRepository by lazy {
+        NodeSeekSignInRepository(jsonClient, cookieWriteDiagnostics = {
+            buildString {
+                appendLine(cookieStore.responseWriteDiagnostics(siteConfig.sessionCookieNames))
+                appendLine("Android API: ${android.os.Build.VERSION.SDK_INT}")
+                appContext.webViewProvider()?.let { append("WebView: ${it.label} (${it.packageId})") }
+            }
+        })
+    }
 
     /**
      * The same `crash/` directory `NodysseyCrashHandler` writes into — the handler is installed in

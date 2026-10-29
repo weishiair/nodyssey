@@ -539,7 +539,8 @@
     <string name="proxy_scope_hint">开启后，图床上传和检查更新走直连；关掉则 App 内的请求都走代理</string>
     <string name="proxy_advanced_title">VLESS、VMess 这类节点</string>
     <string name="proxy_advanced_hint">App 自己只会说 HTTP 和 SOCKS5。手机上装了 Clash、mihomo 一类客户端的话，在那边开混合端口，这里填 127.0.0.1 和那个端口，节点协议交给它处理。</string>
-    <string name="proxy_webview_hint">登录用的是系统 WebView，它走自己的网络，不受这里的设置影响。</string>
+    <string name="proxy_webview_hint">Android 内的网页登录和人机验证也使用此代理；外部浏览器和其他平台的网页登录使用系统网络。</string>
+    <string name="proxy_webview_unavailable">无法为网页登录启用代理，请检查代理配置或更新系统 WebView。</string>
     <string name="settings_doh_entry">加密 DNS</string>
     <!-- 加密 DNS 勾了不止一个服务商时：%1$s 是排第一的那个，%2$d 是一共几个 -->
     <string name="settings_doh_summary_chain">%1$s 等 %2$d 个</string>
@@ -1587,7 +1588,7 @@
     <string name="sign_in_one_tap_hint">在站点页面上完成授权，回来即为登录状态。</string>
     <!-- 一键登录卡片下方的分隔（10c），%1$s 是当前站点名 -->
     <string name="sign_in_or_with_account">或用 %1$s 账号</string>
-    <string name="sign_in_session_not_stored">论坛已确认账号密码，但这台设备没能保存登录状态。请改用网页登录。</string>
+    <string name="sign_in_session_not_stored">论坛返回登录成功，但 App 没有读到登录状态。请改用网页登录，或复制登录诊断。</string>
 
     <string name="sign_in_verify_brand">Cloudflare Turnstile</string>
     <string name="sign_in_verify_expired">验证已过期，请重新验证</string>
@@ -1953,4 +1954,11 @@
     <string name="settings_show_author_account_info_hint">在主帖和回复中显示作者等级与注册天数</string>
     <string name="sign_in_diagnostics">查看登录诊断</string>
     <string name="sign_in_diagnostics_privacy">仅保存在当前登录页，不会自动上传。不包含账号、密码、验证码或 Cookie；复制后可发给开发者排查。</string>
+    <string name="sign_in_use_email">邮箱验证码登录</string>
+    <string name="sign_in_email_body">使用账号绑定的邮箱接收验证码，验证后登录。</string>
+    <string name="sign_in_email_label">绑定邮箱</string>
+    <string name="sign_in_email_code">邮箱验证码</string>
+    <string name="sign_in_email_send">发送验证码</string>
+    <string name="sign_in_email_resend">%1$d 秒后可重新发送</string>
+    <string name="sign_in_email_sent">验证码已发送至 %1$s，请检查收件箱和垃圾邮件。</string>
 </resources>

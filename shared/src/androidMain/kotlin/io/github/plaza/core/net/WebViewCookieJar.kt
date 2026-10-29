@@ -33,7 +33,9 @@ class WebViewCookieJar(
         val kept = cookies.filterNot { it.name in unreplayable }
         if (kept.isEmpty()) return
         val target = url.toString()
-        kept.forEach { store.setCookie(target, it.toString()) }
+        kept.forEach {
+            if (store is WebViewCookieStore) store.setResponseCookie(target, it.toString()) else store.setCookie(target, it.toString())
+        }
         store.flush()
     }
 }
