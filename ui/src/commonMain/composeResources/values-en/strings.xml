@@ -156,11 +156,16 @@
     <string name="post_floor_actions">Floor actions</string>
     <string name="post_reply_to">Reply to %1$s</string>
     <string name="post_quote_floor">Quote this floor</string>
+    <string name="post_copy_title">Select and copy title</string>
+    <string name="post_select_title">Select title</string>
+    <string name="post_select_title_hint">Touch and hold to select words, then drag to adjust</string>
+    <string name="post_copy_title_all">Copy all</string>
     <string name="post_copy_body">Copy text</string>
     <string name="post_share_image">Share as image</string>
     <string name="post_share_image_generating">Creating image…</string>
     <string name="post_share_image_failed">Couldn’t create the image</string>
     <string name="post_share_image_truncated">Too long to show in full — see the original post</string>
+    <string name="post_title_copied">Title copied</string>
     <string name="post_body_copied">Text copied</string>
     <string name="post_reaction_irreversible">Reactions can’t be undone</string>
     <string name="page_jump_previous">Previous</string>
@@ -381,6 +386,10 @@
     <string name="settings_sticker_uniform_hint">Stickers are drawn at a fixed size</string>
     <string name="settings_sticker_size">Sticker size</string>
     <string name="settings_sticker_preview_caption">Stickers are this big</string>
+    <string name="settings_search_avatar">Show avatars in search results</string>
+    <string name="settings_search_avatar_hint">The author\'s face at the left of each result card, so a person is easier to spot. Off gives the title more room.</string>
+    <string name="settings_search_avatar_size">Avatar size</string>
+    <string name="settings_search_avatar_preview">A face is often easier to spot than a name</string>
     <string name="settings_text_preview">This is a preview of the reading size: post text and list titles are shown at this size.</string>
     <string name="settings_content">Content</string>
     <string name="settings_app_links">Site links</string>
@@ -435,7 +444,8 @@
     <string name="proxy_scope_hint">On, image uploads and update checks connect directly; off, every request the app makes goes through the proxy</string>
     <string name="proxy_advanced_title">Nodes like VLESS and VMess</string>
     <string name="proxy_advanced_hint">The app itself only speaks HTTP and SOCKS5. With a client like Clash or mihomo on the phone, open its mixed port there, put 127.0.0.1 and that port here, and let it deal with the node protocol.</string>
-    <string name="proxy_webview_hint">Signing in uses the system WebView, which has its own networking and is untouched by anything here.</string>
+    <string name="proxy_webview_hint">Web sign-in and verification on Android also use this proxy. External browsers and web sign-in on other platforms use the system network.</string>
+    <string name="proxy_webview_unavailable">Unable to enable the proxy for web sign-in. Check the proxy settings or update Android System WebView.</string>
     <string name="settings_doh_entry">Encrypted DNS</string>
     <string name="settings_doh_summary_chain">%2$d servers, %1$s first</string>
     <string name="doh_title">Encrypted DNS</string>
@@ -794,6 +804,8 @@
     <string name="status_sign_in_title_board">「%1$s」needs you signed in</string>
     <string name="status_sign_in_body">Sign in to your %1$s account to read this board. A successful sign-in comes back here and reloads.</string>
     <string name="status_sign_in_secondary">Look at another board first</string>
+    <string name="status_search_sign_in_title">Sign in to search</string>
+    <string name="status_search_sign_in_body">%1$s only searches for a signed-in account. A successful sign-in comes back here and runs this search again.</string>
     <string name="status_session_stale_title">Your session was not recognised</string>
     <string name="status_session_stale_body">The app is holding a session and the site answered this request as though you were signed out. Retrying usually settles it; if it keeps happening, the session has expired and signing in again will fix it.</string>
 
@@ -1336,7 +1348,7 @@
     <string name="sign_in_one_tap">Sign in with %1$s</string>
     <string name="sign_in_one_tap_hint">Authorise on the site’s own page; you come back signed in.</string>
     <string name="sign_in_or_with_account">Or with a %1$s account</string>
-    <string name="sign_in_session_not_stored">The forum accepted your account and password, but this device could not store the session. Sign in on the web instead.</string>
+    <string name="sign_in_session_not_stored">The forum reported a successful sign-in, but the app could not read a session. Use web sign-in or copy the login diagnostics.</string>
 
     <string name="sign_in_verify_expired">The check has expired — do it again</string>
     <string name="sign_in_verify_not_wired">The verification could not load. Check your connection or use web sign-in.</string>
@@ -1684,4 +1696,18 @@
     <string name="settings_show_author_account_info_hint">Show author levels and account age on posts and replies</string>
     <string name="sign_in_diagnostics">View sign-in diagnostics</string>
     <string name="sign_in_diagnostics_privacy">Kept only on this sign-in screen and never uploaded automatically. No account, password, verification code or cookies are included. Copy it to share with the developer.</string>
+    <string name="sign_in_use_email">Sign in with an email code</string>
+    <string name="sign_in_email_body">Receive a code at the email address linked to your account to sign in.</string>
+    <string name="sign_in_email_label">Account email</string>
+    <string name="sign_in_email_code">Email verification code</string>
+    <string name="sign_in_email_send">Send code</string>
+    <string name="sign_in_email_resend">Resend in %1$d seconds</string>
+    <string name="sign_in_email_sent">A code was sent to %1$s. Check your inbox and spam folder.</string>
+    <string name="messages_scam_caution_summary">Beware of advance payments, passcode red packets and off-site trades.\nEstablished, high-level accounts can also be stolen.</string>
+    <string name="messages_scam_warning_both_summary">This account is low-level (Lv.%1$d) and only %2$d days old.\nBeware of advance payments, passcode red packets and off-site trades.</string>
+    <string name="messages_scam_warning_low_level_summary">This account is low-level (Lv.%1$d).\nBeware of advance payments, passcode red packets and off-site trades.</string>
+    <string name="messages_scam_warning_new_account_summary">This account is only %1$d days old.\nBeware of advance payments, passcode red packets and off-site trades.</string>
+    <string name="messages_scam_details">View the full scam warning</string>
+    <string name="message_thread_profile">User details</string>
+    <string name="message_thread_profile_caution">Account level and age are for reference only. Verify the other party’s identity before trading.</string>
 </resources>

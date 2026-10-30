@@ -1,6 +1,8 @@
 package io.github.nodyssey.ui.search
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -31,20 +34,27 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.data.FeedPost
 import io.github.nodyssey.data.UserSearchResult
+import io.github.nodyssey.model.PostSummary
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.common.PostBadges
 import io.github.nodyssey.ui.common.PostReplyStat
 import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.postCardTitleStyle
+import io.github.nodyssey.ui.common.sharedThreadAuthor
+import io.github.nodyssey.ui.common.sharedThreadAvatar
+import io.github.nodyssey.ui.common.sharedThreadBoard
+import io.github.nodyssey.ui.common.sharedThreadTitle
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.credit_level
 import io.github.nodyssey.ui.resources.search_user_comments
 import io.github.nodyssey.ui.resources.search_user_joined
 import io.github.nodyssey.ui.resources.search_user_topics
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AvatarShape
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedRowTrailing
 import io.github.plaza.designsys.component.LayerCard
@@ -60,16 +70,21 @@ private val ResultCardPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 
 /** Between the title and the line under it. */
 private val ResultCardGap = 6.dp
 
+/** Between that face and the words it belongs to. */
+private val ResultAvatarGap = 10.dp
+
 /** 44dp, the artboard's: a user result is the person, so the avatar is larger than a card header's. */
 private val UserResultAvatarSize = 44.dp
 
 /**
- * One post in the results: the title with the keyword marked, then board, author, time and replies
- * on one line.
+ * One post in the results: the author's face in front, the title with the keyword marked beside it,
+ * then board, author, time and replies on one line.
  *
- * Slimmer than the home feed's [io.github.nodyssey.ui.postlist.PostRow] on purpose. A result list is
- * scanned for the keyword, not browsed for who is talking, so the title leads and there is no avatar
- * row above it — five results fit where the feed fits four.
+ * The face is not decoration. A search is often "that thread by that person", and a result list is
+ * scanned down its left edge before any title is read. Its size is [avatarSize] — a preference
+ * (设置 › 外观 › 搜索结果显示头像) rather than a constant, because the trade it makes is personal: every
+ * dp of face is a dp the two-line title does not get. Null is that preference switched off, and the
+ * card falls back to the slimmer shape this screen had before it carried faces.
  */
 @Composable
 internal fun SearchPostCard(
@@ -77,6 +92,9 @@ internal fun SearchPostCard(
     highlight: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    avatarSize: Dp? = null,
+    /** Null for the appearance settings' sample, which is not a navigation source. */
+    origin: String? = null,
 ) {
     val summary = post.summary
     LayerCard(
@@ -84,8 +102,35 @@ internal fun SearchPostCard(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         contentPadding = ResultCardPadding,
-        verticalArrangement = Arrangement.spacedBy(ResultCardGap),
     ) {
+        if (avatarSize == null) {
+            CardText(post, summary, highlight, origin, Modifier.fillMaxWidth())
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(ResultAvatarGap)) {
+                UserAvatar(
+                    url = summary.avatarUrl,
+                    name = summary.authorName,
+                    size = avatarSize,
+                    // A line box carries leading above the glyphs, and a face a couple of pixels
+                    // above the words it belongs to reads as a misalignment rather than as air.
+                    modifier = Modifier.padding(top = 1.dp).sharedThreadAvatar(summary.postId, origin),
+                )
+                CardText(post, summary, highlight, origin, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** The title and the meta line — everything a result says, with or without the face beside it. */
+@Composable
+private fun CardText(
+    post: FeedPost,
+    summary: PostSummary,
+    highlight: String?,
+    origin: String?,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(ResultCardGap)) {
         HighlightedText(
             text = summary.title,
             query = highlight,
@@ -94,18 +139,27 @@ internal fun SearchPostCard(
             color = if (post.isRead) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             fontWeight = if (post.isRead) FontWeight.Medium else FontWeight.SemiBold,
             maxLines = 2,
+            modifier = Modifier.sharedThreadTitle(summary.postId, origin),
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            BoardTag(title = summary.categoryTitle, slug = summary.categorySlug)
+            BoardTag(
+                title = summary.categoryTitle,
+                slug = summary.categorySlug,
+                modifier = Modifier.sharedThreadBoard(summary.postId, origin),
+            )
             Row(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                MetaText(summary.authorName, Modifier.weight(1f, fill = false), singleLine = true)
+                MetaText(
+                    summary.authorName,
+                    Modifier.weight(1f, fill = false).sharedThreadAuthor(summary.postId, origin),
+                    singleLine = true,
+                )
                 UserNoteTag(summary.authorUid, Modifier.weight(1f, fill = false))
                 summary.lastActiveText?.let {
                     MetaText("·", singleLine = true)
@@ -125,13 +179,32 @@ internal fun SearchPostCard(
 
 /** A paging placeholder the same shape as [SearchPostCard], so the real card replaces it without a jump. */
 @Composable
-internal fun SearchPostCardPlaceholder() {
+internal fun SearchPostCardPlaceholder(avatarSize: Dp? = null) {
     LayerCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         contentPadding = ResultCardPadding,
-        verticalArrangement = Arrangement.spacedBy(ResultCardGap),
     ) {
+        if (avatarSize == null) {
+            SkeletonText(Modifier.fillMaxWidth())
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(ResultAvatarGap)) {
+                Box(
+                    Modifier
+                        .size(avatarSize)
+                        .clip(AvatarShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                )
+                SkeletonText(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** The bars a placeholder stands in with, matching [CardText]'s lines. */
+@Composable
+private fun SkeletonText(modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(ResultCardGap)) {
         SkeletonBar(fraction = 0.9f, height = 16.dp)
         SkeletonBar(fraction = 0.6f, height = 16.dp)
         SkeletonBar(fraction = 0.45f, height = 14.dp)

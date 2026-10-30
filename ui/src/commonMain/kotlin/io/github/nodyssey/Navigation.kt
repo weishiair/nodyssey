@@ -1,5 +1,6 @@
 package io.github.nodyssey
 
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -46,11 +47,14 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.NavMetadataKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.get
+import androidx.navigation3.runtime.metadata
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.NotificationTab
@@ -58,6 +62,7 @@ import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
+import io.github.nodyssey.ui.common.ThreadSharedTransition
 import io.github.nodyssey.ui.common.appName
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.clipboardPostToOffer
@@ -228,7 +233,6 @@ fun MainNavigation(
     }
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
-    val currentEinkMode by rememberUpdatedState(LocalEinkMode.current)
     val currentPredictiveBack by rememberUpdatedState(navigationSettings.predictiveBack)
     val listDetailSceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
@@ -371,7 +375,6 @@ fun MainNavigation(
             homeReselectRequests = { homeReselectRequests },
             notificationsScrollToTopRequests = { notificationsScrollToTopRequests },
             isListDetailExpanded = { currentListDetailExpanded },
-            isEinkMode = { currentEinkMode },
             onTabBarHiddenByScroll = { tabBarHiddenByScroll = it },
             selectTab = { currentTab = it },
             scope = scope,
@@ -437,6 +440,7 @@ fun MainNavigation(
             stackScopedEntryProvider(
                 TopLevelDestination.HOME,
                 destinationProvider(homeStack, dependencies),
+                backStack = homeStack,
                 predictiveBack = { currentPredictiveBack },
             )
         }
@@ -445,6 +449,7 @@ fun MainNavigation(
             stackScopedEntryProvider(
                 TopLevelDestination.NOTIFICATIONS,
                 destinationProvider(notificationsStack, dependencies),
+                backStack = notificationsStack,
                 predictiveBack = { currentPredictiveBack },
             )
         }
@@ -453,6 +458,7 @@ fun MainNavigation(
             stackScopedEntryProvider(
                 TopLevelDestination.PROFILE,
                 destinationProvider(profileStack, dependencies),
+                backStack = profileStack,
                 predictiveBack = { currentPredictiveBack },
             )
         }
@@ -746,7 +752,6 @@ internal fun destinationProvider(
             homeReselectRequests = dependencies.homeReselectRequests,
             notificationsScrollToTopRequests = dependencies.notificationsScrollToTopRequests,
             isListDetailExpanded = dependencies.isListDetailExpanded,
-            isEinkMode = dependencies.isEinkMode,
             onTabBarHiddenByScroll = dependencies.onTabBarHiddenByScroll,
             openExternalUrl = dependencies.openExternalUrl,
             openWebUrl = openWebUrl,
@@ -876,21 +881,42 @@ internal fun emptyDetailTextOf(key: NavKey): StringResource =
 internal fun stackScopedEntryProvider(
     destination: TopLevelDestination,
     provider: (NavKey) -> NavEntry<NavKey>,
+    backStack: List<NavKey>,
     predictiveBack: () -> Boolean = { true },
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val entry = provider(key)
+    val transition = entry.metadata[NavDisplay.TransitionKey]
     val popTransition = entry.metadata[NavDisplay.PopTransitionKey]
     NavEntry(
         key = key,
         contentKey = "${destination.name}:${entry.contentKey}",
-        // Entry metadata wins over NavDisplay defaults, including the thread/image-viewer fade.
+        // Entry metadata wins over NavDisplay defaults, including stationary thread/viewer backgrounds.
         // Read the live setting inside the spec: these providers outlive changes in Settings.
-        metadata = entry.metadata + paneMetadataOf(key, destination) + NavDisplay.popTransitionSpec {
-            if (predictiveBack()) popTransition?.invoke(this) else SNAP_CONTENT_TRANSFORM
+        metadata = entry.metadata + paneMetadataOf(key, destination) + metadata {
+            put(TabDestinationKey, destination)
+            if (key is PostDetailKey) put(ThreadReturnKey, key)
+        } + NavDisplay.transitionSpec {
+            if (isTabSwitch()) SNAP_CONTENT_TRANSFORM else transition?.invoke(this)
+        } + NavDisplay.popTransitionSpec {
+            if (isTabSwitch() || !predictiveBack()) SNAP_CONTENT_TRANSFORM else popTransition?.invoke(this)
         },
     ) {
-        entry.Content()
+        // NavDisplay's None pop and SharedContentConfig.isEnabled cannot synchronously dispose a
+        // scene interrupted mid-entrance. Omit removed content so it cannot intercept input; remove
+        // this guard when NavDisplay can finish an interrupted non-animated pop immediately.
+        if (predictiveBack() || backStack.any { it === key }) {
+            if (key is PostDetailKey) ThreadSharedTransition { entry.Content() } else entry.Content()
+        }
     }
+}
+
+private data object TabDestinationKey : NavMetadataKey<TopLevelDestination>
+
+/** Peer destinations switch in place; predictive back retains its separate gesture spec. */
+private fun AnimatedContentTransitionScope<Scene<*>>.isTabSwitch(): Boolean {
+    val from = initialState.entries.lastOrNull()?.metadata?.get(TabDestinationKey)
+    val to = targetState.entries.lastOrNull()?.metadata?.get(TabDestinationKey)
+    return from != null && to != null && from != to
 }
 
 /**

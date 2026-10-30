@@ -248,6 +248,18 @@ data class ThreadPreview(
      */
     val isAwarded: Boolean = false,
     val replyCount: Int? = null,
+    /**
+     * Which list's shared-element keys the thread header should match — see
+     * [io.github.nodyssey.ui.common.THREAD_ORIGIN_FEED],
+     * [io.github.nodyssey.ui.common.THREAD_ORIGIN_MY_TOPICS] and
+     * [io.github.nodyssey.ui.common.spaceOrigin] and
+     * [io.github.nodyssey.ui.common.searchOrigin].
+     *
+     * Empty when the thread was opened from nowhere a row could fly from — a notification, a deep
+     * link, a composer return — or from a saved state older than this field. The header then matches
+     * no row and keeps the ordinary slide, which is what those arrivals always were.
+     */
+    val origin: String = "",
 )
 
 /**

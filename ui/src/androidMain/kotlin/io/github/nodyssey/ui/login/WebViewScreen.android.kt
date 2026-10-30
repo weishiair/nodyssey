@@ -40,6 +40,7 @@ import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_open_in_external_browser
+import io.github.nodyssey.ui.resources.proxy_webview_unavailable
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.core.net.resolveUserAgent
 import io.github.plaza.designsys.component.PlazaBackHandler
@@ -214,6 +215,19 @@ private fun WebViewScreen(
         },
     ) { padding ->
         Box(Modifier.padding(padding)) {
+            when (LocalWebViewNetworkState.current) {
+                WebViewNetworkState.Applying -> {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    return@Box
+                }
+
+                WebViewNetworkState.Unavailable -> {
+                    Text(stringResource(Res.string.proxy_webview_unavailable))
+                    return@Box
+                }
+
+                WebViewNetworkState.Ready -> Unit
+            }
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { context ->

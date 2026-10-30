@@ -19,6 +19,7 @@ import coil3.svg.SvgDecoder
 import io.github.nodyssey.core.ActiveSite
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.Site
+import io.github.nodyssey.core.net.AppWebViewProxy
 import io.github.nodyssey.core.net.BundledEch
 import io.github.nodyssey.data.offline.AndroidOfflineFileStore
 import io.github.nodyssey.data.offline.OfflineDownloads
@@ -76,6 +77,8 @@ open class NodysseyApp :
 
     /** Lives as long as the process; the launch update check and the settings watcher below use it. */
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    internal val webViewProxy by lazy { AppWebViewProxy(applicationScope, container.proxySettings) }
 
     /**
      * 语言, put in force before anything can read a string.

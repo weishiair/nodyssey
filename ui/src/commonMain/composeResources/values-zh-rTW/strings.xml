@@ -150,11 +150,16 @@
     <string name="post_floor_actions">樓層操作</string>
     <string name="post_reply_to">回覆 %1$s</string>
     <string name="post_quote_floor">引用這一樓</string>
+    <string name="post_copy_title">選取並複製標題</string>
+    <string name="post_select_title">選取標題</string>
+    <string name="post_select_title_hint">長按選詞，拖動調整範圍</string>
+    <string name="post_copy_title_all">複製全部</string>
     <string name="post_copy_body">複製正文</string>
     <string name="post_share_image">分享為圖片</string>
     <string name="post_share_image_generating">正在產生圖片…</string>
     <string name="post_share_image_failed">圖片產生失敗</string>
     <string name="post_share_image_truncated">內容較長，完整內容請看原帖</string>
+    <string name="post_title_copied">標題已複製</string>
     <string name="post_body_copied">正文已複製</string>
     <string name="post_reaction_irreversible">表態後無法撤銷</string>
     <string name="page_jump_previous">上一頁</string>
@@ -375,6 +380,10 @@
     <string name="settings_sticker_uniform_hint">貼圖按固定尺寸顯示</string>
     <string name="settings_sticker_size">表情大小</string>
     <string name="settings_sticker_preview_caption">表情就這麼大</string>
+    <string name="settings_search_avatar">搜尋結果顯示頭像</string>
+    <string name="settings_search_avatar_hint">結果卡片左側顯示樓主頭像，找人更快；關掉後標題能多幾個字</string>
+    <string name="settings_search_avatar_size">頭像大小</string>
+    <string name="settings_search_avatar_preview">用頭像找人，往往比認名字快</string>
     <string name="settings_text_preview">這是閱讀字級的預覽，文章內文和清單標題會按這個大小顯示。</string>
     <string name="settings_content">內容</string>
     <string name="settings_app_links">站內連結</string>
@@ -429,7 +438,8 @@
     <string name="proxy_scope_hint">開啟後，圖床上傳和檢查更新走直連；關掉則 App 內的請求都走代理</string>
     <string name="proxy_advanced_title">VLESS、VMess 這類節點</string>
     <string name="proxy_advanced_hint">App 自己只會說 HTTP 和 SOCKS5。手機上裝了 Clash、mihomo 一類用戶端的話，在那邊開混合連接埠，這裡填 127.0.0.1 和那個連接埠，節點協定交給它處理。</string>
-    <string name="proxy_webview_hint">登入用的是系統 WebView，它走自己的網路，不受這裡的設定影響。</string>
+    <string name="proxy_webview_hint">Android 內的網頁登入和人機驗證也使用此代理；外部瀏覽器和其他平台的網頁登入使用系統網路。</string>
+    <string name="proxy_webview_unavailable">無法為網頁登入啟用代理，請檢查代理設定或更新系統 WebView。</string>
     <string name="settings_doh_entry">加密 DNS</string>
     <string name="settings_doh_summary_chain">%1$s 等 %2$d 個</string>
     <string name="doh_title">加密 DNS</string>
@@ -788,6 +798,8 @@
     <string name="status_sign_in_title_board">「%1$s」需要登入後檢視</string>
     <string name="status_sign_in_body">登入 %1$s 帳號後即可瀏覽本版塊的內容。登入成功會自動返回並重新載入。</string>
     <string name="status_sign_in_secondary">先逛逛別的版塊</string>
+    <string name="status_search_sign_in_title">搜尋需要登入</string>
+    <string name="status_search_sign_in_body">%1$s 的搜尋只對已登入帳號開放。登入成功會自動回到這裡，把這次搜尋重新搜一遍。</string>
     <string name="status_session_stale_title">登入狀態沒被認出來</string>
     <string name="status_session_stale_body">應用手上有登入資訊，站點這次卻當作未登入返回。多數情況下重試一次就好；如果一直這樣，說明這份登入已經失效，重新登入即可。</string>
 
@@ -1329,7 +1341,7 @@
     <string name="sign_in_one_tap">使用 %1$s 帳號登入</string>
     <string name="sign_in_one_tap_hint">在站點頁面上完成授權，回來即為登入狀態。</string>
     <string name="sign_in_or_with_account">或用 %1$s 帳號</string>
-    <string name="sign_in_session_not_stored">論壇已確認帳號密碼，但這台裝置沒能保存登入狀態。請改用網頁登入。</string>
+    <string name="sign_in_session_not_stored">論壇回報登入成功，但 App 沒有讀到登入狀態。請改用網頁登入，或複製登入診斷。</string>
 
     <string name="sign_in_verify_expired">驗證已過期，請重新驗證</string>
     <string name="sign_in_verify_not_wired">人機驗證載入失敗，請檢查網路，或改用網頁登入</string>
@@ -1676,4 +1688,18 @@
     <string name="settings_show_author_account_info_hint">在主文和回覆中顯示作者等級與註冊天數</string>
     <string name="sign_in_diagnostics">查看登入診斷</string>
     <string name="sign_in_diagnostics_privacy">僅保存在目前登入頁，不會自動上傳。不包含帳號、密碼、驗證碼或 Cookie；複製後可傳給開發者排查。</string>
+    <string name="sign_in_use_email">信箱驗證碼登入</string>
+    <string name="sign_in_email_body">使用帳號綁定的信箱接收驗證碼，驗證後登入。</string>
+    <string name="sign_in_email_label">綁定信箱</string>
+    <string name="sign_in_email_code">信箱驗證碼</string>
+    <string name="sign_in_email_send">傳送驗證碼</string>
+    <string name="sign_in_email_resend">%1$d 秒後可重新傳送</string>
+    <string name="sign_in_email_sent">驗證碼已傳送至 %1$s，請檢查收件匣和垃圾郵件。</string>
+    <string name="messages_scam_caution_summary">警惕先付款、口令紅包及站外交易。\n高等級、老帳號也可能被盜。</string>
+    <string name="messages_scam_warning_both_summary">對方等級較低（Lv.%1$d），僅註冊 %2$d 天。\n請警惕先付款、口令紅包及站外交易。</string>
+    <string name="messages_scam_warning_low_level_summary">對方等級較低（Lv.%1$d）。\n請警惕先付款、口令紅包及站外交易。</string>
+    <string name="messages_scam_warning_new_account_summary">對方僅註冊 %1$d 天。\n請警惕先付款、口令紅包及站外交易。</string>
+    <string name="messages_scam_details">查看完整防詐提醒</string>
+    <string name="message_thread_profile">使用者資料</string>
+    <string name="message_thread_profile_caution">帳號等級和註冊時間僅供參考，交易時仍請謹慎核實身分。</string>
 </resources>

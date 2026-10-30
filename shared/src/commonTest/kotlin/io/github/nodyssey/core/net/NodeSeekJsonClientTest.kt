@@ -30,6 +30,24 @@ class NodeSeekJsonClientTest {
         NodeSeekJsonClient(RecordingTransport(*answers), dispatchers)
 
     @Test
+    fun `login diagnostics retain session cookie names across Expires commas and omit values`() = runTest {
+        val response = client(
+            httpResponse(
+                body = """{"success":true}""",
+                headers = mapOf("set-cookie" to "colorscheme=dark; Path=/,session=secret; Expires=Wed, 29 Oct 2036 00:00:00 GMT; Path=/,xsession=other-secret; Path=/"),
+            ),
+        ).sendJson("POST", NodeSeekJsonClient.PATH_ACCOUNT_SIGN_IN, "{}")
+        assertEquals(listOf("session"), response.sessionCookieNames)
+    }
+
+    @Test
+    fun `login diagnostics identify an API success with no session cookie`() = runTest {
+        val response = client(httpResponse("""{"success":true}"""))
+            .sendJson("POST", NodeSeekJsonClient.PATH_ACCOUNT_SIGN_IN, "{}")
+        assertEquals(emptyList(), response.sessionCookieNames)
+    }
+
+    @Test
     fun `passes a JSON answer through`() = runTest {
         val body = client(httpResponse("""{"success":true}""")).getJson(PATH)
 

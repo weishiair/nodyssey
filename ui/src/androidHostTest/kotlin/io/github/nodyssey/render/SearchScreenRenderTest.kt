@@ -112,6 +112,18 @@ class SearchScreenRenderTest {
     @Test
     fun `post results in dark`() = render("search-posts-dark", POST_RESULTS, "NAS")
 
+    /**
+     * The wall a signed-out reader gets instead of results.
+     *
+     * Searching is one of the things the site does only for an account, so this is where a search
+     * from no session ends — not a failure the results list drew.
+     */
+    @Test
+    fun `signed out in light`() = render("search-signed-out-light", SIGNED_OUT, "NAS")
+
+    @Test
+    fun `signed out in dark`() = render("search-signed-out-dark", SIGNED_OUT, "NAS")
+
     /** A result the reader has opened before and that has had replies since, as the feed marks it. */
     @Test
     fun `post results with new replies in light`() {
@@ -183,11 +195,16 @@ class SearchScreenRenderTest {
             SearchUiState(
                 submittedQuery = "NAS",
                 postResultsQuery = "NAS",
+                // The site searches only for an account, so results are the signed-in screen.
+                isSignedIn = true,
                 boards = BOARDS,
                 selectedBoard = "tech",
                 sort = FeedSort.LAST_REPLY,
                 recentBoards = listOf("tech", "info"),
             )
+
+        /** The same search, from a reader this app holds no session for. */
+        val SIGNED_OUT = POST_RESULTS.copy(isSignedIn = false)
 
         val USER_RESULTS =
             POST_RESULTS.copy(

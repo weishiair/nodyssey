@@ -18,15 +18,19 @@
 
 首次启用加密 DNS 时默认选择此服务。覆盖安装会保留已保存的开关、服务器选择和排序，新服务补入列表后不自动改动选择。
 
-服务基于 [edge-smart-doh](https://github.com/1molchuan/edge-smart-doh)，提供优选 Cloudflare 地址并补充 ECH 配置；还需要客户端支持 ECH，且目标地址在当前网络中可达。登录 WebView 使用独立的网络栈。
+服务基于 [edge-smart-doh](https://github.com/1molchuan/edge-smart-doh)，提供优选 Cloudflare 地址并补充 ECH 配置；还需要客户端支持 ECH，且目标地址在当前网络中可达。登录 WebView 使用独立的网络栈，不使用 App 的 DoH/ECH；Android 的网页登录、人机验证和登录弹窗会使用已保存的 App 内代理。无认证代理直接通过 AndroidX `ProxyController` 配置；带认证的 HTTP/SOCKS5 通过仅监听本机的 CONNECT 适配层转发，目标域名由代理解析，HTTPS 证书校验仍由 WebView 完成。关闭内置代理后恢复系统网络设置，外部浏览器不受影响。
+
+原生登录收到成功响应后，会等系统 Cookie 写入回调再检查登录状态。如果仍没有可读会话，登录页提供脱敏诊断，包含响应中的会话 Cookie 名称、最近写入结果和 WebView 版本，不含账号、密码或 Cookie 值。普通网络自检的 HTTP 200 只能说明探测请求成功，不能说明登录响应已经发出或保存了会话 Cookie。
+
+密码登录或两步验证返回 `success` 并跳转邮箱验证页时，原生登录会继续到邮箱验证码表单；这一步不再被当成已经登录，也不会误报 Cookie 保存失败。密码页和两步验证页也提供独立的邮箱登录入口。发码使用站点的 `/api/email`（`mode=totp`），邮箱验证码提交到 `/api/account/emailSignIn`；支持发码冷却、验证失败重试，以及使用已经从网页收到的验证码。
 
 ## 分支更新
 
 应用只从 `https://weishiair.github.io/nodyssey/` 的静态清单获取更新和更新日志，下载地址仅允许 `weishiair/nodyssey` 的 GitHub Release，下载后验证 SHA-256。
 
-升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。正式版 `1.3.5` 使用 Android versionCode 100，先前测试构建已分配至 99；下一次测试使用 `1.3.6-test.1`（101）。后续测试递增 `test.N` 和 versionCode，正式版使用 `1.3.5` 这样的格式；旧 `-dev.N` 版本继续兼容。
+升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。正式版 `1.3.6` 使用 Android versionCode 113，先前测试构建已分配至 112；下一次测试使用 `1.3.7-test.1`（114）。后续测试递增 `test.N` 和 versionCode，正式版使用 `1.3.6` 这样的格式；旧 `-dev.N` 版本继续兼容。
 
-新版本发布包含签名 APK 的 `v1.3.5` GitHub Release，APK 使用 `nodyssey-v1.3.5.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
+新版本发布包含签名 APK 的 `v1.3.6` GitHub Release，APK 使用 `nodyssey-v1.3.6.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
 
 ## Android 打包约定
 
@@ -38,7 +42,7 @@
 
 签名通过 `NODYSSEY_KEYSTORE_FILE`、`NODYSSEY_KEYSTORE_PASSWORD`、`NODYSSEY_KEY_ALIAS`、`NODYSSEY_KEY_PASSWORD` 注入，沿用本分支既有证书和 `io.github.nodyssey.debug` 包名，以便覆盖安装并保留数据。缺少密钥时上述命令生成未签名包，不能作为可安装包交付，也不自动改成临时包名或其他签名。
 
-交付前用 SDK 的 `aapt2 dump badging` 与 `apksigner verify --print-certs` 核对版本号、versionCode、包名、ARM 架构、非调试状态和签名，再核对大小；文件名使用 `nodyssey-v1.3.5-test.1.apk` 这样的格式。构建后执行 `.\gradlew.bat --stop`。正式发布才创建 `v1.3.5`；测试发布创建 `v1.3.5-test.1` 并标为 prerelease。
+交付前用 SDK 的 `aapt2 dump badging` 与 `apksigner verify --print-certs` 核对版本号、versionCode、包名、ARM 架构、非调试状态和签名，再核对大小；文件名使用 `nodyssey-v1.3.7-test.1.apk` 这样的格式。构建后执行 `.\gradlew.bat --stop`。正式发布才创建 `v1.3.6`；测试发布创建 `v1.3.7-test.1` 并标为 prerelease。
 
 本机 Windows 签名库固定存放在用户目录的 `.nodyssey/signing/release.keystore`，与仓库、桌面临时文件分开。四个签名变量保存在当前 Windows 用户的环境中。已经运行的终端或 AI 进程需要先加载用户环境，再执行打包命令：
 

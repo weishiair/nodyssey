@@ -4,15 +4,26 @@ import io.github.nodyssey.core.NodeSeekSite
 import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.HttpBody
 import io.github.plaza.core.net.HttpRequest
+import io.github.plaza.core.net.HttpResponse
 import io.github.plaza.core.net.HttpTransport
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import kotlinx.coroutines.withContext
 
+// A combined header can contain commas in Expires; match cookie starts, then allow only the
+// site's known session names into diagnostics. Raw headers and values never reach a report.
+private fun HttpResponse.sessionCookieNames(): List<String> {
+    val header = header("set-cookie") ?: return emptyList()
+    val names = Regex("(?:^|,)\\s*([^=;,\\s]+)=").findAll(header).map { it.groupValues[1] }.toSet()
+    return NodeSeekSite.CONFIG.sessionCookieNames.filter { it in names }
+}
+
 /** A POST answer that survived transport and challenge classification; the status is the caller's to read. */
 data class JsonPostResponse(
     val code: Int,
     val body: String,
+    /** Null for a source that cannot inspect headers; only known session names, never values. */
+    val sessionCookieNames: List<String>? = null,
 ) {
     val isSuccessful: Boolean get() = code in 200..299
 }
@@ -136,7 +147,7 @@ class NodeSeekJsonClient(
             // A page is no more an answer from the site than a challenge is, so the caller's
             // status-versus-body contract never sees one.
             throwIfNotJson(path, response.body)
-            JsonPostResponse(code = response.code, body = response.body)
+            JsonPostResponse(code = response.code, body = response.body, sessionCookieNames = response.sessionCookieNames())
         }
 
     override suspend fun postJson(path: String, body: String, referer: String): String =
@@ -177,7 +188,7 @@ class NodeSeekJsonClient(
             // site, so there is no site sentence for the caller to read.
             throwIfChallenge(path, response.body, response.header("cf-mitigated"))
             throwIfNotJson(path, response.body)
-            JsonPostResponse(code = response.code, body = response.body)
+            JsonPostResponse(code = response.code, body = response.body, sessionCookieNames = response.sessionCookieNames())
         }
 
     override suspend fun postMultipart(
@@ -285,6 +296,8 @@ class NodeSeekJsonClient(
          * [io.github.nodyssey.data.session.NodeSeekSignInRepository].
          */
         const val PATH_ACCOUNT_SIGN_IN = "/api/account/signIn"
+        const val PATH_ACCOUNT_EMAIL_SIGN_IN = "/api/account/emailSignIn"
+        const val PATH_EMAIL_CODE = "/api/email"
 
         const val PATH_ACCOUNT_INTRODUCTION = "/api/account/introduction"
         const val PATH_AVATAR_UPLOAD = "/api/avatar/upload"

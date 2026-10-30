@@ -84,6 +84,10 @@ import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.lockBadgeDescription
 import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.rememberTabPagerState
+import io.github.nodyssey.ui.common.sharedThreadAuthor
+import io.github.nodyssey.ui.common.sharedThreadBoard
+import io.github.nodyssey.ui.common.sharedThreadTitle
+import io.github.nodyssey.ui.common.spaceOrigin
 import io.github.nodyssey.ui.postlist.toSiteError
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -149,7 +153,10 @@ import org.jetbrains.compose.resources.stringResource
 fun UserSpaceRoute(
     viewModel: UserSpaceViewModel,
     onBack: () -> Unit,
-    onPostClick: (Long, String?) -> Unit,
+    /** A post row hands over everything the thread header draws before the request returns. */
+    onPostClick: (SpacePost, String?) -> Unit,
+    /** A comment opens the thread at its floor; there is no row content to fly into the header. */
+    onCommentClick: (Long, String?) -> Unit,
     /** Opens the conversation with this account: its uid, and the name its thread should title. */
     onMessage: (Long, String) -> Unit,
     onEditProfile: () -> Unit,
@@ -170,6 +177,7 @@ fun UserSpaceRoute(
         onBack = onBack,
         onTabSelected = viewModel::selectTab,
         onPostClick = onPostClick,
+        onCommentClick = onCommentClick,
         onRetryProfile = viewModel::refreshProfile,
         onMessage = { onMessage(state.uid, state.name) },
         onToggleFollow = viewModel::toggleFollow,
@@ -189,7 +197,8 @@ fun UserSpaceScreen(
     state: UserSpaceUiState,
     onBack: () -> Unit,
     onTabSelected: (SpaceTab) -> Unit,
-    onPostClick: (Long, String?) -> Unit,
+    onPostClick: (SpacePost, String?) -> Unit,
+    onCommentClick: (Long, String?) -> Unit,
     onRetryProfile: () -> Unit,
     onMessage: () -> Unit,
     onEditProfile: () -> Unit,
@@ -343,6 +352,7 @@ fun UserSpaceScreen(
                         comments = comments,
                         collections = collections,
                         onPostClick = onPostClick,
+                        onCommentClick = onCommentClick,
                         onOpenBrowser = onOpenBrowser,
                         onLinkClick = onLinkClick,
                         onSignIn = onSignIn,
@@ -583,7 +593,8 @@ private fun SpaceTabPage(
     topics: Flow<PagingData<SpacePost>>,
     comments: Flow<PagingData<SpaceComment>>,
     collections: Flow<PagingData<SpacePost>>,
-    onPostClick: (Long, String?) -> Unit,
+    onPostClick: (SpacePost, String?) -> Unit,
+    onCommentClick: (Long, String?) -> Unit,
     onOpenBrowser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
     onSignIn: () -> Unit,
@@ -605,6 +616,7 @@ private fun SpaceTabPage(
             comments = commentItems,
             collections = collectionItems,
             onPostClick = onPostClick,
+            onCommentClick = onCommentClick,
             onOpenBrowser = onOpenBrowser,
             onLinkClick = onLinkClick,
             onSignIn = onSignIn,
@@ -619,7 +631,8 @@ private fun LazyListScope.spaceTabContent(
     topics: LazyPagingItems<SpacePost>?,
     comments: LazyPagingItems<SpaceComment>?,
     collections: LazyPagingItems<SpacePost>?,
-    onPostClick: (Long, String?) -> Unit,
+    onPostClick: (SpacePost, String?) -> Unit,
+    onCommentClick: (Long, String?) -> Unit,
     onOpenBrowser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
     onSignIn: () -> Unit,
@@ -638,7 +651,7 @@ private fun LazyListScope.spaceTabContent(
                 onVerify = onVerify,
                 key = { _, post -> "topic-${post.postId}" },
             ) { post ->
-                SpacePostRow(post = post, onClick = { onPostClick(post.postId, null) })
+                SpacePostRow(post = post, origin = spaceOrigin(state.uid), onClick = { onPostClick(post, null) })
             }
 
         SpaceTab.COMMENTS ->
@@ -655,7 +668,7 @@ private fun LazyListScope.spaceTabContent(
                 // The floor rides along so the thread opens at this very comment.
                 SpaceCommentRow(
                     comment = comment,
-                    onClick = { onPostClick(comment.postId, comment.floor) },
+                    onClick = { onCommentClick(comment.postId, comment.floor) },
                 )
             }
 
@@ -669,7 +682,7 @@ private fun LazyListScope.spaceTabContent(
                 onVerify = onVerify,
                 key = { _, post -> "collection-${post.postId}" },
             ) { post ->
-                SpacePostRow(post = post, onClick = { onPostClick(post.postId, null) })
+                SpacePostRow(post = post, origin = spaceOrigin(state.uid), onClick = { onPostClick(post, null) })
             }
     }
 }
@@ -844,6 +857,7 @@ private fun <T : Any> LazyListScope.spaceListTab(
 @Composable
 internal fun SpacePostRow(
     post: SpacePost,
+    origin: String,
     onClick: () -> Unit,
 ) {
     LayerCard(onClick = onClick, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -855,7 +869,9 @@ internal fun SpacePostRow(
                 overflow = TextOverflow.Ellipsis,
                 // Not filling, so the lock keeps its place beside the title rather than being
                 // pushed off the end — the same arrangement the feed's title line uses.
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .sharedThreadTitle(post.postId, origin),
             )
             // 私有 is a lock with nothing to count: the level is not a floor a reader can climb to,
             // it is the author alone. Every other restricted rank names the level it wants.
@@ -876,8 +892,16 @@ internal fun SpacePostRow(
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            post.categoryTitle?.let { BoardTag(title = it, slug = post.categorySlug) }
-            post.authorName?.let { RowMeta(it) }
+            post.categoryTitle?.let {
+                BoardTag(
+                    title = it,
+                    slug = post.categorySlug,
+                    modifier = Modifier.sharedThreadBoard(post.postId, origin),
+                )
+            }
+            post.authorName?.let {
+                RowMeta(it, Modifier.sharedThreadAuthor(post.postId, origin))
+            }
             post.commentCount?.let {
                 MetaStat(
                     icon = PlazaIcons.ModeComment,
@@ -1029,6 +1053,7 @@ private fun PreviewScreen(state: UserSpaceUiState) {
         onBack = {},
         onTabSelected = {},
         onPostClick = { _, _ -> },
+        onCommentClick = { _, _ -> },
         onRetryProfile = {},
         onMessage = {},
         onEditProfile = {},
