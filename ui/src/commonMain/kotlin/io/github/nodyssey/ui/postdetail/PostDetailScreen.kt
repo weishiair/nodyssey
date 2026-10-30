@@ -172,6 +172,7 @@ import io.github.nodyssey.ui.resources.post_comment_blocked_show
 import io.github.nodyssey.ui.resources.post_comments_empty
 import io.github.nodyssey.ui.resources.post_comments_header
 import io.github.nodyssey.ui.resources.post_copy_body
+import io.github.nodyssey.ui.resources.post_copy_title
 import io.github.nodyssey.ui.resources.post_edit_action
 import io.github.nodyssey.ui.resources.post_edited
 import io.github.nodyssey.ui.resources.post_edited_at
@@ -200,6 +201,7 @@ import io.github.nodyssey.ui.resources.post_share_image
 import io.github.nodyssey.ui.resources.post_share_image_failed
 import io.github.nodyssey.ui.resources.post_share_image_generating
 import io.github.nodyssey.ui.resources.post_sort_ascending
+import io.github.nodyssey.ui.resources.post_title_copied
 import io.github.nodyssey.ui.resources.post_track_full
 import io.github.nodyssey.ui.resources.post_track_thread
 import io.github.nodyssey.ui.resources.post_tracked
@@ -433,6 +435,8 @@ fun PostDetailScreen(
 
     /** The floor whose 1c panel is open — from its ⋯, or a long press on its card. */
     var floorActions by remember { mutableStateOf<FloorActions?>(null) }
+    var titleToCopy by rememberSaveable(state.postId) { mutableStateOf<String?>(null) }
+    val copy = rememberClipboardCopy()
     val snackbarHostState = remember { SnackbarHostState() }
 
     /** The floor 分享为图片 is drawing, from the panel's tap until the share sheet has it. */
@@ -914,7 +918,19 @@ fun PostDetailScreen(
                 floorActions = null
                 reactTo(live, action)
             },
+            onSelectTitle = { titleToCopy = it },
             onShareImage = if (shareImage != null && shareImageOf == null) ({ shareImageOf = live }) else null,
+        )
+    }
+    titleToCopy?.let { title ->
+        val copied = stringResource(Res.string.post_title_copied)
+        PostTitleDialog(
+            title = title,
+            onDismiss = { titleToCopy = null },
+            onCopyAll = {
+                copy("title", title, copied)
+                titleToCopy = null
+            },
         )
     }
     // The 投喂 tile says whether today's feed is free, which only the site knows. Asked for as the
@@ -1261,6 +1277,14 @@ private fun ThreadList(
                         )
                     }
                 }
+            // The opening post keeps the site's own set: no 回复 or 引用 of it, 编辑 on your own.
+            val onMore = body?.let {
+                {
+                    onOpenFloorActions(
+                        FloorActions(it, onReply = null, onQuote = null, onEdit = onEdit, postTitle = state.title),
+                    )
+                }
+            }
             if (original) {
                 OriginalOpeningPost(
                     title = state.title,
@@ -1279,8 +1303,7 @@ private fun ThreadList(
                     pendingReaction = body?.let { state.pendingReactionFor(it) },
                     onReact = { action -> body?.let { onReact(it, action) } },
                     onAuthorClick = onAuthorClick,
-                    // The opening post keeps the site's own set: no 回复 or 引用 of it, 编辑 on your own.
-                    onMore = body?.let { { onOpenFloorActions(FloorActions(it, onReply = null, onQuote = null, onEdit)) } },
+                    onMore = onMore,
                     collected = state.collected,
                     collectionCount = state.collectionCount,
                     collectPending = state.collectPending,
@@ -1309,8 +1332,7 @@ private fun ThreadList(
                     pendingReaction = body?.let { state.pendingReactionFor(it) },
                     onReact = { action -> body?.let { onReact(it, action) } },
                     onAuthorClick = onAuthorClick,
-                    // The opening post keeps the site's own set: no 回复 or 引用 of it, 编辑 on your own.
-                    onMore = body?.let { { onOpenFloorActions(FloorActions(it, onReply = null, onQuote = null, onEdit)) } },
+                    onMore = onMore,
                     collected = state.collected,
                     collectionCount = state.collectionCount,
                     collectPending = state.collectPending,
@@ -2885,6 +2907,8 @@ private class FloorActions(
     val onReply: (() -> Unit)?,
     val onQuote: (() -> Unit)?,
     val onEdit: (() -> Unit)?,
+    /** Only the opening post offers the thread title for copying. */
+    val postTitle: String? = null,
 )
 
 /**
@@ -2892,10 +2916,9 @@ private class FloorActions(
  * the floor's other actions as a list.
  *
  * The set is the site's and fixed — 点赞 / 投喂鸡腿 / 点踩, then 回复 (编辑 on your own floor) and 引用
- * — with 复制正文 the one thing the app adds, because a selection drag across a long floor is the
- * other way to get its text and it is a poor one. A tile only asks for the mark: [onReact] closes
- * the panel and goes through the same gates the row does, so 投喂 and 点踩 still stop at their
- * confirmations and a signed-out reader still goes to sign in.
+ * — with copying for the floor's text and, on the opening post, the thread title. A tile only asks
+ * for the mark: [onReact] closes the panel and goes through the same gates the row does, so 投喂
+ * and 点踩 still stop at their confirmations and a signed-out reader still goes to sign in.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -2906,6 +2929,7 @@ private fun FloorActionSheet(
     freeChickenLegs: FreeChickenLegs?,
     onDismiss: () -> Unit,
     onReact: (ReactionAction) -> Unit,
+    onSelectTitle: (String) -> Unit,
     /** 分享为图片; null where this platform has no share sheet, or while one is already being drawn. */
     onShareImage: (() -> Unit)? = null,
 ) {
@@ -2962,6 +2986,13 @@ private fun FloorActionSheet(
                         }
                     actions.onQuote?.let {
                         add(Triple(PlazaIcons.FormatQuote, stringResource(Res.string.post_quote_floor), it))
+                    }
+                    actions.postTitle?.takeIf { it.isNotBlank() }?.let { title ->
+                        add(
+                            Triple(PlazaIcons.Title, stringResource(Res.string.post_copy_title)) {
+                                onSelectTitle(title)
+                            },
+                        )
                     }
                     // The whole floor, code and lists and tables included — see [copyableText]. A floor
                     // with no text at all (a picture, a poll) has nothing to offer here: a row that
