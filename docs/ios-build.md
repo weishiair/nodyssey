@@ -42,9 +42,13 @@ Windows 上可检查配置、脚本和共享代码；Swift 编译和以上视觉
 
 `dev` 通过发布 PR 合入 `main` 后，推送 `v版本号` 标签触发 `release.yml`。
 Android 签名包发布后，iOS job 使用同一标签编译并附加未签名 IPA。
-正式版默认使用已验证的 `macos-15-intel` 与 Xcode 26.3，以避开 ARM runner 容量不足；
-仍明确区分 JVM 测试与未执行的 ARM 原生运行测试。手动重跑时可通过 `ios_runner` 选择 ARM 宿主。
+正式版默认使用已验证的 `macos-26` ARM Mac 与 Xcode 26.3，同时执行 Kotlin/Native 运行测试。
+`1.3.6-ios-test.2` 的真机包、模拟器包和原生测试已在此宿主通过。手动重跑时仍可通过
+`ios_runner` 选择其他 Mac；Intel 宿主只运行 JVM 测试，不声称通过 ARM 原生运行测试。
 IPA 旁同时提供 SHA-256 和 `ios-build-v版本号.txt`，记录版本、SDK 与源提交。
+
+推送版本标签会发布安装包和更新清单。需要向 Telegram 频道发送公告和安装包时，
+手动运行 Release 工作流并勾选 `notify_telegram`；该选项默认关闭。
 
 官方依据：
 
