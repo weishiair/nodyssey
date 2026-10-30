@@ -3,8 +3,10 @@ package io.github.nodyssey.render
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import io.github.nodyssey.ui.messages.MessageBubble
@@ -83,6 +85,29 @@ class MessageThreadScreenRenderTest {
     }
 
     @Test
+    fun `the scam reminder details`() {
+        composeRule.setContent { Screen(darkTheme = false) }
+        composeRule.onNodeWithContentDescription("查看完整防诈提醒").performClick()
+
+        composeRule.onNode(isDialog()).captureRender("message-thread-safety-details")
+    }
+
+    @Test
+    fun `the peer profile`() {
+        composeRule.setContent { Screen(darkTheme = false) }
+        composeRule.onNodeWithText("轻舟").performClick()
+
+        composeRule.onNode(isDialog()).captureRender("message-thread-profile")
+    }
+
+    @Test
+    fun `the low level and new account reminder`() {
+        composeRule.setContent { Screen(darkTheme = false, state = STATE.copy(level = 1, joinedDays = 23)) }
+
+        composeRule.onRoot().captureRender("message-thread-high-risk")
+    }
+
+    @Test
     fun `a quote and the tool grid, in light`() {
         composeRule.setContent { Screen(darkTheme = false, state = QUOTING, draft = "能发下 `mtr` 的结果吗") }
         composeRule.onNodeWithContentDescription("附件与格式").performClick()
@@ -132,6 +157,7 @@ class MessageThreadScreenRenderTest {
                 uid = 18842,
                 userName = "轻舟",
                 level = 3,
+                joinedDays = 354,
                 messages = MESSAGES,
                 nowMillis = NOW,
             )

@@ -1975,4 +1975,12 @@
     <string name="sign_in_email_send">发送验证码</string>
     <string name="sign_in_email_resend">%1$d 秒后可重新发送</string>
     <string name="sign_in_email_sent">验证码已发送至 %1$s，请检查收件箱和垃圾邮件。</string>
+    <!-- The thread keeps key risks visible; the complete reminder opens in a sheet. -->
+    <string name="messages_scam_caution_summary">警惕先款、口令红包及站外交易。\n高等级、老账号也可能被盗。</string>
+    <string name="messages_scam_warning_both_summary">对方等级较低（Lv.%1$d），仅注册 %2$d 天。\n请警惕先款、口令红包及站外交易。</string>
+    <string name="messages_scam_warning_low_level_summary">对方等级较低（Lv.%1$d）。\n请警惕先款、口令红包及站外交易。</string>
+    <string name="messages_scam_warning_new_account_summary">对方仅注册 %1$d 天。\n请警惕先款、口令红包及站外交易。</string>
+    <string name="messages_scam_details">查看完整防诈提醒</string>
+    <string name="message_thread_profile">用户资料</string>
+    <string name="message_thread_profile_caution">账号等级和注册时间仅供参考，交易时仍请谨慎核实身份。</string>
 </resources>
