@@ -110,7 +110,9 @@ Before submitting, run the same gates as `.github/workflows/ci.yml`. After build
   stable `1.3.4` (89), `1.3.5-test.1` (91), `1.3.5-test.2` (92), `1.3.5-test.3` (93),
   `1.3.5-test.4` (94), `1.3.5-test.5` (95), the iOS tests `1.3.5-ios-test.1` (96),
   `1.3.5-ios-test.2` (97), `1.3.5-ios-test.3` (98) and `1.3.5-ios-test.4` (99) are assigned.
-  Stable `1.3.5` uses 100; the next test is `1.3.6-test.1` (101).
+  Stable `1.3.5` uses 100. The `1.3.6-test.1` through `1.3.6-test.10` snapshots use 101–110;
+  `1.3.6-ios-test.1` and `1.3.6-ios-test.2` use 111 and 112. Stable `1.3.6` uses 113;
+  the next test is `1.3.7-test.1` (114).
   Subsequent tests increment both `-test.N` and Android `versionCode`; never reuse an older code.
 - Keep the version in `gradle.properties`, name the artifact `nodyssey-v<versionName>.apk`, and
   publish test tags as GitHub prereleases. Legacy `-dev.N` tags remain supported.
@@ -200,7 +202,7 @@ are disposable.
   Never put a test version bump on `main`.
 - `dev` is the integration line for the next release. Feature and fix branches merge here, and test
   snapshots are cut from here. Keep its `gradle.properties` at the last stable version
-  (`1.3.5 / 100` after this release) — the test branch owns the bump.
+  (`1.3.6 / 113` after this release) — the test branch owns the bump.
 - Feature and fix branches use `<type>/<slug>`, with `type` one of `feature`, `fix`, `ios`,
   `android` or `docs` (for example `feature/original-thread-layout`). One feature per branch; do not
   mix an Android screen change and an iOS fix unless the user asked for a combined build. Legacy
