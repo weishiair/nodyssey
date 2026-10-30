@@ -2,10 +2,18 @@ package io.github.nodyssey.ui.messages
 
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.UploadStatus
 import io.github.plaza.designsys.theme.PlazaTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
@@ -22,9 +30,11 @@ class MessageComposerTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private lateinit var draftState: TextFieldState
+
     private fun setScreen(draft: String = "") {
         composeRule.setContent {
-            val draftState = remember { TextFieldState(draft) }
+            draftState = remember { TextFieldState(draft) }
             PlazaTheme {
                 MessageThreadScreen(
                     state =
@@ -64,6 +74,25 @@ class MessageComposerTest {
                 )
             }
         }
+    }
+
+    /** Clearing focus for the panel must preserve the draft and allow returning to typing. */
+    @Test
+    fun `the inline emoji picker inserts into the draft and gives way to typing`() {
+        setScreen()
+        val field = composeRule.onNode(hasSetTextAction())
+        field.performTextInput("hello")
+        composeRule.onNodeWithContentDescription("表情").performTouchInput { click() }
+        composeRule.onNodeWithText("Fluent").performClick()
+        composeRule.onNodeWithContentDescription("😀").performClick()
+
+        composeRule.runOnIdle { assertEquals("hello😀", draftState.text.toString()) }
+
+        field.performTouchInput { click() }
+        composeRule.onNodeWithContentDescription("😀").assertDoesNotExist()
+        field.performTextInput(" again")
+
+        composeRule.runOnIdle { assertEquals("hello😀 again", draftState.text.toString()) }
     }
 
     @Test

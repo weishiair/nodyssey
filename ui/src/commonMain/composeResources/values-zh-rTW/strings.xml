@@ -1690,4 +1690,11 @@
     <string name="sign_in_email_send">傳送驗證碼</string>
     <string name="sign_in_email_resend">%1$d 秒後可重新傳送</string>
     <string name="sign_in_email_sent">驗證碼已傳送至 %1$s，請檢查收件匣和垃圾郵件。</string>
+    <string name="messages_scam_caution_summary">警惕先付款、口令紅包及站外交易。\n高等級、老帳號也可能被盜。</string>
+    <string name="messages_scam_warning_both_summary">對方等級較低（Lv.%1$d），僅註冊 %2$d 天。\n請警惕先付款、口令紅包及站外交易。</string>
+    <string name="messages_scam_warning_low_level_summary">對方等級較低（Lv.%1$d）。\n請警惕先付款、口令紅包及站外交易。</string>
+    <string name="messages_scam_warning_new_account_summary">對方僅註冊 %1$d 天。\n請警惕先付款、口令紅包及站外交易。</string>
+    <string name="messages_scam_details">查看完整防詐提醒</string>
+    <string name="message_thread_profile">使用者資料</string>
+    <string name="message_thread_profile_caution">帳號等級和註冊時間僅供參考，交易時仍請謹慎核實身分。</string>
 </resources>

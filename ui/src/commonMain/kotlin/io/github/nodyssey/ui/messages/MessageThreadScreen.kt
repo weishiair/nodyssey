@@ -1,5 +1,6 @@
 package io.github.nodyssey.ui.messages
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +10,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,18 +36,22 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,12 +62,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -94,7 +105,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.NodeSeekSite
@@ -113,6 +123,7 @@ import io.github.nodyssey.ui.composer.rememberStickerPictures
 import io.github.nodyssey.ui.notifications.previewText
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
+import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_copy
 import io.github.nodyssey.ui.resources.action_more
 import io.github.nodyssey.ui.resources.action_open_in_browser
@@ -132,16 +143,22 @@ import io.github.nodyssey.ui.resources.message_status_sending
 import io.github.nodyssey.ui.resources.message_status_sent
 import io.github.nodyssey.ui.resources.message_thread_empty
 import io.github.nodyssey.ui.resources.message_thread_open_space
+import io.github.nodyssey.ui.resources.message_thread_profile
+import io.github.nodyssey.ui.resources.message_thread_profile_caution
 import io.github.nodyssey.ui.resources.message_thread_subtitle
-import io.github.nodyssey.ui.resources.message_thread_title
 import io.github.nodyssey.ui.resources.message_thread_title_unknown
 import io.github.nodyssey.ui.resources.message_tool_customize
 import io.github.nodyssey.ui.resources.message_tools
 import io.github.nodyssey.ui.resources.messages_scam_caution_general
+import io.github.nodyssey.ui.resources.messages_scam_caution_summary
 import io.github.nodyssey.ui.resources.messages_scam_caution_title
+import io.github.nodyssey.ui.resources.messages_scam_details
 import io.github.nodyssey.ui.resources.messages_scam_warning_both
+import io.github.nodyssey.ui.resources.messages_scam_warning_both_summary
 import io.github.nodyssey.ui.resources.messages_scam_warning_low_level
+import io.github.nodyssey.ui.resources.messages_scam_warning_low_level_summary
 import io.github.nodyssey.ui.resources.messages_scam_warning_new_account
+import io.github.nodyssey.ui.resources.messages_scam_warning_new_account_summary
 import io.github.nodyssey.ui.resources.messages_scam_warning_title
 import io.github.nodyssey.ui.resources.messages_thread_joined_days
 import io.github.nodyssey.ui.resources.notification_time_pair
@@ -151,12 +168,12 @@ import io.github.plaza.core.richtext.parseMarkdown
 import io.github.plaza.designsys.component.BadgeChip
 import io.github.plaza.designsys.component.BadgeTone
 import io.github.plaza.designsys.component.EditorTextField
-import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.QuotePreview
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberClipboardCopy
@@ -177,7 +194,6 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
-import io.github.plaza.designsys.theme.floatShadow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -309,8 +325,8 @@ fun MessageThreadScreen(
                     modifier =
                     Modifier.padding(
                         top = topClearance + Spacing.xs,
-                        start = LayerPageGutter,
-                        end = LayerPageGutter,
+                        start = THREAD_GUTTER,
+                        end = THREAD_GUTTER,
                         bottom = Spacing.xs,
                     ),
                 )
@@ -388,11 +404,13 @@ private fun ScamReminderBanner(
     state: MessageThreadUiState,
     modifier: Modifier = Modifier,
 ) {
+    var detailsOpen by rememberSaveable(state.uid) { mutableStateOf(false) }
     val lowLevel = state.level?.takeIf { it in 0..1 }
     val newAccountDays = state.joinedDays?.takeIf { it in 0..<100 }
     val isHighRisk = lowLevel != null || newAccountDays != null
     val extra = LocalPlazaExtraColors.current
     val title: String
+    val summary: String
     val body: String
     val containerColor =
         if (isHighRisk) MaterialTheme.colorScheme.errorContainer else extra.warningContainer
@@ -400,6 +418,17 @@ private fun ScamReminderBanner(
         if (isHighRisk) MaterialTheme.colorScheme.onErrorContainer else extra.onWarningContainer
     if (isHighRisk) {
         title = stringResource(Res.string.messages_scam_warning_title)
+        summary =
+            when {
+                lowLevel != null && newAccountDays != null ->
+                    stringResource(Res.string.messages_scam_warning_both_summary, lowLevel, newAccountDays)
+
+                lowLevel != null ->
+                    stringResource(Res.string.messages_scam_warning_low_level_summary, lowLevel)
+
+                else ->
+                    stringResource(Res.string.messages_scam_warning_new_account_summary, newAccountDays!!)
+            }
         body =
             when {
                 lowLevel != null && newAccountDays != null ->
@@ -413,24 +442,47 @@ private fun ScamReminderBanner(
             }
     } else {
         title = stringResource(Res.string.messages_scam_caution_title)
+        summary = stringResource(Res.string.messages_scam_caution_summary)
         body = stringResource(Res.string.messages_scam_caution_general)
     }
-    InlineBanner(
-        text = body,
-        title = title,
-        icon = Icons.Default.Warning,
-        containerColor = containerColor,
-        contentColor = contentColor,
-        modifier = modifier,
-    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.2f)),
+    ) {
+        ListItem(
+            onClick = { detailsOpen = true },
+            leadingContent = {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
+            },
+            trailingContent = {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(Res.string.messages_scam_details),
+                    tint = contentColor,
+                    modifier = Modifier.size(18.dp),
+                )
+            },
+            supportingContent = {
+                Text(summary, style = MaterialTheme.typography.bodySmall, color = contentColor)
+            },
+            verticalAlignment = Alignment.Top,
+            colors = ListItemDefaults.colors(containerColor = containerColor),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.labelLarge, color = contentColor)
+        }
+    }
+    if (detailsOpen) {
+        MessageInfoSheet(title = title, onDismiss = { detailsOpen = false }) {
+            Text(body, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
 }
 
 /**
- * 3d's floating title card: back, the other side, and the overflow.
- *
- * A Material [TopAppBar] inside the card rather than a hand-laid row, so the slots, the 64dp height
- * and the title's alignment are the component's; the card only supplies the white, the corners and
- * the shadow, and takes the status bar off the top itself.
+ * The floating title card keeps only the peer's name and account age. The profile sheet holds the
+ * UID and the route to their space, leaving the app bar readable with a long name or large text.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -441,6 +493,7 @@ private fun ThreadTopBar(
     onOpenSpace: () -> Unit,
     onOpenBrowser: () -> Unit,
 ) {
+    var profileOpen by rememberSaveable(state.uid) { mutableStateOf(false) }
     val layers = LocalPlazaLayers.current
     val page = layers.page
     val statusBars = WindowInsets.statusBars
@@ -453,13 +506,13 @@ private fun ThreadTopBar(
             // Top and sides, as a TopAppBar's own insets are: in landscape the navigation bar can be
             // at the side, and the card's ⋮ would sit under it.
             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-            .padding(horizontal = LayerPageGutter, vertical = 4.dp),
+            .padding(horizontal = THREAD_GUTTER, vertical = 4.dp),
     ) {
         Surface(
             shape = LayerCardShape,
             color = layers.raised,
             border = layers.cardBorderStroke,
-            modifier = Modifier.fillMaxWidth().floatShadow(LayerCardShape, layers.shadows),
+            modifier = Modifier.fillMaxWidth().cardShadow(LayerCardShape, layers.shadows),
         ) {
             TopAppBar(
                 windowInsets = WindowInsets(0),
@@ -478,19 +531,17 @@ private fun ThreadTopBar(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        // The whole title opens the space, not the avatar alone: a 32dp square is
-                        // the smallest thing on the bar, and the name and the UID beside it are the
-                        // same person — tapping either should not do two different things. The
-                        // padding sits inside the clickable so it is target, not dead space.
+                        // The name and avatar share one profile target. The UID and route to the
+                        // peer's space live in that sheet rather than crowding this app bar.
                         modifier =
                         Modifier
                             .clip(MaterialTheme.shapes.medium)
                             .clickable(
-                                onClickLabel = stringResource(Res.string.message_thread_open_space),
-                            ) { onOpenSpace() }
+                                onClickLabel = stringResource(Res.string.message_thread_profile),
+                            ) { profileOpen = true }
                             .padding(horizontal = Spacing.xs, vertical = Spacing.xs),
                     ) {
-                        UserAvatar(url = state.avatarUrl, name = state.userName, size = 32.dp)
+                        UserAvatar(url = state.avatarUrl, name = state.userName, size = 40.dp)
                         Column {
                             Text(
                                 // Blank until the thread loads when it was opened by a link, which
@@ -498,9 +549,9 @@ private fun ThreadTopBar(
                                 if (state.userName.isBlank()) {
                                     stringResource(Res.string.message_thread_title_unknown)
                                 } else {
-                                    stringResource(Res.string.message_thread_title, state.userName)
+                                    state.userName
                                 },
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                style = MaterialTheme.typography.titleMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -508,18 +559,20 @@ private fun ThreadTopBar(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                             ) {
-                                Text(
-                                    text = stringResource(Res.string.message_thread_subtitle, state.uid),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                )
+                                if (state.level == null && state.joinedDays == null) {
+                                    Text(
+                                        text = stringResource(Res.string.message_thread_subtitle, state.uid),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
                                 state.level?.let { level ->
                                     if (level in 0..1) {
                                         BadgeChip(text = "Lv.$level", tone = BadgeTone.Warning)
                                     } else {
                                         Text(
-                                            text = "· Lv.$level",
+                                            text = "Lv.$level",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
@@ -532,7 +585,7 @@ private fun ThreadTopBar(
                                         BadgeChip(text = joinedLabel, tone = BadgeTone.Warning)
                                     } else {
                                         Text(
-                                            text = "· $joinedLabel",
+                                            text = if (state.level == null) joinedLabel else "· $joinedLabel",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
@@ -545,6 +598,81 @@ private fun ThreadTopBar(
                 },
                 actions = { ThreadMenu(onOpenBrowser = onOpenBrowser) },
             )
+        }
+    }
+    if (profileOpen) {
+        MessageInfoSheet(
+            title = stringResource(Res.string.message_thread_profile),
+            onDismiss = { profileOpen = false },
+        ) {
+            ListItem(
+                leadingContent = { UserAvatar(url = state.avatarUrl, name = state.userName, size = 48.dp) },
+                supportingContent = { Text(stringResource(Res.string.message_thread_subtitle, state.uid)) },
+                colors = ListItemDefaults.colors(containerColor = layers.card),
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Text(state.userName.ifBlank { stringResource(Res.string.message_thread_title_unknown) })
+            }
+            state.level?.let { level ->
+                Text("Lv.$level", style = MaterialTheme.typography.bodyMedium)
+            }
+            state.joinedDays?.let { days ->
+                Text(stringResource(Res.string.messages_thread_joined_days, days), style = MaterialTheme.typography.bodyMedium)
+            }
+            Text(
+                stringResource(Res.string.message_thread_profile_caution),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FilledTonalButton(
+                onClick = {
+                    profileOpen = false
+                    onOpenSpace()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(Res.string.message_thread_open_space))
+            }
+        }
+    }
+}
+
+/** Native sheet dismissal, focus and insets; the content can scroll at large text sizes. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MessageInfoSheet(
+    title: String,
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
+    val scope = rememberCoroutineScope()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = LocalPlazaLayers.current.card,
+        shape = PlazaSheetDefaults.shape,
+        dragHandle = { PlazaSheetDefaults.DragHandle() },
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Spacing.xl, vertical = Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = {
+                    scope.launch {
+                        sheetState.hide()
+                        onDismiss()
+                    }
+                }) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
+                }
+            }
+            content()
         }
     }
 }
@@ -581,6 +709,7 @@ private fun MessageBubbles(
     var hasNewMessages by remember { mutableStateOf(false) }
     var lastScrollRequest by remember { mutableLongStateOf(state.scrollToLatestRequest) }
     val newestIncomingId = state.messages.lastOrNull { !it.isMine }?.id
+    val latestOutgoingId = state.messages.lastOrNull { it.isMine }?.id
     // Capture before the new rows are measured: stable lazy keys will then preserve the old bubble
     // when a new one arrives at index 0. Reading the position after layout would miss that anchor.
     val wasAtBottom = remember(state.messages) { !listState.canScrollBackward }
@@ -606,7 +735,7 @@ private fun MessageBubbles(
             modifier = Modifier.fillMaxSize(),
             // Keep the oldest messages clear of the floating title bar.
             contentPadding =
-            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = topClearance + Spacing.sm, bottom = Spacing.md),
+            PaddingValues(start = THREAD_GUTTER, end = THREAD_GUTTER, top = topClearance + Spacing.sm, bottom = Spacing.md),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(newestFirst, key = ThreadRow::key) { row ->
@@ -616,6 +745,7 @@ private fun MessageBubbles(
                     is ThreadRow.Bubble ->
                         MessageBubbleRow(
                             message = row.message,
+                            showDeliveryStatus = row.message.id == latestOutgoingId,
                             onOpenBrowser = onOpenBrowser,
                             onRetrySend = { onRetrySend(row.message.id) },
                             onQuote = { onQuote(row.message) },
@@ -671,23 +801,22 @@ internal fun threadRows(
 private fun DayDivider(label: String) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Text(
-            text = label,
+            text = label.substringBefore(' '),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier =
             Modifier
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .heightIn(min = 24.dp)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .padding(horizontal = 10.dp, vertical = 2.dp),
         )
     }
 }
 
 /**
- * One message, and the line under it.
+ * The clock sits inside its bubble; only a failed send needs a separate retry target underneath.
  *
- * The other side's bubbles are cards — white, with the card shadow — and mine are
+ * The other side's bubbles are cards with a small native elevation, and mine are
  * `primaryContainer`: 3d tells the two apart by colour first and by side second, which is what makes
  * a long run of one person's messages still read at a glance. A message that failed to send is drawn
  * faded, so the eye goes to the red line under it rather than to its text.
@@ -695,6 +824,7 @@ private fun DayDivider(label: String) {
 @Composable
 private fun MessageBubbleRow(
     message: MessageBubble,
+    showDeliveryStatus: Boolean,
     onOpenBrowser: (String) -> Unit,
     onRetrySend: () -> Unit,
     onQuote: () -> Unit,
@@ -707,15 +837,15 @@ private fun MessageBubbleRow(
         horizontalAlignment = if (message.isMine) Alignment.End else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Box(
+        Surface(
+            shape = shape,
+            color = if (message.isMine) MaterialTheme.colorScheme.primaryContainer else layers.card,
+            border = layers.cardBorderStroke,
+            shadowElevation = if (!message.isMine && layers.shadows) 1.dp else 0.dp,
             modifier =
             Modifier
                 .fillMaxWidth(BUBBLE_MAX_WIDTH)
                 .wrapContentWidthTo(message.isMine)
-                .then(if (message.isMine) Modifier else Modifier.cardShadow(shape, layers.shadows))
-                .clip(shape)
-                .background(if (message.isMine) MaterialTheme.colorScheme.primaryContainer else layers.card)
-                .then(if (message.isMine) Modifier else Modifier.cardBorder(layers, shape))
                 .combinedClickable(
                     // Nothing on a plain tap: the bubble is not a destination, and the whole point of
                     // the gesture is that it is the *long* press. It goes through `combinedClickable`
@@ -725,48 +855,57 @@ private fun MessageBubbleRow(
                     onClick = {},
                     onLongClick = { menuOpen = true },
                     onLongClickLabel = stringResource(Res.string.message_bubble_actions),
-                ).padding(horizontal = 14.dp, vertical = 10.dp),
+                ),
         ) {
-            val textStyle =
-                MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp,
-                    color =
-                    if (message.isMine) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
+            Column(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalAlignment = if (message.isMine) Alignment.End else Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                val textStyle =
+                    MaterialTheme.typography.bodyLarge.copy(
+                        color =
+                        if (message.isMine) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                    )
+                val contentModifier = if (message.status == SendStatus.FAILED) Modifier.alpha(FAILED_ALPHA) else Modifier
+                if (message.isMarkdown) {
+                    PostRichContent(
+                        // With the resolver, because 私信 arrive as the source that was typed: the
+                        // server expands `:ac01:` in its own renderer and hands the API the shortcode
+                        // untouched. Without it the emoji panel could send a sticker the thread then
+                        // showed back as six characters of punctuation.
+                        nodes = parseMarkdown(message.content, NodeSeekStickers::urlFor),
+                        onLinkClick = onOpenBrowser,
+                        onImageClick = onOpenBrowser,
+                        textStyle = textStyle,
+                        // The long press belongs to the menu below. Left selectable, the renderer's own
+                        // `SelectionContainer` would take it first and only on the Markdown bubbles —
+                        // which is how a conversation came to offer 复制 on one side and nothing on the
+                        // other, the sender's MD switch deciding it without anyone having chosen that.
+                        selectable = false,
+                        modifier = contentModifier,
+                    )
+                } else {
+                    Text(message.content, style = textStyle, modifier = contentModifier)
+                }
+                if (message.status != SendStatus.FAILED) {
+                    MessageStatusLine(message = message, showDeliveryStatus = showDeliveryStatus, onRetrySend = onRetrySend)
+                }
+                BubbleMenu(
+                    expanded = menuOpen,
+                    onDismiss = { menuOpen = false },
+                    content = message.content,
+                    onQuote = onQuote,
                 )
-            val contentModifier = if (message.status == SendStatus.FAILED) Modifier.alpha(FAILED_ALPHA) else Modifier
-            if (message.isMarkdown) {
-                PostRichContent(
-                    // With the resolver, because 私信 arrive as the source that was typed: the
-                    // server expands `:ac01:` in its own renderer and hands the API the shortcode
-                    // untouched. Without it the emoji panel could send a sticker the thread then
-                    // showed back as six characters of punctuation.
-                    nodes = parseMarkdown(message.content, NodeSeekStickers::urlFor),
-                    onLinkClick = onOpenBrowser,
-                    onImageClick = onOpenBrowser,
-                    textStyle = textStyle,
-                    // The long press belongs to the menu below. Left selectable, the renderer's own
-                    // `SelectionContainer` would take it first and only on the Markdown bubbles —
-                    // which is how a conversation came to offer 复制 on one side and nothing on the
-                    // other, the sender's MD switch deciding it without anyone having chosen that.
-                    selectable = false,
-                    modifier = contentModifier,
-                )
-            } else {
-                Text(message.content, style = textStyle, modifier = contentModifier)
             }
-            BubbleMenu(
-                expanded = menuOpen,
-                onDismiss = { menuOpen = false },
-                content = message.content,
-                onQuote = onQuote,
-            )
         }
-        MessageStatusLine(message = message, onRetrySend = onRetrySend)
+        if (message.status == SendStatus.FAILED) {
+            MessageStatusLine(message = message, showDeliveryStatus = false, onRetrySend = onRetrySend)
+        }
     }
 }
 
@@ -834,7 +973,7 @@ private fun BubbleMenuItem(
 }
 
 /**
- * The line under a bubble: its clock, and for mine what became of it (3d).
+ * The bubble's clock and delivery state; failures stay outside as a full retry target.
  *
  * `21:34 · 已送达`, `10:52 · 发送中` with a clock face, or the failure in the error colour with 重试
  * after it. The other side's bubbles only ever carry the time.
@@ -842,6 +981,7 @@ private fun BubbleMenuItem(
 @Composable
 private fun MessageStatusLine(
     message: MessageBubble,
+    showDeliveryStatus: Boolean,
     onRetrySend: () -> Unit,
 ) {
     val clock = message.sentAtMillis?.let(TimeFormat::clock) ?: message.sentAtText
@@ -859,7 +999,7 @@ private fun MessageStatusLine(
                 .clickable(onClickLabel = retryLabel, role = Role.Button, onClick = onRetrySend)
                 .padding(horizontal = 6.dp)
         } else {
-            Modifier.padding(horizontal = 6.dp)
+            Modifier
         },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -898,7 +1038,7 @@ private fun MessageStatusLine(
 
             SendStatus.SENT ->
                 when {
-                    message.isMine && clock != null ->
+                    message.isMine && showDeliveryStatus && clock != null ->
                         Text(stringResource(Res.string.message_status_sent, clock), style = style, color = muted)
 
                     clock != null -> Text(clock, style = style, color = muted)
@@ -949,89 +1089,110 @@ private fun MessageComposer(
     // to dismiss before it leaves the screen.
     PlazaBackHandler(enabled = panelOpen) { editorState.closePanels() }
 
-    Column(Modifier.fillMaxWidth()) {
-        AttachmentTray(
-            attachments = state.attachments,
-            onRemove = onRemoveAttachment,
-            onRetry = onRetryAttachment,
-        )
-        // One quoted message waiting over the bar (3e): whose words, the first line of them, and a
-        // ✕. The excerpt goes through the conversation list's [previewText], so a quoted picture or
-        // sticker reads as [图片] or [表情] rather than as the Markdown that carries it.
-        state.quotes.forEach { quoted ->
-            QuotePreview(
-                title =
-                if (quoted.isMine) {
-                    stringResource(Res.string.message_quote_chip_mine)
-                } else {
-                    stringResource(Res.string.message_quote_chip, state.userName)
-                },
-                excerpt = previewText(contentPreview(quoted.content)),
-                titleColor = MaterialTheme.colorScheme.primary,
-                leading = {
-                    Box(
-                        Modifier
-                            .width(3.dp)
-                            .height(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
-                },
-                onRemove = { onRemoveQuote(quoted.id) },
-                removeLabel = stringResource(Res.string.message_quote_remove),
-                modifier = Modifier.padding(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.xs),
+    val layers = LocalPlazaLayers.current
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        color = layers.raised,
+        border = layers.cardBorderStroke,
+        shadowElevation = if (layers.shadows) 1.dp else 0.dp,
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            AttachmentTray(
+                attachments = state.attachments,
+                onRemove = onRemoveAttachment,
+                onRetry = onRetryAttachment,
             )
-        }
-        MessageInputBar(
-            draftState = draftState,
-            stickerPictures = stickerPictures,
-            canSend = state.canSend,
-            panelOpen = panelOpen,
-            onTogglePanel = {
-                if (panelOpen) {
-                    editorState.closePanels()
-                } else {
-                    // Focus goes with the keyboard: a field that kept it would bring the keyboard
-                    // straight back up over the grid on the next recomposition, and tapping the field
-                    // is how the grid closes.
+            // One quoted message waiting over the bar (3e): whose words, the first line of them, and a
+            // ✕. The excerpt goes through the conversation list's [previewText], so a quoted picture or
+            // sticker reads as [图片] or [表情] rather than as the Markdown that carries it.
+            state.quotes.forEach { quoted ->
+                QuotePreview(
+                    title =
+                    if (quoted.isMine) {
+                        stringResource(Res.string.message_quote_chip_mine)
+                    } else {
+                        stringResource(Res.string.message_quote_chip, state.userName)
+                    },
+                    excerpt = previewText(contentPreview(quoted.content)),
+                    titleColor = MaterialTheme.colorScheme.primary,
+                    leading = {
+                        Box(
+                            Modifier
+                                .width(3.dp)
+                                .height(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    },
+                    onRemove = { onRemoveQuote(quoted.id) },
+                    removeLabel = stringResource(Res.string.message_quote_remove),
+                    modifier = Modifier.padding(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.xs),
+                )
+            }
+            MessageInputBar(
+                draftState = draftState,
+                stickerPictures = stickerPictures,
+                canSend = state.canSend,
+                panelOpen = panelOpen,
+                emojiOpen = editorState.emojiOpen,
+                onTogglePanel = {
+                    if (panelOpen) {
+                        editorState.closePanels()
+                    } else {
+                        // Focus goes with the keyboard: a field that kept it would bring the keyboard
+                        // straight back up over the grid on the next recomposition, and tapping the field
+                        // is how the grid closes.
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                        editorState.toggleFormat()
+                    }
+                },
+                onToggleEmoji = {
                     focusManager.clearFocus()
-                    keyboard?.hide()
-                    editorState.toggleFormat()
-                }
-            },
-            fieldFocus = fieldFocus,
-            onFieldFocused = { editorState.closePanels() },
-            onSend = onSend,
-        )
-        if (editorState.formatOpen) {
-            ToolGrid(
-                state = state,
-                onAction = { action ->
                     editorState.dispatch(
-                        action = action,
+                        action = EditorAction.EMOJI,
                         bodyState = draftState,
                         onPickImages = pickImages,
                         onPickHostedImages = onPickHostedImages,
-                        // Straight back to the field: the placeholder the key inserted is selected,
-                        // and the next keystroke is meant to replace it.
-                        onFormatted = {
-                            editorState.closePanels()
-                            fieldFocus.requestFocus()
-                        },
+                        onFormatted = {},
                         hideKeyboard = { keyboard?.hide() },
                     )
                 },
-                onCustomize = onCustomize,
+                fieldFocus = fieldFocus,
+                onFieldFocused = { editorState.closePanels() },
+                onSend = onSend,
             )
-        }
-        if (editorState.emojiOpen) {
-            val panel = editorState.emojiPanelScope(draftState, stickerPictures)
-            NodeSeekEmojiPanel(
-                onInsert = panel.onInsert,
-                onBackspace = panel.onBackspace,
-                recent = panel.recent,
-                onRecentChange = panel.onRecentChange,
-            )
+            if (editorState.formatOpen) {
+                ToolGrid(
+                    state = state,
+                    onAction = { action ->
+                        editorState.dispatch(
+                            action = action,
+                            bodyState = draftState,
+                            onPickImages = pickImages,
+                            onPickHostedImages = onPickHostedImages,
+                            // Straight back to the field: the placeholder the key inserted is selected,
+                            // and the next keystroke is meant to replace it.
+                            onFormatted = {
+                                editorState.closePanels()
+                                fieldFocus.requestFocus()
+                            },
+                            hideKeyboard = { keyboard?.hide() },
+                        )
+                    },
+                    onCustomize = onCustomize,
+                )
+            }
+            if (editorState.emojiOpen) {
+                val panel = editorState.emojiPanelScope(draftState, stickerPictures)
+                NodeSeekEmojiPanel(
+                    onInsert = panel.onInsert,
+                    onBackspace = panel.onBackspace,
+                    recent = panel.recent,
+                    onRecentChange = panel.onRecentChange,
+                )
+            }
         }
     }
 }
@@ -1050,7 +1211,9 @@ private fun MessageInputBar(
     stickerPictures: InlinePictures,
     canSend: Boolean,
     panelOpen: Boolean,
+    emojiOpen: Boolean,
     onTogglePanel: () -> Unit,
+    onToggleEmoji: () -> Unit,
     fieldFocus: FocusRequester,
     onFieldFocused: () -> Unit,
     onSend: () -> Unit,
@@ -1059,7 +1222,7 @@ private fun MessageInputBar(
         modifier =
         Modifier
             .fillMaxWidth()
-            .padding(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.sm, bottom = Spacing.md),
+            .padding(start = THREAD_GUTTER, end = THREAD_GUTTER, top = Spacing.sm, bottom = Spacing.sm),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
@@ -1084,6 +1247,8 @@ private fun MessageInputBar(
         MessageDraftField(
             draftState = draftState,
             stickerPictures = stickerPictures,
+            emojiOpen = emojiOpen,
+            onToggleEmoji = onToggleEmoji,
             modifier =
             Modifier
                 .weight(1f)
@@ -1113,6 +1278,8 @@ private fun MessageInputBar(
 private fun MessageDraftField(
     draftState: TextFieldState,
     stickerPictures: InlinePictures,
+    emojiOpen: Boolean,
+    onToggleEmoji: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val layers = LocalPlazaLayers.current
@@ -1121,8 +1288,6 @@ private fun MessageDraftField(
         hint = stringResource(Res.string.message_input_hint),
         textStyle =
         MaterialTheme.typography.bodyLarge.copy(
-            fontSize = 15.sp,
-            lineHeight = 24.sp,
             color = MaterialTheme.colorScheme.onSurface,
         ),
         // One line of placeholder, elided: the pill is 48dp tall when empty and a wrapping hint
@@ -1132,22 +1297,35 @@ private fun MessageDraftField(
         inlinePictures = stickerPictures,
         modifier = modifier,
         container = { content ->
-            // A white pill on the page, lifted like a card: 3d draws the field as the one surface
-            // on the bar, with the two keys either side of it sitting on the page itself.
             Surface(
                 shape = RoundedCornerShape(INPUT_CONTROL_SIZE / 2),
-                color = layers.raised,
+                color = layers.inset,
                 border = layers.cardBorderStroke,
-                modifier = Modifier.cardShadow(RoundedCornerShape(INPUT_CONTROL_SIZE / 2), layers.shadows),
             ) {
-                Box(
+                Row(
                     modifier =
                     Modifier
                         .heightIn(min = INPUT_CONTROL_SIZE)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    contentAlignment = Alignment.CenterStart,
+                        .padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.Bottom,
                 ) {
-                    content()
+                    Box(
+                        modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        content()
+                    }
+                    IconToggleButton(
+                        checked = emojiOpen,
+                        onCheckedChange = { onToggleEmoji() },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            EditorAction.EMOJI.icon,
+                            contentDescription = stringResource(EditorAction.EMOJI.label),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
         },
@@ -1297,7 +1475,7 @@ private fun ThreadMenu(onOpenBrowser: () -> Unit) {
 }
 
 /**
- * A bubble hugs its text; only the 78 % cap comes from the parent.
+ * A bubble hugs its text; only the 86 % cap comes from the parent.
  *
  * `fillMaxWidth` claims the fraction and `wrapContentWidth` then releases the minimum-width
  * constraint it would otherwise impose — the same two-step the readable-width cap uses.
@@ -1305,7 +1483,9 @@ private fun ThreadMenu(onOpenBrowser: () -> Unit) {
 private fun Modifier.wrapContentWidthTo(isMine: Boolean): Modifier =
     this.wrapContentWidth(align = if (isMine) Alignment.End else Alignment.Start)
 
-private const val BUBBLE_MAX_WIDTH = 0.78f
+private const val BUBBLE_MAX_WIDTH = 0.86f
+
+private val THREAD_GUTTER = 12.dp
 
 /** 3d's bubble corners: 20dp all round but the one pointing at its sender, which tucks in to 6dp. */
 private val THEIRS_SHAPE: Shape = RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp)
