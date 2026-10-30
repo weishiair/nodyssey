@@ -435,6 +435,8 @@ fun PostDetailScreen(
 
     /** The floor whose 1c panel is open — from its ⋯, or a long press on its card. */
     var floorActions by remember { mutableStateOf<FloorActions?>(null) }
+    var titleToCopy by rememberSaveable(state.postId) { mutableStateOf<String?>(null) }
+    val copy = rememberClipboardCopy()
     val snackbarHostState = remember { SnackbarHostState() }
 
     /** The floor 分享为图片 is drawing, from the panel's tap until the share sheet has it. */
@@ -916,7 +918,19 @@ fun PostDetailScreen(
                 floorActions = null
                 reactTo(live, action)
             },
+            onSelectTitle = { titleToCopy = it },
             onShareImage = if (shareImage != null && shareImageOf == null) ({ shareImageOf = live }) else null,
+        )
+    }
+    titleToCopy?.let { title ->
+        val copied = stringResource(Res.string.post_title_copied)
+        PostTitleDialog(
+            title = title,
+            onDismiss = { titleToCopy = null },
+            onCopyAll = {
+                copy("title", title, copied)
+                titleToCopy = null
+            },
         )
     }
     // The 投喂 tile says whether today's feed is free, which only the site knows. Asked for as the
@@ -2915,6 +2929,7 @@ private fun FloorActionSheet(
     freeChickenLegs: FreeChickenLegs?,
     onDismiss: () -> Unit,
     onReact: (ReactionAction) -> Unit,
+    onSelectTitle: (String) -> Unit,
     /** 分享为图片; null where this platform has no share sheet, or while one is already being drawn. */
     onShareImage: (() -> Unit)? = null,
 ) {
@@ -2973,10 +2988,9 @@ private fun FloorActionSheet(
                         add(Triple(PlazaIcons.FormatQuote, stringResource(Res.string.post_quote_floor), it))
                     }
                     actions.postTitle?.takeIf { it.isNotBlank() }?.let { title ->
-                        val titleCopied = stringResource(Res.string.post_title_copied)
                         add(
                             Triple(PlazaIcons.Title, stringResource(Res.string.post_copy_title)) {
-                                copy("title", title, titleCopied)
+                                onSelectTitle(title)
                             },
                         )
                     }

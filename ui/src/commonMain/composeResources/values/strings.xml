@@ -179,7 +179,10 @@
     <string name="post_floor_actions">楼层操作</string>
     <string name="post_reply_to">回复 %1$s</string>
     <string name="post_quote_floor">引用这一楼</string>
-    <string name="post_copy_title">复制标题</string>
+    <string name="post_copy_title">选择并复制标题</string>
+    <string name="post_select_title">选择标题</string>
+    <string name="post_select_title_hint">长按选词，拖动调整范围</string>
+    <string name="post_copy_title_all">复制全部</string>
     <string name="post_copy_body">复制正文</string>
     <!-- 楼层面板里的「分享为图片」：把这一楼画成一张图交给系统分享；生成中、失败时的提示，以及正文太长被截断时图里的那行说明 -->
     <string name="post_share_image">分享为图片</string>

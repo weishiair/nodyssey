@@ -1,5 +1,8 @@
 package io.github.nodyssey.ui.postdetail
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,6 +16,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -25,6 +29,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
+import androidx.test.core.app.ApplicationProvider
 import io.github.nodyssey.ThreadPreview
 import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.model.PostReactions
@@ -120,6 +125,24 @@ class PostDetailScreenTest {
             categoryTitle = "技术",
             categorySlug = "tech",
         )
+
+    /** The sheet and dialog both leave composition before the clipboard write may finish. */
+    @Test
+    fun `copying the whole title survives closing its selection dialog`() {
+        val title = "【出】出一台 OVH KS-2/KS2 8T HDD GRA机房 10G大盘鸡"
+        val clipboard = ApplicationProvider.getApplicationContext<Context>()
+            .getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("previous", "previous clipboard value"))
+        setScreen(PostDetailUiState(title = title, body = content("a different body")))
+
+        composeRule.onNodeWithContentDescription("楼层操作").performClick()
+        composeRule.onNodeWithText("选择并复制标题").performClick()
+        composeRule.onNodeWithText("复制全部").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(title, clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+        composeRule.onAllNodes(isDialog()).assertCountEquals(0)
+    }
 
     @Test
     fun `jumping to a loaded floor scrolls locally without requesting its server page`() {
