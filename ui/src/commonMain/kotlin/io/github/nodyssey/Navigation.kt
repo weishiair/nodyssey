@@ -62,7 +62,7 @@ import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
-import io.github.nodyssey.ui.common.ThreadSharedEntrance
+import io.github.nodyssey.ui.common.ThreadSharedTransition
 import io.github.nodyssey.ui.common.appName
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.clipboardPostToOffer
@@ -894,6 +894,7 @@ internal fun stackScopedEntryProvider(
         // Read the live setting inside the spec: these providers outlive changes in Settings.
         metadata = entry.metadata + paneMetadataOf(key, destination) + metadata {
             put(TabDestinationKey, destination)
+            if (key is PostDetailKey) put(ThreadReturnKey, key)
         } + NavDisplay.transitionSpec {
             if (isTabSwitch()) SNAP_CONTENT_TRANSFORM else transition?.invoke(this)
         } + NavDisplay.popTransitionSpec {
@@ -904,7 +905,7 @@ internal fun stackScopedEntryProvider(
         // scene interrupted mid-entrance. Omit removed content so it cannot intercept input; remove
         // this guard when NavDisplay can finish an interrupted non-animated pop immediately.
         if (predictiveBack() || backStack.any { it === key }) {
-            if (key is PostDetailKey) ThreadSharedEntrance { entry.Content() } else entry.Content()
+            if (key is PostDetailKey) ThreadSharedTransition { entry.Content() } else entry.Content()
         }
     }
 }

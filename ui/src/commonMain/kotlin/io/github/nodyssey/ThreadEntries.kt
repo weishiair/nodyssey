@@ -60,8 +60,8 @@ internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = wi
     entry<PostDetailKey>(
         /*
          * Keep both page backgrounds stationary when a row supplies the shared thread header.
-         * Only the shared elements travel during entrance. Return uses the display's short slide
-         * with the header attached to the outgoing page, revealing the stationary list underneath.
+         * The header returns to its row when a shared match is present; the surface retires in place.
+         * Without a visible match, the display retains its ordinary whole-page return.
          * Threads without a preview retain the display's directional entrance too.
          */
         metadata = { key ->
@@ -89,7 +89,7 @@ internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = wi
                 factory = ReplyComposerViewModel.factory(container, key.postId),
             )
         PostDetailRoute(
-            modifier = Modifier.sharedThreadSurface(key.preview?.origin),
+            modifier = Modifier.sharedThreadSurface(key.postId, key.preview?.origin),
             viewModel = viewModel,
             replyViewModel = replyViewModel,
             // By identity: the stack hands the entry this very key, and an equal key further down

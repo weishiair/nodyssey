@@ -4,23 +4,25 @@ import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.SharedTransitionDefaults
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
+import io.github.nodyssey.predictiveBackAnimationSpec
 
 /**
  * The scope a thread's own things travel in on their way from a list row to the thread it opens, or
@@ -43,34 +45,45 @@ val LocalThreadTransition = compositionLocalOf<SharedTransitionScope?> { null }
 private val LocalThreadSharedContentConfig =
     compositionLocalOf<SharedTransitionScope.SharedContentConfig> { SharedTransitionDefaults.SharedContentConfig }
 
+internal val LocalThreadMatches = compositionLocalOf<ThreadTransitionMatches?> { null }
+internal val LocalThreadSharedReturnEnabled = compositionLocalOf { true }
+internal val LocalThreadBackGestureInProgress = compositionLocalOf { false }
+
+/** NavDisplay has no shared-key lookup; defer this lookup until its slide offset is measured. */
+internal class ThreadTransitionMatches {
+    private val titles = mutableStateListOf<SharedTransitionScope.SharedContentState>()
+
+    fun add(state: SharedTransitionScope.SharedContentState) {
+        titles.add(state)
+    }
+
+    fun remove(state: SharedTransitionScope.SharedContentState) {
+        titles.remove(state)
+    }
+
+    fun hasMatch(postId: Long, origin: String): Boolean =
+        titles.any { it.key == threadPartKey(ThreadPart.TITLE, postId, origin) && it.isMatchFound }
+}
+
 /**
- * A new thread shares its entrance once. Back moves the intact page, including its header.
- *
- * Saved with the navigation entry: revealing this thread after an author page or image viewer is
- * still a return, even though AnimatedContent composes its entering header again. Disabling an
- * ongoing match also interrupts a quick back during entrance rather than flying the header home.
+ * Share the header in both directions when its originating row is actually composed. A child page
+ * has no matching row, so returning from an author or image viewer cannot replay the entrance.
+ * Turning previews off still interrupts a quick back without retaining invisible shared content.
  */
 @Composable
-internal fun ThreadSharedEntrance(content: @Composable () -> Unit) {
+internal fun ThreadSharedTransition(content: @Composable () -> Unit) {
     if (LocalThreadTransition.current == null) {
         content()
         return
     }
     val visibility = LocalNavAnimatedContentScope.current.transition
-    var entranceFinished by rememberSaveable { mutableStateOf(false) }
-    val config = remember(visibility) {
+    val sharedReturn = LocalThreadSharedReturnEnabled.current
+    val config = remember(visibility, sharedReturn) {
         object : SharedTransitionScope.SharedContentConfig {
             override val SharedTransitionScope.SharedContentState.isEnabled: Boolean
-                get() = !entranceFinished &&
-                    visibility.currentState == EnterExitState.PreEnter &&
-                    visibility.targetState == EnterExitState.Visible
+                get() = sharedReturn || visibility.targetState == EnterExitState.Visible
 
             override val shouldKeepEnabledForOngoingAnimation: Boolean = false
-        }
-    }
-    LaunchedEffect(visibility.currentState, visibility.targetState) {
-        if (visibility.currentState != EnterExitState.PreEnter || visibility.targetState != EnterExitState.Visible) {
-            entranceFinished = true
         }
     }
     CompositionLocalProvider(LocalThreadSharedContentConfig provides config, content = content)
@@ -117,6 +130,8 @@ private enum class ThreadPart {
     BOARD,
 }
 
+private fun threadPartKey(part: ThreadPart, postId: Long, origin: String): String = "$origin-${part.name}-$postId"
+
 private const val THREAD_SURFACE_Z_INDEX = 1f
 private const val THREAD_CONTENT_Z_INDEX = 2f
 
@@ -127,13 +142,22 @@ private const val THREAD_CONTENT_Z_INDEX = 2f
  * layer lets an outgoing scene in the shared overlay cover it: the header flies over the old list
  * and the thread background only appears when the overlay is released. The official overlay
  * modifier moves the existing surface with its header, without another copy or an opacity change.
- * Only the destination is elevated; outgoing pages keep their ordinary and predictive back slide.
+ * Only the destination is elevated. A matched return fades the ordinary surface below the header;
+ * an unmatched return keeps it opaque and slides the whole page.
  */
 @Composable
-fun Modifier.sharedThreadSurface(origin: String?): Modifier {
+fun Modifier.sharedThreadSurface(postId: Long, origin: String?): Modifier {
     if (origin.isNullOrEmpty()) return this
     val sharedScope = LocalThreadTransition.current ?: return this
     val animatedScope = LocalNavAnimatedContentScope.current
+    val matches = LocalThreadMatches.current
+    val effectsSpec = threadEffectsSpec(fast = true)
+    val exitAlpha by animatedScope.transition.animateFloat(
+        transitionSpec = { effectsSpec },
+        label = "threadReturnSurface",
+    ) { state ->
+        if (state == EnterExitState.PostExit && matches?.hasMatch(postId, origin) == true) 0f else 1f
+    }
     return with(sharedScope) {
         this@sharedThreadSurface.renderInSharedTransitionScopeOverlay(
             zIndexInOverlay = THREAD_SURFACE_Z_INDEX,
@@ -141,7 +165,7 @@ fun Modifier.sharedThreadSurface(origin: String?): Modifier {
                 isTransitionActive &&
                     animatedScope.transition.targetState == EnterExitState.Visible
             },
-        )
+        ).graphicsLayer { alpha = exitAlpha }
     }
 }
 
@@ -204,8 +228,36 @@ fun Modifier.sharedThreadBoard(
  */
 @Composable
 private fun threadBoundsTransform(): BoundsTransform {
-    val spec = MaterialTheme.motionScheme.defaultSpatialSpec<Rect>()
+    val spec = if (LocalThreadBackGestureInProgress.current) {
+        predictiveBackAnimationSpec<Rect>()
+    } else {
+        MaterialTheme.motionScheme.defaultSpatialSpec<Rect>()
+    }
     return BoundsTransform { _, _ -> spec }
+}
+
+@Composable
+private fun threadEffectsSpec(fast: Boolean): FiniteAnimationSpec<Float> {
+    val visibility = LocalNavAnimatedContentScope.current.transition
+    val gesture = LocalThreadBackGestureInProgress.current
+    val themeSpec = if (fast) MaterialTheme.motionScheme.fastEffectsSpec<Float>() else MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    // Keep the gesture timeline through completion, rather than switching curves on finger-up.
+    return remember(visibility.currentState, visibility.targetState, themeSpec) {
+        if (gesture) predictiveBackAnimationSpec() else themeSpec
+    }
+}
+
+@Composable
+private fun SharedTransitionScope.rememberThreadPart(part: ThreadPart, postId: Long, origin: String): SharedTransitionScope.SharedContentState {
+    val state = rememberSharedContentState(threadPartKey(part, postId, origin), LocalThreadSharedContentConfig.current)
+    val matches = LocalThreadMatches.current
+    if (part == ThreadPart.TITLE && matches != null) {
+        DisposableEffect(matches, state) {
+            matches.add(state)
+            onDispose { matches.remove(state) }
+        }
+    }
+    return state
 }
 
 @Composable
@@ -218,11 +270,10 @@ private fun Modifier.sharedThreadBounds(
     // Deliberately read only after the null check above: it throws outside a NavDisplay entry.
     val animatedScope = LocalNavAnimatedContentScope.current
     val boundsTransform = threadBoundsTransform()
-    val effectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
-    val config = LocalThreadSharedContentConfig.current
+    val effectsSpec = threadEffectsSpec(fast = false)
     return with(transition) {
         this@sharedThreadBounds.sharedBounds(
-            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId", config),
+            sharedContentState = rememberThreadPart(part, postId, origin),
             animatedVisibilityScope = animatedScope,
             enter = fadeIn(effectsSpec),
             exit = fadeOut(effectsSpec),
@@ -246,10 +297,9 @@ private fun Modifier.sharedThreadElement(
     val transition = LocalThreadTransition.current ?: return this
     val animatedScope = LocalNavAnimatedContentScope.current
     val boundsTransform = threadBoundsTransform()
-    val config = LocalThreadSharedContentConfig.current
     return with(transition) {
         this@sharedThreadElement.sharedElement(
-            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId", config),
+            sharedContentState = rememberThreadPart(part, postId, origin),
             animatedVisibilityScope = animatedScope,
             boundsTransform = boundsTransform,
             zIndexInOverlay = THREAD_CONTENT_Z_INDEX,
