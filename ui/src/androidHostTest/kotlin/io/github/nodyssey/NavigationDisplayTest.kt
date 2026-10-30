@@ -107,7 +107,7 @@ class NavigationDisplayTest {
                         Box(
                             Modifier
                                 .fillMaxSize()
-                                .then(if (shared) Modifier.sharedThreadSurface(THREAD_ORIGIN_FEED) else Modifier)
+                                .then(if (shared) Modifier.sharedThreadSurface(1L, THREAD_ORIGIN_FEED) else Modifier)
                                 .clickable { detailClicks++ },
                         ) {
                             Text("Thread", modifier = if (shared) Modifier.sharedThreadTitle(1L, THREAD_ORIGIN_FEED) else Modifier)
@@ -140,7 +140,9 @@ class NavigationDisplayTest {
         }
         compose.waitForIdle()
         if (!settleEntrance) compose.mainClock.autoAdvance = false
-        compose.runOnIdle { stack.add(PostDetailKey(1L)) }
+        compose.runOnIdle {
+            stack.add(PostDetailKey(1L, preview = if (shared) ThreadPreview("Thread", "Author", origin = THREAD_ORIGIN_FEED) else null))
+        }
         if (settleEntrance) {
             compose.waitForIdle()
         } else {
@@ -248,6 +250,36 @@ class NavigationDisplayTest {
         compose.runOnIdle {
             assertEquals(2, stack.size)
             assertEquals("The restored thread must receive the first tap after cancellation", 1, detailClicks)
+        }
+    }
+
+    @Test
+    fun `a completed shared return releases input to the original list`() {
+        show(shared = true, initiallyPredictive = true)
+        compose.runOnIdle { input.completeGesture() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(listOf(PostListKey), stack.toList()) }
+        compose.mainClock.autoAdvance = false
+        assertImmediateScroll()
+    }
+
+    @Test
+    fun `losing the source row during a cancelled return leaves the thread interactive`() {
+        show(shared = true, initiallyPredictive = true)
+        compose.runOnIdle { input.startAndProgress(NavigationEvent.EDGE_LEFT) }
+        advanceSceneFrames()
+        compose.runOnIdle { list.requestScrollToItem(20) }
+        advanceSceneFrames()
+        compose.runOnIdle { input.cancel() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        compose.onNodeWithTag("screen").performTouchInput {
+            click(Offset(width * 0.9f, height * 0.7f))
+        }
+        compose.runOnIdle {
+            assertEquals(2, stack.size)
+            assertEquals("Cancelling after the row disappears must restore the thread's input", 1, detailClicks)
         }
     }
 
