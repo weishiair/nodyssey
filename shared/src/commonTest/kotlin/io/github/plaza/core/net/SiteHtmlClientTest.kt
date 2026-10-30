@@ -39,7 +39,7 @@ class SiteHtmlClientTest {
     private fun client(vararg answers: HttpResponse) = SiteHtmlClient(RecordingTransport(*answers), dispatchers, config)
 
     @Test
-    fun `an answer from another host is the site refusing, not a page`() = runTest {
+    fun `an answer from another host means the site refused access`() = runTest {
         val site =
             client(
                 httpResponse(
