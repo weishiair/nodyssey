@@ -108,6 +108,7 @@ import io.github.nodyssey.ui.common.TabPager
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.labelRes
 import io.github.nodyssey.ui.common.rememberTabPagerState
+import io.github.nodyssey.ui.common.searchOrigin
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.postlist.toSiteError
 import io.github.nodyssey.ui.resources.Res
@@ -164,7 +165,8 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun SearchRoute(
     viewModel: SearchViewModel,
-    onPostClick: (Long) -> Unit,
+    threadOrigin: String,
+    onPostClick: (FeedPost) -> Unit,
     onUserClick: (Long) -> Unit,
     onBack: () -> Unit,
     onSignIn: () -> Unit,
@@ -195,6 +197,7 @@ fun SearchRoute(
         onVerify = onVerify,
         modifier = modifier,
         onNavigationBarHiddenChanged = onNavigationBarHiddenChanged,
+        threadOrigin = threadOrigin,
     )
 }
 
@@ -221,7 +224,7 @@ fun SearchScreen(
     onHistoryClick: (SearchHistoryEntry) -> Unit,
     onRemoveHistory: (SearchHistoryEntry) -> Unit,
     onClearHistory: () -> Unit,
-    onPostClick: (Long) -> Unit,
+    onPostClick: (FeedPost) -> Unit,
     onUserClick: (Long) -> Unit,
     onRetry: () -> Unit,
     onSignIn: () -> Unit,
@@ -242,6 +245,7 @@ fun SearchScreen(
     onApplyOptions: (String?, FeedSort) -> Unit = { _, _ -> },
     /** Keeps the host navigation bar hidden until the user deliberately scrolls back up. */
     onNavigationBarHiddenChanged: (Boolean) -> Unit = {},
+    threadOrigin: String = searchOrigin(null),
 ) {
     var showOptionsSheet by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -375,6 +379,7 @@ fun SearchScreen(
                             state = state,
                             queryState = queryState,
                             onPostClick = onPostClick,
+                            threadOrigin = threadOrigin,
                             onUserClick = onUserClick,
                             postResults = postResults,
                             onRetry = onRetry,
@@ -716,7 +721,8 @@ private fun SearchResults(
     target: SearchTarget,
     state: SearchUiState,
     queryState: TextFieldState,
-    onPostClick: (Long) -> Unit,
+    onPostClick: (FeedPost) -> Unit,
+    threadOrigin: String,
     onUserClick: (Long) -> Unit,
     postResults: LazyPagingItems<FeedPost>?,
     onRetry: () -> Unit,
@@ -794,6 +800,7 @@ private fun SearchResults(
                     posts = posts,
                     highlight = state.submittedQuery,
                     onPostClick = onPostClick,
+                    threadOrigin = threadOrigin,
                     // 设置 › 外观 › 搜索结果显示头像 decides both; off means the old slimmer card.
                     avatarSize = state.searchAvatarSize.dp.takeIf { state.showSearchAvatar },
                 )
@@ -807,7 +814,8 @@ private fun SearchResults(
 private fun PostResults(
     posts: LazyPagingItems<FeedPost>,
     highlight: String?,
-    onPostClick: (Long) -> Unit,
+    onPostClick: (FeedPost) -> Unit,
+    threadOrigin: String,
     avatarSize: Dp?,
 ) {
     val listState = rememberLazyListState()
@@ -843,7 +851,8 @@ private fun PostResults(
                         SearchPostCard(
                             post = post,
                             highlight = highlight,
-                            onClick = { onPostClick(post.summary.postId) },
+                            onClick = { onPostClick(post) },
+                            origin = threadOrigin,
                             avatarSize = avatarSize,
                         )
                 }

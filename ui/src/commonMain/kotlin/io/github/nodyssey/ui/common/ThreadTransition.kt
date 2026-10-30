@@ -1,12 +1,21 @@
 package io.github.nodyssey.ui.common
 
 import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.SharedTransitionDefaults
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -31,6 +40,42 @@ import androidx.navigation3.ui.LocalNavAnimatedContentScope
  */
 val LocalThreadTransition = compositionLocalOf<SharedTransitionScope?> { null }
 
+private val LocalThreadSharedContentConfig =
+    compositionLocalOf<SharedTransitionScope.SharedContentConfig> { SharedTransitionDefaults.SharedContentConfig }
+
+/**
+ * A new thread shares its entrance once. Back moves the intact page, including its header.
+ *
+ * Saved with the navigation entry: revealing this thread after an author page or image viewer is
+ * still a return, even though AnimatedContent composes its entering header again. Disabling an
+ * ongoing match also interrupts a quick back during entrance rather than flying the header home.
+ */
+@Composable
+internal fun ThreadSharedEntrance(content: @Composable () -> Unit) {
+    if (LocalThreadTransition.current == null) {
+        content()
+        return
+    }
+    val visibility = LocalNavAnimatedContentScope.current.transition
+    var entranceFinished by rememberSaveable { mutableStateOf(false) }
+    val config = remember(visibility) {
+        object : SharedTransitionScope.SharedContentConfig {
+            override val SharedTransitionScope.SharedContentState.isEnabled: Boolean
+                get() = !entranceFinished &&
+                    visibility.currentState == EnterExitState.PreEnter &&
+                    visibility.targetState == EnterExitState.Visible
+
+            override val shouldKeepEnabledForOngoingAnimation: Boolean = false
+        }
+    }
+    LaunchedEffect(visibility.currentState, visibility.targetState) {
+        if (visibility.currentState != EnterExitState.PreEnter || visibility.targetState != EnterExitState.Visible) {
+            entranceFinished = true
+        }
+    }
+    CompositionLocalProvider(LocalThreadSharedContentConfig provides config, content = content)
+}
+
 /**
  * Which list a row is travelling from, as part of the key that pairs it with the thread header.
  *
@@ -46,6 +91,10 @@ const val THREAD_ORIGIN_MY_TOPICS = "mytopics"
 
 /** A user's space is its uid, not merely `space`: two space pages can sit on one stack. */
 fun spaceOrigin(uid: Long): String = "space-$uid"
+
+/** The initial query identifies the search entry even if its submitted query later changes. */
+fun searchOrigin(initialQuery: String?): String =
+    "search-${initialQuery?.let { "query:$it" } ?: "default"}"
 
 /**
  * The four things a feed row and a thread state about the same post.
@@ -68,6 +117,34 @@ private enum class ThreadPart {
     BOARD,
 }
 
+private const val THREAD_SURFACE_Z_INDEX = 1f
+private const val THREAD_CONTENT_Z_INDEX = 2f
+
+/**
+ * Keep an arriving thread's opaque surface under its travelling header in the same overlay.
+ *
+ * Shared elements bypass the scene's drawing layer. Leaving their destination surface in that
+ * layer lets an outgoing scene in the shared overlay cover it: the header flies over the old list
+ * and the thread background only appears when the overlay is released. The official overlay
+ * modifier moves the existing surface with its header, without another copy or an opacity change.
+ * Only the destination is elevated; outgoing pages keep their ordinary and predictive back slide.
+ */
+@Composable
+fun Modifier.sharedThreadSurface(origin: String?): Modifier {
+    if (origin.isNullOrEmpty()) return this
+    val sharedScope = LocalThreadTransition.current ?: return this
+    val animatedScope = LocalNavAnimatedContentScope.current
+    return with(sharedScope) {
+        this@sharedThreadSurface.renderInSharedTransitionScopeOverlay(
+            zIndexInOverlay = THREAD_SURFACE_Z_INDEX,
+            renderInOverlay = {
+                isTransitionActive &&
+                    animatedScope.transition.targetState == EnterExitState.Visible
+            },
+        )
+    }
+}
+
 /**
  * The title, which the row states in 15sp over two lines at most and the thread in 20sp over as many
  * as it takes.
@@ -81,8 +158,8 @@ private enum class ThreadPart {
 @Composable
 fun Modifier.sharedThreadTitle(
     postId: Long,
-    origin: String,
-): Modifier = sharedThreadBounds(ThreadPart.TITLE, postId, origin)
+    origin: String?,
+): Modifier = if (origin == null) this else sharedThreadBounds(ThreadPart.TITLE, postId, origin)
 
 /**
  * The author's name: 12sp in the row's meta line, `titleSmall` beside the larger avatar in the
@@ -91,8 +168,8 @@ fun Modifier.sharedThreadTitle(
 @Composable
 fun Modifier.sharedThreadAuthor(
     postId: Long,
-    origin: String,
-): Modifier = sharedThreadBounds(ThreadPart.AUTHOR, postId, origin)
+    origin: String?,
+): Modifier = if (origin == null) this else sharedThreadBounds(ThreadPart.AUTHOR, postId, origin)
 
 /**
  * The avatar: 34dp in the row, 40dp in the thread, and the *same picture* at both ends — so this one
@@ -106,8 +183,8 @@ fun Modifier.sharedThreadAuthor(
 @Composable
 fun Modifier.sharedThreadAvatar(
     postId: Long,
-    origin: String,
-): Modifier = sharedThreadElement(ThreadPart.AVATAR, postId, origin)
+    origin: String?,
+): Modifier = if (origin == null) this else sharedThreadElement(ThreadPart.AVATAR, postId, origin)
 
 /**
  * The board tag, which is the one part drawn identically at both ends — same component, same text,
@@ -117,8 +194,8 @@ fun Modifier.sharedThreadAvatar(
 @Composable
 fun Modifier.sharedThreadBoard(
     postId: Long,
-    origin: String,
-): Modifier = sharedThreadElement(ThreadPart.BOARD, postId, origin)
+    origin: String?,
+): Modifier = if (origin == null) this else sharedThreadElement(ThreadPart.BOARD, postId, origin)
 
 /**
  * The app's own spatial motion, so everything that travels does so on the same curve as the rest of
@@ -141,13 +218,16 @@ private fun Modifier.sharedThreadBounds(
     // Deliberately read only after the null check above: it throws outside a NavDisplay entry.
     val animatedScope = LocalNavAnimatedContentScope.current
     val boundsTransform = threadBoundsTransform()
+    val effectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    val config = LocalThreadSharedContentConfig.current
     return with(transition) {
         this@sharedThreadBounds.sharedBounds(
-            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId"),
+            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId", config),
             animatedVisibilityScope = animatedScope,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = fadeIn(effectsSpec),
+            exit = fadeOut(effectsSpec),
             boundsTransform = boundsTransform,
+            zIndexInOverlay = THREAD_CONTENT_Z_INDEX,
             resizeMode =
             SharedTransitionScope.ResizeMode.scaleToBounds(
                 contentScale = ContentScale.FillWidth,
@@ -166,11 +246,13 @@ private fun Modifier.sharedThreadElement(
     val transition = LocalThreadTransition.current ?: return this
     val animatedScope = LocalNavAnimatedContentScope.current
     val boundsTransform = threadBoundsTransform()
+    val config = LocalThreadSharedContentConfig.current
     return with(transition) {
         this@sharedThreadElement.sharedElement(
-            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId"),
+            sharedContentState = rememberSharedContentState("$origin-${part.name}-$postId", config),
             animatedVisibilityScope = animatedScope,
             boundsTransform = boundsTransform,
+            zIndexInOverlay = THREAD_CONTENT_Z_INDEX,
         )
     }
 }

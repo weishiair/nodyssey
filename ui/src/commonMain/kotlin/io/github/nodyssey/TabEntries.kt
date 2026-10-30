@@ -8,7 +8,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.data.FeedPost
 import io.github.nodyssey.ui.common.THREAD_ORIGIN_FEED
+import io.github.nodyssey.ui.common.searchOrigin
 import io.github.nodyssey.ui.login.WebViewGoal
 import io.github.nodyssey.ui.messages.MessageThreadRoute
 import io.github.nodyssey.ui.messages.MessageThreadViewModel
@@ -45,17 +47,7 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
                 backStack.add(
                     PostDetailKey(
                         post.summary.postId,
-                        preview =
-                        ThreadPreview(
-                            title = post.summary.title,
-                            authorName = post.summary.authorName,
-                            avatarUrl = post.summary.avatarUrl,
-                            categoryTitle = post.summary.categoryTitle,
-                            categorySlug = post.summary.categorySlug,
-                            isAwarded = post.summary.isAwarded,
-                            replyCount = post.summary.commentCount,
-                            origin = THREAD_ORIGIN_FEED,
-                        ),
+                        preview = post.threadPreview(THREAD_ORIGIN_FEED),
                     ),
                 )
             },
@@ -80,7 +72,10 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
             viewModel(factory = SearchViewModel.factory(container, initialQuery = key.query))
         SearchRoute(
             viewModel = viewModel,
-            onPostClick = { backStack.add(PostDetailKey(it)) },
+            threadOrigin = searchOrigin(key.query),
+            onPostClick = { post ->
+                backStack.add(PostDetailKey(post.summary.postId, preview = post.threadPreview(searchOrigin(key.query))))
+            },
             // A user result now has a screen of its own, so it stays in the app. Finding
             // yourself in search must open the same self-shaped space 我的 opens.
             onUserClick = openSpace,
@@ -208,3 +203,16 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
         )
     }
 }
+
+/** The facts both the row and the loading thread header already know. */
+private fun FeedPost.threadPreview(origin: String): ThreadPreview =
+    ThreadPreview(
+        title = summary.title,
+        authorName = summary.authorName,
+        avatarUrl = summary.avatarUrl,
+        categoryTitle = summary.categoryTitle,
+        categorySlug = summary.categorySlug,
+        isAwarded = summary.isAwarded,
+        replyCount = summary.commentCount,
+        origin = origin,
+    )
