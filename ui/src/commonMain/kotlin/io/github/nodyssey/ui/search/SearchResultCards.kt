@@ -44,6 +44,9 @@ import io.github.nodyssey.ui.common.PostBadges
 import io.github.nodyssey.ui.common.PostReplyStat
 import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.postCardTitleStyle
+import io.github.nodyssey.ui.common.readMarkCardColor
+import io.github.nodyssey.ui.common.readMarkTitleColor
+import io.github.nodyssey.ui.common.readMarkTitleWeight
 import io.github.nodyssey.ui.common.sharedThreadAuthor
 import io.github.nodyssey.ui.common.sharedThreadAvatar
 import io.github.nodyssey.ui.common.sharedThreadBoard
@@ -100,6 +103,8 @@ internal fun SearchPostCard(
     LayerCard(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
+        // 已读标记, the same block the feed paints; see `readMarkCardColor`.
+        containerColor = readMarkCardColor(post.isRead),
         shape = MaterialTheme.shapes.large,
         contentPadding = ResultCardPadding,
     ) {
@@ -135,9 +140,10 @@ private fun CardText(
             text = summary.title,
             query = highlight,
             style = postCardTitleStyle(sizeSp = 15f, lineHeightSp = 22f),
-            // A read thread keeps its card and dims its title, the same as the feed does.
-            color = if (post.isRead) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            fontWeight = if (post.isRead) FontWeight.Medium else FontWeight.SemiBold,
+            // A read thread's title recedes only while the title is what carries the state; a
+            // painted card keeps its ink.
+            color = readMarkTitleColor(post.isRead),
+            fontWeight = readMarkTitleWeight(post.isRead),
             maxLines = 2,
             modifier = Modifier.sharedThreadTitle(summary.postId, origin),
         )

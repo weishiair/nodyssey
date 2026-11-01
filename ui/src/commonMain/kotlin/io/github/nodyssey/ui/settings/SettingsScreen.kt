@@ -39,6 +39,7 @@ import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.settings.AppLanguage
 import io.github.nodyssey.data.settings.PostReplyStyle
+import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.ThemeMode
@@ -103,6 +104,12 @@ import io.github.nodyssey.ui.resources.settings_post_reply_style_original
 import io.github.nodyssey.ui.resources.settings_predictive_back
 import io.github.nodyssey.ui.resources.settings_predictive_back_hint
 import io.github.nodyssey.ui.resources.settings_proxy_entry
+import io.github.nodyssey.ui.resources.settings_read_mark
+import io.github.nodyssey.ui.resources.settings_read_mark_block
+import io.github.nodyssey.ui.resources.settings_read_mark_dim
+import io.github.nodyssey.ui.resources.settings_read_mark_hint
+import io.github.nodyssey.ui.resources.settings_read_mark_off
+import io.github.nodyssey.ui.resources.settings_read_mark_unread_block
 import io.github.nodyssey.ui.resources.settings_refresh_rate
 import io.github.nodyssey.ui.resources.settings_refresh_rate_hint
 import io.github.nodyssey.ui.resources.settings_refresh_rate_value
@@ -192,6 +199,8 @@ fun SettingsRoute(
         onBack = onBack,
         onOpenTheme = onOpenTheme,
         onThemeModeChange = viewModel::setThemeMode,
+        onReadMarkStyleChange = viewModel::setReadMarkStyle,
+        onReadMarkColorChange = viewModel::setReadMarkColor,
         onAppLanguageChange = viewModel::setAppLanguage,
         onOneHandModeChange = viewModel::setOneHandMode,
         onPredictiveBackChange = viewModel::setPredictiveBack,
@@ -235,6 +244,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenTheme: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
+    onReadMarkStyleChange: (ReadMarkStyle) -> Unit,
+    onReadMarkColorChange: (Int?) -> Unit,
     onOneHandModeChange: (Boolean) -> Unit,
     onFontScaleChange: (Float) -> Unit,
     onStickerUniformSizeChange: (Boolean) -> Unit,
@@ -346,6 +357,26 @@ fun SettingsScreen(
                     onClick = onOpenTheme,
                     trailing = { ThemeSummaryDot(settings = state.settings, enabled = !state.settings.einkMode) },
                 )
+                // 已读标记 — how a thread that has been opened is drawn in the three lists that carry
+                // read state. A menu rather than rows of their own: four answers, no live preview
+                // needed to tell them apart, and the list itself is one tap away.
+                SettingsMenuRow(
+                    icon = PlazaIcons.DoneAll,
+                    title = stringResource(Res.string.settings_read_mark),
+                    subtitle = stringResource(Res.string.settings_read_mark_hint),
+                    choices = ReadMarkStyle.entries.map { it to readMarkStyleLabel(it) },
+                    selected = state.settings.readMarkStyle,
+                    onSelect = onReadMarkStyleChange,
+                )
+                // 标记颜色 exists only while something is painted: 仅标题变灰 adds no colour at all and
+                // 不标记 less, so a colour row under either of them would set something that cannot
+                // be seen.
+                if (state.settings.readMarkStyle == ReadMarkStyle.BLOCK || state.settings.readMarkStyle == ReadMarkStyle.UNREAD_BLOCK) {
+                    ReadMarkColorRow(
+                        color = state.settings.readMarkColor,
+                        onPick = onReadMarkColorChange,
+                    )
+                }
                 // Under 主题 rather than above it: it overrides 明暗 and replaces 主题, and the two
                 // it greys out read first, the way a master switch reads after what it governs.
                 GroupedRow(
@@ -844,6 +875,23 @@ private fun appLanguageChoices(): List<Pair<AppLanguage, String>> =
     )
 
 /**
+ * 已读标记's four answers, in the order [ReadMarkStyle] declares them.
+ *
+ * A `when` rather than a lookup keyed on the enum, so that adding a style without wording fails to
+ * compile instead of drawing an empty menu entry.
+ */
+@Composable
+private fun readMarkStyleLabel(style: ReadMarkStyle): String =
+    stringResource(
+        when (style) {
+            ReadMarkStyle.BLOCK -> Res.string.settings_read_mark_block
+            ReadMarkStyle.UNREAD_BLOCK -> Res.string.settings_read_mark_unread_block
+            ReadMarkStyle.DIM -> Res.string.settings_read_mark_dim
+            ReadMarkStyle.OFF -> Res.string.settings_read_mark_off
+        },
+    )
+
+/**
  * 跟随系统 / 浅色 / 深色.
  *
  * The one part of 主题 that did not move onto 主题's own screen — see the group above for why.
@@ -1042,6 +1090,8 @@ private fun SettingsPreview() {
             onBack = {},
             onOpenTheme = {},
             onThemeModeChange = {},
+            onReadMarkStyleChange = {},
+            onReadMarkColorChange = {},
             onOneHandModeChange = {},
             onFontScaleChange = {},
             onStickerUniformSizeChange = {},
@@ -1068,6 +1118,8 @@ private fun SettingsWidePreview() {
             onBack = {},
             onOpenTheme = {},
             onThemeModeChange = {},
+            onReadMarkStyleChange = {},
+            onReadMarkColorChange = {},
             onOneHandModeChange = {},
             onFontScaleChange = {},
             onStickerUniformSizeChange = {},
