@@ -60,6 +60,7 @@ import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
 import io.github.nodyssey.ui.common.PlazaSheet
 import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.settings_read_mark_color_apply
 import io.github.nodyssey.ui.resources.settings_seed_apply_once
 import io.github.nodyssey.ui.resources.settings_seed_hex
 import io.github.nodyssey.ui.resources.settings_seed_name
@@ -99,6 +100,16 @@ internal fun SeedColorSheet(
     onApply: (color: Color, name: String?) -> Unit,
     /** What the name field opens with — the saved name of the seed being edited, if it has one. */
     initialName: String = "",
+    /**
+     * 标记颜色 borrows this picker without the theme half of it: no 我的主题 name, no second button.
+     *
+     * The two are the same interaction — drag a hue, watch it settle — but not the same promise. A
+     * mark colour is never saved as a theme, so a name field beside it would be asking for something
+     * the sheet is not going to do with the answer.
+     */
+    hideThemeSave: Boolean = false,
+    /** Replaces the sheet's own title, for the caller that is not choosing a theme. */
+    titleOverride: String? = null,
 ) {
     var hct by remember { mutableStateOf(initial.toPlazaSeedHct()) }
     var hex by remember { mutableStateOf(initial.toHexString()) }
@@ -132,7 +143,7 @@ internal fun SeedColorSheet(
             initialValue = SheetValue.Hidden,
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
         ),
-        title = stringResource(Res.string.settings_seed_sheet_title),
+        title = titleOverride ?: stringResource(Res.string.settings_seed_sheet_title),
         action = {
             TextButton(onClick = pickImageToSample) {
                 Icon(
@@ -213,31 +224,41 @@ internal fun SeedColorSheet(
                     colors = PlazaFieldDefaults.colors(),
                     modifier = Modifier.weight(1f),
                 )
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it.take(MAX_NAME_LENGTH) },
-                    singleLine = true,
-                    label = { Text(stringResource(Res.string.settings_seed_name)) },
-                    shape = PlazaFieldDefaults.shape,
-                    colors = PlazaFieldDefaults.colors(),
-                    modifier = Modifier.weight(1f),
-                )
+                if (!hideThemeSave) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it.take(MAX_NAME_LENGTH) },
+                        singleLine = true,
+                        label = { Text(stringResource(Res.string.settings_seed_name)) },
+                        shape = PlazaFieldDefaults.shape,
+                        colors = PlazaFieldDefaults.colors(),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MediumButton(
                     onClick = { onApply(color, null) },
-                    style = MediumButtonStyle.Outlined,
+                    style = if (hideThemeSave) MediumButtonStyle.Filled else MediumButtonStyle.Outlined,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text(stringResource(Res.string.settings_seed_apply_once))
+                    Text(
+                        if (hideThemeSave) {
+                            stringResource(Res.string.settings_read_mark_color_apply)
+                        } else {
+                            stringResource(Res.string.settings_seed_apply_once)
+                        },
+                    )
                 }
-                MediumButton(
-                    onClick = { onApply(color, name.ifBlank { color.toHexString() }) },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(Res.string.settings_seed_save))
+                if (!hideThemeSave) {
+                    MediumButton(
+                        onClick = { onApply(color, name.ifBlank { color.toHexString() }) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(Res.string.settings_seed_save))
+                    }
                 }
             }
         }

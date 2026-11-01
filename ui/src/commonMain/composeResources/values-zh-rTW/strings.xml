@@ -311,6 +311,16 @@
     <string name="settings_eink">電子紙模式</string>
     <string name="settings_eink_hint">純黑白，關閉動效和陰影</string>
     <string name="settings_theme_eink_hint">電子紙模式已接管配色</string>
+    <string name="settings_read_mark">已讀標記</string>
+    <string name="settings_read_mark_hint">讀過的帖子在列表裡怎麼標出來</string>
+    <string name="settings_read_mark_block">整塊染色（標已讀）</string>
+    <string name="settings_read_mark_unread_block">整塊染色（標未讀）</string>
+    <string name="settings_read_mark_dim">僅標題變灰</string>
+    <string name="settings_read_mark_off">不標記</string>
+    <string name="settings_read_mark_color">標記顏色</string>
+    <string name="settings_read_mark_color_theme">跟隨主題</string>
+    <string name="settings_read_mark_color_more">自訂…</string>
+    <string name="settings_read_mark_color_apply">用這個顏色</string>
 
     <string name="settings_language">語言</string>
     <string name="settings_language_system">跟隨系統語言</string>

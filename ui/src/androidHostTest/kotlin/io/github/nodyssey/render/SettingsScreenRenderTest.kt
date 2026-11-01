@@ -47,6 +47,8 @@ class SettingsScreenRenderTest {
                 onBack = {},
                 onOpenTheme = {},
                 onThemeModeChange = {},
+                onReadMarkStyleChange = {},
+                onReadMarkColorChange = {},
                 onOneHandModeChange = {},
                 onFontScaleChange = {},
                 onStickerUniformSizeChange = {},

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import io.github.nodyssey.data.settings.UserSettings
@@ -33,6 +34,8 @@ class SettingsScreenTest {
                     onBack = {},
                     onOpenTheme = {},
                     onThemeModeChange = {},
+                    onReadMarkStyleChange = {},
+                    onReadMarkColorChange = {},
                     onOneHandModeChange = {},
                     onFontScaleChange = { appliedScale = it },
                     onStickerUniformSizeChange = {},
@@ -49,7 +52,10 @@ class SettingsScreenTest {
             }
         }
 
+        // 阅读字号 is no longer in the first viewport: 已读标记 and 标记颜色 were added above it, so the
+        // row has to be brought into view before a drag can land on it.
         val slider = composeRule.onNodeWithTag(BODY_FONT_SIZE_SLIDER_TAG)
+        slider.performScrollTo()
         composeRule.onNodeWithText("16", useUnmergedTree = true).assertTextEquals("16")
         slider.performTouchInput {
             down(percentOffset(0.2f, 0.5f))
@@ -72,6 +78,8 @@ class SettingsScreenTest {
                     onBack = {},
                     onOpenTheme = {},
                     onThemeModeChange = {},
+                    onReadMarkStyleChange = {},
+                    onReadMarkColorChange = {},
                     onOneHandModeChange = {},
                     onFontScaleChange = { appliedScale = it },
                     onStickerUniformSizeChange = {},
@@ -90,6 +98,7 @@ class SettingsScreenTest {
 
         composeRule
             .onNodeWithTag(BODY_FONT_SIZE_SLIDER_TAG)
+            .performScrollTo()
             .performTouchInput { swipe(start = center, end = centerRight) }
 
         composeRule.waitForIdle()

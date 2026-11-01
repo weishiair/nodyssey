@@ -391,6 +391,17 @@
     <string name="settings_eink_hint">纯黑白，关闭动效和阴影</string>
     <!-- 「主题」那一行在墨水屏模式下的副标题，替换掉平时那句。行本身会一并置灰。 -->
     <string name="settings_theme_eink_hint">墨水屏模式已接管配色</string>
+    <!-- 已读标记：读过的帖子在列表里怎么标出来。默认是整块染色，因为只让标题掉一档对比度看不出来。 -->
+    <string name="settings_read_mark">已读标记</string>
+    <string name="settings_read_mark_hint">读过的帖子在列表里怎么标出来</string>
+    <string name="settings_read_mark_block">整块染色（标已读）</string>
+    <string name="settings_read_mark_unread_block">整块染色（标未读）</string>
+    <string name="settings_read_mark_dim">仅标题变灰</string>
+    <string name="settings_read_mark_off">不标记</string>
+    <string name="settings_read_mark_color">标记颜色</string>
+    <string name="settings_read_mark_color_theme">跟随主题</string>
+    <string name="settings_read_mark_color_more">自定义…</string>
+    <string name="settings_read_mark_color_apply">用这个颜色</string>
 
     <!--
       语言. Each entry is written in the language it selects, which is how a reader who has landed on
