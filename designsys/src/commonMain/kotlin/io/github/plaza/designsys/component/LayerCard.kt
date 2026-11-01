@@ -13,6 +13,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -56,10 +57,21 @@ fun LayerCard(
     shape: Shape = LayerCardShape,
     contentPadding: PaddingValues = LayerCardPadding,
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(10.dp),
+    /**
+     * The card's own fill, for the one thing a card can say about itself rather than about its
+     * content: 已读标记 paints the whole block, and a tint has to reach the fill rather than sit on
+     * top of it, or the press state and the border would be drawn over the wrong colour.
+     *
+     * [Color.Unspecified] — the default — keeps [PlazaLayers.card], which is what every caller that
+     * has no state to show passes without saying anything.
+     */
+    containerColor: Color = Color.Unspecified,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
-    val colors = CardDefaults.cardColors(containerColor = layers.card)
+    val colors = CardDefaults.cardColors(
+        containerColor = if (containerColor == Color.Unspecified) layers.card else containerColor,
+    )
     val border = layers.cardBorderStroke
     val shadowed = modifier.cardShadow(shape, layers.shadows)
     val body: @Composable ColumnScope.() -> Unit = {

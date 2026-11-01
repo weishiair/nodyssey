@@ -317,6 +317,16 @@
     <string name="settings_eink">E-ink mode</string>
     <string name="settings_eink_hint">Pure black and white, no animation or shadows</string>
     <string name="settings_theme_eink_hint">E-ink mode has taken over the colours</string>
+    <string name="settings_read_mark">Read marks</string>
+    <string name="settings_read_mark_hint">How a thread you have opened is marked in the lists</string>
+    <string name="settings_read_mark_block">Fill the card (marks read)</string>
+    <string name="settings_read_mark_unread_block">Fill the card (marks unread)</string>
+    <string name="settings_read_mark_dim">Dim the title only</string>
+    <string name="settings_read_mark_off">No mark</string>
+    <string name="settings_read_mark_color">Mark colour</string>
+    <string name="settings_read_mark_color_theme">Follow the theme</string>
+    <string name="settings_read_mark_color_more">Custom…</string>
+    <string name="settings_read_mark_color_apply">Use this colour</string>
 
     <string name="settings_language">Language</string>
     <string name="settings_language_system">Follow the system language</string>

@@ -20,6 +20,7 @@ import io.github.nodyssey.data.proxy.routes
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.settings.AppLanguage
 import io.github.nodyssey.data.settings.PostReplyStyle
+import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.ThemeMode
@@ -120,6 +121,16 @@ class SettingsViewModel(
     /** 明暗 is the one theme control 设置 kept; the rest are on [ThemeSettingsViewModel]. */
     fun setThemeMode(value: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(value) }
+    }
+
+    /** 已读标记 — what a list does with a thread that has already been opened. */
+    fun setReadMarkStyle(value: ReadMarkStyle) {
+        viewModelScope.launch { settings.setReadMarkStyle(value) }
+    }
+
+    /** 已读标记's colour; null hands it back to the theme. */
+    fun setReadMarkColor(argb: Int?) {
+        viewModelScope.launch { settings.setReadMarkColor(argb) }
     }
 
     /**
