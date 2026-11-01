@@ -75,6 +75,7 @@ import io.github.nodyssey.ui.common.LocalUserNotes
 import io.github.nodyssey.ui.common.LockBadge
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
+import io.github.nodyssey.ui.common.RoleBadgeRow
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.TabPager
@@ -421,8 +422,7 @@ private fun FollowFailureEffect(
  * rather than a card of its own under 概况, so it is read before any tab is chosen), what the site
  * counts for them, and — on someone else's page — the two things you can do about them.
  *
- * 3a also tags the account with a role (「服主」). The profile payload carries no role, so there is no
- * tag to draw.
+ * Public role labels share the floor header's badges, including account restrictions.
  */
 @Composable
 private fun SpaceHeader(
@@ -464,6 +464,9 @@ private fun SpaceHeader(
                     style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR_FIGURES),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (state.badges.isNotEmpty()) {
+                    RoleBadgeRow(state.badges)
+                }
             }
         }
         state.bio?.let { bio ->

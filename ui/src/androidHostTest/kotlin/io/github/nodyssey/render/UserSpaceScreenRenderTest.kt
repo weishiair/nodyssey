@@ -155,6 +155,16 @@ class UserSpaceScreenRenderTest {
     fun `someone else's space in dark`() = render("space-dark", darkTheme = true) { Space(OTHER) }
 
     @Test
+    fun `suspended account in light`() = render("space-suspended-light", darkTheme = false) {
+        Space(OTHER.copy(badges = listOf("临时禁言")))
+    }
+
+    @Test
+    fun `suspended account in dark`() = render("space-suspended-dark", darkTheme = true) {
+        Space(OTHER.copy(badges = listOf("临时禁言")))
+    }
+
+    @Test
     fun `own space on topics in light`() =
         render("space-topics-light", darkTheme = false) { Space(SELF) }
 

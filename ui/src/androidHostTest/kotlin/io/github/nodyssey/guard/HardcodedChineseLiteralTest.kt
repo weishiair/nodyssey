@@ -77,7 +77,7 @@ class HardcodedChineseLiteralTest {
             "ui/src/commonMain/kotlin/io/github/nodyssey/ui/bookmarks/BookmarksScreen.kt" to 26,
             "ui/src/commonMain/kotlin/io/github/nodyssey/ui/bookmarks/OfflineManageSheet.kt" to 2,
             "ui/src/commonMain/kotlin/io/github/nodyssey/ui/common/BoardTag.kt" to 13,
-            "ui/src/commonMain/kotlin/io/github/nodyssey/ui/common/RoleBadge.kt" to 6,
+            "ui/src/commonMain/kotlin/io/github/nodyssey/ui/common/RoleBadge.kt" to 7,
             "ui/src/commonMain/kotlin/io/github/nodyssey/ui/common/SpendConfirmDialog.kt" to 15,
             "ui/src/commonMain/kotlin/io/github/nodyssey/ui/common/StatusStates.kt" to 1,
             "ui/src/commonMain/kotlin/io/github/nodyssey/ui/compare/ReportCompareScreen.kt" to 2,
