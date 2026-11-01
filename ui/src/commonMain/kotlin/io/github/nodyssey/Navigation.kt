@@ -785,7 +785,7 @@ internal suspend fun resolveMemberLink(
 }
 
 @Composable
-private fun EmptyDetailPane(text: StringResource) {
+internal fun EmptyDetailPane(text: StringResource) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
             text = stringResource(text),
@@ -817,7 +817,7 @@ internal fun paneRoleOf(key: NavKey?): PaneRole? =
         // Every list of things worth opening one of. 搜索 is one wherever it is reached from — it is
         // pushed onto 首页's stack now, and a result opened from it still lands beside it. 我的 is not:
         // it is a menu whose rows are settings pages, and a settings page is not a detail.
-        PostListKey, NotificationsKey -> PaneRole.LIST
+        PostListKey, NotificationsKey, MyTopicsKey, MyCommentsKey, BookmarksKey, ReadHistoryKey -> PaneRole.LIST
 
         is SearchKey -> PaneRole.LIST
 
@@ -835,7 +835,7 @@ internal fun paneRoleOf(key: NavKey?): PaneRole? =
  *
  * Mirrors [ListDetailSceneStrategy.calculateScene]: a scene is built from the run of pane-carrying
  * entries at the top of the stack, and that run ends at the first entry carrying no pane role. So a
- * thread opened from 浏览历史 is full-screen and keeps its back arrow — 浏览历史 is not a pane — while
+ * thread opened from 追踪的帖子 is full-screen and keeps its back arrow — 追踪的帖子 is not a pane — while
  * the same thread opened from the feed, from search or from a user's space does not.
  *
  * Only meaningful once the window is wide enough for two panes; every caller checks that first.
@@ -844,6 +844,80 @@ internal fun List<NavKey>.showsListPane(): Boolean =
     asReversed()
         .takeWhile { paneRoleOf(it) != null }
         .any { paneRoleOf(it) == PaneRole.LIST }
+
+/**
+ * Whether [key] is the detail drawn directly beside a list, which is the one detail with nothing of
+ * its own to go back to: what is under it is already on screen.
+ *
+ * A detail opened from another detail is not. It covers the one before it in the same half of the
+ * window, and without an arrow the only way back to that one would be a gesture nobody can see.
+ *
+ * By identity, as the stack hands each entry its own key and an equal key further down is a
+ * different page. Only meaningful once the window is wide enough for two panes.
+ */
+internal fun List<NavKey>.sitsBesideList(key: NavKey): Boolean {
+    val index = indexOfLast { it === key }
+    return index > 0 && paneRoleOf(this[index - 1]) == PaneRole.LIST
+}
+
+/**
+ * The detail on screen beside [list] on a wide window — the last of the details directly above it —
+ * or null when nothing has been opened from it yet. By identity, as [sitsBesideList] is.
+ */
+internal fun List<NavKey>.detailBeside(list: NavKey): NavKey? {
+    val index = indexOfFirst { it === list }
+    if (index < 0) return null
+    return drop(index + 1).takeWhile { paneRoleOf(it) == PaneRole.DETAIL }.lastOrNull()
+}
+
+/**
+ * Opens [detail] from a row of [list].
+ *
+ * With both panes on screen it takes the detail half over from whatever was open there, the way
+ * Mail opens the message a row was tapped on: every thread read from the feed piling onto the one
+ * before made Back walk through the whole morning's reading. Tapping the row already open changes
+ * nothing. On a narrow window it is the ordinary push, where Back to the list is the point.
+ *
+ * Only a list's own rows open this way. A thread opened from a link inside another still goes on
+ * top of it, beside the same list, and keeps its arrow back — see [sitsBesideList].
+ */
+internal fun MutableList<NavKey>.openFromList(
+    list: NavKey,
+    detail: NavKey,
+    expanded: Boolean,
+) {
+    if (expanded) {
+        val shown = detailBeside(list)
+        val sameTarget = when {
+            shown is PostDetailKey && detail is PostDetailKey ->
+                shown.postId == detail.postId && shown.floor == detail.floor && shown.page == detail.page
+
+            shown is MessageThreadKey && detail is MessageThreadKey -> shown.uid == detail.uid
+
+            else -> shown == detail
+        }
+        if (sameTarget) return
+        val index = indexOfFirst { it === list }
+        if (index >= 0) while (size > index + 1) removeAt(lastIndex)
+    }
+    add(detail)
+}
+
+/**
+ * Back from [list] itself: the list goes, and whatever was opened beside it goes with it.
+ *
+ * A list's back arrow used to pop the top of the stack, which on a wide window is the thread in the
+ * other half: the arrow on the left closed the right, and only a second press left the list. On a
+ * narrow window the list is the top and this is the same single pop.
+ */
+internal fun MutableList<NavKey>.closeList(list: NavKey) {
+    val index = indexOfLast { it === list }
+    if (index < 0) {
+        removeLastOrNull()
+        return
+    }
+    while (size > index) removeAt(lastIndex)
+}
 
 /**
  * The pane metadata for a destination, derived from [paneRoleOf].
@@ -871,7 +945,7 @@ private fun paneMetadataOf(key: NavKey, destination: TopLevelDestination): Map<S
 /** What the detail half says on a wide window before anything has been opened in it. */
 internal fun emptyDetailTextOf(key: NavKey): StringResource =
     when (key) {
-        PostListKey -> Res.string.home_pane_empty
+        PostListKey, MyTopicsKey, MyCommentsKey, BookmarksKey, ReadHistoryKey -> Res.string.home_pane_empty
         is SearchKey -> Res.string.search_pane_empty
         NotificationsKey -> Res.string.notifications_pane_empty
         is UserSpaceKey -> Res.string.space_pane_empty

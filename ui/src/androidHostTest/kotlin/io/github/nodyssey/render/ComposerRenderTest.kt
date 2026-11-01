@@ -123,6 +123,14 @@ class ComposerRenderTest {
     }
 
     @Test
+    @Config(qualifiers = "w1280dp-h960dp-land")
+    fun `the reply editor in a wide window`() {
+        setReply(darkTheme = false)
+        composeRule.waitForIdle()
+        captureScreen("ipad-reply-light")
+    }
+
+    @Test
     fun `the reply sheet with emoji in light`() {
         setReply(darkTheme = false)
         composeRule.onNodeWithContentDescription("表情").performClick()

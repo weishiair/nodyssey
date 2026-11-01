@@ -61,6 +61,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- iPad supports both portrait orientations as well as landscape; layout follows the window. -->
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<!-- 个人信息 offers 拍照 as one of two avatar sources — see `AvatarPicker.ios.kt`. -->
 	<key>NSCameraUsageDescription</key>
 	<string>拍一张照片用作头像。照片只会上传到 NodeSeek，不会发往别处。</string>

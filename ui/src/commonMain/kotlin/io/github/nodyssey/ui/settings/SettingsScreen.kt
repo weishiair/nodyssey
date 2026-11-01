@@ -163,6 +163,7 @@ import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.richtext.LocalStickerSizing
 import io.github.plaza.designsys.richtext.StickerSizing
+import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.PostBody
@@ -398,14 +399,16 @@ fun SettingsScreen(
                 // One switch for every screen that carries the bar rather than one per screen:
                 // whether the title should come down to the thumb is a fact about the hand holding
                 // the phone, and it does not change between 收藏 and 设置.
-                GroupedRow(
-                    icon = PlazaIcons.PanTool,
-                    title = stringResource(Res.string.settings_one_hand),
-                    subtitle = stringResource(Res.string.settings_one_hand_hint),
-                    checked = state.settings.oneHandMode,
-                    onCheckedChange = onOneHandModeChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.oneHandMode) },
-                )
+                if (LocalOneHandModeAvailable.current) {
+                    GroupedRow(
+                        icon = PlazaIcons.PanTool,
+                        title = stringResource(Res.string.settings_one_hand),
+                        subtitle = stringResource(Res.string.settings_one_hand_hint),
+                        checked = state.settings.oneHandMode,
+                        onCheckedChange = onOneHandModeChange,
+                        trailing = { GroupedListItemSwitch(checked = state.settings.oneHandMode) },
+                    )
+                }
                 SettingsBlock(
                     title = stringResource(Res.string.settings_body_size),
                     value = bodyFontSize.roundToInt().toString(),
