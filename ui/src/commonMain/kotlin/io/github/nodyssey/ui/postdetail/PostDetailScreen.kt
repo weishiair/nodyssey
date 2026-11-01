@@ -2154,8 +2154,8 @@ private fun CommentsHeader(
  * stands beside the name and badges, with time and floor at the far end. The body starts below
  * the whole header so images, quotes and long text can use the full reading width.
  *
- * The foot carries 点赞, 引用 and 回复, with a ⋯ for the priced reactions and the remaining
- * actions, which [FloorActionSheet] lays out with their prices. A long press on
+ * The foot carries 点赞, 投喂, 引用 and 回复, with a ⋯ for 反对 and the remaining
+ * actions. [FloorActionSheet] also shows each reaction's price. A long press on
  * the header or the foot opens the same panel; on the text it selects, as it always has — see
  * [floorLongPress] for why the row as a whole does not listen.
  */
@@ -2548,13 +2548,13 @@ private fun OpeningPostActions(
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         listOf(ReactionAction.Upvote, ReactionAction.ChickenLeg).forEach { action ->
-            ReactionPill(action, reactions, pending, onReact)
+            ReactionPill(action, reactions, pending, onReact, showZeroCount = true)
         }
         if (collected != null) {
             FloorActionButton(
                 icon = if (collected) PlazaIcons.Bookmark else PlazaIcons.BookmarkBorder,
                 label = if (collected) Res.string.post_collected_action else Res.string.post_collect_action,
-                count = collectionCount?.takeIf { it > 0 }?.toString().orEmpty(),
+                count = collectionCount?.toString().orEmpty(),
                 selected = collected,
                 pending = collectPending,
                 onClick = onCollect.takeUnless { collectPending },
@@ -2684,11 +2684,12 @@ private fun ReactionPill(
     reactions: PostReactions?,
     pending: ReactionAction?,
     onReact: (ReactionAction) -> Unit,
+    showZeroCount: Boolean = false,
 ) {
     FloorActionButton(
         icon = action.icon(),
         label = action.labelRes(),
-        count = reactions?.countOf(action)?.takeIf { it > 0 }?.toString().orEmpty(),
+        count = reactions?.countOf(action)?.takeIf { showZeroCount || it > 0 }?.toString().orEmpty(),
         spent = reactions?.hasSpent(action) == true,
         pending = pending == action,
         onClick = if (reactions != null && pending == null) ({ onReact(action) }) else null,
@@ -2715,6 +2716,7 @@ private fun CommentFoot(
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         ReactionPill(ReactionAction.Upvote, reactions, pending, onReact)
+        ReactionPill(ReactionAction.ChickenLeg, reactions, pending, onReact)
         Spacer(Modifier.weight(1f))
         FloorActionButton(PlazaIcons.FormatQuote, Res.string.post_quote_action, onClick = onQuote)
         when {
