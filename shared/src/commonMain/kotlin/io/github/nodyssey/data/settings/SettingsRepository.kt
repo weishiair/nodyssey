@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.nodyssey.core.ActiveSite
 import io.github.nodyssey.core.Site
 import io.github.nodyssey.data.NotificationCounts
+import io.github.nodyssey.data.attendance.AutoAttendanceStore
 import io.github.nodyssey.data.update.UpdateCheckStore
 import io.github.nodyssey.model.FeedSort
 import io.github.nodyssey.model.SearchHistoryEntry
@@ -53,6 +54,8 @@ class SettingsRepository(
     private val homeBoardOrderKey = stringPreferencesKey("home_board_order${site.storageSuffix}")
     private val disabledHomeBoardsKey = stringPreferencesKey("disabled_home_boards${site.storageSuffix}")
     private val alertLastPostIdKey = longPreferencesKey("keyword_alert_last_post_id${site.storageSuffix}")
+
+    val automaticAttendance = AutoAttendanceStore(dataStore, site)
 
     private val json = Json { ignoreUnknownKeys = true }
 
