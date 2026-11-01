@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
@@ -56,10 +57,18 @@ fun LayerCard(
     shape: Shape = LayerCardShape,
     contentPadding: PaddingValues = LayerCardPadding,
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(10.dp),
+    /**
+     * The card whose content is open beside its list, on a window wide enough for both. Material's
+     * selected-container colour, the way a list marks the row a detail pane is showing.
+     */
+    selected: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
-    val colors = CardDefaults.cardColors(containerColor = layers.card)
+    val colors =
+        CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else layers.card,
+        )
     val border = layers.cardBorderStroke
     val shadowed = modifier.cardShadow(shape, layers.shadows)
     val body: @Composable ColumnScope.() -> Unit = {

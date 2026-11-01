@@ -3,20 +3,26 @@ package io.github.nodyssey.ui.profile
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
@@ -132,12 +138,14 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.theme.ControlShape
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
+import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.cardShadow
@@ -269,15 +277,24 @@ fun ProfileScreen(
         // screen, which used to carry 设置 as a row because it had no bar, now reaches it the same way
         // the signed-in one does.
         topBar = {
-            TopAppBar(
-                title = {},
-                actions = { SettingsAction(hasAppUpdate = hasAppUpdate, onClick = destinations.settings) },
-                colors =
-                TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
+            // Over the content's own column — one 640dp column, or the two-column page's 1040 — so the gear
+            // sits above the edge of what it belongs to rather than in the window's corner.
+            BoxWithConstraints {
+                ReadableTopBar(
+                    maxContentWidth = if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) PROFILE_TWO_COLUMN_MAX_WIDTH else Sizes.readableContentWidth,
+                ) { barInsets ->
+                    TopAppBar(
+                        windowInsets = barInsets,
+                        title = {},
+                        actions = { SettingsAction(hasAppUpdate = hasAppUpdate, onClick = destinations.settings) },
+                        colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            scrolledContainerColor = MaterialTheme.colorScheme.background,
+                        ),
+                    )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
@@ -307,36 +324,68 @@ fun ProfileScreen(
             return@Scaffold
         }
 
-        LazyColumn(
-            modifier =
-            Modifier
-                // Under the bottom bar rather than stopping at it — see [withoutBottom].
-                .padding(padding.withoutBottom())
-                .fillMaxSize()
-                .readableWidth(),
-            contentPadding =
-            PaddingValues(
-                start = LayerPageGutter,
-                end = LayerPageGutter,
-                bottom = Spacing.lg + padding.calculateBottomPadding(),
-            ),
-            verticalArrangement = Arrangement.spacedBy(LayerCardGap),
-        ) {
-            item(key = "account") {
-                AccountCard(
-                    state,
-                    onOpenSpace = destinations.space,
-                    onCredit = destinations.credit,
-                    onStardust = destinations.stardust,
-                    onAssets = destinations.assets,
-                )
-            }
-            item(key = "attendance") {
-                AttendanceBanner(state, onAttendance, onAttendanceBoard)
-            }
-            profileSections(destinations).forEach { section ->
-                item(key = section.title.key) {
-                    ProfileGridCard(section.tiles)
+        val account: @Composable () -> Unit = {
+            AccountCard(
+                state,
+                onOpenSpace = destinations.space,
+                onCredit = destinations.credit,
+                onStardust = destinations.stardust,
+                onAssets = destinations.assets,
+            )
+        }
+        val attendance: @Composable () -> Unit = { AttendanceBanner(state, onAttendance, onAttendanceBoard) }
+        val sections = profileSections(destinations)
+        val bottom = Spacing.lg + padding.calculateBottomPadding()
+        // Under the bottom bar rather than stopping at it — see [withoutBottom].
+        BoxWithConstraints(Modifier.padding(padding.withoutBottom()).fillMaxSize()) {
+            if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {
+                /*
+                 * A tablet's width. One 640dp column down the middle of it left two empty margins
+                 * as wide as the column itself, so the page splits instead: who you are on the left,
+                 * where you can go on the right — the left one short enough to stay put while the
+                 * grid beside it scrolls.
+                 */
+                Row(
+                    modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .wrapContentWidth(Alignment.CenterHorizontally)
+                        .widthIn(max = PROFILE_TWO_COLUMN_MAX_WIDTH)
+                        .padding(horizontal = LayerPageGutter),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                ) {
+                    Column(
+                        modifier =
+                        Modifier
+                            .weight(PROFILE_ACCOUNT_COLUMN_WEIGHT)
+                            .verticalScroll(rememberScrollState())
+                            .padding(bottom = bottom),
+                        verticalArrangement = Arrangement.spacedBy(LayerCardGap),
+                    ) {
+                        account()
+                        attendance()
+                    }
+                    LazyColumn(
+                        modifier = Modifier.weight(1f - PROFILE_ACCOUNT_COLUMN_WEIGHT).fillMaxHeight(),
+                        contentPadding = PaddingValues(bottom = bottom),
+                        verticalArrangement = Arrangement.spacedBy(LayerCardGap),
+                    ) {
+                        sections.forEach { section ->
+                            item(key = section.title.key) { ProfileGridCard(section.tiles) }
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().readableWidth(),
+                    contentPadding = PaddingValues(start = LayerPageGutter, end = LayerPageGutter, bottom = bottom),
+                    verticalArrangement = Arrangement.spacedBy(LayerCardGap),
+                ) {
+                    item(key = "account") { account() }
+                    item(key = "attendance") { attendance() }
+                    sections.forEach { section ->
+                        item(key = section.title.key) { ProfileGridCard(section.tiles) }
+                    }
                 }
             }
         }
@@ -691,6 +740,15 @@ private fun profileSections(destinations: ProfileDestinations): List<ProfileSect
 
 private const val PROFILE_GRID_COLUMNS = 4
 
+/** From here 我的 is two columns; Material's expanded width, where Android draws two panes too. */
+private val PROFILE_TWO_COLUMN_MIN_WIDTH = 840.dp
+
+/** The two columns together stop growing here, centred, so a 13-inch landscape window is not all gap. */
+private val PROFILE_TWO_COLUMN_MAX_WIDTH = 1040.dp
+
+/** The account column's share of the row; the grid gets the rest. */
+private const val PROFILE_ACCOUNT_COLUMN_WEIGHT = 0.42f
+
 /**
  * One card of tiles, four to a row.
  *
@@ -756,89 +814,131 @@ private fun SignedOutProfile(
     destinations: ProfileDestinations,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize().readableWidth(),
-        contentPadding = PaddingValues(start = LayerPageGutter, end = LayerPageGutter, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item(key = "welcome") {
-            LayerCard(
-                shape = MaterialTheme.shapes.extraLarge,
-                contentPadding = PaddingValues(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    WelcomeMark()
-                    Text(
-                        text = stringResource(Res.string.profile_signed_out_title, siteName),
-                        // Balanced rather than greedy: a heading this long otherwise leaves one character on
-                        // its second line.
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, lineBreak = LineBreak.Heading),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 16.dp).semantics { heading() },
-                    )
-                    Text(
-                        text = stringResource(Res.string.profile_signed_out_body),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-            }
-        }
-        item(key = "benefits") {
-            LayerCard(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                SignedOutBenefit(
-                    icon = Icons.Default.Edit,
-                    title = stringResource(Res.string.profile_guest_benefit_post),
-                    subtitle = stringResource(Res.string.profile_guest_benefit_post_hint),
-                )
-                SignedOutBenefit(
-                    icon = Icons.Default.Email,
-                    title = stringResource(Res.string.profile_guest_benefit_messages),
-                    subtitle = stringResource(Res.string.profile_guest_benefit_messages_hint),
-                )
-                SignedOutBenefit(
-                    icon = PlazaIcons.EventAvailable,
-                    title = stringResource(Res.string.profile_guest_benefit_attendance),
-                    subtitle = stringResource(Res.string.profile_guest_benefit_attendance_hint),
-                )
-            }
-        }
-        item(key = "sign-in") {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                MediumButton(onClick = onSignIn, icon = PlazaIcons.Login, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(Res.string.profile_sign_in, siteName))
-                }
+    val welcome: @Composable () -> Unit = {
+        LayerCard(
+            shape = MaterialTheme.shapes.extraLarge,
+            contentPadding = PaddingValues(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                WelcomeMark()
                 Text(
-                    text = stringResource(Res.string.profile_sign_in_hint),
-                    style = MaterialTheme.typography.labelSmall,
+                    text = stringResource(Res.string.profile_signed_out_title, siteName),
+                    // Balanced rather than greedy: a heading this long otherwise leaves one character on
+                    // its second line.
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, lineBreak = LineBreak.Heading),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 16.dp).semantics { heading() },
+                )
+                Text(
+                    text = stringResource(Res.string.profile_signed_out_body),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
-        item(key = "guest-tools") {
-            Column {
-                SectionLabel(stringResource(Res.string.profile_guest_section))
-                Spacer(Modifier.height(8.dp))
-                // The four tools 9f draws, then 社区工具 itself: that page also holds 友站, 关于社区 and
-                // 邀请好友, which a guest used to reach through it and still should.
-                ProfileGridCard(
-                    listOf(
-                        ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
-                        ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
-                        ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
-                        ProfileTile(
-                            Res.string.profile_tile_providers,
-                            Icons.Default.ShoppingCart,
-                            destinations.providers,
-                        ),
-                        ProfileTile(Res.string.profile_tools, PlazaIcons.DashboardCustomize, destinations.tools),
+    }
+    val benefits: @Composable () -> Unit = {
+        LayerCard(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            SignedOutBenefit(
+                icon = Icons.Default.Edit,
+                title = stringResource(Res.string.profile_guest_benefit_post),
+                subtitle = stringResource(Res.string.profile_guest_benefit_post_hint),
+            )
+            SignedOutBenefit(
+                icon = Icons.Default.Email,
+                title = stringResource(Res.string.profile_guest_benefit_messages),
+                subtitle = stringResource(Res.string.profile_guest_benefit_messages_hint),
+            )
+            SignedOutBenefit(
+                icon = PlazaIcons.EventAvailable,
+                title = stringResource(Res.string.profile_guest_benefit_attendance),
+                subtitle = stringResource(Res.string.profile_guest_benefit_attendance_hint),
+            )
+        }
+    }
+    val signIn: @Composable () -> Unit = {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            MediumButton(onClick = onSignIn, icon = PlazaIcons.Login, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.profile_sign_in, siteName))
+            }
+            Text(
+                text = stringResource(Res.string.profile_sign_in_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+    }
+    val guestTools: @Composable () -> Unit = {
+        Column {
+            SectionLabel(stringResource(Res.string.profile_guest_section))
+            Spacer(Modifier.height(8.dp))
+            // The four tools 9f draws, then 社区工具 itself: that page also holds 友站, 关于社区 and
+            // 邀请好友, which a guest used to reach through it and still should.
+            ProfileGridCard(
+                listOf(
+                    ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
+                    ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
+                    ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
+                    ProfileTile(
+                        Res.string.profile_tile_providers,
+                        Icons.Default.ShoppingCart,
+                        destinations.providers,
                     ),
-                )
+                    ProfileTile(Res.string.profile_tools, PlazaIcons.DashboardCustomize, destinations.tools),
+                ),
+            )
+        }
+    }
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {
+            // The signed-in page's split, for the same reason: why to sign in on the left, what a
+            // guest can already use on the right.
+            Row(
+                modifier =
+                Modifier
+                    .fillMaxSize()
+                    .wrapContentWidth(Alignment.CenterHorizontally)
+                    .widthIn(max = PROFILE_TWO_COLUMN_MAX_WIDTH)
+                    .padding(horizontal = LayerPageGutter),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+            ) {
+                Column(
+                    modifier =
+                    Modifier
+                        .weight(PROFILE_ACCOUNT_COLUMN_WEIGHT)
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    welcome()
+                    benefits()
+                    signIn()
+                }
+                Column(
+                    modifier =
+                    Modifier
+                        .weight(1f - PROFILE_ACCOUNT_COLUMN_WEIGHT)
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 24.dp),
+                ) {
+                    guestTools()
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().readableWidth(),
+                contentPadding = PaddingValues(start = LayerPageGutter, end = LayerPageGutter, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item(key = "welcome") { welcome() }
+                item(key = "benefits") { benefits() }
+                item(key = "sign-in") { signIn() }
+                item(key = "guest-tools") { guestTools() }
             }
         }
     }

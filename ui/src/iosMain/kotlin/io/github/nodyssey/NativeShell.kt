@@ -1,8 +1,13 @@
 package io.github.nodyssey
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.UriHandler
@@ -23,8 +28,11 @@ import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
 import io.github.nodyssey.ui.composer.PendingComposerShare
+import io.github.nodyssey.ui.navigation.PaneGroup
+import io.github.nodyssey.ui.navigation.PaneKind
 import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
+import io.github.nodyssey.ui.navigation.paneGroups
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
 import io.github.nodyssey.ui.postlist.HomeFeedStates
@@ -35,7 +43,11 @@ import io.github.nodyssey.ui.resources.about_site
 import io.github.nodyssey.ui.resources.app_name
 import io.github.nodyssey.ui.settings.rememberAppLinkHandlingEnabled
 import io.github.nodyssey.ui.settings.rememberAppLinkSettingsLauncher
+import io.github.plaza.designsys.theme.LocalOneHandMode
+import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
+import io.github.plaza.designsys.theme.LocalPlazaLayers
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.useContents
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -49,6 +61,7 @@ import platform.Foundation.NSSelectorFromString
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationDidBecomeActiveNotification
+import platform.UIKit.UIDevice
 import platform.UIKit.UIGestureRecognizer
 import platform.UIKit.UIGestureRecognizerDelegateProtocol
 import platform.UIKit.UIImage
@@ -58,6 +71,7 @@ import platform.UIKit.UINavigationControllerDelegateProtocol
 import platform.UIKit.UITabBarController
 import platform.UIKit.UITabBarControllerDelegateProtocol
 import platform.UIKit.UITabBarItem
+import platform.UIKit.UIUserInterfaceIdiomPad
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIViewController
 import platform.UIKit.hidesBottomBarWhenPushed
@@ -84,7 +98,6 @@ import platform.darwin.NSObject
  * What the Android root has and this does not:
  * - **Exit through 首页.** A system tab bar does not pop into another tab, and nobody on iOS expects
  *   it to.
- * - **List-detail on a wide window.** An iPad draws one screen at a time here for now.
  * - **The shared-element flight from a feed row into a thread.** It needs both ends in one
  *   composition, and each screen here is its own. `LocalThreadTransition` is simply never provided,
  *   which the screens already handle — it is what a two-pane window and 墨水屏模式 look like too.
@@ -143,7 +156,8 @@ private class NativeShell(
     private val stacks: Map<TopLevelDestination, NavBackStack<NavKey>> =
         TopLevelDestination.entries.associateWith { NavBackStack(it.key) }
 
-    val root = UITabBarController()
+    private var listDetailExpanded by mutableStateOf(false)
+    val root: UITabBarController = ShellTabBarController(onWidth = ::onWindowWidth)
 
     private val navigationControllers: Map<TopLevelDestination, UINavigationController> =
         TopLevelDestination.entries.associateWith { destination ->
@@ -178,7 +192,7 @@ private class NativeShell(
             homeFeedStates = homeFeedStates,
             homeReselectRequests = { homeReselectRequests },
             notificationsScrollToTopRequests = { notificationsScrollToTopRequests },
-            isListDetailExpanded = { false },
+            isListDetailExpanded = { listDetailExpanded },
             onTabBarHiddenByScroll = {},
             selectTab = { root.selectedIndex = it.ordinal.toULong() },
             scope = scope,
@@ -195,13 +209,28 @@ private class NativeShell(
     private val mirrors: Map<TopLevelDestination, StackMirror<NavKey, Page>> =
         TopLevelDestination.entries.associateWith { destination ->
             StackMirror(
-                create = { index, key -> page(destination, index, key) },
+                create = { _, key -> page(destination, key) },
                 release = { pendingRelease += it },
             )
         }
 
     /** Tabs whose stack changed while their controller was mid-transition. */
     private val deferredSyncs = mutableSetOf<TopLevelDestination>()
+
+    /** Each tab's pairs, by the page in their left half. */
+    private val splits: Map<TopLevelDestination, MutableMap<Page, Split>> =
+        TopLevelDestination.entries.associateWith { mutableMapOf() }
+
+    /** How each tab's stack is drawn right now: what a pop UIKit made is counted against. */
+    private val groups: MutableMap<TopLevelDestination, List<PaneGroup>> =
+        TopLevelDestination.entries.associateWithTo(mutableMapOf()) { emptyList() }
+
+    /**
+     * Set while [sync] hands UIKit new controllers. A navigation controller may report the change
+     * back through its delegate before the call returns, and that is the shell's own change, not a
+     * pop to write back.
+     */
+    private var syncing = false
 
     // UIKit holds delegates weakly; these fields are what keeps them alive.
     private val tabBarDelegate = TabBarDelegate()
@@ -240,13 +269,13 @@ private class NativeShell(
     }
 
     /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
-    private class Page(val controller: UIViewController, val owner: PageOwner)
+    private class Page(val key: NavKey, val controller: UIViewController, val owner: PageOwner)
 
     private class PageOwner : ViewModelStoreOwner {
         override val viewModelStore = ViewModelStore()
     }
 
-    private fun page(destination: TopLevelDestination, index: Int, key: NavKey): Page {
+    private fun page(destination: TopLevelDestination, key: NavKey): Page {
         val stack = stacks.getValue(destination)
         val entry = providers.getValue(destination)(key)
         val owner = PageOwner()
@@ -259,39 +288,198 @@ private class NativeShell(
                 },
             ) {
                 NodysseyChrome(container, settings) {
-                    CompositionLocalProvider(
-                        // The page's own store rather than the controller's default one, so that a
-                        // view model lives exactly as long as its entry is on the stack — see
-                        // [flushReleases] — and not as long as UIKit keeps the controller around.
-                        LocalViewModelStoreOwner provides owner,
-                        // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
-                        LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
-                        // 测评对比 from any report card's 对比 (n), onto this page's tab.
-                        LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
-                    ) {
-                        entry.Content()
+                    DeviceLocals {
+                        CompositionLocalProvider(
+                            // The page's own store rather than the controller's default one, so that a
+                            // view model lives exactly as long as its entry is on the stack — see
+                            // [flushReleases] — and not as long as UIKit keeps the controller around.
+                            LocalViewModelStoreOwner provides owner,
+                            // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
+                            LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
+                            // 测评对比 from any report card's 对比 (n), onto this page's tab.
+                            LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
+                        ) {
+                            entry.Content()
+                        }
                     }
                 }
             }
-        // The tab bar belongs to the tab roots, as on Android: a thread or a settings page pushed
-        // over 首页 is full-screen.
-        controller.hidesBottomBarWhenPushed = index > 0
-        return Page(controller, owner)
+        return Page(key, controller, owner)
     }
 
-    private fun sync(destination: TopLevelDestination) {
+    /**
+     * Hands [destination]'s navigation controller the screens its stack now calls for.
+     *
+     * [relayout] is a change of window width rather than of the stack: the same pages, grouped
+     * again, without animation and without waiting for a transition — the width changes inside the
+     * rotation's own one, and waiting would leave the old layout up until the next push.
+     */
+    private fun sync(
+        destination: TopLevelDestination,
+        relayout: Boolean = false,
+    ) {
         val navigationController = navigationControllers.getValue(destination)
+        val splits = splits.getValue(destination)
         // `setViewControllers` during a push or a swipe is how UIKit ends up with a bar for one
-        // screen over the content of another. The navigation delegate runs this again once the
+        // screen over the content of another. The navigation delegates run this again once the
         // transition has settled.
-        if (navigationController.transitionCoordinator != null) {
+        if (!relayout &&
+            (navigationController.transitionCoordinator != null || splits.values.any { it.details.transitionCoordinator != null })
+        ) {
             deferredSyncs += destination
             return
         }
-        val pages = mirrors.getValue(destination).reconcile(stacks.getValue(destination).toList()) ?: return
+        val mirror = mirrors.getValue(destination)
+        val keys = stacks.getValue(destination).toList()
+        val pages = mirror.reconcile(keys) ?: if (relayout) mirror.views else return
+        val layout = paneGroups(keys, listDetailExpanded, ::paneKindOf)
         val onScreen = navigationController.view.window != null
-        navigationController.setViewControllers(pages.map { it.controller }, animated = onScreen)
-        if (!onScreen) flushReleases()
+        val animated = onScreen && !relayout
+
+        syncing = true
+        try {
+            groups[destination] = layout
+            // A page goes into its new container only once it has left the old one: UIKit will not
+            // give a controller two parents. Pairs no longer drawn give their pages back first.
+            val lists = layout.filterIsInstance<PaneGroup.Split>().map { pages[it.listIndex] }.toSet()
+            splits.keys.filter { it !in lists }.forEach { splits.remove(it)?.empty() }
+            val controllers =
+                layout.map { group ->
+                    when (group) {
+                        // The tab bar belongs to the tab roots, as on Android: a thread or a settings
+                        // page pushed over 首页 is full-screen.
+                        is PaneGroup.Single ->
+                            pages[group.index].controller.also { it.hidesBottomBarWhenPushed = group.index > 0 }
+
+                        // A pair keeps it, since the list it was opened from is still on screen.
+                        is PaneGroup.Split ->
+                            splits.getOrPut(pages[group.listIndex]) { Split(destination, pages[group.listIndex]) }.controller
+                    }
+                }
+            navigationController.setViewControllers(controllers, animated = animated)
+            layout.filterIsInstance<PaneGroup.Split>().forEach { group ->
+                val details = pages.subList(group.listIndex + 1, group.listIndex + 1 + group.detailCount)
+                splits.getValue(pages[group.listIndex]).show(
+                    details.map { it.controller.also { controller -> controller.hidesBottomBarWhenPushed = false } },
+                    animated = animated,
+                )
+            }
+        } finally {
+            syncing = false
+        }
+        updateTabBar()
+        if (!onScreen || (navigationController.transitionCoordinator == null && splits.values.all { it.details.transitionCoordinator == null })) flushReleases()
+    }
+
+    /**
+     * iPad's tab bar floats at the top, and `hidesBottomBarWhenPushed` does not reach it: an image, a
+     * web page or 设置 pushed over a tab would sit under 首页 / 通知 / 我的. So on iPad the shell
+     * hides it for the screens the iPhone hides it for — anything full-window above a tab root —
+     * and keeps it over a pair, whose list is still the tab's own screen.
+     */
+    @OptIn(ExperimentalForeignApi::class)
+    private fun updateTabBar() {
+        if (!isPad || !root.respondsToSelector(NSSelectorFromString("setTabBarHidden:animated:"))) return
+        val destination = TopLevelDestination.entries.getOrNull(root.selectedIndex.toInt()) ?: return
+        val top = groups.getValue(destination).lastOrNull()
+        val hidden = top is PaneGroup.Single && top.index > 0
+        if (root.tabBarHidden != hidden) root.setTabBarHidden(hidden, animated = root.view.window != null)
+    }
+
+    private fun onWindowWidth(width: Double) {
+        val expanded = isPad && width >= LIST_DETAIL_MIN_WIDTH
+        if (expanded == listDetailExpanded) return
+        listDetailExpanded = expanded
+        TopLevelDestination.entries.forEach { sync(it, relayout = true) }
+    }
+
+    /**
+     * UIKit has popped [destination] down to the screens standing for its first [remaining] entries;
+     * the back stack loses the rest. Zero dropped is the common case — a change the shell made
+     * itself, or a swipe let go of halfway.
+     */
+    private fun writeBack(
+        destination: TopLevelDestination,
+        remaining: Int,
+    ) {
+        val mirror = mirrors.getValue(destination)
+        val dropped = mirror.platformPopped(remaining)
+        if (dropped == 0) return
+        val stack = stacks.getValue(destination)
+        repeat(dropped) { stack.removeLastOrNull() }
+        // UIKit already shows what is left; the bookkeeping only has to agree with it.
+        groups[destination] = paneGroups(stack.toList(), listDetailExpanded, ::paneKindOf)
+        val splits = splits.getValue(destination)
+        val views = mirror.views.toSet()
+        splits.keys.filter { it !in views }.forEach { splits.remove(it)?.empty() }
+        updateTabBar()
+    }
+
+    /** What every transition ends with: released pages cleared, and a change that had to wait made. */
+    private fun settle(destination: TopLevelDestination) {
+        flushReleases()
+        if (deferredSyncs.remove(destination)) sync(destination)
+    }
+
+    /** One list and its details, side by side; see [PaneSplitController]. */
+    private inner class Split(
+        destination: TopLevelDestination,
+        val list: Page,
+    ) {
+        val details = UINavigationController().apply { setNavigationBarHidden(true, animated = false) }
+        val controller = PaneSplitController(details)
+
+        /** The right half before anything has been opened in it, as on Android. */
+        private val placeholder =
+            ComposeUIViewController {
+                NodysseyChrome(container, settings) {
+                    DeviceLocals {
+                        // On the page colour, as every screen's `Scaffold` is; Android's pane scaffold
+                        // paints it there, and here nothing else would.
+                        Box(Modifier.fillMaxSize().background(LocalPlazaLayers.current.page)) {
+                            EmptyDetailPane(emptyDetailTextOf(list.key))
+                        }
+                    }
+                }
+            }
+
+        // UIKit holds delegates weakly; these fields are what keeps them alive.
+        private val navigationDelegate = DetailsDelegate(destination, this)
+        private val popGestureDelegate = DetailsPopGestureDelegate(details)
+
+        init {
+            details.delegate = navigationDelegate
+            // The view first, for the reason the tabs' own controllers load theirs first.
+            details.loadViewIfNeeded()
+            details.interactivePopGestureRecognizer?.delegate = popGestureDelegate
+            if (details.hasContentPopGesture()) {
+                details.interactiveContentPopGestureRecognizer?.delegate = popGestureDelegate
+            }
+        }
+
+        /** How many details are on the right, the placeholder not counted. */
+        val detailCount: Int get() = details.viewControllers.count { it != placeholder }
+
+        fun show(
+            pages: List<UIViewController>,
+            animated: Boolean,
+        ) {
+            controller.showList(list.controller)
+            val target = pages.ifEmpty { listOf(placeholder) }
+            val current = details.viewControllers
+            if (current == target) return
+            // A push or a pop when the two share their first page. Otherwise it is a swap — out of
+            // the placeholder, or a row of the list replacing what was open — and a swap does not
+            // slide: there is nothing to go back to, and Mail does not slide either.
+            val sameRoot = current.isNotEmpty() && current.first() == target.first()
+            details.setViewControllers(target, animated = animated && sameRoot)
+        }
+
+        /** Gives the pages back, to be drawn full-window or released. */
+        fun empty() {
+            details.setViewControllers(emptyList<UIViewController>(), animated = false)
+            controller.showList(null)
+        }
     }
 
     /**
@@ -346,11 +534,13 @@ private class NativeShell(
         val controller =
             ComposeUIViewController {
                 NodysseyChrome(container, settings) {
-                    OnboardingScreen(
-                        onFinish = { scope.launch { container.settingsRepository.setOnboardingSeen(true) } },
-                        appLinksEnabled = rememberAppLinkHandlingEnabled(),
-                        onOpenAppLinkSettings = rememberAppLinkSettingsLauncher(),
-                    )
+                    DeviceLocals {
+                        OnboardingScreen(
+                            onFinish = { scope.launch { container.settingsRepository.setOnboardingSeen(true) } },
+                            appLinksEnabled = rememberAppLinkHandlingEnabled(),
+                            onOpenAppLinkSettings = rememberAppLinkSettingsLauncher(),
+                        )
+                    }
                 }
             }
         controller.modalPresentationStyle = UIModalPresentationFullScreen
@@ -410,6 +600,7 @@ private class NativeShell(
                     TopLevelDestination.PROFILE -> Unit
                 }
             }
+            scope.launch { updateTabBar() }
             return true
         }
     }
@@ -430,11 +621,36 @@ private class NativeShell(
             didShowViewController: UIViewController,
             animated: Boolean,
         ) {
-            val dropped = mirrors.getValue(destination).platformPopped(navigationController.viewControllers.size)
-            val stack = stacks.getValue(destination)
-            repeat(dropped) { stack.removeLastOrNull() }
-            flushReleases()
-            if (deferredSyncs.remove(destination)) sync(destination)
+            if (syncing) return
+            // A pair is one controller here and several entries on the stack.
+            val shown = navigationController.viewControllers.size
+            writeBack(destination, groups.getValue(destination).take(shown).sumOf { it.size })
+            settle(destination)
+        }
+    }
+
+    private inner class DetailsDelegate(
+        private val destination: TopLevelDestination,
+        private val split: Split,
+    ) : NSObject(),
+        UINavigationControllerDelegateProtocol {
+        /*
+         * [NavigationDelegate] for the right half of a pair: a swipe there pops a detail, and the back
+         * stack loses that one. Only the pair on top of its tab can be swiped, so the entries it
+         * stands for are the last ones on the stack.
+         */
+        override fun navigationController(
+            navigationController: UINavigationController,
+            didShowViewController: UIViewController,
+            animated: Boolean,
+        ) {
+            if (syncing) return
+            val layout = groups.getValue(destination)
+            val top = layout.lastOrNull() as? PaneGroup.Split
+            if (top != null && mirrors.getValue(destination).views.getOrNull(top.listIndex) === split.list) {
+                writeBack(destination, layout.dropLast(1).sumOf { it.size } + 1 + split.detailCount)
+            }
+            settle(destination)
         }
     }
 
@@ -447,13 +663,86 @@ private class NativeShell(
          * back to, and no push or pop still animating — a swipe is not let start a pop on top of a
          * transition that has not finished.
          */
+        @OptIn(ExperimentalForeignApi::class)
         override fun gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): Boolean {
             val navigationController = navigationControllers.getValue(destination)
+            // Over the right half of a pair, a swipe belongs to its details while they have one to
+            // go back to; the pair itself goes only once they do not.
+            val split = splits.getValue(destination).values.firstOrNull { it.controller == navigationController.topViewController }
+            if (split != null &&
+                split.details.viewControllers.size > 1 &&
+                gestureRecognizer.locationInView(split.details.view).useContents { x >= 0.0 }
+            ) {
+                return false
+            }
             return navigationController.viewControllers.size > 1 &&
                 navigationController.transitionCoordinator == null
         }
     }
+
+    /** [PopGestureDelegate]'s two conditions, for the right half of a pair. */
+    private class DetailsPopGestureDelegate(
+        private val details: UINavigationController,
+    ) : NSObject(),
+        UIGestureRecognizerDelegateProtocol {
+        override fun gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): Boolean =
+            details.viewControllers.size > 1 && details.transitionCoordinator == null
+    }
 }
+
+/**
+ * The tab controller, reporting its width on every layout: what [NativeShell] decides one pane or two
+ * by. Its own bounds rather than the screen's, because in Split View and Stage Manager the window is
+ * not the screen.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private class ShellTabBarController(
+    private val onWidth: (Double) -> Unit,
+) : UITabBarController(nibName = null, bundle = null) {
+    override fun viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        onWidth(view.bounds.useContents { size.width })
+    }
+}
+
+/**
+ * Whether this is an iPad: a question about the hardware rather than the window, asked only where
+ * the hardware is the answer — the hand holding it, and where UIKit puts the tab bar.
+ */
+private val isPad: Boolean = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad
+
+/** What only the device can say, for every composition the shell makes; see [LocalOneHandModeAvailable]. */
+@Composable
+private fun DeviceLocals(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier) {
+        if (isPad) {
+            CompositionLocalProvider(
+                LocalOneHandMode provides false,
+                LocalOneHandModeAvailable provides false,
+                content = content,
+            )
+        } else {
+            content()
+        }
+    }
+}
+
+/**
+ * Where Android's `calculatePaneScaffoldDirective` starts drawing two panes: Material's expanded
+ * width class. An iPad in landscape and the larger ones in portrait are past it; an 11-inch or
+ * smaller iPad in portrait, and half of one in Split View, keep one screen at a time.
+ */
+private const val LIST_DETAIL_MIN_WIDTH = 840.0
+
+private fun paneKindOf(key: NavKey): PaneKind =
+    when (paneRoleOf(key)) {
+        PaneRole.LIST -> PaneKind.LIST
+        PaneRole.DETAIL -> PaneKind.DETAIL
+        null -> PaneKind.NONE
+    }
 
 /** Whether this system has iOS 26's swipe-anywhere back, which a target starting at 16 cannot assume. */
 @OptIn(ExperimentalForeignApi::class)

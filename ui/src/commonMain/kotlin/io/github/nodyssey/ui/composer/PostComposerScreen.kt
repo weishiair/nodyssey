@@ -117,6 +117,7 @@ import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.editor.ComposerEditorBar
 import io.github.plaza.designsys.editor.EditorAction
@@ -396,43 +397,46 @@ private fun ComposerTopBar(
     onViewModeChange: (ComposerViewMode) -> Unit,
     onPublish: () -> Unit,
 ) {
-    TopAppBar(
-        title = {
-            draftStatus?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    // The slot is what the two view toggles and 发布 leave, which in English or at a
-                    // large text size is less than the sentence; cut, it should say so.
-                    overflow = TextOverflow.Ellipsis,
+    ReadableTopBar { barInsets ->
+        TopAppBar(
+            windowInsets = barInsets,
+            title = {
+                draftStatus?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        // The slot is what the two view toggles and 发布 leave, which in English or at a
+                        // large text size is less than the sentence; cut, it should say so.
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            },
+            navigationIcon = {
+                IconButton(onClick = onClose, enabled = !isPublishing) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(Res.string.action_cancel),
+                        modifier = Modifier.size(TopBarIconSize),
+                    )
+                }
+            },
+            actions = {
+                ViewModeToggle(ComposerViewMode.COMPARE, PlazaIcons.VerticalSplit, viewMode, onViewModeChange)
+                ViewModeToggle(ComposerViewMode.PREVIEW, PlazaIcons.Visibility, viewMode, onViewModeChange)
+                PublishButton(
+                    isPublishing = isPublishing,
+                    enabled = canPublish,
+                    isEditing = isEditing,
+                    onClick = onPublish,
                 )
-            }
-        },
-        navigationIcon = {
-            IconButton(onClick = onClose, enabled = !isPublishing) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(Res.string.action_cancel),
-                    modifier = Modifier.size(TopBarIconSize),
-                )
-            }
-        },
-        actions = {
-            ViewModeToggle(ComposerViewMode.COMPARE, PlazaIcons.VerticalSplit, viewMode, onViewModeChange)
-            ViewModeToggle(ComposerViewMode.PREVIEW, PlazaIcons.Visibility, viewMode, onViewModeChange)
-            PublishButton(
-                isPublishing = isPublishing,
-                enabled = canPublish,
-                isEditing = isEditing,
-                onClick = onPublish,
-            )
-        },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.card),
-        // The thread's bar height (2b), as 3c draws this one: a status line, two toggles and 发布.
-        expandedHeight = TopBarHeight,
-    )
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.card),
+            // The thread's bar height (2b), as 3c draws this one: a status line, two toggles and 发布.
+            expandedHeight = TopBarHeight,
+        )
+    }
 }
 
 /** A view the screen can switch to; lit while it is showing, and tapping it lit goes back to 内容. */

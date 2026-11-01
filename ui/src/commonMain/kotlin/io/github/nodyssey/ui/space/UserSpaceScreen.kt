@@ -134,6 +134,7 @@ import io.github.plaza.designsys.component.MetaStat
 import io.github.plaza.designsys.component.PillTabRow
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.UserAvatar
@@ -235,45 +236,48 @@ fun UserSpaceScreen(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-                actions = {
-                    if (state.isSelf) {
-                        IconButton(onClick = onEditProfile) {
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
                             Icon(
-                                Icons.Default.Edit,
-                                contentDescription = stringResource(Res.string.profile_edit),
-                                modifier = Modifier.size(20.dp),
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(Res.string.action_back),
                             )
                         }
-                    } else if (state.hasProfile) {
-                        // 备注 up here rather than as a third button on the card: beside 关注 and
-                        // 私信 it squeezed all three into wrapping their labels a character a line.
-                        val notes = LocalUserNotes.current
-                        IconButton(onClick = { notes.edit(state.uid, state.name) }) {
-                            Icon(
-                                PlazaIcons.Badge,
-                                contentDescription = stringResource(Res.string.user_note_action),
-                                modifier = Modifier.size(20.dp),
-                            )
+                    },
+                    actions = {
+                        if (state.isSelf) {
+                            IconButton(onClick = onEditProfile) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = stringResource(Res.string.profile_edit),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        } else if (state.hasProfile) {
+                            // 备注 up here rather than as a third button on the card: beside 关注 and
+                            // 私信 it squeezed all three into wrapping their labels a character a line.
+                            val notes = LocalUserNotes.current
+                            IconButton(onClick = { notes.edit(state.uid, state.name) }) {
+                                Icon(
+                                    PlazaIcons.Badge,
+                                    contentDescription = stringResource(Res.string.user_note_action),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
                         }
-                    }
-                    SpaceOverflowMenu(onOpenBrowser = { onOpenBrowser(spaceUrl) })
-                },
-                colors =
-                TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
+                        SpaceOverflowMenu(onOpenBrowser = { onOpenBrowser(spaceUrl) })
+                    },
+                    colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        scrolledContainerColor = MaterialTheme.colorScheme.background,
+                    ),
+                )
+            }
         },
     ) { padding ->
         if (state.isLoadingProfile && !state.hasProfile) {
