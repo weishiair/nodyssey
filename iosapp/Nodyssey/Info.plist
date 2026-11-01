@@ -74,9 +74,11 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>processing</string>
+		<string>fetch</string>
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
+		<string>io.github.nodyssey.attendance</string>
 		<string>io.github.nodyssey.offline.drain</string>
 		<string>io.github.nodyssey.offline.maintenance</string>
 	</array>

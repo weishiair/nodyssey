@@ -139,6 +139,7 @@ internal fun NodysseyChrome(
     modifier: Modifier = Modifier,
     content: @Composable (storedSettings: UserSettings?) -> Unit,
 ) {
+    AutomaticAttendanceEffect(container)
     // Theme reads the settings SSOT directly. No copy is kept anywhere, so changing the setting can
     // never leave part of the app on the old value.
     //

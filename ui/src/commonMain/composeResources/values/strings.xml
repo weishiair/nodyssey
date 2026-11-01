@@ -1983,4 +1983,19 @@
     <string name="messages_scam_details">查看完整防诈提醒</string>
     <string name="message_thread_profile">用户资料</string>
     <string name="message_thread_profile_caution">账号等级和注册时间仅供参考，交易时仍请谨慎核实身份。</string>
+    <string name="auto_attendance_title">自动签到</string>
+    <string name="auto_attendance_hint">后台尝试每日签到，打开应用时补签。按北京时间计算；系统可能延后后台执行。仅对当前站点生效。</string>
+    <string name="auto_attendance_mode">签到方式</string>
+    <string name="auto_attendance_random">随机鸡腿</string>
+    <string name="auto_attendance_fixed">固定 5 个鸡腿</string>
+    <string name="auto_attendance_status">签到状态</string>
+    <string name="auto_attendance_pending">等待自动签到</string>
+    <string name="auto_attendance_running">正在检查并签到…</string>
+    <string name="auto_attendance_done">今日已签到</string>
+    <string name="auto_attendance_done_gain">今日已签到 · 获得 %1$d 个鸡腿</string>
+    <string name="auto_attendance_verify">已暂停，请通过手动签到完成人机验证后再试。</string>
+    <string name="auto_attendance_sign_in">已暂停，请登录或重新登录后再试。</string>
+    <string name="auto_attendance_network">网络连接失败，将稍后重试。</string>
+    <string name="auto_attendance_limit">今日自动尝试次数已用完，可手动签到。</string>
+    <string name="auto_attendance_failed">自动签到未完成，可前往手动签到查看。</string>
 </resources>

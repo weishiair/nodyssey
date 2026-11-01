@@ -21,6 +21,7 @@ import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.Site
 import io.github.nodyssey.core.net.AppWebViewProxy
 import io.github.nodyssey.core.net.BundledEch
+import io.github.nodyssey.data.attendance.AutoAttendanceWork
 import io.github.nodyssey.data.offline.AndroidOfflineFileStore
 import io.github.nodyssey.data.offline.OfflineDownloads
 import io.github.nodyssey.data.offline.OfflineImageInterceptor
@@ -42,6 +43,7 @@ import io.github.plaza.designsys.image.LongLivedImageCacheStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -144,6 +146,16 @@ open class NodysseyApp :
         // exactly the case a check at screen-open misses. Scheduled unconditionally and cheap: the
         // sweep does nothing on a device that has downloaded nothing.
         OfflineWork.ensureMaintenance(this)
+        applicationScope.launch {
+            sites.state.collectLatest { state ->
+                state.graph.settingsRepository.automaticAttendance.config
+                    .map { it.enabled }
+                    .distinctUntilChanged()
+                    .collect { enabled ->
+                        AutoAttendanceWork.sync(this@NodysseyApp, enabled)
+                    }
+            }
+        }
         // The scheduler follows the settings SSOT rather than being poked from the settings screen,
         // so the schedule is correct even when a setting changes without that screen ever opening.
         applicationScope.launch {

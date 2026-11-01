@@ -1702,4 +1702,19 @@
     <string name="messages_scam_details">查看完整防詐提醒</string>
     <string name="message_thread_profile">使用者資料</string>
     <string name="message_thread_profile_caution">帳號等級和註冊時間僅供參考，交易時仍請謹慎核實身分。</string>
+    <string name="auto_attendance_title">自動簽到</string>
+    <string name="auto_attendance_hint">背景嘗試每日簽到，開啟應用程式時補簽。以北京時間計算；系統可能延後背景執行。僅對目前站點生效。</string>
+    <string name="auto_attendance_mode">簽到方式</string>
+    <string name="auto_attendance_random">隨機雞腿</string>
+    <string name="auto_attendance_fixed">固定 5 個雞腿</string>
+    <string name="auto_attendance_status">簽到狀態</string>
+    <string name="auto_attendance_pending">等待自動簽到</string>
+    <string name="auto_attendance_running">正在檢查並簽到…</string>
+    <string name="auto_attendance_done">今日已簽到</string>
+    <string name="auto_attendance_done_gain">今日已簽到 · 獲得 %1$d 個雞腿</string>
+    <string name="auto_attendance_verify">已暫停，請透過手動簽到完成人機驗證後再試。</string>
+    <string name="auto_attendance_sign_in">已暫停，請登入或重新登入後再試。</string>
+    <string name="auto_attendance_network">網路連線失敗，將稍後重試。</string>
+    <string name="auto_attendance_limit">今日自動嘗試次數已用完，可手動簽到。</string>
+    <string name="auto_attendance_failed">自動簽到未完成，可前往手動簽到查看。</string>
 </resources>

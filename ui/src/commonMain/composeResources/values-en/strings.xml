@@ -1710,4 +1710,19 @@
     <string name="messages_scam_details">View the full scam warning</string>
     <string name="message_thread_profile">User details</string>
     <string name="message_thread_profile_caution">Account level and age are for reference only. Verify the other party’s identity before trading.</string>
+    <string name="auto_attendance_title">Automatic check-in</string>
+    <string name="auto_attendance_hint">Check in daily in the background and catch up when the app opens. Days use Beijing time; the system may delay background runs. Applies to the current site.</string>
+    <string name="auto_attendance_mode">Check-in mode</string>
+    <string name="auto_attendance_random">Random drumsticks</string>
+    <string name="auto_attendance_fixed">Fixed: 5 drumsticks</string>
+    <string name="auto_attendance_status">Check-in status</string>
+    <string name="auto_attendance_pending">Waiting to check in</string>
+    <string name="auto_attendance_running">Checking and signing in…</string>
+    <string name="auto_attendance_done">Checked in today</string>
+    <string name="auto_attendance_done_gain">Checked in today · %1$d drumsticks</string>
+    <string name="auto_attendance_verify">Paused. Use manual check-in to complete browser verification.</string>
+    <string name="auto_attendance_sign_in">Paused. Sign in again to continue.</string>
+    <string name="auto_attendance_network">Connection failed. Will retry later.</string>
+    <string name="auto_attendance_limit">Automatic attempts used up for today. You can still check in manually.</string>
+    <string name="auto_attendance_failed">Automatic check-in failed. Try manual check-in for details.</string>
 </resources>
