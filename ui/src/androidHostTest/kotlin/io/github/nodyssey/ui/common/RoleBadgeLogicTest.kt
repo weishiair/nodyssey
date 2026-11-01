@@ -11,4 +11,12 @@ class RoleBadgeLogicTest {
         assertEquals(listOf("骗子", "服主", "管理"), shown)
         assertEquals(1, folded)
     }
+
+    @Test
+    fun `temporary suspension stays visible ahead of staff and unknown roles`() {
+        val (shown, folded) = visibleRoleBadges(listOf("服主", "管理", "Dev", "临时禁言", "楼主"))
+
+        assertEquals(listOf("楼主", "临时禁言", "服主"), shown)
+        assertEquals(2, folded)
+    }
 }

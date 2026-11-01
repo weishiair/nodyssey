@@ -225,6 +225,23 @@ class ProfileRepositoryTest {
             assertEquals("/api/account/getInfo/42?readme=1", jsonSource.requestedPath)
         }
 
+    @Test
+    fun `public account roles retain display labels and discard invisible or duplicate entries`() =
+        runTest {
+            val repository = NetworkProfileRepository(
+                htmlSource = FakeProfileHtmlSource(""),
+                jsonSource = FakeProfileJsonSource(response = Fixtures.load("synthetic-profile-roles.json")),
+                profileDao = database.profileDao(),
+                currentSessionFingerprint = { 7 },
+                isSignedIn = { true },
+                clock = AppClock { 0L },
+            )
+
+            val profile = repository.profile(uid = 42)
+
+            assertEquals(listOf("Dev", "临时禁言"), profile.badges)
+        }
+
     /**
      * The two ways the front page comes back naming nobody, which used to be one.
      *

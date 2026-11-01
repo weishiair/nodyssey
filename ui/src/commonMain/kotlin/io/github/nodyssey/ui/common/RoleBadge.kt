@@ -34,7 +34,7 @@ fun roleBadgeStyleOf(label: String): RoleBadgeStyle =
         "楼主" -> RoleBadgeStyle.ORIGINAL_POSTER
         "服主", "管理" -> RoleBadgeStyle.STAFF
         "管理(退休)" -> RoleBadgeStyle.RETIRED
-        "违规禁止" -> RoleBadgeStyle.BANNED
+        "违规禁止", "临时禁言" -> RoleBadgeStyle.BANNED
         "骗子" -> RoleBadgeStyle.SCAMMER
         else -> RoleBadgeStyle.NEUTRAL
     }

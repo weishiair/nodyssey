@@ -84,6 +84,22 @@ class PostDetailScreenRenderTest {
         composeRule.onRoot().captureRender("post-detail-dark")
     }
 
+    @Test
+    fun `suspended author in light`() {
+        composeRule.setContent {
+            Screen(darkTheme = false, state = SHORT_STATE.copy(body = BODY.copy(badges = listOf("楼主", "临时禁言"))))
+        }
+        composeRule.onRoot().captureRender("post-detail-suspended-light")
+    }
+
+    @Test
+    fun `suspended author in dark`() {
+        composeRule.setContent {
+            Screen(darkTheme = true, state = SHORT_STATE.copy(body = BODY.copy(badges = listOf("楼主", "临时禁言"))))
+        }
+        composeRule.onRoot().captureRender("post-detail-suspended-dark")
+    }
+
     /** The reply cards, scrolled to — the first screen shows little more than the opening post. */
     @Test
     fun `the replies in light`() {
