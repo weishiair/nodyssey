@@ -3,6 +3,8 @@
 
 import json
 import os
+import plistlib
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -64,6 +66,27 @@ def main():
             (output / "results.json").write_text(json.dumps(reports, indent=2) + chr(10))
             assert "IPAD_SMOKE_OK" in content, f"App crashed or failed rotation; see {log}"
             assert sum("IPAD_SMOKE_STEP " in step for step in steps) == 5, steps
+            # Launch a fresh process constrained by its test-only plist to start in landscape.
+            cold = output / f"cold-{size}" / "Nodyssey.app"
+            shutil.copytree(app, cold, dirs_exist_ok=True)
+            manifest = cold / "Info.plist"
+            info = plistlib.loads(manifest.read_bytes())
+            for key in ("UISupportedInterfaceOrientations", "UISupportedInterfaceOrientations~ipad"):
+                info[key] = ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
+            manifest.write_bytes(plistlib.dumps(info))
+            run("codesign", "--force", "--sign", "-", cold)
+            run("xcrun", "simctl", "install", device, cold)
+            env["SIMCTL_CHILD_NODYSSEY_SMOKE_COLD_LANDSCAPE"] = "1"
+            cold_log = output / f"ipad-{size}-cold-landscape.log"
+            with cold_log.open("w") as stream:
+                run("xcrun", "simctl", "launch", "--console", device, "io.github.nodyssey",
+                    env=env, stdout=stream, stderr=subprocess.STDOUT, timeout=100)
+            content = cold_log.read_text(errors="replace")
+            steps = [line for line in content.splitlines() if "IPAD_SMOKE_" in line]
+            print(chr(10).join(steps), flush=True)
+            reports.append({"device": device_type["name"], "scenario": "cold landscape", "steps": steps})
+            (output / "results.json").write_text(json.dumps(reports, indent=2) + chr(10))
+            assert "IPAD_SMOKE_OK" in content and "IPAD_SMOKE_COLD_LANDSCAPE" in content, str(cold_log)
         finally:
             subprocess.run(["xcrun", "simctl", "shutdown", device], check=False)
             subprocess.run(["xcrun", "simctl", "delete", device], check=False)

@@ -74,6 +74,23 @@ static void Rotate(UIWindow *window, NSUInteger step) {
                 Report(@"IPAD_SMOKE_READY");
                 // Allow the initial layout callback to install a split on a wide iPad.
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                    if (getenv("NODYSSEY_SMOKE_COLD_LANDSCAPE")) {
+                        if (!UIInterfaceOrientationIsLandscape(window.windowScene.interfaceOrientation) ||
+                            window.bounds.size.width <= window.bounds.size.height) {
+                            Report(@"IPAD_SMOKE_ERROR cold launch did not use landscape");
+                            exit(7);
+                        }
+                        UITabBarController *tabs = (UITabBarController *)window.rootViewController;
+                        UINavigationController *navigation = (UINavigationController *)tabs.selectedViewController;
+                        NSString *name = NSStringFromClass(navigation.topViewController.class);
+                        if (![name containsString:@"PaneSplitController"]) {
+                            Report([@"IPAD_SMOKE_ERROR cold landscape missing split: " stringByAppendingString:name]);
+                            exit(8);
+                        }
+                        Report([@"IPAD_SMOKE_COLD_LANDSCAPE " stringByAppendingString:name]);
+                        Report(@"IPAD_SMOKE_OK");
+                        exit(0);
+                    }
                     Rotate(window, 0);
                 });
             } else if (++attempts >= 600) {
