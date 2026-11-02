@@ -183,7 +183,6 @@ import io.github.nodyssey.ui.resources.post_loading_earlier
 import io.github.nodyssey.ui.resources.post_new_replies_divider
 import io.github.nodyssey.ui.resources.post_only_author
 import io.github.nodyssey.ui.resources.post_open_original
-import io.github.nodyssey.ui.resources.post_quote_action
 import io.github.nodyssey.ui.resources.post_quote_floor
 import io.github.nodyssey.ui.resources.post_reaction_chicken
 import io.github.nodyssey.ui.resources.post_reaction_cost
@@ -1432,7 +1431,6 @@ private fun ThreadList(
                             pendingReaction = state.pendingReactionFor(comment),
                             onReact = { action -> onReact(comment, action) },
                             onReply = onReply,
-                            onQuote = onQuote,
                             onEdit = onEdit,
                             showDivider = state.postReplyStyle == PostReplyStyle.FLAT && index < state.comments.lastIndex,
                             onMore = { onOpenFloorActions(FloorActions(comment, onReply, onQuote, onEdit)) },
@@ -2158,7 +2156,7 @@ private fun CommentsHeader(
  * stands beside the name and badges, with time and floor at the far end. The body starts below
  * the whole header so images, quotes and long text can use the full reading width.
  *
- * The foot carries 点赞, 投喂, 引用 and 回复, with a ⋯ for 反对 and the remaining
+ * The foot carries 点赞, 投喂 and 回复, with a ⋯ for 引用, 反对 and the remaining
  * actions. [FloorActionSheet] also shows each reaction's price. A long press on
  * the header or the foot opens the same panel; on the text it selects, as it always has — see
  * [floorLongPress] for why the row as a whole does not listen.
@@ -2176,7 +2174,6 @@ private fun CommentRow(
     onReact: (ReactionAction) -> Unit,
     /** Null on this account's own floor, where [onEdit] takes its place. */
     onReply: (() -> Unit)?,
-    onQuote: () -> Unit,
     onEdit: (() -> Unit)?,
     showDivider: Boolean = true,
     onMore: () -> Unit,
@@ -2246,7 +2243,6 @@ private fun CommentRow(
             pending = pendingReaction,
             onReact = onReact,
             onReply = onReply,
-            onQuote = onQuote,
             onEdit = onEdit,
             onMore = onMore,
             modifier = Modifier.floorLongPress(onMore),
@@ -2708,7 +2704,6 @@ private fun CommentFoot(
     pending: ReactionAction?,
     onReact: (ReactionAction) -> Unit,
     onReply: (() -> Unit)?,
-    onQuote: () -> Unit,
     onEdit: (() -> Unit)?,
     onMore: () -> Unit,
     modifier: Modifier = Modifier,
@@ -2722,7 +2717,6 @@ private fun CommentFoot(
         ReactionPill(ReactionAction.Upvote, reactions, pending, onReact)
         ReactionPill(ReactionAction.ChickenLeg, reactions, pending, onReact)
         Spacer(Modifier.weight(1f))
-        FloorActionButton(PlazaIcons.FormatQuote, Res.string.post_quote_action, onClick = onQuote)
         when {
             onEdit != null -> FloorActionButton(Icons.Default.Edit, Res.string.post_edit_action, onClick = onEdit)
             onReply != null -> FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply)
@@ -2774,9 +2768,8 @@ private fun FloorActionButton(
         if (pending) {
             PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = 18.dp)
         } else {
-            // Equal vector boxes are not equal marks: ThumbUp fills almost its whole viewport,
-            // whereas FormatQuote has generous internal whitespace. Match their visible size
-            // and centre of ink while keeping every button on the same minimum touch target.
+            // ThumbUp fills almost its whole viewport, so use a smaller box to match the other
+            // glyphs while keeping every button on the same minimum touch target.
             val glyphSize =
                 if (compact) {
                     when (label) {
@@ -2786,7 +2779,6 @@ private fun FloorActionButton(
                 } else {
                     when (label) {
                         Res.string.post_reaction_like -> 16.dp
-                        Res.string.post_quote_action -> 22.dp
                         else -> 20.dp
                     }
                 }
@@ -2803,7 +2795,7 @@ private fun FloorActionButton(
         }
         if (count.isNotEmpty()) {
             Text(count, style = footLabelStyle(), modifier = Modifier.padding(start = Spacing.xs))
-        } else if (label == Res.string.post_reply_action || label == Res.string.post_quote_action || label == Res.string.post_edit_action) {
+        } else if (label == Res.string.post_reply_action || label == Res.string.post_edit_action) {
             Text(description, style = footLabelStyle(), modifier = Modifier.padding(start = 4.dp))
         }
     }
