@@ -31,6 +31,13 @@ internal data class PostConfig(
      */
     val ownCommentIds: Set<Long> = emptySet(),
     /**
+     * The floors a moderator pinned, per the blob's `comments[].pined` — the site's own spelling.
+     *
+     * Empty when the page carried no blob, which here is not a lost answer: a signed-out page still
+     * renders the pin in the markup, and [PostDetailParser] reads that as its second source.
+     */
+    val pinnedCommentIds: Set<Long> = emptySet(),
+    /**
      * When each floor was last edited, per the blob's `comments[].time`.
      *
      * Holds only the floors the site named a time for: an unedited floor arrives with
@@ -89,6 +96,7 @@ internal object PostConfigParser {
         val reactions = mutableMapOf<Long, PostReactions>()
         val blocked = mutableSetOf<Long>()
         val own = mutableSetOf<Long>()
+        val pinned = mutableSetOf<Long>()
         val edited = mutableMapOf<Long, FloorEditTime>()
         // Absent on a reshaped page, which costs the tallies but must not cost the thread-level
         // state sitting next to them — hence a loop over nothing rather than an early return.
@@ -105,6 +113,9 @@ internal object PostConfigParser {
                     upvoted = comment.bool("upvoted"),
                 )
             if (comment.bool("blocked")) blocked += commentId
+            // `pined`, one n — the wire's own spelling. A site-side rename would cost only this
+            // source: the markup carries the same pin, and [PostDetailParser] reads that too.
+            if (comment.bool("pined")) pinned += commentId
             // Safe cast, not `jsonObject`: that accessor throws on a reshaped `poster`, and this
             // loop is inside the pass that must not cost the page its tallies.
             if ((comment["poster"] as? JsonObject)?.bool("isMe") == true) own += commentId
@@ -114,6 +125,7 @@ internal object PostConfigParser {
             reactions = reactions,
             blockedCommentIds = blocked,
             ownCommentIds = own,
+            pinnedCommentIds = pinned,
             editedTimes = edited,
             // Thread-level, so they sit on `postData` itself rather than inside `comments`.
             collected = postData.boolOrNull("collected"),

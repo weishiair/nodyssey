@@ -171,7 +171,7 @@ internal fun FloorShareCard(
                     )
                 }
             }
-            content.floor?.let { FloorLabel(it) }
+            FloorLabel(content)
         }
         Box(Modifier.capHeight(MAX_BODY_HEIGHT) { truncated = it }) {
             PostRichContent(
