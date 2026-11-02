@@ -58,7 +58,10 @@ internal class PaneSplitController(
     /** Releases pages before this pair leaves the outer navigation controller. */
     fun releasePages() {
         // This pair is discarded. Suppress delegate write-back while its pages are detached.
-        val released = details.viewControllers.filter { it != placeholder }
+        val released =
+            details.viewControllers
+                .filterIsInstance<UIViewController>()
+                .filter { it != placeholder }
         details.delegate = null
         details.setViewControllers(listOf(placeholder), animated = false)
         released.forEach { it.view.removeFromSuperview() }
