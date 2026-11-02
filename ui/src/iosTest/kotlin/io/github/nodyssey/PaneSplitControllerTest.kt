@@ -2,12 +2,36 @@ package io.github.nodyssey
 
 import platform.UIKit.UINavigationController
 import platform.UIKit.UIViewController
+import platform.UIKit.addChildViewController
+import platform.UIKit.didMoveToParentViewController
+import platform.UIKit.removeFromParentViewController
+import platform.UIKit.willMoveToParentViewController
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 /** Checks the UIKit containment and page transfers used by the iPad shell. */
 class PaneSplitControllerTest {
+    @Test
+    fun `a page with a cleared parent but an outgoing navigation view can enter the split`() {
+        val list = UIViewController(nibName = null, bundle = null)
+        val previous = UIViewController(nibName = null, bundle = null)
+        previous.addChildViewController(list)
+        previous.view.addSubview(list.view)
+        list.didMoveToParentViewController(previous)
+        // A visible non-animated navigation replacement clears parent before its outgoing view.
+        list.willMoveToParentViewController(null)
+        list.removeFromParentViewController()
+        assertNull(list.parentViewController)
+        assertEquals(previous.view, list.view.superview)
+        val split = PaneSplitController(UIViewController(nibName = null, bundle = null))
+
+        split.showList(list)
+
+        assertEquals(split, list.parentViewController)
+        assertEquals(split.view, list.view.superview)
+    }
+
     @Test
     fun `a new split has a root before the outer navigation controller displays it`() {
         val placeholder = UIViewController(nibName = null, bundle = null)
