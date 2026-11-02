@@ -50,6 +50,15 @@ val LocalPlazaFontScale = staticCompositionLocalOf { 1f }
 val LocalOneHandMode = staticCompositionLocalOf { true }
 
 /**
+ * Whether 单手模式 means anything on this device at all.
+ *
+ * A tablet is held in two hands or stood up, and has no thumb to bring a title down to. There the
+ * shell provides `false` — with [LocalOneHandMode] false beside it — and the switch leaves 设置 and
+ * the guide skips its page, rather than offering a setting that changes nothing the reader can see.
+ */
+val LocalOneHandModeAvailable = staticCompositionLocalOf { true }
+
+/**
  * 墨水屏模式 — whether the screen is a sheet of electronic paper.
  *
  * The colour half of that answer needs no local: [PlazaTheme] swaps the whole `ColorScheme` for

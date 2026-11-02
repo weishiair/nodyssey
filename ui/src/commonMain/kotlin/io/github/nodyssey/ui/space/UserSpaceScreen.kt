@@ -75,6 +75,7 @@ import io.github.nodyssey.ui.common.LocalUserNotes
 import io.github.nodyssey.ui.common.LockBadge
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
+import io.github.nodyssey.ui.common.RoleBadgeRow
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.TabPager
@@ -134,6 +135,7 @@ import io.github.plaza.designsys.component.MetaStat
 import io.github.plaza.designsys.component.PillTabRow
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.UserAvatar
@@ -235,45 +237,48 @@ fun UserSpaceScreen(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-                actions = {
-                    if (state.isSelf) {
-                        IconButton(onClick = onEditProfile) {
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
                             Icon(
-                                Icons.Default.Edit,
-                                contentDescription = stringResource(Res.string.profile_edit),
-                                modifier = Modifier.size(20.dp),
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(Res.string.action_back),
                             )
                         }
-                    } else if (state.hasProfile) {
-                        // 备注 up here rather than as a third button on the card: beside 关注 and
-                        // 私信 it squeezed all three into wrapping their labels a character a line.
-                        val notes = LocalUserNotes.current
-                        IconButton(onClick = { notes.edit(state.uid, state.name) }) {
-                            Icon(
-                                PlazaIcons.Badge,
-                                contentDescription = stringResource(Res.string.user_note_action),
-                                modifier = Modifier.size(20.dp),
-                            )
+                    },
+                    actions = {
+                        if (state.isSelf) {
+                            IconButton(onClick = onEditProfile) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = stringResource(Res.string.profile_edit),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        } else if (state.hasProfile) {
+                            // 备注 up here rather than as a third button on the card: beside 关注 and
+                            // 私信 it squeezed all three into wrapping their labels a character a line.
+                            val notes = LocalUserNotes.current
+                            IconButton(onClick = { notes.edit(state.uid, state.name) }) {
+                                Icon(
+                                    PlazaIcons.Badge,
+                                    contentDescription = stringResource(Res.string.user_note_action),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
                         }
-                    }
-                    SpaceOverflowMenu(onOpenBrowser = { onOpenBrowser(spaceUrl) })
-                },
-                colors =
-                TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
+                        SpaceOverflowMenu(onOpenBrowser = { onOpenBrowser(spaceUrl) })
+                    },
+                    colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        scrolledContainerColor = MaterialTheme.colorScheme.background,
+                    ),
+                )
+            }
         },
     ) { padding ->
         if (state.isLoadingProfile && !state.hasProfile) {
@@ -421,8 +426,7 @@ private fun FollowFailureEffect(
  * rather than a card of its own under 概况, so it is read before any tab is chosen), what the site
  * counts for them, and — on someone else's page — the two things you can do about them.
  *
- * 3a also tags the account with a role (「服主」). The profile payload carries no role, so there is no
- * tag to draw.
+ * Public role labels share the floor header's badges, including account restrictions.
  */
 @Composable
 private fun SpaceHeader(
@@ -464,6 +468,9 @@ private fun SpaceHeader(
                     style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR_FIGURES),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (state.badges.isNotEmpty()) {
+                    RoleBadgeRow(state.badges)
+                }
             }
         }
         state.bio?.let { bio ->

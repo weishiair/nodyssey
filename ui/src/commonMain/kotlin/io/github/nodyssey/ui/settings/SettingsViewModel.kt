@@ -6,8 +6,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.data.AppCacheStore
+import io.github.nodyssey.data.AttendanceMode
 import io.github.nodyssey.data.PostRepository
 import io.github.nodyssey.data.TitleKeywordStore
+import io.github.nodyssey.data.attendance.AutoAttendance
+import io.github.nodyssey.data.attendance.AutoAttendanceConfig
+import io.github.nodyssey.data.attendance.AutoAttendanceState
 import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.dns.DohSupport
 import io.github.nodyssey.data.dns.resolvesOverHttps
@@ -20,6 +24,7 @@ import io.github.nodyssey.data.proxy.routes
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.settings.AppLanguage
 import io.github.nodyssey.data.settings.PostReplyStyle
+import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.ThemeMode
@@ -49,7 +54,24 @@ class SettingsViewModel(
     doh: DohSupport?,
     /** See [SettingsUiState.hasNetworkCheck] — a fact about the platform, fixed for the process. */
     private val hasNetworkCheck: Boolean,
+    automaticAttendance: AutoAttendance? = null,
 ) : ViewModel() {
+    val attendanceConfig = settings.automaticAttendance.config.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        AutoAttendanceConfig(),
+    )
+    val attendanceState = automaticAttendance?.state
+        ?: MutableStateFlow(AutoAttendanceState())
+
+    fun setAutoAttendanceEnabled(enabled: Boolean) {
+        viewModelScope.launch { settings.automaticAttendance.setEnabled(enabled) }
+    }
+
+    fun setAutoAttendanceMode(mode: AttendanceMode) {
+        viewModelScope.launch { settings.automaticAttendance.setMode(mode) }
+    }
+
     private val clearingCache = MutableStateFlow(false)
 
     /** Null until the first measurement lands; walking the cache directory is not instant. */
@@ -120,6 +142,16 @@ class SettingsViewModel(
     /** 明暗 is the one theme control 设置 kept; the rest are on [ThemeSettingsViewModel]. */
     fun setThemeMode(value: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(value) }
+    }
+
+    /** 已读标记 — what a list does with a thread that has already been opened. */
+    fun setReadMarkStyle(value: ReadMarkStyle) {
+        viewModelScope.launch { settings.setReadMarkStyle(value) }
+    }
+
+    /** 已读标记's colour; null hands it back to the theme. */
+    fun setReadMarkColor(argb: Int?) {
+        viewModelScope.launch { settings.setReadMarkColor(argb) }
     }
 
     /**
@@ -253,6 +285,7 @@ class SettingsViewModel(
                         appVersion = container.appVersion,
                         doh = container.doh,
                         hasNetworkCheck = container.networkDiagnostics != null,
+                        automaticAttendance = container.automaticAttendance,
                     )
                 }
             }

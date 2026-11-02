@@ -34,11 +34,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.data.AttendanceMode
 import io.github.nodyssey.data.FeedPost
+import io.github.nodyssey.data.attendance.AutoAttendanceConfig
+import io.github.nodyssey.data.attendance.AutoAttendanceState
 import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.settings.AppLanguage
 import io.github.nodyssey.data.settings.PostReplyStyle
+import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.ThemeMode
@@ -103,6 +107,12 @@ import io.github.nodyssey.ui.resources.settings_post_reply_style_original
 import io.github.nodyssey.ui.resources.settings_predictive_back
 import io.github.nodyssey.ui.resources.settings_predictive_back_hint
 import io.github.nodyssey.ui.resources.settings_proxy_entry
+import io.github.nodyssey.ui.resources.settings_read_mark
+import io.github.nodyssey.ui.resources.settings_read_mark_block
+import io.github.nodyssey.ui.resources.settings_read_mark_dim
+import io.github.nodyssey.ui.resources.settings_read_mark_hint
+import io.github.nodyssey.ui.resources.settings_read_mark_off
+import io.github.nodyssey.ui.resources.settings_read_mark_unread_block
 import io.github.nodyssey.ui.resources.settings_refresh_rate
 import io.github.nodyssey.ui.resources.settings_refresh_rate_hint
 import io.github.nodyssey.ui.resources.settings_refresh_rate_value
@@ -156,6 +166,7 @@ import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.richtext.LocalStickerSizing
 import io.github.plaza.designsys.richtext.StickerSizing
+import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.PostBody
@@ -181,6 +192,8 @@ fun SettingsRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val attendanceConfig by viewModel.attendanceConfig.collectAsStateWithLifecycle()
+    val attendanceState by viewModel.attendanceState.collectAsStateWithLifecycle()
     // Read here rather than in the ViewModel: it is a fact about the system's settings, not about
     // this app's, and it changes while the user is away on a screen we do not own.
     val appLinkHandlingEnabled = rememberAppLinkHandlingEnabled()
@@ -191,7 +204,13 @@ fun SettingsRoute(
         onOpenAppLinkSettings = openAppLinkSettings,
         onBack = onBack,
         onOpenTheme = onOpenTheme,
+        attendanceConfig = attendanceConfig,
+        attendanceState = attendanceState,
+        onAutoAttendanceEnabledChange = viewModel::setAutoAttendanceEnabled,
+        onAutoAttendanceModeChange = viewModel::setAutoAttendanceMode,
         onThemeModeChange = viewModel::setThemeMode,
+        onReadMarkStyleChange = viewModel::setReadMarkStyle,
+        onReadMarkColorChange = viewModel::setReadMarkColor,
         onAppLanguageChange = viewModel::setAppLanguage,
         onOneHandModeChange = viewModel::setOneHandMode,
         onPredictiveBackChange = viewModel::setPredictiveBack,
@@ -235,6 +254,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenTheme: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
+    onReadMarkStyleChange: (ReadMarkStyle) -> Unit,
+    onReadMarkColorChange: (Int?) -> Unit,
     onOneHandModeChange: (Boolean) -> Unit,
     onFontScaleChange: (Float) -> Unit,
     onStickerUniformSizeChange: (Boolean) -> Unit,
@@ -265,6 +286,10 @@ fun SettingsScreen(
     onSearchHistoryLimitChange: (Int) -> Unit = {},
     /** Null hides 识别剪贴板中的帖子: a platform where reading the clipboard costs a prompt each time. */
     onClipboardPostPromptChange: ((Boolean) -> Unit)? = null,
+    attendanceConfig: AutoAttendanceConfig = AutoAttendanceConfig(),
+    attendanceState: AutoAttendanceState = AutoAttendanceState(),
+    onAutoAttendanceEnabledChange: (Boolean) -> Unit = {},
+    onAutoAttendanceModeChange: (AttendanceMode) -> Unit = {},
     onSearchAvatarChange: (Boolean) -> Unit = {},
     onSearchAvatarSizeChange: (Int) -> Unit = {},
 ) {
@@ -346,6 +371,26 @@ fun SettingsScreen(
                     onClick = onOpenTheme,
                     trailing = { ThemeSummaryDot(settings = state.settings, enabled = !state.settings.einkMode) },
                 )
+                // 已读标记 — how a thread that has been opened is drawn in the three lists that carry
+                // read state. A menu rather than rows of their own: four answers, no live preview
+                // needed to tell them apart, and the list itself is one tap away.
+                SettingsMenuRow(
+                    icon = PlazaIcons.DoneAll,
+                    title = stringResource(Res.string.settings_read_mark),
+                    subtitle = stringResource(Res.string.settings_read_mark_hint),
+                    choices = ReadMarkStyle.entries.map { it to readMarkStyleLabel(it) },
+                    selected = state.settings.readMarkStyle,
+                    onSelect = onReadMarkStyleChange,
+                )
+                // 标记颜色 exists only while something is painted: 仅标题变灰 adds no colour at all and
+                // 不标记 less, so a colour row under either of them would set something that cannot
+                // be seen.
+                if (state.settings.readMarkStyle == ReadMarkStyle.BLOCK || state.settings.readMarkStyle == ReadMarkStyle.UNREAD_BLOCK) {
+                    ReadMarkColorRow(
+                        color = state.settings.readMarkColor,
+                        onPick = onReadMarkColorChange,
+                    )
+                }
                 // Under 主题 rather than above it: it overrides 明暗 and replaces 主题, and the two
                 // it greys out read first, the way a master switch reads after what it governs.
                 GroupedRow(
@@ -367,14 +412,16 @@ fun SettingsScreen(
                 // One switch for every screen that carries the bar rather than one per screen:
                 // whether the title should come down to the thumb is a fact about the hand holding
                 // the phone, and it does not change between 收藏 and 设置.
-                GroupedRow(
-                    icon = PlazaIcons.PanTool,
-                    title = stringResource(Res.string.settings_one_hand),
-                    subtitle = stringResource(Res.string.settings_one_hand_hint),
-                    checked = state.settings.oneHandMode,
-                    onCheckedChange = onOneHandModeChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.oneHandMode) },
-                )
+                if (LocalOneHandModeAvailable.current) {
+                    GroupedRow(
+                        icon = PlazaIcons.PanTool,
+                        title = stringResource(Res.string.settings_one_hand),
+                        subtitle = stringResource(Res.string.settings_one_hand_hint),
+                        checked = state.settings.oneHandMode,
+                        onCheckedChange = onOneHandModeChange,
+                        trailing = { GroupedListItemSwitch(checked = state.settings.oneHandMode) },
+                    )
+                }
                 SettingsBlock(
                     title = stringResource(Res.string.settings_body_size),
                     value = bodyFontSize.roundToInt().toString(),
@@ -597,6 +644,13 @@ fun SettingsScreen(
                     showChevron = false,
                 )
             }
+
+            AutoAttendanceSettings(
+                attendanceConfig,
+                attendanceState,
+                onAutoAttendanceEnabledChange,
+                onAutoAttendanceModeChange,
+            )
 
             SectionLabel(stringResource(Res.string.notify_settings_title))
             SettingsGroup {
@@ -844,6 +898,23 @@ private fun appLanguageChoices(): List<Pair<AppLanguage, String>> =
     )
 
 /**
+ * 已读标记's four answers, in the order [ReadMarkStyle] declares them.
+ *
+ * A `when` rather than a lookup keyed on the enum, so that adding a style without wording fails to
+ * compile instead of drawing an empty menu entry.
+ */
+@Composable
+private fun readMarkStyleLabel(style: ReadMarkStyle): String =
+    stringResource(
+        when (style) {
+            ReadMarkStyle.BLOCK -> Res.string.settings_read_mark_block
+            ReadMarkStyle.UNREAD_BLOCK -> Res.string.settings_read_mark_unread_block
+            ReadMarkStyle.DIM -> Res.string.settings_read_mark_dim
+            ReadMarkStyle.OFF -> Res.string.settings_read_mark_off
+        },
+    )
+
+/**
  * 跟随系统 / 浅色 / 深色.
  *
  * The one part of 主题 that did not move onto 主题's own screen — see the group above for why.
@@ -1042,6 +1113,8 @@ private fun SettingsPreview() {
             onBack = {},
             onOpenTheme = {},
             onThemeModeChange = {},
+            onReadMarkStyleChange = {},
+            onReadMarkColorChange = {},
             onOneHandModeChange = {},
             onFontScaleChange = {},
             onStickerUniformSizeChange = {},
@@ -1068,6 +1141,8 @@ private fun SettingsWidePreview() {
             onBack = {},
             onOpenTheme = {},
             onThemeModeChange = {},
+            onReadMarkStyleChange = {},
+            onReadMarkColorChange = {},
             onOneHandModeChange = {},
             onFontScaleChange = {},
             onStickerUniformSizeChange = {},

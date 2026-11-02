@@ -50,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -110,6 +111,9 @@ import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.collectPagesAtRest
 import io.github.nodyssey.ui.common.compactCount
 import io.github.nodyssey.ui.common.postCardTitleStyle
+import io.github.nodyssey.ui.common.readMarkCardColor
+import io.github.nodyssey.ui.common.readMarkTitleColor
+import io.github.nodyssey.ui.common.readMarkTitleWeight
 import io.github.nodyssey.ui.common.settleOn
 import io.github.nodyssey.ui.common.sharedThreadAuthor
 import io.github.nodyssey.ui.common.sharedThreadAvatar
@@ -1232,6 +1236,14 @@ private val Site.domain: String
     get() = origin.substringAfter("://").removePrefix("www.")
 
 /**
+ * The post open beside this list, or null — on a window too narrow for two panes there is never one.
+ *
+ * A composition local rather than a parameter because the row is several layers below the screen
+ * (the screen, the pager, each board's feed), none of which has anything to do with the answer.
+ */
+internal val LocalSelectedPostId = compositionLocalOf<Long?> { null }
+
+/**
  * One topic, as a card on the page (Lean 2a).
  *
  * Three lines, each with one job: who and where (a small avatar, the author and the board on one
@@ -1275,8 +1287,11 @@ internal fun PostRow(
     LayerCard(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
+        // 已读标记: the card's own fill, so the state is a block rather than one line of quieter text.
+        containerColor = readMarkCardColor(post.isRead),
         contentPadding = PostCardPadding,
         verticalArrangement = Arrangement.spacedBy(PostCardLineGap),
+        selected = LocalSelectedPostId.current == summary.postId,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1317,8 +1332,8 @@ internal fun PostRow(
         Text(
             text = summary.title,
             style = postCardTitleStyle(),
-            color = if (post.isRead) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold,
+            color = readMarkTitleColor(post.isRead),
+            fontWeight = readMarkTitleWeight(post.isRead),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.thenIf(sharedWithThread) { Modifier.sharedThreadTitle(summary.postId, THREAD_ORIGIN_FEED) },

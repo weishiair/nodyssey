@@ -66,6 +66,7 @@ import io.github.nodyssey.ui.resources.onboarding_skip
 import io.github.nodyssey.ui.resources.onboarding_welcome_body
 import io.github.nodyssey.ui.resources.onboarding_welcome_title
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -109,11 +110,12 @@ fun OnboardingScreen(
      * reads as the guide having lost their place; keeping it lets the screen show them that what
      * they just did took.
      */
+    val oneHandAvailable = LocalOneHandModeAvailable.current
     val pages =
         remember {
             buildList {
                 add(OnboardingPage.WELCOME)
-                add(OnboardingPage.ONE_HAND)
+                if (oneHandAvailable) add(OnboardingPage.ONE_HAND)
                 add(OnboardingPage.HOME)
                 add(OnboardingPage.COMPOSER)
                 if (appLinksEnabled == false) add(OnboardingPage.APP_LINKS)

@@ -458,7 +458,7 @@ internal fun groupTitle(item: StickerGroupItem): String =
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun GroupRow(
+internal fun GroupRow(
     item: StickerGroupItem,
     brokenMine: Int,
     cdn: StickerCdnSettings,
@@ -477,16 +477,22 @@ private fun GroupRow(
     val positionalThreshold = SwipeToDismissBoxDefaults.positionalThreshold
     val swipe = remember(positionalThreshold) { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, positionalThreshold) }
     val scope = rememberCoroutineScope()
+    val toggleHidden by rememberUpdatedState(onToggleHidden)
+    // Material keys its dismissal effect by the callback as well as settledValue. A new callback
+    // while hidden changes repeats the toggle and interrupts reset before the row returns.
+    val onDismiss: (SwipeToDismissBoxValue) -> Unit = remember(swipe, scope) {
+        { _: SwipeToDismissBoxValue ->
+            toggleHidden()
+            scope.launch { swipe.reset() }
+        }
+    }
 
     Column(modifier.fillMaxWidth().groupSlice(layers, first, last)) {
         SwipeToDismissBox(
             state = swipe,
             enableDismissFromStartToEnd = false,
             // Not a dismissal: the row stays, hidden or shown, and springs back into place.
-            onDismiss = {
-                onToggleHidden()
-                scope.launch { swipe.reset() }
-            },
+            onDismiss = onDismiss,
             backgroundContent = { HideBackdrop(toggleLabel, hidden = item.hidden) },
         ) {
             ListItem(

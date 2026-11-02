@@ -311,6 +311,16 @@
     <string name="settings_eink">電子紙模式</string>
     <string name="settings_eink_hint">純黑白，關閉動效和陰影</string>
     <string name="settings_theme_eink_hint">電子紙模式已接管配色</string>
+    <string name="settings_read_mark">已讀標記</string>
+    <string name="settings_read_mark_hint">讀過的帖子在列表裡怎麼標出來</string>
+    <string name="settings_read_mark_block">整塊染色（標已讀）</string>
+    <string name="settings_read_mark_unread_block">整塊染色（標未讀）</string>
+    <string name="settings_read_mark_dim">僅標題變灰</string>
+    <string name="settings_read_mark_off">不標記</string>
+    <string name="settings_read_mark_color">標記顏色</string>
+    <string name="settings_read_mark_color_theme">跟隨主題</string>
+    <string name="settings_read_mark_color_more">自訂…</string>
+    <string name="settings_read_mark_color_apply">用這個顏色</string>
 
     <string name="settings_language">語言</string>
     <string name="settings_language_system">跟隨系統語言</string>
@@ -1702,4 +1712,19 @@
     <string name="messages_scam_details">查看完整防詐提醒</string>
     <string name="message_thread_profile">使用者資料</string>
     <string name="message_thread_profile_caution">帳號等級和註冊時間僅供參考，交易時仍請謹慎核實身分。</string>
+    <string name="auto_attendance_title">自動簽到</string>
+    <string name="auto_attendance_hint">背景嘗試每日簽到，開啟應用程式時補簽。以北京時間計算；系統可能延後背景執行。僅對目前站點生效。</string>
+    <string name="auto_attendance_mode">簽到方式</string>
+    <string name="auto_attendance_random">隨機雞腿</string>
+    <string name="auto_attendance_fixed">固定 5 個雞腿</string>
+    <string name="auto_attendance_status">簽到狀態</string>
+    <string name="auto_attendance_pending">等待自動簽到</string>
+    <string name="auto_attendance_running">正在檢查並簽到…</string>
+    <string name="auto_attendance_done">今日已簽到</string>
+    <string name="auto_attendance_done_gain">今日已簽到 · 獲得 %1$d 個雞腿</string>
+    <string name="auto_attendance_verify">已暫停，請透過手動簽到完成人機驗證後再試。</string>
+    <string name="auto_attendance_sign_in">已暫停，請登入或重新登入後再試。</string>
+    <string name="auto_attendance_network">網路連線失敗，將稍後重試。</string>
+    <string name="auto_attendance_limit">今日自動嘗試次數已用完，可手動簽到。</string>
+    <string name="auto_attendance_failed">自動簽到未完成，可前往手動簽到查看。</string>
 </resources>

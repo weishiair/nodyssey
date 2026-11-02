@@ -73,6 +73,15 @@ class AssetsRepositoryTest {
             assertNull(result.gain)
         }
 
+    @Test
+    fun `a refusal message never becomes a completed attendance receipt`() = runTest {
+        val source = FakePostJsonSource(code = 200, body = """{"success":false,"message":"操作失败，请稍后重试"}""")
+        val repository = repository(source, profiles = FakeProfileRepository)
+        val failure = runCatching { repository.signInForToday(AttendanceMode.RANDOM) }.exceptionOrNull()
+        assertEquals(SiteError.Unparsable, (failure as? SiteException)?.error)
+        assertNull(repository.observeAttendanceStatus().first())
+    }
+
     /** `current` carries the account balance; showing it as today's gain would be worse than nothing. */
     @Test
     fun `never mistakes the balance for the day's gain`() =

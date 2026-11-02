@@ -8,6 +8,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
+import io.github.nodyssey.data.attendance.AutoAttendanceConfig
+import io.github.nodyssey.data.attendance.AutoAttendanceState
 import io.github.nodyssey.data.dns.DefaultDohServers
 import io.github.nodyssey.data.imagehost.ImageHostProvider
 import io.github.nodyssey.data.settings.UserSettings
@@ -34,15 +36,19 @@ class SettingsScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean, pureWhite: Boolean = false) {
+    private fun Screen(darkTheme: Boolean, pureWhite: Boolean = false, attendanceEnabled: Boolean = false) {
         PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite) {
             SettingsScreen(
                 state = STATE.copy(settings = STATE.settings.copy(presetId = if (pureWhite) "pure_white" else "graphite")),
                 appLinkHandlingEnabled = true,
+                attendanceConfig = AutoAttendanceConfig(enabled = attendanceEnabled),
+                attendanceState = AutoAttendanceState(completed = true, gain = 5),
                 onOpenAppLinkSettings = {},
                 onBack = {},
                 onOpenTheme = {},
                 onThemeModeChange = {},
+                onReadMarkStyleChange = {},
+                onReadMarkColorChange = {},
                 onOneHandModeChange = {},
                 onFontScaleChange = {},
                 onStickerUniformSizeChange = {},
@@ -133,6 +139,20 @@ class SettingsScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("settings-full-dark")
+    }
+
+    @Test
+    fun `automatic attendance settings in light`() {
+        composeRule.setContent { Screen(darkTheme = false, attendanceEnabled = true) }
+        composeRule.onNodeWithText("签到状态").performScrollTo()
+        composeRule.onRoot().captureRender("settings-attendance-light")
+    }
+
+    @Test
+    fun `automatic attendance settings in dark`() {
+        composeRule.setContent { Screen(darkTheme = true, attendanceEnabled = true) }
+        composeRule.onNodeWithText("签到状态").performScrollTo()
+        composeRule.onRoot().captureRender("settings-attendance-dark")
     }
 
     private companion object {

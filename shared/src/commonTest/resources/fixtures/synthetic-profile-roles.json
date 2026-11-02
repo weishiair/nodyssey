@@ -1,0 +1,14 @@
+{
+  "data": {
+    "member_id": 42,
+    "member_name": "Example",
+    "rank": 4,
+    "roles": [
+      { "name": "dev", "display_text": "Dev" },
+      { "name": "test-suspension", "display_text": "临时禁言" },
+      { "name": "test-hidden" },
+      { "name": "test-blank", "display_text": " " },
+      { "name": "test-duplicate", "display_text": "临时禁言" }
+    ]
+  }
+}

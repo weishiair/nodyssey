@@ -52,6 +52,13 @@ class ProfileScreenRenderTest {
     }
 
     @Test
+    @Config(qualifiers = "w1280dp-h960dp-land")
+    fun `the profile in a wide window`() {
+        composeRule.setContent { Screen(darkTheme = false) }
+        composeRule.onRoot().captureRender("ipad-profile-light")
+    }
+
+    @Test
     fun `the profile in light`() {
         composeRule.setContent { Screen(darkTheme = false) }
 

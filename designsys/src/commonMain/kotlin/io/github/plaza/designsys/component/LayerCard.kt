@@ -11,8 +11,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -56,10 +58,22 @@ fun LayerCard(
     shape: Shape = LayerCardShape,
     contentPadding: PaddingValues = LayerCardPadding,
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(10.dp),
+    /** Selects the Material secondary-container fill for a row with open detail content. */
+    selected: Boolean = false,
+    /** Overrides the normal card fill for a row-specific state such as 已读标记. */
+    containerColor: Color = Color.Unspecified,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
-    val colors = CardDefaults.cardColors(containerColor = layers.card)
+    val colors =
+        CardDefaults.cardColors(
+            containerColor =
+            when {
+                selected -> MaterialTheme.colorScheme.secondaryContainer
+                containerColor != Color.Unspecified -> containerColor
+                else -> layers.card
+            },
+        )
     val border = layers.cardBorderStroke
     val shadowed = modifier.cardShadow(shape, layers.shadows)
     val body: @Composable ColumnScope.() -> Unit = {

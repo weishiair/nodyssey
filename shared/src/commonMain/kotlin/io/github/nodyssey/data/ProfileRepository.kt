@@ -48,6 +48,8 @@ data class UserProfile(
      * button it drives is a request the site will refuse anyway if we are wrong.
      */
     val followed: Boolean? = null,
+    /** Public role labels from the account endpoint; refreshed on entry to the space page. */
+    val badges: List<String> = emptyList(),
 )
 
 interface ProfileRepository {
@@ -310,6 +312,7 @@ class NetworkProfileRepository(
             topicCount = newer.topicCount ?: topicCount,
             commentCount = newer.commentCount ?: commentCount,
             followed = newer.followed ?: followed,
+            badges = newer.badges ?: badges,
         )
     }
 
@@ -332,6 +335,7 @@ class NetworkProfileRepository(
             topicCount = topicCount,
             commentCount = commentCount,
             followed = followed,
+            badges = badges.orEmpty(),
         )
     }
 }
@@ -389,6 +393,7 @@ internal data class RawProfile(
     val followed: Boolean? = null,
     /** Session state rather than profile data — see [ProfileRepository.selfIsAdmin]. */
     val isAdmin: Boolean? = null,
+    val badges: List<String>? = null,
 )
 
 private fun JsonElement.findProfileObject(): JsonObject? {
@@ -420,6 +425,9 @@ private fun JsonObject.toRawProfile(): RawProfile =
         commentCount = int("nComment", "comment_count", "commentCount"),
         followed = bool("followed"),
         isAdmin = readIsAdmin(),
+        badges = (this["roles"] as? JsonArray)?.mapNotNull { role ->
+            (role as? JsonObject)?.text("display_text")?.trim()?.takeIf(String::isNotEmpty)
+        }?.distinct(),
     )
 
 /**
