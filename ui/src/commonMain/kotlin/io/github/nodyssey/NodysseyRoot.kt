@@ -142,6 +142,7 @@ internal fun NodysseyChrome(
     content: @Composable (storedSettings: UserSettings?) -> Unit,
 ) {
     LotteryEffect(container)
+    AutomaticAttendanceEffect(container)
     // Theme reads the settings SSOT directly. No copy is kept anywhere, so changing the setting can
     // never leave part of the app on the old value.
     //

@@ -87,6 +87,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>io.github.nodyssey.lottery.refresh</string>
+		<string>io.github.nodyssey.attendance</string>
 		<string>io.github.nodyssey.offline.drain</string>
 		<string>io.github.nodyssey.offline.maintenance</string>
 	</array>

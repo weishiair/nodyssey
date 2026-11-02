@@ -24,6 +24,7 @@ import io.github.nodyssey.data.UserNoteStore
 import io.github.nodyssey.data.UserSpaceRepository
 import io.github.nodyssey.data.VoteRepository
 import io.github.nodyssey.data.account.AccountSettingsRepository
+import io.github.nodyssey.data.attendance.AutoAttendance
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.ImageUploader
 import io.github.nodyssey.data.composer.PostComposerRepository
@@ -131,6 +132,7 @@ interface AppContainer {
      * repository. See [CollectedPostMetaStore] for why the app has to remember any of this.
      */
     val collectedPostMetaStore: CollectedPostMetaStore
+    val automaticAttendance: AutoAttendance? get() = null
     val assetsRepository: AssetsRepository
     val creditRepository: CreditRepository
     val stardustRepository: StardustRepository

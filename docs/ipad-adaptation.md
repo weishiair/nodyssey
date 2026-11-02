@@ -22,6 +22,9 @@ iOS 仅在 iPad 且应用窗口宽度至少 840pt 时启用双栏，左栏宽 36
 保留箭头。左栏自己的返回关闭该列表及其上方页面。再次选择同一帖子不会因为标题预览更新
 而重建正在阅读的页面；同帖不同楼层仍会导航。
 
+返回动画期间的新选择或新链接会等待动画结束再同步。UIKit 回写返回时只移除仍与旧页面
+匹配的栈条目，保留等待中的新导航；已由按钮移除的页面不会再被手势回调重复删除。
+
 这里保留小型 `PaneSplitController`，使用 UIKit 公开的子控制器容纳 API。
 Apple 的 `UISplitViewController` 文档明确禁止把它推入 `UINavigationController`，而本项目
 的列表／详情组合仍需作为原生导航栈中的一页。若以后改成 split root，应移除这个容器。
@@ -44,7 +47,8 @@ Apple 的 `UISplitViewController` 文档明确禁止把它推入 `UINavigationCo
 ## 验证
 
 `PaneRoleTest` 覆盖右栏替换、重复选择、不同楼层、嵌套列表关闭和返回箭头的导航条件；
-`PaneLayoutTest` 覆盖分组及返回计数；`StackMirrorTest` 覆盖控制器保留与释放。
+`PaneLayoutTest` 覆盖分组及返回计数；`StackMirrorTest` 覆盖控制器保留与释放，以及返回
+动画期间的替换、追加、重复返回回调和取消手势。
 
 宽屏共享界面可通过现有渲染入口检查：
 

@@ -14,6 +14,9 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
@@ -75,16 +78,17 @@ object NodysseyApp {
      * container) and drains it (through its handlers).
      */
     private val offlineScheduler = BgTaskOfflineScheduler(scope) { ensureContainer() }
+    private val attendanceScheduler = BgTaskAttendanceScheduler(scope) { ensureContainer() }
+    private val lotteryScheduler = BgTaskLotteryScheduler(scope) { ensureContainer().lotteryRepository }
 
     /**
      * Called from `AppDelegate.application(_:didFinishLaunchingWithOptions:)`, and it must be: iOS
      * traps if a `BGTaskScheduler` handler is registered after launch completes.
      */
-    private val lotteryScheduler = BgTaskLotteryScheduler(scope) { ensureContainer().lotteryRepository }
-
     fun registerBackgroundTasks() {
         offlineScheduler.register()
         lotteryScheduler.register()
+        attendanceScheduler.register()
     }
 
     fun openLottery(postId: Long, origin: String) {
@@ -136,6 +140,12 @@ object NodysseyApp {
         SingletonImageLoader.setSafe { context -> imageLoader(context, graph) }
         container = graph
         scope.launch { runCatchingExceptCancellation { graph.lotteryRepository?.synchronize() } }
+        scope.launch {
+            graph.settingsRepository.automaticAttendance.config
+                .map { it.enabled }
+                .distinctUntilChanged()
+                .collect { attendanceScheduler.sync(it) }
+        }
         containerBuild = null
         return graph
     }

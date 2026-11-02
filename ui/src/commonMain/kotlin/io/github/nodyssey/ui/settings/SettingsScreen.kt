@@ -34,7 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.data.AttendanceMode
 import io.github.nodyssey.data.FeedPost
+import io.github.nodyssey.data.attendance.AutoAttendanceConfig
+import io.github.nodyssey.data.attendance.AutoAttendanceState
 import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.settings.AppLanguage
@@ -189,6 +192,8 @@ fun SettingsRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val attendanceConfig by viewModel.attendanceConfig.collectAsStateWithLifecycle()
+    val attendanceState by viewModel.attendanceState.collectAsStateWithLifecycle()
     // Read here rather than in the ViewModel: it is a fact about the system's settings, not about
     // this app's, and it changes while the user is away on a screen we do not own.
     val appLinkHandlingEnabled = rememberAppLinkHandlingEnabled()
@@ -199,6 +204,10 @@ fun SettingsRoute(
         onOpenAppLinkSettings = openAppLinkSettings,
         onBack = onBack,
         onOpenTheme = onOpenTheme,
+        attendanceConfig = attendanceConfig,
+        attendanceState = attendanceState,
+        onAutoAttendanceEnabledChange = viewModel::setAutoAttendanceEnabled,
+        onAutoAttendanceModeChange = viewModel::setAutoAttendanceMode,
         onThemeModeChange = viewModel::setThemeMode,
         onReadMarkStyleChange = viewModel::setReadMarkStyle,
         onReadMarkColorChange = viewModel::setReadMarkColor,
@@ -277,6 +286,10 @@ fun SettingsScreen(
     onSearchHistoryLimitChange: (Int) -> Unit = {},
     /** Null hides 识别剪贴板中的帖子: a platform where reading the clipboard costs a prompt each time. */
     onClipboardPostPromptChange: ((Boolean) -> Unit)? = null,
+    attendanceConfig: AutoAttendanceConfig = AutoAttendanceConfig(),
+    attendanceState: AutoAttendanceState = AutoAttendanceState(),
+    onAutoAttendanceEnabledChange: (Boolean) -> Unit = {},
+    onAutoAttendanceModeChange: (AttendanceMode) -> Unit = {},
     onSearchAvatarChange: (Boolean) -> Unit = {},
     onSearchAvatarSizeChange: (Int) -> Unit = {},
 ) {
@@ -631,6 +644,13 @@ fun SettingsScreen(
                     showChevron = false,
                 )
             }
+
+            AutoAttendanceSettings(
+                attendanceConfig,
+                attendanceState,
+                onAutoAttendanceEnabledChange,
+                onAutoAttendanceModeChange,
+            )
 
             SectionLabel(stringResource(Res.string.notify_settings_title))
             SettingsGroup {

@@ -5,6 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import io.github.nodyssey.data.attendance.AutoAttendanceWorker
 import io.github.nodyssey.data.offline.OfflineDownloadWorker
 import io.github.nodyssey.data.offline.OfflineDownloads
 import io.github.nodyssey.data.offline.OfflineMaintenanceWorker
@@ -40,6 +41,7 @@ class NodysseyWorkerFactory(
                 OfflineMaintenanceWorker::class.qualifiedName,
                 NotificationPollWorker::class.qualifiedName,
                 LotteryResultWorker::class.qualifiedName,
+                AutoAttendanceWorker::class.qualifiedName,
             )
         ) {
             return null
@@ -67,6 +69,9 @@ class NodysseyWorkerFactory(
                         container.sessionRepository,
                         container.userSpaceRepository,
                     )
+
+                AutoAttendanceWorker::class.qualifiedName ->
+                    AutoAttendanceWorker(appContext, workerParameters, container.automaticAttendance)
 
                 NotificationPollWorker::class.qualifiedName ->
                     NotificationPollWorker(

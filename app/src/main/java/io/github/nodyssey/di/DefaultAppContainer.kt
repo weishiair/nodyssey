@@ -64,6 +64,7 @@ import io.github.nodyssey.data.UserSpaceRepository
 import io.github.nodyssey.data.VoteRepository
 import io.github.nodyssey.data.account.AccountSettingsRepository
 import io.github.nodyssey.data.account.NetworkAccountSettingsRepository
+import io.github.nodyssey.data.attendance.AutoAttendance
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultCommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultPostComposerRepository
@@ -660,6 +661,17 @@ class DefaultAppContainer(
             scheduler = WorkManagerOfflineScheduler(appContext),
             clock = clock,
             dispatchers = dispatchers,
+        )
+    }
+
+    override val automaticAttendance by lazy {
+        AutoAttendance(
+            settingsRepository.automaticAttendance,
+            sessionRepository,
+            profileRepository,
+            assetsRepository,
+            clock,
+            appScope,
         )
     }
 
