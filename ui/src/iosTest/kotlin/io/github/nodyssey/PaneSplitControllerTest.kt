@@ -1,5 +1,9 @@
 package io.github.nodyssey
 
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.CoreGraphics.CGRectMake
+import platform.UIKit.UITabBarController
+import platform.UIKit.UIWindow
 import platform.UIKit.UINavigationController
 import platform.UIKit.UIViewController
 import kotlin.test.Test
@@ -63,4 +67,35 @@ class PaneSplitControllerTest {
         assertEquals(outer, list.parentViewController)
         assertEquals(outer, detail.parentViewController)
     }
+
+    @OptIn(ExperimentalForeignApi::class)
+    @Test
+    fun `visible tab pages move between single and split containers`() {
+        val list = UIViewController(nibName = null, bundle = null)
+        val detail = UIViewController(nibName = null, bundle = null)
+        val placeholder = UIViewController(nibName = null, bundle = null)
+        val outer = UINavigationController(rootViewController = list)
+        val tabs = UITabBarController(nibName = null, bundle = null)
+        tabs.setViewControllers(listOf(outer), animated = false)
+        val window = UIWindow(frame = CGRectMake(0.0, 0.0, 1024.0, 768.0))
+        window.rootViewController = tabs
+        window.makeKeyAndVisible()
+        tabs.view.layoutIfNeeded()
+        outer.setViewControllers(listOf(list, detail), animated = false)
+
+        val split = PaneSplitController(placeholder)
+        outer.setViewControllers(listOf(split), animated = false)
+        split.showList(list)
+        split.details.setViewControllers(listOf(detail), animated = false)
+        assertEquals(split, list.parentViewController)
+        assertEquals(split.details, detail.parentViewController)
+
+        split.releasePages()
+        outer.setViewControllers(listOf(list, detail), animated = false)
+        assertEquals(outer, list.parentViewController)
+        assertEquals(outer, detail.parentViewController)
+        window.hidden = true
+        window.rootViewController = null
+    }
+
 }
