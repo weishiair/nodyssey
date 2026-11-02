@@ -83,7 +83,12 @@ static void Rotate(UIWindow *window, NSUInteger step) {
                         UITabBarController *tabs = (UITabBarController *)window.rootViewController;
                         UINavigationController *navigation = (UINavigationController *)tabs.selectedViewController;
                         NSString *name = NSStringFromClass(navigation.topViewController.class);
-                        if (![name containsString:@"PaneSplitController"]) {
+                        BOOL hasDetailNavigation = NO;
+                        for (UIViewController *child in navigation.topViewController.childViewControllers) {
+                            if ([child isKindOfClass:UINavigationController.class]) hasDetailNavigation = YES;
+                        }
+                        // Kotlin/Native uses anonymous Objective-C class names for internal classes.
+                        if (!hasDetailNavigation || navigation.topViewController.childViewControllers.count < 2) {
                             Report([@"IPAD_SMOKE_ERROR cold landscape missing split: " stringByAppendingString:name]);
                             exit(8);
                         }
