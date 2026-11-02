@@ -34,8 +34,7 @@ internal class StackMirror<K : Any, V : Any>(
      * handed straight back to it as a change.
      */
     fun reconcile(stack: List<K>): List<V>? {
-        var shared = 0
-        while (shared < keys.size && shared < stack.size && keys[shared] == stack[shared]) shared++
+        val shared = sharedPrefixSize(stack)
         if (shared == keys.size && shared == stack.size) return null
 
         while (mirrored.size > shared) {
@@ -52,15 +51,28 @@ internal class StackMirror<K : Any, V : Any>(
     /**
      * The platform is down to [remaining] views on its own.
      *
-     * @return how many keys the back stack has to drop to match — zero when nothing was popped, which
-     * is also what a cancelled swipe reports.
+     * Only remove popped entries still in the prefix [stack] shares with the displayed keys. A list
+     * can select another thread, or a screen push a link, while UIKit is animating a pop and the next
+     * [reconcile] is deferred. Dropping that many entries from the current tail would erase the new
+     * navigation instead of the pages UIKit actually popped.
+     *
+     * @return how many mirrored views were dropped — zero when nothing was popped, which is also
+     * what a cancelled swipe reports. The caller must reconcile any navigation still pending.
      */
-    fun platformPopped(remaining: Int): Int {
+    fun platformPopped(remaining: Int, stack: MutableList<K>): Int {
+        val shared = sharedPrefixSize(stack)
         val dropped = (mirrored.size - remaining).coerceAtLeast(0)
         repeat(dropped) {
             keys.removeAt(keys.lastIndex)
             release(mirrored.removeAt(mirrored.lastIndex))
         }
+        for (index in shared - 1 downTo remaining) stack.removeAt(index)
         return dropped
+    }
+
+    private fun sharedPrefixSize(stack: List<K>): Int {
+        var shared = 0
+        while (shared < keys.size && shared < stack.size && keys[shared] == stack[shared]) shared++
+        return shared
     }
 }
