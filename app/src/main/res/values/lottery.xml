@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lottery_title">抽奖助手</string>
+    <string name="lottery_notify_due">抽奖已到开奖时间</string>
+    <string name="lottery_notify_won">%1$s，恭喜中奖！</string>
+    <string name="lottery_notify_lost">%1$s，本次未中奖</string>
+    <string name="lottery_notify_not_entered">%1$s，没有有效参与楼层</string>
+</resources>

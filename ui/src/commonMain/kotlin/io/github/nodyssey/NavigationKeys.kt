@@ -350,6 +350,9 @@ data object MyCommentsKey : NavKey
 data object AwardKey : NavKey
 
 @Serializable
+data object LotteryKey : NavKey
+
+@Serializable
 data object LuckyKey : NavKey
 
 @Serializable

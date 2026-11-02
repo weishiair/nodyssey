@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lottery_title">Draw assistant</string>
+    <string name="lottery_notify_due">It is draw time</string>
+    <string name="lottery_notify_won">%1$s, you won!</string>
+    <string name="lottery_notify_lost">%1$s, not selected this time</string>
+    <string name="lottery_notify_not_entered">%1$s, no eligible entry</string>
+</resources>

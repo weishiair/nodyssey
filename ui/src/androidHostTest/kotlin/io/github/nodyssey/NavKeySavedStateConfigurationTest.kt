@@ -166,6 +166,7 @@ private val EVERY_KEY: List<NavKey> =
         MyCommentsKey,
         AwardKey,
         LuckyKey,
+        LotteryKey,
         InviteKey,
         RulingKey,
         ReportCompareKey,

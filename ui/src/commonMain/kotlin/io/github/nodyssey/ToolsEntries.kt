@@ -7,6 +7,8 @@ import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.ui.compare.ReportCompareRoute
 import io.github.nodyssey.ui.compare.ReportCompareViewModel
 import io.github.nodyssey.ui.login.WebViewGoal
+import io.github.nodyssey.ui.lottery.LotteryRoute
+import io.github.nodyssey.ui.lottery.LotteryViewModel
 import io.github.nodyssey.ui.tools.AwardRoute
 import io.github.nodyssey.ui.tools.AwardViewModel
 import io.github.nodyssey.ui.tools.CommunityToolsScreen
@@ -62,6 +64,18 @@ internal fun EntryProviderScope<NavKey>.toolsEntries(nav: StackEntryScope) = wit
                 backStack.add(WebKey(url, siteTitle, WebViewGoal.CHALLENGE))
             },
             onSignIn = { backStack.add(SignInKey) },
+        )
+    }
+
+    entry<LotteryKey> {
+        LotteryRoute(
+            viewModel = viewModel(factory = LotteryViewModel.factory(container)),
+            onBack = { backStack.removeLastOrNull() },
+            onOpenThread = { backStack.add(PostDetailKey(it)) },
+            onOpenBrowser = openWebUrl,
+            onSignIn = { backStack.add(SignInKey) },
+            onVerify = { backStack.add(WebKey(it, siteTitle, WebViewGoal.CHALLENGE)) },
+            onCreate = { backStack.add(LuckyKey) },
         )
     }
 

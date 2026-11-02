@@ -9,6 +9,7 @@ import io.github.nodyssey.data.offline.OfflineDownloadWorker
 import io.github.nodyssey.data.offline.OfflineDownloads
 import io.github.nodyssey.data.offline.OfflineMaintenanceWorker
 import io.github.nodyssey.di.AndroidAppContainer
+import io.github.nodyssey.notifications.LotteryResultWorker
 import io.github.nodyssey.notifications.NotificationPollWorker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -38,6 +39,7 @@ class NodysseyWorkerFactory(
                 OfflineDownloadWorker::class.qualifiedName,
                 OfflineMaintenanceWorker::class.qualifiedName,
                 NotificationPollWorker::class.qualifiedName,
+                LotteryResultWorker::class.qualifiedName,
             )
         ) {
             return null
@@ -76,6 +78,9 @@ class NodysseyWorkerFactory(
                         container.clock,
                         container.backgroundAlerts,
                     )
+
+                LotteryResultWorker::class.qualifiedName ->
+                    LotteryResultWorker(appContext, workerParameters, container.lotteryRepository)
 
                 // Not an error: null sends WorkManager down its reflective default path, which is the
                 // right answer for a worker some library enqueued for itself.

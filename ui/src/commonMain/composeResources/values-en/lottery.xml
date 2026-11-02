@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lottery_title">Draw assistant</string>
+    <string name="lottery_create">Create draw</string>
+    <string name="lottery_card">Draw · %1$d prizes</string>
+    <string name="lottery_time">Draw time: %1$s</string>
+    <string name="lottery_owner">Account: %1$s</string>
+    <string name="lottery_waiting">Upcoming</string>
+    <string name="lottery_pending">Result pending</string>
+    <string name="lottery_won">You won</string>
+    <string name="lottery_lost">Not selected</string>
+    <string name="lottery_not_entered">No eligible entry</string>
+    <string name="lottery_floors">Winning floors: %1$s</string>
+    <string name="lottery_enable">Remind me</string>
+    <string name="lottery_cancel">Cancel reminder</string>
+    <string name="lottery_check">Check result</string>
+    <string name="lottery_busy">Working…</string>
+    <string name="lottery_official">Official draw</string>
+    <string name="lottery_remove">Remove draw</string>
+    <string name="lottery_empty">No draws here yet. Open a draw thread and choose Remind me.</string>
+    <string name="lottery_hint">Times use your device time zone. The system may delay reminders and background checks; opening the app checks again. The official draw is authoritative. Reminders do not enter the draw for you. Allow notifications in system settings.</string>
+    <string name="lottery_query_failed">Result unavailable. Try again later; this does not mean you lost.</string>
+    <string name="lottery_verify">Complete verification</string>
+    <string name="lottery_active">Tracking</string>
+    <string name="lottery_finished">Checked</string>
+    <string name="lottery_refresh">Check results</string>
+    <string name="lottery_limit">You can track up to 50 pending draws. Remove a draw before adding another.</string>
+    <string name="lottery_ok">OK</string>
+    <string name="lottery_notify_due">It is draw time</string>
+    <string name="lottery_notify_won">%1$s, you won!</string>
+    <string name="lottery_notify_lost">%1$s, not selected this time</string>
+    <string name="lottery_notify_not_entered">%1$s, no eligible entry</string>
+</resources>

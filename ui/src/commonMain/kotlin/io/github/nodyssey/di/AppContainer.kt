@@ -31,6 +31,7 @@ import io.github.nodyssey.data.composer.PostEditor
 import io.github.nodyssey.data.diagnostics.NetworkDiagnostics
 import io.github.nodyssey.data.dns.DohSupport
 import io.github.nodyssey.data.imagehost.ImageHostRepository
+import io.github.nodyssey.data.lottery.LotteryRepository
 import io.github.nodyssey.data.proxy.ProxyConnectionTester
 import io.github.nodyssey.data.proxy.ProxySettings
 import io.github.nodyssey.data.session.AccountSignOut
@@ -64,6 +65,8 @@ import io.github.plaza.core.update.ApkInstaller
  * interface to bring it down here with the ViewModels that name it.
  */
 interface AppContainer {
+    val lotteryRepository: LotteryRepository? get() = null
+
     val dispatchers: AppDispatchers
     val clock: AppClock
 

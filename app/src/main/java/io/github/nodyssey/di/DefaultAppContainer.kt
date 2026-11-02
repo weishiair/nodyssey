@@ -85,6 +85,9 @@ import io.github.nodyssey.data.dns.OkHttpDnsResolutionTester
 import io.github.nodyssey.data.imagehost.DataStoreImageHostSettings
 import io.github.nodyssey.data.imagehost.DefaultImageHostRepository
 import io.github.nodyssey.data.imagehost.ImageHostRepository
+import io.github.nodyssey.data.lottery.LotteryRepository
+import io.github.nodyssey.data.lottery.LotteryStore
+import io.github.nodyssey.data.lottery.NetworkLotteryRepository
 import io.github.nodyssey.data.offline.AndroidOfflineFileStore
 import io.github.nodyssey.data.offline.OfflineSettingsStore
 import io.github.nodyssey.data.offline.OkHttpOfflineImageSource
@@ -106,6 +109,8 @@ import io.github.nodyssey.data.sticker.GitHubStickerSource
 import io.github.nodyssey.data.sticker.StickerLibrary
 import io.github.nodyssey.data.update.AppUpdateRepository
 import io.github.nodyssey.data.update.DefaultAppUpdateRepository
+import io.github.nodyssey.notifications.AndroidLotteryPlatform
+import io.github.nodyssey.notifications.lotteryDataStore
 import io.github.nodyssey.platform.AndroidApkInstaller
 import io.github.nodyssey.platform.DefaultImagePreparer
 import io.github.nodyssey.platform.KeystoreSecretCipher
@@ -125,6 +130,8 @@ import io.github.plaza.core.net.CrossOriginRefererInterceptor
 import io.github.plaza.core.net.OkHttpTransport
 import io.github.plaza.core.net.RetryingTransport
 import io.github.plaza.core.net.SessionCookies
+import io.github.plaza.core.net.SiteError
+import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.net.SiteHtmlClient
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.core.net.WebViewCookieJar
@@ -510,6 +517,22 @@ class DefaultAppContainer(
     private val htmlClient by lazy { SiteHtmlClient(transport, dispatchers, siteConfig) }
 
     private val jsonClient by lazy { NodeSeekJsonClient(transport, dispatchers) }
+
+    override val lotteryRepository: LotteryRepository by lazy {
+        NetworkLotteryRepository(
+            store = LotteryStore(appContext.lotteryDataStore, site),
+            source = jsonClient,
+            beaconTransport = lifetime.guard(OkHttpTransport(imageContentClient)),
+            platform = AndroidLotteryPlatform(appContext, site),
+            currentProfile = {
+                if (!sessionRepository.peek().isSignedIn) throw SiteException(SiteError.LoginRequired)
+                profileRepository.profile()
+            },
+            sessionFingerprint = { sessionRepository.peek().fingerprint },
+            clock = clock,
+            site = site,
+        )
+    }
 
     override val proxyConnectionTester: ProxyConnectionTester by lazy {
         NetworkProxyConnectionTester(jsonClient)

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Official draw links, local reminders and account-bound result checks. -->
+    <string name="lottery_title">抽奖助手</string>
+    <string name="lottery_create">发起抽奖</string>
+    <string name="lottery_card">抽奖 · 奖品 %1$d 个</string>
+    <string name="lottery_time">开奖时间：%1$s</string>
+    <string name="lottery_owner">参与账号：%1$s</string>
+    <string name="lottery_waiting">未开奖</string>
+    <string name="lottery_pending">等待查询</string>
+    <string name="lottery_won">恭喜中奖</string>
+    <string name="lottery_lost">未中奖</string>
+    <string name="lottery_not_entered">无有效参与楼层</string>
+    <string name="lottery_floors">中奖楼层：%1$s</string>
+    <string name="lottery_enable">开启开奖提醒</string>
+    <string name="lottery_cancel">取消开奖提醒</string>
+    <string name="lottery_check">查询开奖结果</string>
+    <string name="lottery_busy">正在处理…</string>
+    <string name="lottery_official">官方开奖页面</string>
+    <string name="lottery_remove">移除追踪</string>
+    <string name="lottery_empty">暂无记录。打开抽奖帖，点击开启开奖提醒即可添加。</string>
+    <string name="lottery_hint">提醒按本机时间显示，系统可能延后通知和后台查询；打开应用会补查。结果以官方页面为准。订阅仅设置提醒，不会代为回帖参与。请在系统中允许通知。</string>
+    <string name="lottery_query_failed">尚未取得开奖结果，稍后重试；这不代表未中奖。</string>
+    <string name="lottery_verify">前往完成验证</string>
+    <string name="lottery_active">提醒中</string>
+    <string name="lottery_finished">已查结果</string>
+    <string name="lottery_refresh">检查结果</string>
+    <string name="lottery_limit">最多同时追踪 50 场待查询的抽奖，请先移除一些记录。</string>
+    <string name="lottery_ok">知道了</string>
+    <string name="lottery_notify_due">抽奖已到开奖时间</string>
+    <string name="lottery_notify_won">%1$s，恭喜中奖！</string>
+    <string name="lottery_notify_lost">%1$s，本次未中奖</string>
+    <string name="lottery_notify_not_entered">%1$s，没有有效参与楼层</string>
+</resources>

@@ -38,6 +38,7 @@ import io.github.nodyssey.platform.CompatSvgParser
 import io.github.nodyssey.platform.hasValidatedUnmeteredNetwork
 import io.github.nodyssey.ui.settings.AndroidActiveSite
 import io.github.nodyssey.ui.settings.AndroidAppLanguage
+import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.designsys.image.LongLivedImageCacheStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -123,6 +124,9 @@ open class NodysseyApp :
         enableDebugStrictMode()
 
         NotificationChannels.ensure(this)
+        applicationScope.launch {
+            runCatchingExceptCancellation { container.lotteryRepository?.synchronize() }
+        }
         // 应用内更新 asks once per launch: the dot on 设置 and 我的 is there from the first frame, and a
         // release the user has not been told about raises the reminder dialog. Not forced, so the
         // stored answer covers most launches and GitHub is asked at most once every few hours; a
