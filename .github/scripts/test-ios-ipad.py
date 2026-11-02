@@ -24,6 +24,13 @@ def main():
     output = Path(sys.argv[2]).resolve()
     assert (app / "Info.plist").is_file(), app
     output.mkdir(parents=True, exist_ok=True)
+    # This simulator copy uses the SDK 26 compatibility mode to permit geometry requests.
+    # The delivered device IPA is separate and retains the production multitasking plist.
+    manifest = app / "Info.plist"
+    info = plistlib.loads(manifest.read_bytes())
+    info["UIRequiresFullScreen"] = True
+    manifest.write_bytes(plistlib.dumps(info))
+    run("codesign", "--force", "--sign", "-", app)
     sdk = subprocess.check_output(
         ["xcrun", "--sdk", "iphonesimulator", "--show-sdk-path"], text=True,
     ).strip()

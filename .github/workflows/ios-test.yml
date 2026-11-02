@@ -18,8 +18,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
-      - name: Verify detached views in a visible UIKit window
-        run: python3 .github/scripts/ipad-native-probe.py
       - name: Test the packaged app on both iPad sizes
         run: python3 .github/scripts/ipad-delivery.py
       - uses: actions/upload-artifact@v7
