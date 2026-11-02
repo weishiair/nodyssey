@@ -45,6 +45,18 @@ jobs:
           key: native-network-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}
       - name: Run UIKit split tests
         run: ./gradlew :ui:iosSimulatorArm64Test --info --max-workers=2
+      - name: Collect simulator crash details
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipad-crashes"
+          for dir in "$HOME/Library/Logs/DiagnosticReports" "$HOME/Library/Developer/CoreSimulator/Devices"; do
+            if [ -d "$dir" ]; then
+              find "$dir" -type f -mmin -15 \( -name '*.ips' -o -name '*.crash' \) -exec cp {} "$RUNNER_TEMP/ipad-crashes/" \; || true
+            fi
+          done
+          xcrun simctl list devices booted > "$RUNNER_TEMP/ipad-crashes/devices.txt" || true
+          xcrun simctl spawn booted log show --last 5m --style compact --predicate 'eventMessage CONTAINS "VISIBLE_CHECKPOINT" OR eventMessage CONTAINS "assertion failure" OR eventMessage CONTAINS "Terminating app"' > "$RUNNER_TEMP/ipad-crashes/simulator.log" 2>&1 || true
       - name: Upload UIKit test diagnostics
         if: always()
         uses: actions/upload-artifact@v7
@@ -53,6 +65,7 @@ jobs:
           path: |
             ui/build/reports/tests/iosSimulatorArm64Test/
             ui/build/test-results/iosSimulatorArm64Test/
+            ${{ runner.temp }}/ipad-crashes/
           if-no-files-found: warn
       - name: Stop Gradle
         if: always()

@@ -4,6 +4,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import platform.CoreGraphics.CGRectMake
 import platform.UIKit.UITabBarController
 import platform.UIKit.UIWindow
+import platform.posix.fflush
 import platform.UIKit.UINavigationController
 import platform.UIKit.UIViewController
 import kotlin.test.Test
@@ -71,25 +72,38 @@ class PaneSplitControllerTest {
     @OptIn(ExperimentalForeignApi::class)
     @Test
     fun `visible tab pages move between single and split containers`() {
+        println("VISIBLE_CHECKPOINT_0"); fflush(null)
         val list = UIViewController(nibName = null, bundle = null)
         val detail = UIViewController(nibName = null, bundle = null)
         val placeholder = UIViewController(nibName = null, bundle = null)
+        println("VISIBLE_CHECKPOINT_1"); fflush(null)
         val outer = UINavigationController(rootViewController = list)
+        println("VISIBLE_CHECKPOINT_2"); fflush(null)
         val tabs = UITabBarController(nibName = null, bundle = null)
         tabs.setViewControllers(listOf(outer), animated = false)
+        println("VISIBLE_CHECKPOINT_3"); fflush(null)
         val window = UIWindow(frame = CGRectMake(0.0, 0.0, 1024.0, 768.0))
+        println("VISIBLE_CHECKPOINT_4"); fflush(null)
         window.rootViewController = tabs
+        println("VISIBLE_CHECKPOINT_5"); fflush(null)
         window.makeKeyAndVisible()
+        println("VISIBLE_CHECKPOINT_6"); fflush(null)
         tabs.view.layoutIfNeeded()
+        println("VISIBLE_CHECKPOINT_7"); fflush(null)
         outer.setViewControllers(listOf(list, detail), animated = false)
 
+        println("VISIBLE_CHECKPOINT_8"); fflush(null)
         val split = PaneSplitController(placeholder)
+        println("VISIBLE_CHECKPOINT_9"); fflush(null)
         outer.setViewControllers(listOf(split), animated = false)
+        println("VISIBLE_CHECKPOINT_10"); fflush(null)
         split.showList(list)
+        println("VISIBLE_CHECKPOINT_11"); fflush(null)
         split.details.setViewControllers(listOf(detail), animated = false)
         assertEquals(split, list.parentViewController)
         assertEquals(split.details, detail.parentViewController)
 
+        println("VISIBLE_CHECKPOINT_12"); fflush(null)
         split.releasePages()
         outer.setViewControllers(listOf(list, detail), animated = false)
         assertEquals(outer, list.parentViewController)
