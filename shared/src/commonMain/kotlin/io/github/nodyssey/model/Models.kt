@@ -173,6 +173,14 @@ data class PostContent(
      * has quietly expired, whose only feedback would be a refusal after they had finished typing.
      */
     val isMine: Boolean = false,
+    /**
+     * 置顶 — a moderator pinned this floor, so the site draws a pin beside its number and hoists it
+     * above the rest of page 1.
+     *
+     * Two sources, like [isBlocked]: the markup's `pined-comment-badge` (which a signed-out read
+     * still carries) and `__config__`'s `comments[].pined`.
+     */
+    val isPinned: Boolean = false,
 )
 
 /**

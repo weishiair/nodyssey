@@ -210,6 +210,52 @@ class PostDetailParserTest {
     }
 
     /**
+     * 置顶 is an `svg` in the floor's link wrapper whose word lives only in `title`, as the live site
+     * serves it — captured 2026-11-02 from `/post-1026936-1`, where #2 wore one and #1 did not. A
+     * signed-out read has no blob to ask, so the badge has to mark the floor on its own.
+     */
+    @Test
+    fun `marks a floor the markup pinned without a config blob`() {
+        val html =
+            """
+            <html><body><ul class="comments">
+              <li class="content-item" data-comment-id="11">
+                <div class="floor-link-wrapper">
+                  <svg title="置顶" class="iconpark-icon pined-comment-badge"><use href="#pin"></use></svg>
+                  <a href="#2" class="floor-link">#2</a>
+                </div>
+                <a class="author-name" href="/space/1">pinned</a>
+                <article class="post-content"><p>看二楼</p></article>
+              </li>
+              <li class="content-item" data-comment-id="12">
+                <div class="floor-link-wrapper"><a href="#1" class="floor-link">#1</a></div>
+                <a class="author-name" href="/space/2">other</a>
+                <article class="post-content"><p>普通</p></article>
+              </li>
+            </ul></body></html>
+            """.trimIndent()
+
+        val parsed = PostDetailParser.parse(html, postId = 1L, page = 1)
+
+        assertTrue(parsed.comments.first().isPinned)
+        assertFalse(parsed.comments.last().isPinned)
+        assertEquals("#2", parsed.comments.first().floor)
+    }
+
+    /** The blob's `pined` says the same thing, and is the source a page without a matched badge has. */
+    @Test
+    fun `marks the floor the config blob pinned`() {
+        val target = requireNotNull(detail.comments.first().commentId)
+        val config = """{"postData":{"comments":[{"commentId":$target,"pined":true}]}}"""
+
+        val parsed = PostDetailParser.parse(withConfig(config), postId = 703863L, page = 1)
+
+        assertTrue(parsed.comments.first { it.commentId == target }.isPinned)
+        assertEquals(1, parsed.comments.count { it.isPinned })
+        assertFalse(requireNotNull(parsed.body).isPinned)
+    }
+
+    /**
      * The blob names the moment; the markup marker only ever says that an edit happened. Both halves
      * matter to the reader — "编辑于 5min ago" next to a floor posted three hours back is the whole
      * point of the marker.

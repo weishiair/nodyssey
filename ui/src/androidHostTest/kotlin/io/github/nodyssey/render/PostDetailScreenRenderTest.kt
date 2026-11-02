@@ -84,6 +84,20 @@ class PostDetailScreenRenderTest {
         composeRule.onRoot().captureRender("post-detail-dark")
     }
 
+    /** A 置顶 floor: the site lifts it above the rest and marks it with a pin beside its number. */
+    @Test
+    fun `pinned reply in light`() {
+        val pinned =
+            STATE.copy(
+                comments =
+                listOf(STATE.comments[1].copy(isPinned = true)) +
+                    STATE.comments.filterIndexed { index, _ -> index != 1 },
+            )
+        composeRule.setContent { Screen(darkTheme = false, state = pinned) }
+
+        composeRule.onRoot().captureRender("post-detail-pinned")
+    }
+
     @Test
     fun `suspended author in light`() {
         composeRule.setContent {
