@@ -27,7 +27,7 @@ import platform.UIKit.willMoveToParentViewController
 internal class PaneSplitController(
     private val placeholder: UIViewController,
 ) : UIViewController(nibName = null, bundle = null) {
-    // UIKit rejects an empty nested navigation controller while installing the split.
+    // Keep a valid placeholder root while pages move between navigation controllers.
     val details = UINavigationController(rootViewController = placeholder).apply {
         setNavigationBarHidden(true, animated = false)
     }
