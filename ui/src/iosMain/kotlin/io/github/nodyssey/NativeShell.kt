@@ -488,6 +488,8 @@ private class NativeShell(
             // the placeholder, or a row of the list replacing what was open — and a swap does not
             // slide: there is nothing to go back to, and Mail does not slide either.
             val sameRoot = current.isNotEmpty() && current.first() == target.first()
+            // Pages released by the outer stack can still have their views in its hierarchy.
+            target.filter { it !in current }.forEach { it.view.removeFromSuperview() }
             details.setViewControllers(target, animated = animated && sameRoot)
         }
 

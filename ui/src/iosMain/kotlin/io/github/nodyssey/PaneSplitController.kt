@@ -58,12 +58,18 @@ internal class PaneSplitController(
     /** Releases pages before this pair leaves the outer navigation controller. */
     fun releasePages() {
         // This pair is discarded. Suppress delegate write-back while its pages are detached.
+        val released = details.viewControllers.filter { it != placeholder }
         details.delegate = null
         details.setViewControllers(listOf(placeholder), animated = false)
+        released.forEach { it.view.removeFromSuperview() }
         showList(null)
     }
 
     private fun adopt(child: UIViewController) {
+        // A visible navigation stack clears parent before removing its outgoing view.
+        // UIKit also checks that view hierarchy when adopting a child, so detach the view
+        // first even when parentViewController is already null.
+        child.view.removeFromSuperview()
         addChildViewController(child)
         view.addSubview(child.view)
         child.didMoveToParentViewController(this)
