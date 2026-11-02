@@ -396,19 +396,18 @@ private class NativeShell(
 
     /**
      * UIKit has popped [destination] down to the screens standing for its first [remaining] entries;
-     * the back stack loses the rest. Zero dropped is the common case — a change the shell made
-     * itself, or a swipe let go of halfway.
+     * remove those old entries without erasing newer navigation deferred during the transition.
+     * Zero dropped is the common case — a change the shell made itself, or a cancelled swipe.
      */
     private fun writeBack(
         destination: TopLevelDestination,
         remaining: Int,
     ) {
         val mirror = mirrors.getValue(destination)
-        val dropped = mirror.platformPopped(remaining)
-        if (dropped == 0) return
         val stack = stacks.getValue(destination)
-        repeat(dropped) { stack.removeLastOrNull() }
-        // UIKit already shows what is left; the bookkeeping only has to agree with it.
+        val dropped = mirror.platformPopped(remaining, stack)
+        if (dropped == 0) return
+        // settle reconciles navigation deferred during the pop against these surviving pages.
         groups[destination] = paneGroups(stack.toList(), listDetailExpanded, ::paneKindOf)
         val splits = splits.getValue(destination)
         val views = mirror.views.toSet()
