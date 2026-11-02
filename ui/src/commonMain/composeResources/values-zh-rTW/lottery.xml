@@ -2,7 +2,7 @@
 <resources>
     <string name="lottery_title">抽獎助手</string>
     <string name="lottery_create">發起抽獎</string>
-    <string name="lottery_card">抽獎 · 獎品 %1$d 個</string>
+    <string name="lottery_card">抽獎提醒</string>
     <string name="lottery_time">開獎時間：%1$s</string>
     <string name="lottery_owner">參與帳號：%1$s</string>
     <string name="lottery_waiting">未開獎</string>
@@ -13,11 +13,11 @@
     <string name="lottery_floors">中獎樓層：%1$s</string>
     <string name="lottery_enable">開啟開獎提醒</string>
     <string name="lottery_cancel">取消開獎提醒</string>
-    <string name="lottery_check">查詢開獎結果</string>
+    <string name="lottery_check">查詢結果</string>
     <string name="lottery_busy">正在處理…</string>
-    <string name="lottery_official">官方開獎頁面</string>
+    <string name="lottery_official">官網開獎</string>
     <string name="lottery_remove">移除追蹤</string>
-    <string name="lottery_empty">暫無記錄。開啟抽獎帖，點選開啟開獎提醒即可新增。</string>
+    <string name="lottery_empty">在抽獎帖中開啟提醒，開獎後可在這裡查看結果。</string>
     <string name="lottery_hint">提醒按本機時間顯示，系統可能延後通知和背景查詢；開啟應用程式會補查。結果以官方頁面為準。訂閱僅設定提醒，不會代為回帖參與。請在系統中允許通知。</string>
     <string name="lottery_query_failed">尚未取得開獎結果，稍後重試；這不代表未中獎。</string>
     <string name="lottery_verify">前往完成驗證</string>
@@ -30,4 +30,27 @@
     <string name="lottery_notify_won">%1$s，恭喜中獎！</string>
     <string name="lottery_notify_lost">%1$s，本次未中獎</string>
     <string name="lottery_notify_not_entered">%1$s，沒有有效參與樓層</string>
+    <string name="lottery_prizes">%1$d 個名額</string>
+    <string name="lottery_time_label">開獎時間</string>
+    <string name="lottery_summary">到時提醒，開獎後自動查詢結果</string>
+    <string name="lottery_help">提醒說明</string>
+    <string name="lottery_menu">更多選項</string>
+    <string name="lottery_empty_title">還沒有關注的抽獎</string>
+    <string name="lottery_finished_empty">還沒有查詢完成的結果</string>
+    <string name="lottery_failed">查詢失敗</string>
+    <string name="lottery_verification_required">需要驗證</string>
+    <string name="lottery_source_forum">論壇樓層資料</string>
+    <string name="lottery_source_beacon">開獎隨機數服務</string>
+    <string name="lottery_failure_network">%1$s連線失敗，請檢查網路後重試。</string>
+    <string name="lottery_failure_verification">論壇需要人機驗證，完成後即可重新查詢。</string>
+    <string name="lottery_failure_sign_in">登入狀態已失效，請重新登入後查詢。</string>
+    <string name="lottery_failure_response">%1$s的回傳格式無法識別，請到官網核對結果。</string>
+    <string name="lottery_failure_service">%1$s暫時無法使用（HTTP %2$d），請稍後重試。</string>
+    <string name="lottery_failure_other">本次查詢未能完成，請重試或到官網核對。</string>
+    <string name="lottery_checked">已核對 · %1$s</string>
+    <string name="lottery_deduplicated">每人限中一次</string>
+    <string name="lottery_duplicates_allowed">允許重複中獎</string>
+    <string name="lottery_reminding">已開啟提醒</string>
+    <string name="lottery_sign_in">重新登入</string>
+    <string name="lottery_not_entered_detail">該帳號在開獎前沒有符合規則的參與樓層。</string>
 </resources>

@@ -311,6 +311,7 @@ class IosAppContainer(
     override val lotteryRepository: LotteryRepository by lazy {
         val site = ActiveSite.current
         NetworkLotteryRepository(
+            dispatchers = dispatchers,
             store = LotteryStore(createPreferenceDataStore("lottery"), site),
             source = jsonClient,
             beaconTransport = NSUrlSessionTransport { imageHostSession.current },

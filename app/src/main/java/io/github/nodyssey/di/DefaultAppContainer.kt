@@ -524,6 +524,7 @@ class DefaultAppContainer(
             store = LotteryStore(appContext.lotteryDataStore, site),
             source = jsonClient,
             beaconTransport = lifetime.guard(OkHttpTransport(imageContentClient)),
+            dispatchers = dispatchers,
             platform = AndroidLotteryPlatform(appContext, site),
             currentProfile = {
                 if (!sessionRepository.peek().isSignedIn) throw SiteException(SiteError.LoginRequired)

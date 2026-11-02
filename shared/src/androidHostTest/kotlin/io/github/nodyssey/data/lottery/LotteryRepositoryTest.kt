@@ -9,21 +9,26 @@ import io.github.nodyssey.core.html.Fixtures
 import io.github.nodyssey.core.net.JsonSource
 import io.github.nodyssey.data.UserProfile
 import io.github.plaza.core.AppClock
+import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.HttpRequest
 import io.github.plaza.core.net.HttpResponse
 import io.github.plaza.core.net.HttpTransport
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.net.UploadProgress
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -32,16 +37,22 @@ class LotteryRepositoryTest {
     private val draw = LuckyDrawParams(1024765, 1793546010000, 10, 1, false)
     private val directory = Files.createTempDirectory("lottery-test").toFile().apply { deleteOnExit() }
 
-    private inner class Harness(scope: CoroutineScope, name: String = "draw") {
+    private inner class Harness(
+        scope: CoroutineScope,
+        name: String = "draw",
+        val io: CoroutineDispatcher = scope.coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
+    ) {
         var now = draw.drawAtMillis - 10_000
         var fingerprint = 1
         var profile = UserProfile(7767, "winner", "")
         var loadProfile: suspend () -> UserProfile = { profile }
         var floorBody = Fixtures.load("lottery-1024765-floors.json")
+        var beaconBody = Fixtures.load("lottery-6603832-beacon.json")
         var floorFailure: SiteError? = null
         var duringFetch: suspend () -> Unit = {}
         var floorCalls = 0
         var beaconCalls = 0
+        var beaconFailure: SiteError? = null
         val notified = mutableListOf<LotteryEntry>()
         val dataStore = PreferenceDataStoreFactory.create(
             storage = OkioStorage(FileSystem.SYSTEM, PreferencesSerializer) { File(directory, "$name.preferences_pb").toOkioPath() },
@@ -70,7 +81,10 @@ class LotteryRepositoryTest {
             beaconTransport = object : HttpTransport {
                 override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse {
                     beaconCalls++
-                    return HttpResponse(200, request.url, emptyMap(), Fixtures.load("lottery-6603832-beacon.json"))
+                    // Model Android's rejection of blocking HTTP when entered from the UI dispatcher.
+                    check(currentCoroutineContext()[ContinuationInterceptor] == io) { "Blocking HTTP on the caller dispatcher" }
+                    beaconFailure?.let { throw SiteException(it) }
+                    return HttpResponse(200, request.url, emptyMap(), beaconBody)
                 }
             },
             platform = platform,
@@ -78,7 +92,35 @@ class LotteryRepositoryTest {
             sessionFingerprint = { fingerprint },
             clock = AppClock { now },
             site = Site.NODESEEK,
+            dispatchers = AppDispatchers(io = io),
         )
+    }
+
+    @Test
+    fun `foreground checks dispatch blocking randomness requests off the caller and recover old failures`() = runTest {
+        val h = Harness(backgroundScope, io = StandardTestDispatcher(testScheduler, "lottery IO"))
+        val reported = LuckyDrawParams(1022241, 1793592000000, 10, 1, true)
+        h.profile = UserProfile(48929, "winner", "")
+        h.floorBody = Fixtures.load("lottery-1022241-floors.json")
+        h.beaconBody = Fixtures.load("lottery-6605365-beacon.json")
+        h.now = reported.drawAtMillis - 1_000
+        h.repository.watch(reported, "draw")
+        h.now = reported.drawAtMillis + 1_000
+        h.beaconFailure = SiteError.Network
+        h.repository.refreshDue(force = true)
+        val failed = h.store.all().single()
+        assertNull(failed.outcome)
+        assertEquals(LotteryFailure.NETWORK, failed.failure)
+        assertEquals(LotteryFailureSource.BEACON, failed.failureSource)
+        h.beaconFailure = null
+        // Version 119 stored this unclassified failure without a source or HTTP status.
+        h.store.update(reported.key, 48929) { it.copy(failure = LotteryFailure.OTHER, failureSource = null) }
+        h.repository.refreshDue(force = true)
+        val recovered = h.store.all().single()
+        assertEquals(LotteryOutcome.WON, recovered.outcome)
+        assertEquals(listOf(20), recovered.winningFloors)
+        assertNull(recovered.failure)
+        assertNull(recovered.failureSource)
     }
 
     @Test

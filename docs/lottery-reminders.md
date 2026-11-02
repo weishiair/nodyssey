@@ -74,3 +74,23 @@ drand 使用不携带论坛 cookie 的第三方 transport，遵循现有的第�
 
 最终格式检查、Android lint（含依赖模块）、Debug 构建和 R8 优化 Release bundle 构建通过。
 共享核心、richtext、设计系统和 gallery 的 JVM 测试通过；未修改版本号或发布产物。
+
+### 1.3.8-test.1 后续修正
+
+前台检查从 ViewModel 的主线程进入仓库。楼层请求由 NodeSeekJsonClient 切入 IO，返回后
+直接执行的 drand 请求却重新处在主线程；OkHttpTransport 的阻塞 execute 会被 Android
+拒绝，原界面统一显示为等待查询。随机数请求现在显式使用注入的 IO dispatcher，回归测试
+在独立的调用与 IO dispatcher 上执行，并核对旧失败记录能够重试成功。
+
+加入公开帖子 1022241 的最小楼层 fixture 与 drand round 6605365。对应去重抽奖的全部
+中奖楼层为 20、54、61、65、76、87、101、115、140、142，与官网逐一一致。
+fixture 只保留 UID、楼层和公开随机数，不保存浏览器账号页面或会话信息。
+
+失败记录现在区分论坛/随机数服务，以及断网、人机验证、登录失效、响应格式和 HTTP 状态。
+原有记录缺少的新字段均有默认值；没有 Room schema 或依赖变化。界面合并标题与抽奖信息，
+采用 Material 3 标签页和卡片，详细提醒说明收进菜单；抽奖助手使用独立的闹钟图标。
+
+Android 的论坛请求和随机数请求分别沿用 okHttpClient 与无 cookie 的 imageContentClient，
+两者都配置同一个 appDns，因此前后台查询均遵循现有 DoH 选择和代理范围。无需为本功能
+单独开启代理；但 DoH 只能处理解析，不能保证目标服务在任意网络均可直连。本地到时提醒
+无需联网，中奖判断需要两个服务可达，系统省电策略仍可能延后后台检查。

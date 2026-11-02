@@ -2,7 +2,7 @@
 <resources>
     <string name="lottery_title">Draw assistant</string>
     <string name="lottery_create">Create draw</string>
-    <string name="lottery_card">Draw · %1$d prizes</string>
+    <string name="lottery_card">Draw reminder</string>
     <string name="lottery_time">Draw time: %1$s</string>
     <string name="lottery_owner">Account: %1$s</string>
     <string name="lottery_waiting">Upcoming</string>
@@ -17,7 +17,7 @@
     <string name="lottery_busy">Working…</string>
     <string name="lottery_official">Official draw</string>
     <string name="lottery_remove">Remove draw</string>
-    <string name="lottery_empty">No draws here yet. Open a draw thread and choose Remind me.</string>
+    <string name="lottery_empty">Set a reminder in a draw thread to check its result here later.</string>
     <string name="lottery_hint">Times use your device time zone. The system may delay reminders and background checks; opening the app checks again. The official draw is authoritative. Reminders do not enter the draw for you. Allow notifications in system settings.</string>
     <string name="lottery_query_failed">Result unavailable. Try again later; this does not mean you lost.</string>
     <string name="lottery_verify">Complete verification</string>
@@ -30,4 +30,27 @@
     <string name="lottery_notify_won">%1$s, you won!</string>
     <string name="lottery_notify_lost">%1$s, not selected this time</string>
     <string name="lottery_notify_not_entered">%1$s, no eligible entry</string>
+    <string name="lottery_prizes">%1$d prizes</string>
+    <string name="lottery_time_label">Draw time</string>
+    <string name="lottery_summary">Get reminders and check results after each draw</string>
+    <string name="lottery_help">About reminders</string>
+    <string name="lottery_menu">More options</string>
+    <string name="lottery_empty_title">No draws tracked yet</string>
+    <string name="lottery_finished_empty">No checked results yet</string>
+    <string name="lottery_failed">Check failed</string>
+    <string name="lottery_verification_required">Verification needed</string>
+    <string name="lottery_source_forum">Forum entry data</string>
+    <string name="lottery_source_beacon">Draw randomness service</string>
+    <string name="lottery_failure_network">Could not connect to %1$s. Check your connection and try again.</string>
+    <string name="lottery_failure_verification">Complete the forum verification, then check again.</string>
+    <string name="lottery_failure_sign_in">Your session has expired. Sign in again to check.</string>
+    <string name="lottery_failure_response">Could not read the response from %1$s. Check the official draw.</string>
+    <string name="lottery_failure_service">%1$s is unavailable (HTTP %2$d). Try again later.</string>
+    <string name="lottery_failure_other">The check could not finish. Try again or check the official draw.</string>
+    <string name="lottery_checked">Checked · %1$s</string>
+    <string name="lottery_deduplicated">One prize per person</string>
+    <string name="lottery_duplicates_allowed">Multiple wins allowed</string>
+    <string name="lottery_reminding">Reminder set</string>
+    <string name="lottery_sign_in">Sign in again</string>
+    <string name="lottery_not_entered_detail">This account had no eligible entry before the draw.</string>
 </resources>

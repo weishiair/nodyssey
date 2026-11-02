@@ -25,6 +25,16 @@ class LotteryResultsTest {
     }
 
     @Test
+    fun `reported draw 1022241 matches the official deduplicated result`() {
+        val reported = LuckyDrawParams(1022241, 1793592000000, 10, 1, true)
+        val participants = LotteryResults.floors(Fixtures.load("lottery-1022241-floors.json"))
+        val randomness = LotteryResults.randomness(Fixtures.load("lottery-6605365-beacon.json"), 6605365)
+        val winners = LotteryResults.winners(reported, participants, randomness)
+        assertEquals(listOf(20, 54, 61, 65, 76, 87, 101, 115, 140, 142), winners.map { it.floor })
+        assertEquals(listOf(48929L, 55077L, 69639L, 1473L, 72836L, 35076L, 72200L, 9180L, 25581L, 68154L), winners.map { it.uid })
+    }
+
+    @Test
     fun `deduplication keeps the first eligible floor rather than the first shuffled occurrence`() {
         val repeated = floors.map { if (it.floor in listOf(1, 14, 15)) it.copy(uid = 999) else it }
         val result = LotteryResults.winners(draw.copy(dedupeFloors = true), repeated, seed)

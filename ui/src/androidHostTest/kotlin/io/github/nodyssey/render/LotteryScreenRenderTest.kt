@@ -14,6 +14,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.core.LuckyDrawParams
 import io.github.nodyssey.data.lottery.LotteryEntry
+import io.github.nodyssey.data.lottery.LotteryFailure
+import io.github.nodyssey.data.lottery.LotteryFailureSource
 import io.github.nodyssey.data.lottery.LotteryOutcome
 import io.github.nodyssey.data.lottery.LotteryRepository
 import io.github.nodyssey.ui.lottery.LotteryCard
@@ -55,9 +57,9 @@ class LotteryScreenRenderTest {
     @After
     fun clearViewModels() = viewModels.clear()
 
-    private fun model(): LotteryViewModel {
+    private fun model(rows: List<LotteryEntry> = listOf(upcoming, won)): LotteryViewModel {
         val repository = object : LotteryRepository {
-            override val entries = flowOf(listOf(upcoming, won))
+            override val entries = flowOf(rows)
             override suspend fun watch(draw: LuckyDrawParams, title: String) = Unit
             override suspend fun remove(key: String) = Unit
             override suspend fun refreshDue(key: String?, force: Boolean) = Unit
@@ -78,6 +80,25 @@ class LotteryScreenRenderTest {
             }
         }
         composeRule.onRoot().captureRender("lottery-tracking-phone")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun `reported draw with a retryable connection failure`() {
+        val entry = LotteryEntry(
+            LuckyDrawParams(1022241, 1793592000000, 10, 1, true),
+            "[IF.TD] 新机器上线/清退旧机器补偿/抽奖三合一 庆祝万圣节通知 已开",
+            39801,
+            "weishiair",
+            "https://www.nodeseek.com",
+            failure = LotteryFailure.NETWORK,
+            failureSource = LotteryFailureSource.BEACON,
+        )
+        val viewModel = model(listOf(entry))
+        composeRule.setContent {
+            PlazaTheme { LotteryRoute(viewModel, {}, {}, {}, {}, {}, {}) }
+        }
+        composeRule.onRoot().captureRender("lottery-retry-phone")
     }
 
     @Test

@@ -11,6 +11,7 @@ import io.github.nodyssey.core.Site
 import io.github.nodyssey.core.net.JsonSource
 import io.github.nodyssey.data.UserProfile
 import io.github.plaza.core.AppClock
+import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.HttpRequest
 import io.github.plaza.core.net.HttpTransport
 import io.github.plaza.core.net.SiteError
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -31,7 +33,10 @@ import kotlinx.serialization.json.Json
 enum class LotteryOutcome { WON, LOST, NOT_ENTERED }
 
 @Serializable
-enum class LotteryFailure { NETWORK, VERIFICATION, OTHER }
+enum class LotteryFailure { NETWORK, VERIFICATION, SIGN_IN, RESPONSE, SERVICE, OTHER }
+
+@Serializable
+enum class LotteryFailureSource { FORUM, BEACON }
 
 @Serializable
 data class LotteryEntry(
@@ -48,6 +53,8 @@ data class LotteryEntry(
     val verificationUrl: String? = null,
     val blockedFingerprint: Int? = null,
     val resultNotified: Boolean = false,
+    val failureSource: LotteryFailureSource? = null,
+    val failureHttpStatus: Int? = null,
 ) {
     val key: String get() = draw.key
     val postUrl: String get() = origin + "/post-${draw.postId}-1"
@@ -123,6 +130,7 @@ class NetworkLotteryRepository(
     private val sessionFingerprint: () -> Int,
     private val clock: AppClock,
     private val site: Site,
+    private val dispatchers: AppDispatchers,
 ) : LotteryRepository {
     private val mutex = Mutex()
     private val schedulingMutex = Mutex()
@@ -159,6 +167,7 @@ class NetworkLotteryRepository(
             if (now <= entry.draw.drawAtMillis) continue
             if (!force && (blocked || now < entry.nextCheckMillis)) continue
             val requestFingerprint = sessionFingerprint()
+            var failureSource = LotteryFailureSource.FORUM
             try {
                 val draw = entry.draw
                 val path = "/api/content/floor-data?postId=${draw.postId}&time=${draw.drawAtMillis}"
@@ -166,9 +175,13 @@ class NetworkLotteryRepository(
                 val winners = if (floors.isEmpty()) {
                     emptyList()
                 } else {
+                    failureSource = LotteryFailureSource.BEACON
                     val round = LotteryResults.round(draw.drawAtMillis)
                     val randomness = beacons[round] ?: run {
-                        val response = beaconTransport.execute(HttpRequest(LotteryResults.BEACON_BASE + round))
+                        // OkHttpTransport.execute is blocking; callers include the foreground UI.
+                        val response = withContext(dispatchers.io) {
+                            beaconTransport.execute(HttpRequest(LotteryResults.BEACON_BASE + round))
+                        }
                         if (!response.isSuccessful) throw SiteException(SiteError.Http(response.code))
                         LotteryResults.randomness(response.body, round).also { beacons[round] = it }
                     }
@@ -189,6 +202,8 @@ class NetworkLotteryRepository(
                         failure = null,
                         verificationUrl = null,
                         blockedFingerprint = null,
+                        failureSource = null,
+                        failureHttpStatus = null,
                     )
                 }?.let { deliver(it) }
             } catch (cancelled: CancellationException) {
@@ -197,6 +212,9 @@ class NetworkLotteryRepository(
                 val reason = when ((failure as? SiteException)?.error) {
                     is SiteError.Cloudflare -> LotteryFailure.VERIFICATION
                     SiteError.Network -> LotteryFailure.NETWORK
+                    SiteError.LoginRequired, SiteError.SessionUnrecognised -> LotteryFailure.SIGN_IN
+                    SiteError.Unparsable -> LotteryFailure.RESPONSE
+                    is SiteError.Http -> LotteryFailure.SERVICE
                     else -> LotteryFailure.OTHER
                 }
                 store.update(entry.key, entry.ownerUid) {
@@ -205,6 +223,8 @@ class NetworkLotteryRepository(
                         verificationUrl = ((failure as? SiteException)?.error as? SiteError.Cloudflare)?.url,
                         nextCheckMillis = now + RETRY_MILLIS,
                         blockedFingerprint = if (reason == LotteryFailure.VERIFICATION) requestFingerprint else null,
+                        failureSource = failureSource,
+                        failureHttpStatus = ((failure as? SiteException)?.error as? SiteError.Http)?.statusCode,
                     )
                 }
                 // A challenge is site-wide: do not send the rest of the queue at the same wall.

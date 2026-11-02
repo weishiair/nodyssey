@@ -2,30 +2,45 @@ package io.github.nodyssey.ui.lottery
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.Badge
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,13 +49,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.LuckyDraw
 import io.github.nodyssey.core.LuckyDrawParams
 import io.github.nodyssey.data.lottery.LotteryEntry
 import io.github.nodyssey.data.lottery.LotteryFailure
+import io.github.nodyssey.data.lottery.LotteryFailureSource
 import io.github.nodyssey.data.lottery.LotteryOutcome
 import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
@@ -51,30 +70,54 @@ import io.github.nodyssey.ui.resources.lottery_busy
 import io.github.nodyssey.ui.resources.lottery_cancel
 import io.github.nodyssey.ui.resources.lottery_card
 import io.github.nodyssey.ui.resources.lottery_check
+import io.github.nodyssey.ui.resources.lottery_checked
 import io.github.nodyssey.ui.resources.lottery_create
+import io.github.nodyssey.ui.resources.lottery_deduplicated
+import io.github.nodyssey.ui.resources.lottery_duplicates_allowed
 import io.github.nodyssey.ui.resources.lottery_empty
+import io.github.nodyssey.ui.resources.lottery_empty_title
 import io.github.nodyssey.ui.resources.lottery_enable
+import io.github.nodyssey.ui.resources.lottery_failed
+import io.github.nodyssey.ui.resources.lottery_failure_network
+import io.github.nodyssey.ui.resources.lottery_failure_other
+import io.github.nodyssey.ui.resources.lottery_failure_response
+import io.github.nodyssey.ui.resources.lottery_failure_service
+import io.github.nodyssey.ui.resources.lottery_failure_sign_in
+import io.github.nodyssey.ui.resources.lottery_failure_verification
 import io.github.nodyssey.ui.resources.lottery_finished
+import io.github.nodyssey.ui.resources.lottery_finished_empty
 import io.github.nodyssey.ui.resources.lottery_floors
+import io.github.nodyssey.ui.resources.lottery_help
 import io.github.nodyssey.ui.resources.lottery_hint
 import io.github.nodyssey.ui.resources.lottery_limit
 import io.github.nodyssey.ui.resources.lottery_lost
+import io.github.nodyssey.ui.resources.lottery_menu
 import io.github.nodyssey.ui.resources.lottery_not_entered
+import io.github.nodyssey.ui.resources.lottery_not_entered_detail
 import io.github.nodyssey.ui.resources.lottery_official
 import io.github.nodyssey.ui.resources.lottery_ok
 import io.github.nodyssey.ui.resources.lottery_owner
 import io.github.nodyssey.ui.resources.lottery_pending
-import io.github.nodyssey.ui.resources.lottery_query_failed
+import io.github.nodyssey.ui.resources.lottery_prizes
 import io.github.nodyssey.ui.resources.lottery_refresh
+import io.github.nodyssey.ui.resources.lottery_reminding
 import io.github.nodyssey.ui.resources.lottery_remove
-import io.github.nodyssey.ui.resources.lottery_time
+import io.github.nodyssey.ui.resources.lottery_sign_in
+import io.github.nodyssey.ui.resources.lottery_source_beacon
+import io.github.nodyssey.ui.resources.lottery_source_forum
+import io.github.nodyssey.ui.resources.lottery_summary
+import io.github.nodyssey.ui.resources.lottery_time_label
 import io.github.nodyssey.ui.resources.lottery_title
+import io.github.nodyssey.ui.resources.lottery_verification_required
 import io.github.nodyssey.ui.resources.lottery_verify
 import io.github.nodyssey.ui.resources.lottery_waiting
 import io.github.nodyssey.ui.resources.lottery_won
 import io.github.nodyssey.ui.settings.rememberNotificationPermissionRequest
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -114,6 +157,7 @@ fun LotteryPostDraws(
                 },
                 onOfficial = { onOpenBrowser(LuckyDraw.link(draw)) },
                 onVerify = { onVerify(entry?.verificationUrl ?: LuckyDraw.link(draw)) },
+                onSignIn = onSignIn,
             )
         }
         if (draws.isNotEmpty()) LotteryFeedback(viewModel, onSignIn, onVerify)
@@ -135,7 +179,14 @@ fun LotteryRoute(
     val pending by viewModel.pending.collectAsStateWithLifecycle()
     val now by viewModel.now.collectAsStateWithLifecycle()
     var finished by rememberSaveable { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var helpOpen by rememberSaveable { mutableStateOf(false) }
     val appBarState = rememberOneHandAppBarState()
+    val activeCount = entries.count { it.outcome == null }
+    val checkedCount = entries.size - activeCount
+    val visible = entries.filter { (it.outcome != null) == finished }.let { rows ->
+        if (finished) rows.sortedByDescending { it.checkedAtMillis } else rows.sortedBy { it.draw.drawAtMillis }
+    }
     Scaffold(
         modifier = Modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
@@ -148,53 +199,132 @@ fun LotteryRoute(
                     }
                 },
                 actions = {
-                    TextButton(onClick = onCreate) { Text(stringResource(Res.string.lottery_create)) }
+                    IconButton(onClick = viewModel::refresh, enabled = pending.isEmpty()) {
+                        if ("refresh" in pending) {
+                            PlazaSpinner(size = 22.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, stringResource(Res.string.lottery_refresh))
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Default.MoreVert, stringResource(Res.string.lottery_menu))
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.lottery_create)) },
+                                leadingIcon = { Icon(Icons.Default.Add, null) },
+                                onClick = {
+                                    menuOpen = false
+                                    onCreate()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.lottery_help)) },
+                                leadingIcon = { Icon(Icons.Default.Info, null) },
+                                onClick = {
+                                    menuOpen = false
+                                    helpOpen = true
+                                },
+                            )
+                        }
+                    }
                 },
             )
         },
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize().readableWidth(),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
-            contentPadding = PaddingValues(horizontal = LayerPageGutter, vertical = Spacing.sm),
-        ) {
-            item {
-                Text(stringResource(Res.string.lottery_hint), style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    FilterChip(selected = !finished, onClick = { finished = false }, label = { Text(stringResource(Res.string.lottery_active)) })
-                    FilterChip(selected = finished, onClick = { finished = true }, label = { Text(stringResource(Res.string.lottery_finished)) })
-                    TextButton(onClick = viewModel::refresh, enabled = "refresh" !in pending) {
-                        Text(stringResource(Res.string.lottery_refresh))
-                    }
-                }
-                LotteryFeedback(viewModel, onSignIn, onVerify)
+        Column(modifier = Modifier.padding(padding).fillMaxSize().readableWidth()) {
+            Row(
+                modifier = Modifier.padding(horizontal = LayerPageGutter, vertical = Spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(PlazaIcons.Alarm, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Text(
+                    stringResource(Res.string.lottery_summary),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            val visible = entries.filter { (it.outcome != null) == finished }.sortedBy { it.draw.drawAtMillis }
-            if (visible.isEmpty()) item { Text(stringResource(Res.string.lottery_empty)) }
-            items(visible, key = { it.key }) { entry ->
-                Column {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            entry.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f).clickable { onOpenThread(entry.draw.postId) }.padding(vertical = Spacing.sm),
-                        )
-                        IconButton(onClick = { viewModel.remove(entry) }, enabled = entry.key !in pending) {
-                            Icon(Icons.Default.Close, stringResource(Res.string.lottery_remove))
+            PrimaryTabRow(selectedTabIndex = if (finished) 1 else 0, containerColor = MaterialTheme.colorScheme.surface) {
+                Tab(
+                    selected = !finished,
+                    onClick = { finished = false },
+                    text = { LotteryTabLabel(stringResource(Res.string.lottery_active), activeCount) },
+                )
+                Tab(
+                    selected = finished,
+                    onClick = { finished = true },
+                    text = { LotteryTabLabel(stringResource(Res.string.lottery_finished), checkedCount) },
+                )
+            }
+            LotteryFeedback(viewModel, onSignIn, onVerify)
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                contentPadding = PaddingValues(horizontal = LayerPageGutter, vertical = Spacing.md),
+            ) {
+                if (visible.isEmpty()) {
+                    item {
+                        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(Spacing.xl),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                            ) {
+                                Icon(
+                                    if (finished) Icons.Default.CheckCircle else PlazaIcons.Alarm,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(40.dp),
+                                )
+                                Text(
+                                    stringResource(if (finished) Res.string.lottery_finished_empty else Res.string.lottery_empty_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    stringResource(Res.string.lottery_empty),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
+                }
+                items(visible, key = { it.key }) { entry ->
                     LotteryCard(
                         draw = entry.draw,
                         entry = entry,
                         now = now,
-                        busy = entry.key in pending,
+                        busy = entry.key in pending || "refresh" in pending,
                         onAction = { viewModel.act(entry.draw, entry.title) },
                         onOfficial = { onOpenBrowser(LuckyDraw.link(entry.draw)) },
                         onVerify = { onVerify(entry.verificationUrl ?: LuckyDraw.link(entry.draw)) },
+                        onSignIn = onSignIn,
+                        title = entry.title,
+                        onOpenThread = { onOpenThread(entry.draw.postId) },
+                        onRemove = { viewModel.remove(entry) },
                     )
                 }
             }
         }
+    }
+    if (helpOpen) {
+        AlertDialog(
+            onDismissRequest = { helpOpen = false },
+            icon = { Icon(PlazaIcons.Alarm, null) },
+            title = { Text(stringResource(Res.string.lottery_help)) },
+            text = { Text(stringResource(Res.string.lottery_hint)) },
+            confirmButton = { TextButton(onClick = { helpOpen = false }) { Text(stringResource(Res.string.lottery_ok)) } },
+        )
+    }
+}
+
+@Composable
+private fun LotteryTabLabel(label: String, count: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+        Text(label)
+        if (count > 0) Badge { Text(count.toString()) }
     }
 }
 
@@ -208,32 +338,120 @@ internal fun LotteryCard(
     onAction: () -> Unit,
     onOfficial: () -> Unit,
     onVerify: () -> Unit,
+    onSignIn: () -> Unit = {},
+    title: String? = null,
+    onOpenThread: () -> Unit = {},
+    onRemove: (() -> Unit)? = null,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Text(stringResource(Res.string.lottery_card, draw.prizeCount), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                val status = when (entry?.outcome) {
-                    LotteryOutcome.WON -> Res.string.lottery_won
-                    LotteryOutcome.LOST -> Res.string.lottery_lost
-                    LotteryOutcome.NOT_ENTERED -> Res.string.lottery_not_entered
-                    null -> if (now < draw.drawAtMillis) Res.string.lottery_waiting else Res.string.lottery_pending
+    var menuOpen by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.outlinedCardColors(containerColor = colors.surface),
+    ) {
+        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = MaterialTheme.shapes.medium, color = colors.primaryContainer, contentColor = colors.onPrimaryContainer) {
+                    Icon(PlazaIcons.Alarm, null, modifier = Modifier.padding(Spacing.sm).size(24.dp))
                 }
-                Text(stringResource(status), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(stringResource(Res.string.lottery_card), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(Res.string.lottery_prizes, draw.prizeCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
+                LotteryStatus(entry, draw, now, busy)
+                if (onRemove != null) {
+                    Box {
+                        IconButton(onClick = { menuOpen = true }, enabled = !busy) {
+                            Icon(Icons.Default.MoreVert, stringResource(Res.string.lottery_menu))
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.lottery_remove)) },
+                                onClick = {
+                                    menuOpen = false
+                                    onRemove()
+                                },
+                            )
+                        }
+                    }
+                }
             }
-            Text(stringResource(Res.string.lottery_time, LuckyDraw.formatDrawTime(draw.drawAtMillis)), style = MaterialTheme.typography.bodySmall)
-            if (entry != null) Text(stringResource(Res.string.lottery_owner, entry.ownerName), style = MaterialTheme.typography.bodySmall)
+            if (title != null) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenThread),
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(stringResource(Res.string.lottery_time_label), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                Text(LuckyDraw.formatDrawTime(draw.drawAtMillis), style = MaterialTheme.typography.titleMedium)
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                if (entry != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Person, null, tint = colors.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Text(stringResource(Res.string.lottery_owner, entry.ownerName), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    }
+                }
+                Text(
+                    stringResource(if (draw.dedupeFloors) Res.string.lottery_deduplicated else Res.string.lottery_duplicates_allowed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
             if (entry?.outcome == LotteryOutcome.WON) {
-                Text(stringResource(Res.string.lottery_floors, entry.winningFloors.joinToString(", ")), color = MaterialTheme.colorScheme.primary)
+                Surface(shape = MaterialTheme.shapes.medium, color = colors.tertiaryContainer, contentColor = colors.onTertiaryContainer) {
+                    Text(
+                        stringResource(Res.string.lottery_floors, entry.winningFloors.joinToString(", ")),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+                    )
+                }
             }
-            if (entry?.failure != null) Text(stringResource(Res.string.lottery_query_failed), style = MaterialTheme.typography.bodySmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            if (entry?.outcome == LotteryOutcome.NOT_ENTERED) {
+                Text(stringResource(Res.string.lottery_not_entered_detail), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            }
+            if (entry?.failure != null) {
+                Text(lotteryFailureText(entry), style = MaterialTheme.typography.bodySmall, color = colors.error)
+            }
+            entry?.checkedAtMillis?.let {
+                Text(stringResource(Res.string.lottery_checked, LuckyDraw.formatDrawTime(it)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            }
+            HorizontalDivider(color = colors.outlineVariant)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
                 if (entry?.outcome == null) {
-                    Button(onClick = onAction, enabled = !busy) {
+                    val needsVerification = entry?.failure == LotteryFailure.VERIFICATION
+                    val needsSignIn = entry?.failure == LotteryFailure.SIGN_IN
+                    FilledTonalButton(
+                        onClick = when {
+                            needsVerification -> onVerify
+                            needsSignIn -> onSignIn
+                            else -> onAction
+                        },
+                        enabled = !busy,
+                    ) {
+                        if (busy) {
+                            PlazaSpinner(size = 16.dp, strokeWidth = 2.dp)
+                            Spacer(Modifier.size(Spacing.sm))
+                        }
                         Text(
                             stringResource(
                                 when {
                                     busy -> Res.string.lottery_busy
+                                    needsVerification -> Res.string.lottery_verify
+                                    needsSignIn -> Res.string.lottery_sign_in
                                     now >= draw.drawAtMillis -> Res.string.lottery_check
                                     entry != null -> Res.string.lottery_cancel
                                     else -> Res.string.lottery_enable
@@ -242,12 +460,53 @@ internal fun LotteryCard(
                         )
                     }
                 }
-                if (entry?.failure == LotteryFailure.VERIFICATION) {
-                    TextButton(onClick = onVerify) { Text(stringResource(Res.string.lottery_verify)) }
-                }
                 TextButton(onClick = onOfficial) { Text(stringResource(Res.string.lottery_official)) }
             }
         }
+    }
+}
+
+@Composable
+private fun LotteryStatus(entry: LotteryEntry?, draw: LuckyDrawParams, now: Long, busy: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    val status = when {
+        busy -> Res.string.lottery_busy
+        entry?.outcome == LotteryOutcome.WON -> Res.string.lottery_won
+        entry?.outcome == LotteryOutcome.LOST -> Res.string.lottery_lost
+        entry?.outcome == LotteryOutcome.NOT_ENTERED -> Res.string.lottery_not_entered
+        entry?.failure == LotteryFailure.VERIFICATION -> Res.string.lottery_verification_required
+        entry?.failure != null -> Res.string.lottery_failed
+        now >= draw.drawAtMillis -> Res.string.lottery_pending
+        entry != null -> Res.string.lottery_reminding
+        else -> Res.string.lottery_waiting
+    }
+    val failed = entry?.failure != null && !busy
+    val won = entry?.outcome == LotteryOutcome.WON
+    TonalTag(
+        text = stringResource(status),
+        containerColor = when {
+            failed -> colors.errorContainer
+            won -> colors.tertiaryContainer
+            else -> colors.secondaryContainer
+        },
+        contentColor = when {
+            failed -> colors.onErrorContainer
+            won -> colors.onTertiaryContainer
+            else -> colors.onSecondaryContainer
+        },
+    )
+}
+
+@Composable
+private fun lotteryFailureText(entry: LotteryEntry): String {
+    val source = stringResource(if (entry.failureSource == LotteryFailureSource.BEACON) Res.string.lottery_source_beacon else Res.string.lottery_source_forum)
+    return when (entry.failure) {
+        LotteryFailure.NETWORK -> stringResource(Res.string.lottery_failure_network, source)
+        LotteryFailure.VERIFICATION -> stringResource(Res.string.lottery_failure_verification)
+        LotteryFailure.SIGN_IN -> stringResource(Res.string.lottery_failure_sign_in)
+        LotteryFailure.RESPONSE -> stringResource(Res.string.lottery_failure_response, source)
+        LotteryFailure.SERVICE -> stringResource(Res.string.lottery_failure_service, source, entry.failureHttpStatus ?: 0)
+        else -> stringResource(Res.string.lottery_failure_other)
     }
 }
 
