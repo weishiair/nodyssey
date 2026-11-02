@@ -33,6 +33,7 @@ import io.github.nodyssey.ui.navigation.PaneGroup
 import io.github.nodyssey.ui.navigation.PaneKind
 import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
+import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
@@ -215,8 +216,8 @@ private class NativeShell(
             )
         }
 
-    /** Tabs whose stack changed while their controller was mid-transition. */
-    private val deferredSyncs = mutableSetOf<TopLevelDestination>()
+    /** Tabs waiting for a transition, preserving whether the request also regroups their pages. */
+    private val deferredSyncs = mutableMapOf<TopLevelDestination, Boolean>()
 
     /** Each tab's pairs, by the page in their left half. */
     private val splits: Map<TopLevelDestination, MutableMap<Page, Split>> =
@@ -225,6 +226,9 @@ private class NativeShell(
     /** How each tab's stack is drawn right now: what a pop UIKit made is counted against. */
     private val groups: MutableMap<TopLevelDestination, List<PaneGroup>> =
         TopLevelDestination.entries.associateWithTo(mutableMapOf()) { emptyList() }
+
+    /** The width mode actually installed in each tab, which may lag a resize during navigation. */
+    private val drawnExpanded = TopLevelDestination.entries.associateWithTo(mutableMapOf()) { false }
 
     /**
      * Set while [sync] hands UIKit new controllers. A navigation controller may report the change
@@ -312,34 +316,45 @@ private class NativeShell(
      * Hands [destination]'s navigation controller the screens its stack now calls for.
      *
      * [relayout] is a change of window width rather than of the stack: the same pages, grouped
-     * again, without animation and without waiting for a transition — the width changes inside the
-     * rotation's own one, and waiting would leave the old layout up until the next push.
+     * again without a navigation animation. It must still wait for UIKit's transition: a rotation
+     * animates the existing Compose scenes, which cannot be moved to another container mid-flight.
      */
+    @OptIn(ExperimentalForeignApi::class)
     private fun sync(
         destination: TopLevelDestination,
         relayout: Boolean = false,
     ) {
         val navigationController = navigationControllers.getValue(destination)
         val splits = splits.getValue(destination)
+        val needsRelayout = relayout || deferredSyncs[destination] == true
         // `setViewControllers` during a push or a swipe is how UIKit ends up with a bar for one
         // screen over the content of another. The navigation delegates run this again once the
         // transition has settled.
-        if (!relayout &&
-            (navigationController.transitionCoordinator != null || splits.values.any { it.details.transitionCoordinator != null })
-        ) {
-            deferredSyncs += destination
+        val coordinator = navigationController.transitionCoordinator
+            ?: splits.values.firstNotNullOfOrNull { it.details.transitionCoordinator }
+        if (coordinator != null) {
+            val alreadyWaiting = destination in deferredSyncs
+            deferredSyncs[destination] = needsRelayout
+            if (!alreadyWaiting) {
+                val resume = { NSOperationQueue.mainQueue.addOperationWithBlock { settle(destination) } }
+                // A rotation has no navigation didShow callback. Its coordinator must drain the
+                // pending request too, after UIKit has finished all of its completion callbacks.
+                if (!coordinator.animateAlongsideTransition(animation = null, completion = { resume() })) resume()
+            }
             return
         }
+        deferredSyncs.remove(destination)
         val mirror = mirrors.getValue(destination)
         val keys = stacks.getValue(destination).toList()
-        val pages = mirror.reconcile(keys) ?: if (relayout) mirror.views else return
+        val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
         val layout = paneGroups(keys, listDetailExpanded, ::paneKindOf)
         val onScreen = navigationController.view.window != null
-        val animated = onScreen && !relayout
+        val animated = onScreen && !needsRelayout
 
         syncing = true
         try {
             groups[destination] = layout
+            drawnExpanded[destination] = listDetailExpanded
             // A page goes into its new container only once it has left the old one: UIKit will not
             // give a controller two parents. Pairs no longer drawn give their pages back first.
             val lists = layout.filterIsInstance<PaneGroup.Split>().map { pages[it.listIndex] }.toSet()
@@ -408,7 +423,7 @@ private class NativeShell(
         val dropped = mirror.platformPopped(remaining, stack)
         if (dropped == 0) return
         // settle reconciles navigation deferred during the pop against these surviving pages.
-        groups[destination] = paneGroups(stack.toList(), listDetailExpanded, ::paneKindOf)
+        groups[destination] = paneGroups(mirror.views.map { it.key }, drawnExpanded.getValue(destination), ::paneKindOf)
         val splits = splits.getValue(destination)
         val views = mirror.views.toSet()
         splits.keys.filter { it !in views }.forEach { splits.remove(it)?.empty() }
@@ -418,7 +433,7 @@ private class NativeShell(
     /** What every transition ends with: released pages cleared, and a change that had to wait made. */
     private fun settle(destination: TopLevelDestination) {
         flushReleases()
-        if (deferredSyncs.remove(destination)) sync(destination)
+        deferredSyncs.remove(destination)?.let { relayout -> sync(destination, relayout) }
     }
 
     /** One list and its details, side by side; see [PaneSplitController]. */
@@ -699,9 +714,21 @@ private class NativeShell(
 private class ShellTabBarController(
     private val onWidth: (Double) -> Unit,
 ) : UITabBarController(nibName = null, bundle = null) {
+    private val layoutUpdates = WindowLayoutDispatcher(
+        post = { update -> NSOperationQueue.mainQueue.addOperationWithBlock { update() } },
+        onLayout = { onWidth(view.bounds.useContents { size.width }) },
+    )
+
     override fun viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        onWidth(view.bounds.useContents { size.width })
+        val coordinator = transitionCoordinator
+        if (coordinator == null) {
+            layoutUpdates.request()
+        } else {
+            layoutUpdates.request { onFinished ->
+                coordinator.animateAlongsideTransition(animation = null, completion = { onFinished() })
+            }
+        }
     }
 }
 
