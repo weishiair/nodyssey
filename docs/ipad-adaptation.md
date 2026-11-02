@@ -30,6 +30,11 @@ iOS 仅在 iPad 且应用窗口宽度至少 840pt 时启用双栏，左栏宽 36
 返回动画期间的新选择或新链接会等待动画结束再同步。UIKit 回写返回时只移除仍与旧页面
 匹配的栈条目，保留等待中的新导航；已由按钮移除的页面不会再被手势回调重复删除。
 
+双栏右侧的嵌套 `UINavigationController` 在交给外层导航控制器前就以占位页为根；
+收起分栏时也先换回占位页再释放正文，不能把仍在显示的嵌套导航栈清空。
+`PaneSplitControllerTest` 在 iOS 模拟器上覆盖根页面初始化和释放后重新挂载。
+此前的时序调整没有解决横屏冷启动闪退；目前没有设备崩溃日志，仍需真机验证这次修复。
+
 这里保留小型 `PaneSplitController`，使用 UIKit 公开的子控制器容纳 API。
 Apple 的 `UISplitViewController` 文档明确禁止把它推入 `UINavigationController`，而本项目
 的列表／详情组合仍需作为原生导航栈中的一页。若以后改成 split root，应移除这个容器。

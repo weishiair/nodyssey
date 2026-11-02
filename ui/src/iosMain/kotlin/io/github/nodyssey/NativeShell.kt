@@ -441,9 +441,6 @@ private class NativeShell(
         destination: TopLevelDestination,
         val list: Page,
     ) {
-        val details = UINavigationController().apply { setNavigationBarHidden(true, animated = false) }
-        val controller = PaneSplitController(details)
-
         /** The right half before anything has been opened in it, as on Android. */
         private val placeholder =
             ComposeUIViewController {
@@ -457,6 +454,10 @@ private class NativeShell(
                     }
                 }
             }
+
+        // The placeholder is already the navigation root before UIKit sees this nested controller.
+        val controller = PaneSplitController(placeholder)
+        val details = controller.details
 
         // UIKit holds delegates weakly; these fields are what keeps them alive.
         private val navigationDelegate = DetailsDelegate(destination, this)
@@ -492,8 +493,7 @@ private class NativeShell(
 
         /** Gives the pages back, to be drawn full-window or released. */
         fun empty() {
-            details.setViewControllers(emptyList<UIViewController>(), animated = false)
-            controller.showList(null)
+            controller.releasePages()
         }
     }
 
