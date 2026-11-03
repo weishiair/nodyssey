@@ -115,6 +115,11 @@ object PostDetailParser {
             // Blob only. The markup says nothing about who is reading it, and a floor whose id we
             // could not read is one we could not address an edit to either.
             isMine = commentId != null && commentId in config.ownCommentIds,
+            // Either source will do: the badge is the one a signed-out read still carries, and the
+            // blob covers a page whose badge we did not match.
+            isPinned =
+            element.selectFirst(Selectors.CONTENT_PINNED_BADGE) != null ||
+                (commentId != null && commentId in config.pinnedCommentIds),
         )
     }
 

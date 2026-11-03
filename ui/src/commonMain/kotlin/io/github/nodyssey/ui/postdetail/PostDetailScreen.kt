@@ -163,6 +163,7 @@ import io.github.nodyssey.ui.resources.post_author_scan_retry
 import io.github.nodyssey.ui.resources.post_auto_paging
 import io.github.nodyssey.ui.resources.post_badge_awarded
 import io.github.nodyssey.ui.resources.post_badge_original_poster
+import io.github.nodyssey.ui.resources.post_badge_pinned
 import io.github.nodyssey.ui.resources.post_body_copied
 import io.github.nodyssey.ui.resources.post_body_empty
 import io.github.nodyssey.ui.resources.post_collect_action
@@ -1960,7 +1961,7 @@ private fun OriginalOpeningPost(
                 // The official opening post puts the time under the name, not at the far edge.
                 subtitle = { if (body != null) FloorTimeLine(body) else MetaLinePlaceholder() },
             )
-            body?.floor?.let { FloorLabel(it) }
+            body?.let { FloorLabel(it) }
         }
 
         if (body == null) {
@@ -2224,7 +2225,7 @@ private fun CommentRow(
                 }
                 FloorTimeLine(comment)
             }
-            comment.floor?.let { FloorLabel(it) }
+            FloorLabel(comment)
         }
         ReportOriginFloor(comment.floor) {
             ImageActionsFrom(comment.authorName, comment.floor) {
@@ -2333,7 +2334,7 @@ private fun OriginalCommentRow(
                             FloorBadges(comment, hasAccountLevel = showAuthorAccountInfo && authorInfo?.level != null)
                             UserNoteTag(comment.authorUid)
                         }
-                        comment.floor?.let { FloorLabel(it) }
+                        FloorLabel(comment)
                     }
                     FloorTimeLine(comment)
                 }
@@ -2450,7 +2451,7 @@ private fun FloorMetadata(content: PostContent) {
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
         FloorTimeLine(content)
-        content.floor?.let { FloorLabel(it) }
+        FloorLabel(content)
     }
 }
 
@@ -3292,14 +3293,33 @@ private fun List<InlineNode>.plainText(): String = joinToString("") { inline ->
     }
 }
 
-/** Tabular figures so `#9` and `#127` sit on the same right edge as the list scrolls. */
+/**
+ * The floor's number, with the pin a 置顶 floor wears ahead of it.
+ *
+ * The site draws only the glyph — an `svg` with `title="置顶"` — so the word travels as the icon's
+ * accessible name here: "2楼" on its own neither reads nor looks pinned.
+ */
 @Composable
-internal fun FloorLabel(floor: String) {
-    Text(
-        text = stringResource(Res.string.post_floor_number, floor.removePrefix("#")),
-        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = TABULAR_FIGURES),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+internal fun FloorLabel(content: PostContent) {
+    val floor = content.floor ?: return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        if (content.isPinned) {
+            Icon(
+                imageVector = PlazaIcons.PushPin,
+                contentDescription = stringResource(Res.string.post_badge_pinned),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(12.dp),
+            )
+        }
+        Text(
+            text = stringResource(Res.string.post_floor_number, floor.removePrefix("#")),
+            style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = TABULAR_FIGURES),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 private const val THREAD_HEADER_ITEMS = 2

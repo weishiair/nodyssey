@@ -18,12 +18,24 @@ iOS 仅在 iPad 且应用窗口宽度至少 840pt 时启用双栏，左栏宽 36
 右栏另持有一个原生导航栈。UIKit 返回手势按组合所代表的条目数回写同一份 `NavBackStack`。
 改变窗口宽度只重新安放 `StackMirror` 持有的控制器，保留它们的 ViewModel。
 
+原生布局回调只提交窗口更新，不在回调内更换导航容器。有旋转或导航动画时，
+通过 UIKit transition coordinator 等待结束，再投递到主队列，按当时的真实 bounds 切换单／双栏。
+这避免在 Compose 旋转动画仍使用原视图时重新挂载页面；动画期间的请求会合并，保留重新分栏的需求。
+各标签记录已安装的宽度模式，返回回写仍按当前实际显示的页面计数。
+
 列表选中另一项替换右栏，从正文内继续导航则压入右栏。首篇详情不显示返回箭头，后续详情
 保留箭头。左栏自己的返回关闭该列表及其上方页面。再次选择同一帖子不会因为标题预览更新
 而重建正在阅读的页面；同帖不同楼层仍会导航。
 
 返回动画期间的新选择或新链接会等待动画结束再同步。UIKit 回写返回时只移除仍与旧页面
 匹配的栈条目，保留等待中的新导航；已由按钮移除的页面不会再被手势回调重复删除。
+
+双栏右侧的嵌套 `UINavigationController` 在交给外层导航控制器前就以占位页为根；
+收起分栏时也先换回占位页再释放正文，不能把仍在显示的嵌套导航栈清空。
+页面离开导航栈后，`parentViewController` 已为空时，视图仍可能留在旧导航容器中；
+UIKit 的层级检查会因此拒绝把页面加入双栏。迁移前先从旧视图层级移除页面，详情页在释放和
+重新挂载时同样清理。`PaneSplitControllerTest` 在 iOS 模拟器上覆盖根页面初始化、释放后
+重新挂载，以及父指针已清空而视图仍在旧容器中的迁移。
 
 这里保留小型 `PaneSplitController`，使用 UIKit 公开的子控制器容纳 API。
 Apple 的 `UISplitViewController` 文档明确禁止把它推入 `UINavigationController`，而本项目
@@ -49,6 +61,7 @@ Apple 的 `UISplitViewController` 文档明确禁止把它推入 `UINavigationCo
 `PaneRoleTest` 覆盖右栏替换、重复选择、不同楼层、嵌套列表关闭和返回箭头的导航条件；
 `PaneLayoutTest` 覆盖分组及返回计数；`StackMirrorTest` 覆盖控制器保留与释放，以及返回
 动画期间的替换、追加、重复返回回调和取消手势。
+`WindowLayoutDispatcherTest` 覆盖布局回调退出、旋转完成、取消和请求合并的执行顺序。
 
 宽屏共享界面可通过现有渲染入口检查：
 
@@ -62,6 +75,7 @@ Apple 的 `UISplitViewController` 文档明确禁止把它推入 `UINavigationCo
 Windows 不能编译或运行 UIKit 部分。合入发布前需要 macOS 的 iOS 编译及以下设备验收：
 
 1. 在窄／宽窗口间来回调整，核对列表滚动位置、正在阅读的楼层和回复草稿。
+   先在首页竖屏启动，反复切换横竖屏，确认旋转结束后分栏且进程仍存活（iOS 27.2 报告的闪退路径）。
 2. 连续选择多个帖子，再从正文打开第二篇；检查右栏替换、按钮返回、完成及取消的滑动返回。
 3. 从帖子打开用户空间再打开帖子，返回左侧空间页，核对回到原先那篇帖子。
 4. 检查通知／私信、收藏、历史和我的主题帖／评论，确认不同标签栈互不影响。
@@ -81,3 +95,26 @@ Windows 不能编译或运行 UIKit 部分。合入发布前需要 macOS 的 iOS
   `PreferencesViewModelTest` 和 `NodeSeekDatabaseMigrationTest`，分别复现 1、2 和 21 项
   同类失败。这些数据层、偏好和迁移实现均未在本次修改。
 - 未配置 Android 模拟器，未运行设备测试；UIKit 编译和 iPad 真机验收仍待 macOS／iPad。
+
+## 首轮旋转修复验证（2026-11-02）
+
+- iOS 27.2 的录像显示首页在竖屏转横屏的动画中退回桌面。本次修复控制器在布局／旋转回调中
+  即时换父容器的时序；没有崩溃堆栈，仍需原设备确认是否消除闪退。
+- `WindowLayoutDispatcherTest`、`PaneLayoutTest`、`StackMirrorTest` 和 `PaneRoleTest` 共 42 项通过，
+  包括 6 项新的布局调度时序测试。
+- `spotlessCheck`、`jvmTest`、`:app:lintDebug`、`:app:assembleDebug`、`:app:bundleRelease` 通过；
+  发布脚本的 16 项测试通过，Room schema 无改动，Android 资源无跨模块重复。
+- 完整门禁以 `--continue` 执行：`:app` 169 项中 21 项 Room 迁移测试因 Windows 数据库路径失败；
+  `:shared` 831 项中 15 项因 DataStore 文件重命名失败；`:ui` 831 项中 2 项偏好同步测试失败（跳过 194 项）。
+  失败类型与上述 Windows 基线一致；本次未修改这些数据层和偏好实现。
+- Windows 上未执行 UIKit 编译、iOS 模拟器或 iPad 真机验证。
+
+## 最终旋转修复验证（2026-11-03）
+
+- 后续设备日志与可见窗口探针定位到 `UIViewControllerHierarchyInconsistency`：父指针清空后，
+  页面视图仍属于旧导航容器。旧实现复现异常，迁移前移除旧视图后，普通迁移和布局回调内迁移均通过。
+- `1.3.8-ios-test.4`（123）包含最终修复，用户已在原 iOS 27.2 设备确认测试正常。
+- 完整 Linux CI 通过，包括单元测试、lint、Debug／Release 构建及设备测试。
+- macOS 共享 Kotlin/Native 测试、iOS UIKit 迁移测试及真机／模拟器构建通过。
+- iOS 26.5 的 11 英寸和 13 英寸 iPad 模拟器通过连续横竖屏切换及横屏冷启动检查。
+  自动旋转测试副本启用全屏兼容模式，以允许系统接受程序发起的方向请求；交付 IPA 保持原有多任务配置。

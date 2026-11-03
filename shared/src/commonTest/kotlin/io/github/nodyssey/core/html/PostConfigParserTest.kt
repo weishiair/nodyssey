@@ -124,6 +124,27 @@ class PostConfigParserTest {
     }
 
     /**
+     * `pined` — one n, the wire's own spelling — is the blob's flag for a 置顶 floor. A floor the
+     * blob does not mention is not pinned, which is also the whole answer for a page without a blob.
+     */
+    @Test
+    fun `reads which floor a moderator pinned`() {
+        val config =
+            parse(
+                postData =
+                """
+                "comments":[
+                  {"commentId":1,"pined":false},
+                  {"commentId":2,"pined":true},
+                  {"commentId":3}
+                ]
+                """.trimIndent(),
+            )
+
+        assertEquals(setOf(2L), config.pinnedCommentIds)
+    }
+
+    /**
      * `editedDate` is null on every floor nobody has touched, which is how a marker is *not* drawn.
      * Any one of the three edited fields is enough to state the fact — the site has printed the
      * relative form on its own before it prints the rest.

@@ -232,6 +232,30 @@ class PostDetailViewModelTest {
         assertEquals(listOf(1, 2), state.commentPages)
     }
 
+    /**
+     * The site draws a 置顶 reply above #1 rather than at its own number. Sorting the reading view
+     * numerically alone undid that, so the pinned floor was drawn in numeric position like any
+     * other reply.
+     */
+    @Test
+    fun `a pinned floor is read above the rest`() = runTest(dispatcher) {
+        remote.detailResult = { postId, page ->
+            val replies =
+                listOf(
+                    FakePostRemoteDataSource.content("ordinary").copy(commentId = 1, floor = "#1"),
+                    FakePostRemoteDataSource.content("pinned").copy(commentId = 2, floor = "#2", isPinned = true),
+                    FakePostRemoteDataSource.content("later").copy(commentId = 3, floor = "#3"),
+                )
+            FakePostRemoteDataSource.detail(postId, page, commentCount = replies.size)
+                .copy(comments = replies)
+        }
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(listOf(2L, 1L, 3L), vm.uiState.value.comments.map { it.commentId })
+        assertEquals(listOf("#2", "#1", "#3"), vm.uiState.value.comments.map { it.floor })
+    }
+
     private fun givenAuthorReplies() {
         remote.detailResult = { postId, page ->
             val detail = FakePostRemoteDataSource.detail(postId, page, commentCount = 10, totalPages = 3)
