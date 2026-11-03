@@ -1,6 +1,7 @@
 package io.github.nodyssey.data.session
 
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.data.MessageDraft
 import io.github.nodyssey.data.NoOpPostRepository
 import io.github.nodyssey.data.NotificationCounts
 import io.github.nodyssey.data.OfflineLibrary
@@ -53,6 +54,8 @@ class DefaultAccountSignOutTest {
         val commentDrafts = RecordingCommentComposer()
         val settings = SettingsRepository(testPreferenceStore(backgroundScope, name = "sign-out"))
         settings.setNotificationSeenCounts(NotificationCounts(replies = 40, mentions = 3, messages = 7))
+        val messagePage = settings.messageDrafts.open(session.state.value.fingerprint, 42)
+        settings.messageDrafts.save(messagePage, MessageDraft(text = "private message"))
 
         DefaultAccountSignOut(
             posts = posts,
@@ -70,6 +73,8 @@ class DefaultAccountSignOutTest {
         // The account's own unsent words, both editors.
         assertTrue(postDrafts.draftDeleted)
         assertTrue(commentDrafts.allDraftsDeleted)
+        settings.messageDrafts.save(messagePage, MessageDraft(text = "late page cleanup"))
+        assertFalse(settings.messageDrafts.open(messagePage.fingerprint, 42).initial.hasContent)
         // The poll baseline: account A's 40-reply watermark would swallow account B's first unread.
         assertEquals(NotificationCounts(), settings.notificationSeenCounts())
         // Content cleared, and the session itself published as signed out — cookies actually gone.

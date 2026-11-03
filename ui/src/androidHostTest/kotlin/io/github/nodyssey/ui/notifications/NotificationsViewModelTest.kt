@@ -178,6 +178,48 @@ class NotificationsViewModelTest {
             assertTrue(state.errors.containsKey(NotificationTab.MESSAGES))
         }
 
+    @Test
+    fun `marking interactions read preserves unread conversation rows as well as their counts`() = runTest(dispatcher) {
+        val api = FakeApi(counts = """{"atMe":2,"message":3}""")
+        val viewModel = viewModel(api, messages = FakeMessages(unreadCount = 3))
+        advanceUntilIdle()
+        api.counts = """{"atMe":0,"message":3}"""
+
+        viewModel.markAllRead()
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.conversations.single().unreadCount)
+        assertEquals(3, viewModel.uiState.value.counts.messages)
+        assertFalse(viewModel.uiState.value.items.single().isUnread)
+        assertFalse(viewModel.uiState.value.hasUnread)
+    }
+
+    @Test
+    fun `marking messages read preserves unread interactions and only calls the message endpoint`() = runTest(dispatcher) {
+        val api = FakeApi(counts = """{"atMe":2,"message":3}""")
+        var messageReads = 0
+        val messages = object : MessageRepository by FakeMessages(unreadCount = 3) {
+            override suspend fun markAllRead() {
+                messageReads++
+            }
+        }
+        val viewModel = viewModel(api, messages = messages)
+        advanceUntilIdle()
+        viewModel.selectTab(NotificationTab.MESSAGES)
+        advanceUntilIdle()
+        api.counts = """{"atMe":2,"message":0}"""
+
+        viewModel.markAllRead()
+        advanceUntilIdle()
+
+        assertEquals(1, messageReads)
+        assertTrue(api.postedPaths.isEmpty())
+        assertTrue(viewModel.uiState.value.items.single().isUnread)
+        assertEquals(2, viewModel.uiState.value.counts.mentions)
+        assertEquals(0, viewModel.uiState.value.conversations.single().unreadCount)
+        assertFalse(viewModel.uiState.value.hasUnread)
+    }
+
     private fun viewModel(
         api: FakeApi,
         unread: Boolean = true,
@@ -197,7 +239,7 @@ class NotificationsViewModelTest {
 }
 
 /** A conversation list that answers, or refuses to. */
-private class FakeMessages(private val fails: Boolean = false) : MessageRepository by NoMessages {
+private class FakeMessages(private val fails: Boolean = false, private val unreadCount: Int = 0) : MessageRepository by NoMessages {
     override suspend fun conversations(): List<MessageConversation> {
         if (fails) throw SiteException(SiteError.Network)
         return listOf(
@@ -209,7 +251,7 @@ private class FakeMessages(private val fails: Boolean = false) : MessageReposito
                 isSnippetMine = false,
                 updatedAtMillis = 1_785_000_000_000L,
                 updatedAtText = null,
-                unreadCount = 0,
+                unreadCount = unreadCount,
                 isSystem = false,
             ),
         )

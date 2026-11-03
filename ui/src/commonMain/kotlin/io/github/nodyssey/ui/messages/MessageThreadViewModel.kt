@@ -3,6 +3,7 @@ package io.github.nodyssey.ui.messages
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.text.TextRange
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,12 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.DirectMessage
 import io.github.nodyssey.data.MessageConversation
+import io.github.nodyssey.data.MessageDraft
+import io.github.nodyssey.data.MessageDraftBubble
+import io.github.nodyssey.data.MessageDraftHandle
+import io.github.nodyssey.data.MessageDraftStore
+import io.github.nodyssey.data.MessageFailure
+import io.github.nodyssey.data.MessageRecovery
 import io.github.nodyssey.data.MessageRepository
 import io.github.nodyssey.data.MessageThread
 import io.github.nodyssey.data.NotificationCategory
@@ -38,12 +45,18 @@ import io.github.plaza.designsys.editor.editFromViewModel
 import io.github.plaza.designsys.editor.insertBlockAtCaret
 import io.github.plaza.designsys.editor.removeBlock
 import io.github.plaza.designsys.editor.toolbarLayout
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -51,6 +64,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlin.uuid.Uuid
 
 /**
  * Board 7f.
@@ -75,12 +90,21 @@ class MessageThreadViewModel(
      * new conversation has no `talkTo` object yet).
      */
     private val profiles: ProfileRepository? = null,
+    private val drafts: MessageDraftStore? = settings?.messageDrafts,
 ) : ViewModel() {
     // The avatar is known from the uid alone — it is the URL the thread itself answers with — so the
     // header draws the picture from the first frame. Left for the fetch, it drew the initial first and
     // swapped the picture in when the history arrived, even with the picture already cached.
     private val _uiState =
-        MutableStateFlow(MessageThreadUiState(uid = uid, userName = userName, avatarUrl = NodeSeekSite.avatarUrl(uid)))
+        MutableStateFlow(
+            MessageThreadUiState(
+                uid = uid,
+                userName = userName,
+                avatarUrl = NodeSeekSite.avatarUrl(uid),
+                isRestoringDraft = drafts != null,
+                isSignedIn = session.state.value.isSignedIn,
+            ),
+        )
     val uiState: StateFlow<MessageThreadUiState> = _uiState.asStateFlow()
 
     /** The composer's text and selection, held here for the same reason the post editor's is. */
@@ -98,10 +122,13 @@ class MessageThreadViewModel(
     private var pollJob: Job? = null
     private val historyMutex = Mutex()
     private var historyRevision = 0L
-    private var pendingSeed = 0L
+    private val sendJobs = mutableMapOf<String, Job>()
+    private var draftHandle: MessageDraftHandle? = null
+    private var activeFingerprint = session.state.value.fingerprint
 
     init {
         refresh()
+        observeDrafts()
         // The text lives in a state object the ViewModel cannot make a StateFlow out of, so the one
         // derived bit it needs is mirrored across. Whether that is *enough* to send is the UiState's
         // question, because an upload still in flight also has a say.
@@ -123,6 +150,122 @@ class MessageThreadViewModel(
             ?.onEach { stored ->
                 _uiState.update { it.copy(toolbar = toolbarLayout(stored, EditorActions.Message)) }
             }?.launchIn(viewModelScope)
+    }
+
+    private fun observeDrafts() {
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            session.state.distinctUntilChangedBy { it.isSignedIn to it.fingerprint }.collectLatest { account ->
+                val renewedSession = account.isSignedIn && account.fingerprint != activeFingerprint
+                if (!account.isSignedIn || account.fingerprint != activeFingerprint) {
+                    val resumePolling = pollJob?.isActive == true
+                    stopPolling()
+                    activeFingerprint = account.fingerprint
+                    historyRevision++
+                    loadJob?.cancel()
+                    sendJobs.values.toList().forEach { it.cancel() }
+                    sendJobs.clear()
+                    draftHandle = null
+                    draftState.clearText()
+                    uploads.clear()
+                    _uiState.update {
+                        it.copy(
+                            messages = emptyList(),
+                            quotes = emptyList(),
+                            hasDraftText = false,
+                            error = if (account.isSignedIn) null else SiteError.LoginRequired,
+                            syncError = null,
+                            isLoading = false,
+                            isSignedIn = account.isSignedIn,
+                            isRestoringDraft = account.isSignedIn && drafts != null,
+                            draftSaveFailed = false,
+                        )
+                    }
+                    if (account.isSignedIn) {
+                        refresh()
+                        if (resumePolling) startPolling()
+                    }
+                }
+                if (!account.isSignedIn || drafts == null) return@collectLatest
+                val accountUid = runCatchingExceptCancellation {
+                    profiles?.observeProfile(account.fingerprint)?.first()?.uid ?: profiles?.profile()?.uid
+                }.getOrNull()?.takeIf { it > 0 }
+                if (!session.state.value.isSignedIn || session.state.value.fingerprint != account.fingerprint) return@collectLatest
+                val handle = runCatchingExceptCancellation { drafts.open(account.fingerprint, _uiState.value.uid, accountUid) }
+                    .getOrElse {
+                        _uiState.update { it.copy(isRestoringDraft = false, draftSaveFailed = true) }
+                        return@collectLatest
+                    }
+                draftHandle = handle
+                if (!session.state.value.isSignedIn || session.state.value.fingerprint != account.fingerprint) return@collectLatest
+                val saved = handle.initial
+                val enteredWhileLoading = draftState.text.toString()
+                val currentSelection = draftState.selection
+                draftState.editFromViewModel {
+                    replace(0, length, saved.text + enteredWhileLoading)
+                    selection = if (enteredWhileLoading.isEmpty()) {
+                        TextRange(saved.selectionStart.coerceIn(0, length), saved.selectionEnd.coerceIn(0, length))
+                    } else {
+                        TextRange(saved.text.length + currentSelection.start, saved.text.length + currentSelection.end)
+                    }
+                }
+                _uiState.update {
+                    it.copy(
+                        quotes = (saved.quotes.map { quote -> quote.toBubble(pending = false) } + it.quotes).distinctBy { quote -> quote.id },
+                        messages = it.messages + saved.pending.map { pending ->
+                            val restored = pending.toBubble(pending = true)
+                            if (renewedSession && accountUid != null && restored.failure?.recovery == MessageRecovery.SIGN_IN) {
+                                restored.copy(failure = MessageFailure(), failureReason = null)
+                            } else {
+                                restored
+                            }
+                        },
+                        hasDraftText = draftState.text.isNotBlank(),
+                        userName = it.userName.ifBlank { saved.userName },
+                        isRestoringDraft = false,
+                        syncError = if (saved.pending.isNotEmpty()) it.error ?: it.syncError else it.syncError,
+                        error = if (saved.pending.isNotEmpty()) null else it.error,
+                    )
+                }
+                saved.pending.forEach { scheduleRetryAvailability(it.failure) }
+                try {
+                    // StateFlow carries quotes and pending sends; snapshotFlow carries the editor's
+                    // text/selection. Neither alone observes all the things a draft must keep.
+                    combine(
+                        snapshotFlow { Triple(draftState.text.toString(), draftState.selection.start, draftState.selection.end) },
+                        uiState.map { it.copy(messages = it.messages.filter { message -> message.status != SendStatus.SENT }) }
+                            .distinctUntilChanged(),
+                    ) { _, _ -> draftSnapshot() }.distinctUntilChanged().collectLatest { draft ->
+                        delay(AUTOSAVE_DELAY_MILLIS)
+                        persistDraft(handle, draft)
+                    }
+                } finally {
+                    // viewModelScope is cancelled when Back removes the entry. Finish the last disk
+                    // write, including an edit made just before Back, using coroutines' cleanup API.
+                    // The handle remains scoped to its old cookies, even after a session change.
+                    // Logout invalidates it in the store before publishing signed-out state.
+                    withContext(NonCancellable) { persistDraft(handle, draftSnapshot()) }
+                }
+            }
+        }
+    }
+
+    private fun draftSnapshot(): MessageDraft {
+        val state = _uiState.value
+        return MessageDraft(
+            userName = state.userName,
+            text = draftState.text.toString(),
+            selectionStart = draftState.selection.start,
+            selectionEnd = draftState.selection.end,
+            quotes = state.quotes.map(MessageBubble::toDraftBubble),
+            pending = state.messages.filter { it.status != SendStatus.SENT }.map(MessageBubble::toDraftBubble),
+        )
+    }
+
+    private suspend fun persistDraft(handle: MessageDraftHandle, draft: MessageDraft) {
+        if (!session.state.value.isSignedIn) return
+        runCatchingExceptCancellation { drafts?.save(handle, draft.copy(savedAtMillis = clock.nowMillis())) }
+            .onSuccess { _uiState.update { it.copy(draftSaveFailed = false) } }
+            .onFailure { _uiState.update { it.copy(draftSaveFailed = true) } }
     }
 
     fun addImages(images: List<PickedImage>) = uploads.enqueue(images)
@@ -187,7 +330,11 @@ class MessageThreadViewModel(
                         }
                     }.onFailure { throwable ->
                         _uiState.update {
-                            it.copy(isLoading = false, error = throwable.toSiteError())
+                            if (it.messages.isEmpty()) {
+                                it.copy(isLoading = false, error = throwable.toSiteError())
+                            } else {
+                                it.copy(isLoading = false, syncError = throwable.toSiteError())
+                            }
                         }
                     }
             }
@@ -202,15 +349,21 @@ class MessageThreadViewModel(
         pollJob =
             viewModelScope.launch {
                 var interval = POLL_INTERVAL_MILLIS
+                var failures = 0
                 while (session.state.value.isSignedIn) {
                     if (loadJob?.isActive != true && !isSending()) {
                         val result = runCatchingExceptCancellation { fetchHistory()?.let(::applyHistory) }
-                        interval =
-                            if (result.isSuccess) {
-                                POLL_INTERVAL_MILLIS
-                            } else {
-                                (interval * 2).coerceAtMost(MAX_POLL_INTERVAL_MILLIS)
+                        if (result.isSuccess) {
+                            failures = 0
+                            interval = POLL_INTERVAL_MILLIS
+                        } else {
+                            failures++
+                            val error = result.exceptionOrNull()!!.toSiteError()
+                            if (failures >= 2 || error is SiteError.Cloudflare || error == SiteError.LoginRequired || error == SiteError.SessionUnrecognised) {
+                                _uiState.update { it.copy(syncError = error) }
                             }
+                            interval = (interval * 2).coerceAtMost(MAX_POLL_INTERVAL_MILLIS)
+                        }
                     }
                     delay(interval)
                 }
@@ -246,12 +399,19 @@ class MessageThreadViewModel(
             state.copy(
                 messages =
                 thread.messages.distinctBy { it.id }.map(::delivered) +
-                    state.messages.filter { it.status != SendStatus.SENT },
+                    state.messages.filter { it.status != SendStatus.SENT }.map { pending ->
+                        if (pending.failure?.recovery in setOf(MessageRecovery.VERIFY, MessageRecovery.SIGN_IN)) {
+                            pending.copy(failure = MessageFailure(), failureReason = null)
+                        } else {
+                            pending
+                        }
+                    },
                 userName = resolvedName,
                 avatarUrl = thread.avatarUrl ?: state.avatarUrl,
                 level = thread.level ?: state.level,
                 joinedDays = joinedDays(thread.createdAt, now) ?: state.joinedDays,
                 error = null,
+                syncError = null,
                 nowMillis = now,
             )
         }
@@ -304,12 +464,14 @@ class MessageThreadViewModel(
     }
 
     fun send() {
+        if (!session.state.value.isSignedIn || session.state.value.fingerprint != activeFingerprint) return
         val typed = draftState.text.toString().trim()
-        if (typed.isEmpty()) return
+        val state = _uiState.value
+        if (typed.isEmpty() || !state.isSignedIn || state.isRestoringDraft || state.attachments.any { it.status == UploadStatus.UPLOADING || it.status == UploadStatus.WAITING }) return
         val content = _uiState.value.quotes.joinToString(separator = "") { it.content.toQuoteBlock() } + typed
         val bubble =
             MessageBubble(
-                id = "pending-${pendingSeed++}",
+                id = "pending-${Uuid.random()}",
                 isMine = true,
                 content = content,
                 isMarkdown = true,
@@ -333,15 +495,34 @@ class MessageThreadViewModel(
     }
 
     fun retry(id: String) {
+        if (!session.state.value.isSignedIn || session.state.value.fingerprint != activeFingerprint) return
         val bubble = _uiState.value.messages.firstOrNull { it.id == id } ?: return
         if (bubble.status != SendStatus.FAILED) return
-        replace(id) { it.copy(status = SendStatus.SENDING) }
+        if (!_uiState.value.isSignedIn) return
+        val failure = bubble.failure
+        if (failure != null && (failure.recovery !in setOf(MessageRecovery.RETRY, MessageRecovery.WAIT) || clock.nowMillis() < failure.retryAtMillis)) return
+        replace(id) { it.copy(status = SendStatus.SENDING, failure = null, failureReason = null) }
         deliver(bubble)
+    }
+
+    fun dismissFailed(id: String) {
+        _uiState.update { state -> state.copy(messages = state.messages.filterNot { it.id == id && it.status == SendStatus.FAILED }) }
+    }
+
+    private fun scheduleRetryAvailability(failure: MessageFailure?) {
+        if (failure?.recovery != MessageRecovery.WAIT) return
+        viewModelScope.launch {
+            delay((failure.retryAtMillis - clock.nowMillis()).coerceAtLeast(0L))
+            _uiState.update { it.copy(nowMillis = clock.nowMillis()) }
+        }
     }
 
     private fun deliver(bubble: MessageBubble) {
         historyRevision++
-        viewModelScope.launch {
+        val account = session.state.value
+        sendJobs[bubble.id] = viewModelScope.launch {
+            draftHandle?.let { persistDraft(it, draftSnapshot()) }
+            if (!session.state.value.isSignedIn || session.state.value.fingerprint != account.fingerprint) return@launch
             runCatchingExceptCancellation {
                 repository.send(
                     uid = _uiState.value.uid,
@@ -352,6 +533,7 @@ class MessageThreadViewModel(
                     markdown = true,
                 )
             }.onSuccess { accepted ->
+                if (!session.state.value.isSignedIn || session.state.value.fingerprint != account.fingerprint) return@onSuccess
                 historyRevision++
                 replace(bubble.id) {
                     // Whatever the echo says, this bubble is ours: an ack without a sender must not
@@ -360,16 +542,21 @@ class MessageThreadViewModel(
                         ?: it.copy(status = SendStatus.SENT)
                 }
             }.onFailure { throwable ->
+                if (!session.state.value.isSignedIn || session.state.value.fingerprint != account.fingerprint) return@onFailure
                 historyRevision++
+                val failure = messageFailure(throwable, clock.nowMillis())
                 replace(bubble.id) {
                     it.copy(
                         status = SendStatus.FAILED,
                         // "对方已屏蔽你" is not something retrying will fix, and it is the only way
                         // the user finds that out — a bare 发送失败 invites tapping 重试 forever.
                         failureReason = (throwable as? SiteException)?.detail,
+                        failure = failure,
                     )
                 }
+                scheduleRetryAvailability(failure)
             }
+            sendJobs.remove(bubble.id)
         }
     }
 
@@ -399,6 +586,7 @@ class MessageThreadViewModel(
     companion object {
         private const val POLL_INTERVAL_MILLIS = 10_000L
         private const val MAX_POLL_INTERVAL_MILLIS = 60_000L
+        private const val AUTOSAVE_DELAY_MILLIS = 750L
 
         fun factory(
             container: AppContainer,
@@ -423,6 +611,52 @@ class MessageThreadViewModel(
     }
 }
 
+internal fun messageFailure(throwable: Throwable, nowMillis: Long): MessageFailure {
+    val error = throwable.toSiteError()
+    val detail = (throwable as? SiteException)?.detail?.takeIf(String::isNotBlank)
+    return when {
+        error is SiteError.Cloudflare -> MessageFailure(MessageRecovery.VERIFY, detail, verificationUrl = error.url)
+
+        error == SiteError.LoginRequired || error == SiteError.SessionUnrecognised -> MessageFailure(MessageRecovery.SIGN_IN, detail)
+
+        // JsonApi does not expose Retry-After. Keep a conservative local cooldown until that
+        // contract carries the server's delay, rather than offering a repeat request immediately.
+        error == SiteError.RateLimited || error == SiteError.Http(429) -> MessageFailure(MessageRecovery.WAIT, detail, retryAtMillis = nowMillis + 60_000L)
+
+        error == SiteError.Unknown && detail != null -> MessageFailure(MessageRecovery.NONE, detail)
+
+        error is SiteError.LevelRequired || error == SiteError.PrivatePost || (error is SiteError.Http && error.statusCode in 400..499) -> MessageFailure(MessageRecovery.NONE, detail)
+
+        else -> MessageFailure(MessageRecovery.RETRY, detail)
+    }
+}
+
+private fun MessageBubble.toDraftBubble() = MessageDraftBubble(
+    id = id,
+    isMine = isMine,
+    content = content,
+    isMarkdown = isMarkdown,
+    sentAtMillis = sentAtMillis,
+    sentAtText = sentAtText,
+    failure = failure ?: failureReason?.let { MessageFailure(MessageRecovery.NONE, it) },
+    wasSending = status == SendStatus.SENDING,
+)
+
+private fun MessageDraftBubble.toBubble(pending: Boolean): MessageBubble {
+    val restoredFailure = if (wasSending) MessageFailure(uncertain = true) else failure
+    return MessageBubble(
+        id = id,
+        isMine = isMine,
+        content = content,
+        isMarkdown = isMarkdown,
+        sentAtMillis = sentAtMillis,
+        sentAtText = sentAtText,
+        status = if (pending) SendStatus.FAILED else SendStatus.SENT,
+        failureReason = restoredFailure?.detail,
+        failure = restoredFailure,
+    )
+}
+
 enum class SendStatus {
     SENT,
     SENDING,
@@ -440,6 +674,7 @@ data class MessageBubble(
     val status: SendStatus,
     /** The server's own words for a rejection, when it gave any. */
     val failureReason: String? = null,
+    val failure: MessageFailure? = null,
 )
 
 /**
@@ -460,6 +695,10 @@ data class MessageThreadUiState(
     val messages: List<MessageBubble> = emptyList(),
     val isLoading: Boolean = false,
     val error: SiteError? = null,
+    val syncError: SiteError? = null,
+    val draftSaveFailed: Boolean = false,
+    val isRestoringDraft: Boolean = false,
+    val isSignedIn: Boolean = true,
     /** Mirrored out of [MessageThreadViewModel.draftState]; the text itself is not UiState. */
     val hasDraftText: Boolean = false,
     val attachments: List<ImageAttachment> = emptyList(),
@@ -478,6 +717,6 @@ data class MessageThreadUiState(
      * the upload has not produced yet, and a message is gone the moment it is sent.
      */
     val canSend: Boolean
-        get() = hasDraftText &&
+        get() = isSignedIn && !isRestoringDraft && hasDraftText &&
             attachments.none { it.status == UploadStatus.UPLOADING || it.status == UploadStatus.WAITING }
 }
