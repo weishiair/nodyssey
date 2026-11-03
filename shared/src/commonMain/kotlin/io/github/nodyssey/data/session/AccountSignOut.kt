@@ -50,6 +50,7 @@ class DefaultAccountSignOut(
         offline.clearAll()
         postDrafts.deleteDraft()
         commentDrafts.deleteAllDrafts()
+        settings.messageDrafts.clear()
         settings.setNotificationSeenCounts(NotificationCounts())
         session.signOut()
     }

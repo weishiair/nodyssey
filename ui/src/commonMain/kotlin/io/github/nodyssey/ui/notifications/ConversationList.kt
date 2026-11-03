@@ -39,7 +39,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.MessageConversation
+import io.github.nodyssey.data.MessageDraft
 import io.github.nodyssey.data.UserSearchResult
 import io.github.nodyssey.data.contentPreview
 import io.github.nodyssey.ui.common.PlazaSheet
@@ -47,11 +49,13 @@ import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.shortMessage
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.messages_draft_preview
 import io.github.nodyssey.ui.resources.messages_empty
 import io.github.nodyssey.ui.resources.messages_new_conversation
 import io.github.nodyssey.ui.resources.messages_new_conversation_empty
 import io.github.nodyssey.ui.resources.messages_new_conversation_hint
 import io.github.nodyssey.ui.resources.messages_new_conversation_intro
+import io.github.nodyssey.ui.resources.messages_pending_preview
 import io.github.nodyssey.ui.resources.messages_pinned
 import io.github.nodyssey.ui.resources.messages_section_all
 import io.github.nodyssey.ui.resources.messages_snippet_mine_prefix
@@ -97,8 +101,18 @@ internal fun ConversationList(
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
 ) {
+    val conversations = buildList {
+        addAll(state.conversations)
+        val known = state.conversations.map { it.uid }.toSet()
+        state.drafts.filterKeys { it !in known }.forEach { (uid, draft) ->
+            add(MessageConversation(uid, draft.userName, NodeSeekSite.avatarUrl(uid), emptyList(), false, draft.savedAtMillis, null, 0, false))
+        }
+    }.sortedWith(
+        compareByDescending(MessageConversation::isSystem)
+            .thenByDescending { maxOf(it.updatedAtMillis ?: 0L, state.drafts[it.uid]?.savedAtMillis ?: 0L) },
+    )
     Box(modifier.fillMaxSize()) {
-        if (state.conversations.isEmpty()) {
+        if (conversations.isEmpty()) {
             Text(
                 text = stringResource(Res.string.messages_empty),
                 style = MaterialTheme.typography.titleSmall,
@@ -109,7 +123,7 @@ internal fun ConversationList(
             // fillMaxSize, or the list is only as tall as the rows in it — and 私信 is a short list.
             // Everything below the last row would then be a dead strip that dispatches no scroll,
             // so a pull down there could neither bring 单手模式's title back nor reach the refresh.
-            val (pinned, others) = state.conversations.partition(MessageConversation::isSystem)
+            val (pinned, others) = conversations.partition(MessageConversation::isSystem)
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
@@ -130,6 +144,7 @@ internal fun ConversationList(
                         last = true,
                         nowMillis = state.nowMillis,
                         onClick = { onConversationClick(conversation) },
+                        draft = state.drafts[conversation.uid],
                     )
                 }
                 if (others.isNotEmpty()) {
@@ -151,6 +166,7 @@ internal fun ConversationList(
                             last = index == others.lastIndex,
                             nowMillis = state.nowMillis,
                             onClick = { onConversationClick(conversation) },
+                            draft = state.drafts[conversation.uid],
                         )
                     }
                 }
@@ -195,6 +211,7 @@ private fun ConversationRow(
     nowMillis: Long,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    draft: MessageDraft? = null,
 ) {
     val isUnread = conversation.unreadCount > 0
     GroupedListItem(
@@ -245,7 +262,14 @@ private fun ConversationRow(
         supportingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = conversationSnippet(conversation),
+                    text = when {
+                        draft != null && (draft.text.isNotBlank() || draft.quotes.isNotEmpty()) ->
+                            stringResource(Res.string.messages_draft_preview, previewText(contentPreview(draft.text.ifBlank { draft.quotes.first().content })).orEmpty())
+
+                        draft != null && draft.pending.isNotEmpty() -> stringResource(Res.string.messages_pending_preview)
+
+                        else -> conversationSnippet(conversation)
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),

@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.nodyssey.core.ActiveSite
 import io.github.nodyssey.core.Site
+import io.github.nodyssey.data.MessageDraftStore
 import io.github.nodyssey.data.NotificationCounts
 import io.github.nodyssey.data.attendance.AutoAttendanceStore
 import io.github.nodyssey.data.update.UpdateCheckStore
@@ -56,6 +57,8 @@ class SettingsRepository(
     private val alertLastPostIdKey = longPreferencesKey("keyword_alert_last_post_id${site.storageSuffix}")
 
     val automaticAttendance = AutoAttendanceStore(dataStore, site)
+
+    val messageDrafts = MessageDraftStore(dataStore, site)
 
     private val json = Json { ignoreUnknownKeys = true }
 

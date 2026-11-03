@@ -280,7 +280,7 @@
     <string name="message_send">Send</string>
     <string name="message_status_sending">Sending</string>
     <string name="message_status_failed">Not sent</string>
-    <string name="message_status_sent">%1$s · Delivered</string>
+    <string name="message_status_sent">%1$s · Sent</string>
     <string name="message_bubble_actions">Message actions</string>
     <string name="message_quote_action">Quote</string>
     <string name="message_quote_chip">Quoting %1$s</string>
@@ -1735,4 +1735,11 @@
     <string name="auto_attendance_network">Connection failed. Will retry later.</string>
     <string name="auto_attendance_limit">Automatic attempts used up for today. You can still check in manually.</string>
     <string name="auto_attendance_failed">Automatic check-in failed. Try manual check-in for details.</string>
+    <string name="message_sync_paused">Message updates paused: %1$s</string>
+    <string name="message_draft_save_failed">Draft not saved. Copy your text before leaving this page.</string>
+    <string name="message_status_uncertain">Send status unknown. Check the conversation first.</string>
+    <string name="message_retry_later">Try again later</string>
+    <string name="message_discard_failed">Remove unsent message</string>
+    <string name="messages_draft_preview">[Draft] %1$s</string>
+    <string name="messages_pending_preview">[Unsent] A message has not been sent successfully</string>
 </resources>

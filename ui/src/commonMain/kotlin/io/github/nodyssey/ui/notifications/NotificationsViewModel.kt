@@ -7,11 +7,14 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.data.ForumNotification
 import io.github.nodyssey.data.MessageConversation
+import io.github.nodyssey.data.MessageDraft
+import io.github.nodyssey.data.MessageDraftStore
 import io.github.nodyssey.data.MessageRepository
 import io.github.nodyssey.data.NotificationCategory
 import io.github.nodyssey.data.NotificationCounts
 import io.github.nodyssey.data.NotificationRepository
 import io.github.nodyssey.data.NotificationTab
+import io.github.nodyssey.data.ProfileRepository
 import io.github.nodyssey.data.SearchRepository
 import io.github.nodyssey.data.UserSearchResult
 import io.github.nodyssey.data.session.SessionRepository
@@ -25,7 +28,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -37,6 +43,8 @@ class NotificationsViewModel(
     private val search: SearchRepository,
     private val session: SessionRepository,
     private val clock: AppClock,
+    private val drafts: MessageDraftStore? = null,
+    private val profiles: ProfileRepository? = null,
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(NotificationsUiState(isSignedIn = session.state.value.isSignedIn))
@@ -48,6 +56,10 @@ class NotificationsViewModel(
         session.state
             .distinctUntilChangedBy { it.generation }
             .onEach { value ->
+                if (!value.isSignedIn) {
+                    loadJob?.cancel()
+                    pickerJob?.cancel()
+                }
                 _uiState.update {
                     if (value.isSignedIn) it.copy(isSignedIn = true) else NotificationsUiState()
                 }
@@ -60,6 +72,22 @@ class NotificationsViewModel(
         repository.counts
             .onEach { counts -> _uiState.update { it.copy(counts = counts) } }
             .launchIn(viewModelScope)
+        if (drafts != null) {
+            viewModelScope.launch {
+                session.state.distinctUntilChangedBy { it.isSignedIn to it.fingerprint }.collectLatest { account ->
+                    _uiState.update { it.copy(drafts = emptyMap()) }
+                    if (account.isSignedIn) {
+                        runCatchingExceptCancellation {
+                            val owner = profiles?.observeProfile(account.fingerprint)?.first()?.uid ?: profiles?.profile()?.uid
+                            if (owner != null) drafts.identify(account.fingerprint, owner)
+                        }
+                        drafts.drafts(account.fingerprint)
+                            .catch { emit(emptyMap()) }
+                            .collect { saved -> _uiState.update { it.copy(drafts = saved) } }
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -88,6 +116,7 @@ class NotificationsViewModel(
      */
     fun refresh() {
         if (!session.state.value.isSignedIn) return
+        val account = session.state.value
         loadJob?.cancel()
         loadJob =
             viewModelScope.launch {
@@ -101,6 +130,7 @@ class NotificationsViewModel(
                 counts.await()
                 val loadedItems = interactions.await()
                 val loadedConversations = conversations.await()
+                if (!session.state.value.isSignedIn || session.state.value.fingerprint != account.fingerprint) return@launch
                 _uiState.update { state ->
                     state.copy(
                         items = loadedItems.getOrElse { state.items },
@@ -154,6 +184,7 @@ class NotificationsViewModel(
     fun markAllRead() {
         val tab = _uiState.value.selectedTab
         val state = _uiState.value
+        if (!state.hasUnread) return
         // Only the groups the button belongs to. Zeroing the whole `NotificationCounts` used to wipe
         // every badge, so 全部已读 on 通知 also claimed the unread 私信 had been read.
         tab.categories.forEach { category ->
@@ -161,8 +192,8 @@ class NotificationsViewModel(
         }
         _uiState.update {
             it.copy(
-                items = it.items.map(ForumNotification::read),
-                conversations = it.conversations.map { row -> row.copy(unreadCount = 0) },
+                items = if (tab == NotificationTab.INTERACTIONS) it.items.map(ForumNotification::read) else it.items,
+                conversations = if (tab == NotificationTab.MESSAGES) it.conversations.map { row -> row.copy(unreadCount = 0) } else it.conversations,
             )
         }
         viewModelScope.launch {
@@ -277,6 +308,8 @@ class NotificationsViewModel(
                         search = container.searchRepository,
                         session = container.sessionRepository,
                         clock = container.clock,
+                        drafts = container.settingsRepository.messageDrafts,
+                        profiles = container.profileRepository,
                     )
                 }
             }
@@ -309,9 +342,14 @@ data class NotificationsUiState(
     /** Stamped when the list loaded, so relative labels stay stable across recomposition. */
     val nowMillis: Long = 0L,
     val newConversation: NewConversationState = NewConversationState(),
+    val drafts: Map<Long, MessageDraft> = emptyMap(),
 ) {
     val hasUnread: Boolean
-        get() = items.any(ForumNotification::isUnread) || conversations.any { it.unreadCount > 0 }
+        get() = if (selectedTab == NotificationTab.MESSAGES) {
+            counts.messages > 0 || conversations.any { it.unreadCount > 0 }
+        } else {
+            counts.interactions > 0 || items.any(ForumNotification::isUnread)
+        }
 
     val isEmpty: Boolean
         get() = isEmptyOf(selectedTab)
@@ -321,5 +359,5 @@ data class NotificationsUiState(
         get() = errors[selectedTab]
 
     fun isEmptyOf(tab: NotificationTab): Boolean =
-        if (tab == NotificationTab.MESSAGES) conversations.isEmpty() else items.isEmpty()
+        if (tab == NotificationTab.MESSAGES) conversations.isEmpty() && drafts.isEmpty() else items.isEmpty()
 }
