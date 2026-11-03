@@ -85,6 +85,7 @@ import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.assets_signed_in
 import io.github.nodyssey.ui.resources.assets_signing_in
+import io.github.nodyssey.ui.resources.lottery_title
 import io.github.nodyssey.ui.resources.profile_attendance_board
 import io.github.nodyssey.ui.resources.profile_attendance_checking
 import io.github.nodyssey.ui.resources.profile_attendance_done
@@ -713,6 +714,7 @@ private fun profileSections(destinations: ProfileDestinations): List<ProfileSect
             tiles =
             listOf(
                 ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
+                ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant),
                 ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
                 ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
                 ProfileTile(Res.string.profile_tile_providers, Icons.Default.ShoppingCart, destinations.providers),
@@ -883,6 +885,7 @@ private fun SignedOutProfile(
                 listOf(
                     ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
                     ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
+                    ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant),
                     ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
                     ProfileTile(
                         Res.string.profile_tile_providers,

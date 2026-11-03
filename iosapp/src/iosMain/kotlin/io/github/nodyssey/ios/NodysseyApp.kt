@@ -3,10 +3,12 @@ package io.github.nodyssey.ios
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import io.github.nodyssey.IosLotteryNavigation
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.nativeShellViewController
 import io.github.nodyssey.ui.settings.IosActiveSite
 import io.github.plaza.core.net.resolveWebKitUserAgent
+import io.github.plaza.core.runCatchingExceptCancellation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -77,6 +79,7 @@ object NodysseyApp {
      */
     private val offlineScheduler = BgTaskOfflineScheduler(scope) { ensureContainer() }
     private val attendanceScheduler = BgTaskAttendanceScheduler(scope) { ensureContainer() }
+    private val lotteryScheduler = BgTaskLotteryScheduler(scope) { ensureContainer().lotteryRepository }
 
     /**
      * Called from `AppDelegate.application(_:didFinishLaunchingWithOptions:)`, and it must be: iOS
@@ -84,7 +87,12 @@ object NodysseyApp {
      */
     fun registerBackgroundTasks() {
         offlineScheduler.register()
+        lotteryScheduler.register()
         attendanceScheduler.register()
+    }
+
+    fun openLottery(postId: Long, origin: String) {
+        IosLotteryNavigation.open(postId, origin)
     }
 
     fun start(onReady: (UIViewController) -> Unit) {
@@ -125,11 +133,13 @@ object NodysseyApp {
             IosAppContainer(
                 userAgent = resolveWebKitUserAgent(NodeSeekSite.CONFIG),
                 offlineScheduler = offlineScheduler,
+                lotteryScheduler = lotteryScheduler,
             )
         // Set before the first composition asks for an image, and once: `setSafe` is a no-op if
         // something already installed a loader, which is what makes a second call harmless.
         SingletonImageLoader.setSafe { context -> imageLoader(context, graph) }
         container = graph
+        scope.launch { runCatchingExceptCancellation { graph.lotteryRepository?.synchronize() } }
         scope.launch {
             graph.settingsRepository.automaticAttendance.config
                 .map { it.enabled }

@@ -272,6 +272,7 @@ fun PostDetailRoute(
     stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)? = null,
     /** 分享为图片's hand-off to the platform; null hides the row. See [PostDetailScreen]. */
     shareImage: (suspend (ImageBitmap, String?) -> Boolean)? = null,
+    lotteryContent: @Composable (PostContent, String, Boolean) -> Unit = { _, _, _ -> },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(state.hasContent, state.totalPages, state.lastFloor, state.isLoading, state.isRefreshing) {
@@ -324,6 +325,9 @@ fun PostDetailRoute(
         stardustContent = stardustContent,
         replyOpen = replyState.visible,
         shareImage = shareImage,
+        lotteryContent = {
+            state.body?.takeIf { !it.isBlocked || state.showBlockedContent }?.let { lotteryContent(it, state.title, state.isSignedIn) }
+        },
         modifier = modifier,
     )
 
@@ -428,6 +432,7 @@ fun PostDetailScreen(
      * preview, a test, a platform with no sheet — hides 分享为图片 from the floor panel.
      */
     shareImage: (suspend (ImageBitmap, String?) -> Boolean)? = null,
+    lotteryContent: @Composable () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     var isScrollbarDragging by remember { mutableStateOf(false) }
@@ -855,6 +860,7 @@ fun PostDetailScreen(
                                     voteContent = voteContent,
                                     stardustContent = stardustContent,
                                     onTitleBottom = { collapsedTitleThreshold = it },
+                                    lotteryContent = lotteryContent,
                                 )
                             }
                         }
@@ -1231,6 +1237,7 @@ private fun ThreadList(
     stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)?,
     /** Where the title ends inside the opening item, in px — see its use in [PostDetailScreen]. */
     onTitleBottom: (Int) -> Unit,
+    lotteryContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val original = state.postReplyStyle == PostReplyStyle.ORIGINAL
@@ -1347,6 +1354,7 @@ private fun ThreadList(
                     showOpeningPost = state.firstLoadedPage == 1 && !state.onlyAuthor,
                 )
             }
+            if (state.firstLoadedPage == 1 && !state.onlyAuthor) lotteryContent()
             if (state.postReplyStyle == PostReplyStyle.FLAT) {
                 Spacer(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceContainer))
             }

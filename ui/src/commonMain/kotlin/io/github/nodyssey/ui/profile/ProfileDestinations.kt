@@ -30,6 +30,7 @@ data class ProfileDestinations(
     val invite: () -> Unit = {},
     val award: () -> Unit = {},
     val lucky: () -> Unit = {},
+    val lotteryAssistant: () -> Unit = {},
     val ruling: () -> Unit = {},
     val providers: () -> Unit = {},
     val friends: () -> Unit = {},

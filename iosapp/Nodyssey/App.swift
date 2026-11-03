@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 import ObjectiveC
 import NodysseyShell
 
@@ -11,14 +12,39 @@ import NodysseyShell
 /// **must** happen before launch finishes, so it goes here rather than in the scene. When
 /// notifications and Universal Links arrive, this is where they land too.
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         ComposeTokenizerGuard.install()
+        UNUserNotificationCenter.current().delegate = self
         NodysseyApp.shared.registerBackgroundTasks()
         return true
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let info = response.notification.request.content.userInfo
+        if let value = info["lotteryPostId"] as? String,
+           let postId = Int64(value),
+           let origin = info["lotteryOrigin"] as? String {
+            DispatchQueue.main.async {
+                NodysseyApp.shared.openLottery(postId: postId, origin: origin)
+            }
+        }
+        completionHandler()
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 
     func application(

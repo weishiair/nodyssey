@@ -243,6 +243,15 @@ private class NativeShell(
     private val popGestureDelegates = TopLevelDestination.entries.associateWith { PopGestureDelegate(it) }
 
     init {
+        scope.launch {
+            IosLotteryNavigation.requests.collect { request ->
+                if (request != null) {
+                    root.selectedIndex = TopLevelDestination.HOME.ordinal.toULong()
+                    stacks.getValue(TopLevelDestination.HOME).add(PostDetailKey(request.postId))
+                    IosLotteryNavigation.handled(request)
+                }
+            }
+        }
         root.delegate = tabBarDelegate
         root.setViewControllers(TopLevelDestination.entries.map { navigationControllers.getValue(it) }, animated = false)
         TopLevelDestination.entries.forEach { destination ->

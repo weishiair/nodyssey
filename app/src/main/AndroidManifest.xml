@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Requested at runtime from the notification settings screen (API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!--
         应用内更新. This app is published as an APK on GitHub Releases, not through a store, so the
         update it offers is an APK it downloaded and handed to the platform installer. Declaring the
@@ -193,6 +195,16 @@
         <receiver
             android:name=".platform.ApkInstallResultReceiver"
             android:exported="false" />
+
+        <receiver android:name=".notifications.LotteryAlarmReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <!-- WorkManager initializes on demand via NodysseyApp (Configuration.Provider). -->
         <provider

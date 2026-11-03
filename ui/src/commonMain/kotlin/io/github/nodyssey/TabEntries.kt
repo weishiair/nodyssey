@@ -188,6 +188,7 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
                 invite = { backStack.add(InviteKey) },
                 award = { backStack.add(AwardKey) },
                 lucky = { backStack.add(LuckyKey) },
+                lotteryAssistant = { backStack.add(LotteryKey) },
                 ruling = { backStack.add(RulingKey) },
                 // Both are pages the site renders itself and the app never parsed, so they open
                 // where they always did: in a web view, not in a screen that would be a frame

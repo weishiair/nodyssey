@@ -1,0 +1,781 @@
+{
+  "data": [
+    {
+      "member_id": 36175,
+      "floor_id": 0
+    },
+    {
+      "member_id": 68072,
+      "floor_id": 1
+    },
+    {
+      "member_id": 60265,
+      "floor_id": 2
+    },
+    {
+      "member_id": 69786,
+      "floor_id": 3
+    },
+    {
+      "member_id": 34003,
+      "floor_id": 4
+    },
+    {
+      "member_id": 62132,
+      "floor_id": 5
+    },
+    {
+      "member_id": 70298,
+      "floor_id": 6
+    },
+    {
+      "member_id": 14316,
+      "floor_id": 7
+    },
+    {
+      "member_id": 64390,
+      "floor_id": 8
+    },
+    {
+      "member_id": 69319,
+      "floor_id": 9
+    },
+    {
+      "member_id": 74214,
+      "floor_id": 10
+    },
+    {
+      "member_id": 7986,
+      "floor_id": 11
+    },
+    {
+      "member_id": 38839,
+      "floor_id": 12
+    },
+    {
+      "member_id": 74084,
+      "floor_id": 13
+    },
+    {
+      "member_id": 66885,
+      "floor_id": 14
+    },
+    {
+      "member_id": 73069,
+      "floor_id": 15
+    },
+    {
+      "member_id": 37778,
+      "floor_id": 16
+    },
+    {
+      "member_id": 40124,
+      "floor_id": 17
+    },
+    {
+      "member_id": 35378,
+      "floor_id": 18
+    },
+    {
+      "member_id": 22151,
+      "floor_id": 19
+    },
+    {
+      "member_id": 48929,
+      "floor_id": 20
+    },
+    {
+      "member_id": 67822,
+      "floor_id": 21
+    },
+    {
+      "member_id": 1640,
+      "floor_id": 22
+    },
+    {
+      "member_id": 47733,
+      "floor_id": 23
+    },
+    {
+      "member_id": 40752,
+      "floor_id": 24
+    },
+    {
+      "member_id": 61536,
+      "floor_id": 25
+    },
+    {
+      "member_id": 72626,
+      "floor_id": 26
+    },
+    {
+      "member_id": 58465,
+      "floor_id": 27
+    },
+    {
+      "member_id": 259,
+      "floor_id": 28
+    },
+    {
+      "member_id": 40029,
+      "floor_id": 29
+    },
+    {
+      "member_id": 702,
+      "floor_id": 30
+    },
+    {
+      "member_id": 66644,
+      "floor_id": 31
+    },
+    {
+      "member_id": 72360,
+      "floor_id": 32
+    },
+    {
+      "member_id": 40241,
+      "floor_id": 33
+    },
+    {
+      "member_id": 44154,
+      "floor_id": 34
+    },
+    {
+      "member_id": 65968,
+      "floor_id": 35
+    },
+    {
+      "member_id": 54951,
+      "floor_id": 36
+    },
+    {
+      "member_id": 63105,
+      "floor_id": 37
+    },
+    {
+      "member_id": 65459,
+      "floor_id": 38
+    },
+    {
+      "member_id": 58949,
+      "floor_id": 39
+    },
+    {
+      "member_id": 39516,
+      "floor_id": 40
+    },
+    {
+      "member_id": 12129,
+      "floor_id": 41
+    },
+    {
+      "member_id": 55292,
+      "floor_id": 42
+    },
+    {
+      "member_id": 36175,
+      "floor_id": 43
+    },
+    {
+      "member_id": 16738,
+      "floor_id": 44
+    },
+    {
+      "member_id": 61151,
+      "floor_id": 45
+    },
+    {
+      "member_id": 44794,
+      "floor_id": 46
+    },
+    {
+      "member_id": 74286,
+      "floor_id": 47
+    },
+    {
+      "member_id": 68521,
+      "floor_id": 48
+    },
+    {
+      "member_id": 12129,
+      "floor_id": 49
+    },
+    {
+      "member_id": 66699,
+      "floor_id": 50
+    },
+    {
+      "member_id": 49465,
+      "floor_id": 51
+    },
+    {
+      "member_id": 68380,
+      "floor_id": 52
+    },
+    {
+      "member_id": 70535,
+      "floor_id": 53
+    },
+    {
+      "member_id": 55077,
+      "floor_id": 54
+    },
+    {
+      "member_id": 71596,
+      "floor_id": 55
+    },
+    {
+      "member_id": 303,
+      "floor_id": 56
+    },
+    {
+      "member_id": 56674,
+      "floor_id": 57
+    },
+    {
+      "member_id": 75099,
+      "floor_id": 58
+    },
+    {
+      "member_id": 18349,
+      "floor_id": 59
+    },
+    {
+      "member_id": 60154,
+      "floor_id": 60
+    },
+    {
+      "member_id": 69639,
+      "floor_id": 61
+    },
+    {
+      "member_id": 72566,
+      "floor_id": 62
+    },
+    {
+      "member_id": 40604,
+      "floor_id": 63
+    },
+    {
+      "member_id": 64008,
+      "floor_id": 64
+    },
+    {
+      "member_id": 1473,
+      "floor_id": 65
+    },
+    {
+      "member_id": 70978,
+      "floor_id": 66
+    },
+    {
+      "member_id": 37212,
+      "floor_id": 67
+    },
+    {
+      "member_id": 72874,
+      "floor_id": 68
+    },
+    {
+      "member_id": 65987,
+      "floor_id": 69
+    },
+    {
+      "member_id": 24149,
+      "floor_id": 70
+    },
+    {
+      "member_id": 36175,
+      "floor_id": 71
+    },
+    {
+      "member_id": 24847,
+      "floor_id": 72
+    },
+    {
+      "member_id": 28531,
+      "floor_id": 73
+    },
+    {
+      "member_id": 74200,
+      "floor_id": 74
+    },
+    {
+      "member_id": 65093,
+      "floor_id": 75
+    },
+    {
+      "member_id": 72836,
+      "floor_id": 76
+    },
+    {
+      "member_id": 37168,
+      "floor_id": 77
+    },
+    {
+      "member_id": 4761,
+      "floor_id": 78
+    },
+    {
+      "member_id": 54711,
+      "floor_id": 79
+    },
+    {
+      "member_id": 72293,
+      "floor_id": 80
+    },
+    {
+      "member_id": 66183,
+      "floor_id": 81
+    },
+    {
+      "member_id": 67590,
+      "floor_id": 82
+    },
+    {
+      "member_id": 34883,
+      "floor_id": 83
+    },
+    {
+      "member_id": 56698,
+      "floor_id": 84
+    },
+    {
+      "member_id": 58449,
+      "floor_id": 85
+    },
+    {
+      "member_id": 62805,
+      "floor_id": 86
+    },
+    {
+      "member_id": 35076,
+      "floor_id": 87
+    },
+    {
+      "member_id": 63071,
+      "floor_id": 88
+    },
+    {
+      "member_id": 36843,
+      "floor_id": 89
+    },
+    {
+      "member_id": 25155,
+      "floor_id": 90
+    },
+    {
+      "member_id": 16453,
+      "floor_id": 91
+    },
+    {
+      "member_id": 41420,
+      "floor_id": 92
+    },
+    {
+      "member_id": 4590,
+      "floor_id": 93
+    },
+    {
+      "member_id": 61505,
+      "floor_id": 94
+    },
+    {
+      "member_id": 61301,
+      "floor_id": 95
+    },
+    {
+      "member_id": 1642,
+      "floor_id": 96
+    },
+    {
+      "member_id": 9837,
+      "floor_id": 97
+    },
+    {
+      "member_id": 47555,
+      "floor_id": 98
+    },
+    {
+      "member_id": 30988,
+      "floor_id": 99
+    },
+    {
+      "member_id": 72571,
+      "floor_id": 100
+    },
+    {
+      "member_id": 72200,
+      "floor_id": 101
+    },
+    {
+      "member_id": 21086,
+      "floor_id": 102
+    },
+    {
+      "member_id": 15478,
+      "floor_id": 103
+    },
+    {
+      "member_id": 25910,
+      "floor_id": 104
+    },
+    {
+      "member_id": 60320,
+      "floor_id": 105
+    },
+    {
+      "member_id": 75368,
+      "floor_id": 106
+    },
+    {
+      "member_id": 40203,
+      "floor_id": 107
+    },
+    {
+      "member_id": 5843,
+      "floor_id": 108
+    },
+    {
+      "member_id": 24547,
+      "floor_id": 109
+    },
+    {
+      "member_id": 27174,
+      "floor_id": 110
+    },
+    {
+      "member_id": 68406,
+      "floor_id": 111
+    },
+    {
+      "member_id": 59266,
+      "floor_id": 112
+    },
+    {
+      "member_id": 68867,
+      "floor_id": 113
+    },
+    {
+      "member_id": 63750,
+      "floor_id": 114
+    },
+    {
+      "member_id": 9180,
+      "floor_id": 115
+    },
+    {
+      "member_id": 71379,
+      "floor_id": 116
+    },
+    {
+      "member_id": 56732,
+      "floor_id": 117
+    },
+    {
+      "member_id": 37720,
+      "floor_id": 118
+    },
+    {
+      "member_id": 49815,
+      "floor_id": 119
+    },
+    {
+      "member_id": 26831,
+      "floor_id": 120
+    },
+    {
+      "member_id": 64597,
+      "floor_id": 121
+    },
+    {
+      "member_id": 26831,
+      "floor_id": 122
+    },
+    {
+      "member_id": 72200,
+      "floor_id": 123
+    },
+    {
+      "member_id": 72128,
+      "floor_id": 124
+    },
+    {
+      "member_id": 28160,
+      "floor_id": 125
+    },
+    {
+      "member_id": 31195,
+      "floor_id": 126
+    },
+    {
+      "member_id": 25137,
+      "floor_id": 127
+    },
+    {
+      "member_id": 47494,
+      "floor_id": 128
+    },
+    {
+      "member_id": 50753,
+      "floor_id": 129
+    },
+    {
+      "member_id": 47955,
+      "floor_id": 130
+    },
+    {
+      "member_id": 16143,
+      "floor_id": 131
+    },
+    {
+      "member_id": 58979,
+      "floor_id": 132
+    },
+    {
+      "member_id": 73180,
+      "floor_id": 133
+    },
+    {
+      "member_id": 62385,
+      "floor_id": 134
+    },
+    {
+      "member_id": 68482,
+      "floor_id": 135
+    },
+    {
+      "member_id": 64687,
+      "floor_id": 136
+    },
+    {
+      "member_id": 1026,
+      "floor_id": 137
+    },
+    {
+      "member_id": 74155,
+      "floor_id": 138
+    },
+    {
+      "member_id": 12707,
+      "floor_id": 139
+    },
+    {
+      "member_id": 25581,
+      "floor_id": 140
+    },
+    {
+      "member_id": 7877,
+      "floor_id": 141
+    },
+    {
+      "member_id": 68154,
+      "floor_id": 142
+    },
+    {
+      "member_id": 45280,
+      "floor_id": 143
+    },
+    {
+      "member_id": 73559,
+      "floor_id": 144
+    },
+    {
+      "member_id": 23441,
+      "floor_id": 145
+    },
+    {
+      "member_id": 17847,
+      "floor_id": 146
+    },
+    {
+      "member_id": 53180,
+      "floor_id": 147
+    },
+    {
+      "member_id": 9870,
+      "floor_id": 148
+    },
+    {
+      "member_id": 72381,
+      "floor_id": 149
+    },
+    {
+      "member_id": 39606,
+      "floor_id": 150
+    },
+    {
+      "member_id": 74106,
+      "floor_id": 151
+    },
+    {
+      "member_id": 72566,
+      "floor_id": 152
+    },
+    {
+      "member_id": 59068,
+      "floor_id": 153
+    },
+    {
+      "member_id": 44820,
+      "floor_id": 154
+    },
+    {
+      "member_id": 22878,
+      "floor_id": 155
+    },
+    {
+      "member_id": 41284,
+      "floor_id": 156
+    },
+    {
+      "member_id": 66045,
+      "floor_id": 157
+    },
+    {
+      "member_id": 47318,
+      "floor_id": 158
+    },
+    {
+      "member_id": 315,
+      "floor_id": 159
+    },
+    {
+      "member_id": 62799,
+      "floor_id": 160
+    },
+    {
+      "member_id": 71142,
+      "floor_id": 161
+    },
+    {
+      "member_id": 71142,
+      "floor_id": 162
+    },
+    {
+      "member_id": 27114,
+      "floor_id": 163
+    },
+    {
+      "member_id": 49490,
+      "floor_id": 164
+    },
+    {
+      "member_id": 31755,
+      "floor_id": 165
+    },
+    {
+      "member_id": 24477,
+      "floor_id": 166
+    },
+    {
+      "member_id": 26340,
+      "floor_id": 167
+    },
+    {
+      "member_id": 3601,
+      "floor_id": 168
+    },
+    {
+      "member_id": 18249,
+      "floor_id": 169
+    },
+    {
+      "member_id": 62385,
+      "floor_id": 170
+    },
+    {
+      "member_id": 73180,
+      "floor_id": 171
+    },
+    {
+      "member_id": 41397,
+      "floor_id": 172
+    },
+    {
+      "member_id": 59082,
+      "floor_id": 173
+    },
+    {
+      "member_id": 43997,
+      "floor_id": 174
+    },
+    {
+      "member_id": 22326,
+      "floor_id": 175
+    },
+    {
+      "member_id": 58652,
+      "floor_id": 176
+    },
+    {
+      "member_id": 35277,
+      "floor_id": 177
+    },
+    {
+      "member_id": 68615,
+      "floor_id": 178
+    },
+    {
+      "member_id": 73308,
+      "floor_id": 179
+    },
+    {
+      "member_id": 53281,
+      "floor_id": 180
+    },
+    {
+      "member_id": 49210,
+      "floor_id": 181
+    },
+    {
+      "member_id": 10706,
+      "floor_id": 182
+    },
+    {
+      "member_id": 75262,
+      "floor_id": 183
+    },
+    {
+      "member_id": 36790,
+      "floor_id": 184
+    },
+    {
+      "member_id": 57645,
+      "floor_id": 185
+    },
+    {
+      "member_id": 2231,
+      "floor_id": 186
+    },
+    {
+      "member_id": 29412,
+      "floor_id": 187
+    },
+    {
+      "member_id": 74708,
+      "floor_id": 188
+    },
+    {
+      "member_id": 36790,
+      "floor_id": 189
+    },
+    {
+      "member_id": 50083,
+      "floor_id": 190
+    },
+    {
+      "member_id": 511,
+      "floor_id": 191
+    },
+    {
+      "member_id": 45060,
+      "floor_id": 192
+    },
+    {
+      "member_id": 42198,
+      "floor_id": 193
+    }
+  ],
+  "success": true
+}

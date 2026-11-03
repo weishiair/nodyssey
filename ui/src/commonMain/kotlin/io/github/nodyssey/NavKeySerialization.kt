@@ -73,6 +73,7 @@ internal val NavKeySavedStateConfiguration =
                     subclass(MyCommentsKey::class)
                     subclass(AwardKey::class)
                     subclass(LuckyKey::class)
+                    subclass(LotteryKey::class)
                     subclass(InviteKey::class)
                     subclass(RulingKey::class)
                     subclass(ReportCompareKey::class)

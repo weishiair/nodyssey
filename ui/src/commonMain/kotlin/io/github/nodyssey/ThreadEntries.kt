@@ -15,6 +15,8 @@ import io.github.nodyssey.ui.composer.PostComposerRoute
 import io.github.nodyssey.ui.composer.PostComposerViewModel
 import io.github.nodyssey.ui.composer.ReplyComposerViewModel
 import io.github.nodyssey.ui.login.WebViewGoal
+import io.github.nodyssey.ui.lottery.LotteryPostDraws
+import io.github.nodyssey.ui.lottery.LotteryViewModel
 import io.github.nodyssey.ui.postdetail.PostDetailRoute
 import io.github.nodyssey.ui.postdetail.PostDetailViewModel
 import io.github.nodyssey.ui.stardust.StardustReceiveCard
@@ -132,6 +134,20 @@ internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = wi
                     ),
                     onSignIn = { backStack.add(SignInKey) },
                 )
+            },
+            lotteryContent = { body, title, signedIn ->
+                if (container.lotteryRepository != null) {
+                    LotteryPostDraws(
+                        viewModel = viewModel(key = "lottery-${key.postId}", factory = LotteryViewModel.factory(container)),
+                        body = body,
+                        postId = key.postId,
+                        title = title,
+                        signedIn = signedIn,
+                        onSignIn = { backStack.add(SignInKey) },
+                        onOpenBrowser = openWebUrl,
+                        onVerify = { backStack.add(WebKey(it, siteTitle, WebViewGoal.CHALLENGE)) },
+                    )
+                }
             },
             shareImage = rememberShareImage(container.dispatchers),
         )
