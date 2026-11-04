@@ -40,4 +40,4 @@ iOS 同时替换 `NSHTTPCookieStorage` 与 `WKHTTPCookieStore`。账号文件位
 
 主机范围解析和清理失败仍进入添加的两项回归先在旧实现上失败，修复后通过；导航回归覆盖等待验证期间、取消预测返回手势后继续保留添加页。用户已在 Android 手机上验证账号添加和切换，并确认合并测试包的功能正常。
 
-Windows 上运行了 `spotlessCheck`、Android `lintDebug`、Debug APK、R8 Release 构建和专项回归。全量 JVM 测试中，21 项 Room 迁移路径失败和 13 项 DataStore 文件替换失败与干净 `dev` 基线一致。Android 设备自动化和 iOS 的 Native、UIKit、WebKit 运行验证仍需要相应设备或 Mac/Xcode。
+Windows 上运行了 `spotlessCheck`、Android `lintDebug`、Debug APK、R8 Release 构建和专项回归。全量 JVM 测试中，21 项 Room 迁移路径失败和 13 项 DataStore 文件替换失败与干净 `dev` 基线一致。GitHub Actions 的 Android 模拟器调试流程和 R8 启动检查已通过；iOS 的 Native、UIKit、WebKit 运行验证仍需要 Mac/Xcode。
