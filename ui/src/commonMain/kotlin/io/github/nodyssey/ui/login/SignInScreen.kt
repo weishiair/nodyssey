@@ -49,11 +49,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalAutofillManager
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.ActiveSite
 import io.github.nodyssey.data.session.SignInOutcome
@@ -64,6 +62,8 @@ import io.github.nodyssey.ui.common.MediumButtonStyle
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.accounts_add
+import io.github.nodyssey.ui.resources.accounts_add_hint
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.sign_in_account
 import io.github.nodyssey.ui.resources.sign_in_forgot
@@ -92,6 +92,7 @@ import io.github.nodyssey.ui.resources.sign_in_verify_not_wired
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCard
+import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -129,6 +130,7 @@ fun SignInRoute(
     onOpenSiteSignInPage: () -> Unit,
     onOneTapSignIn: () -> Unit,
     modifier: Modifier = Modifier,
+    addingAccount: Boolean = false,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -214,6 +216,7 @@ fun SignInRoute(
                 onOneTapSignIn = onOneTapSignIn,
                 onUseEmailSignIn = viewModel::useEmailSignIn,
                 modifier = modifier,
+                addingAccount = addingAccount,
                 turnstile = {
                     TurnstileWidget(
                         sitekey = sitekey,
@@ -301,6 +304,7 @@ fun SignInScreen(
     /** 一键登录: opens the site's own page for it. Never called for a site that has none. */
     onOneTapSignIn: () -> Unit,
     modifier: Modifier = Modifier,
+    addingAccount: Boolean = false,
     onUseEmailSignIn: () -> Unit = {},
     /**
      * h1's 人机验证 widget.
@@ -315,10 +319,11 @@ fun SignInScreen(
     val oneTap = ActiveSite.current.oneTapSignIn
     Scaffold(
         modifier = modifier,
+        containerColor = LocalPlazaLayers.current.page,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = {},
+                title = { Text(stringResource(if (addingAccount) Res.string.accounts_add else Res.string.sign_in_title, siteName)) },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
@@ -335,15 +340,20 @@ fun SignInScreen(
                 .fillMaxSize()
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.xl)
-                .padding(top = Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+                .padding(horizontal = LayerPageGutter)
+                .padding(vertical = Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            AuthHeader(
-                title = stringResource(Res.string.sign_in_title, siteName),
-                body =
-                oneTap?.providerName?.let { stringResource(Res.string.sign_in_one_tap_subtitle, it) }
-                    ?: stringResource(Res.string.sign_in_subtitle),
+            Text(
+                text = if (addingAccount) {
+                    stringResource(Res.string.accounts_add_hint)
+                } else {
+                    oneTap?.providerName?.let { stringResource(Res.string.sign_in_one_tap_subtitle, it) }
+                        ?: stringResource(Res.string.sign_in_subtitle)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.sm),
             )
 
             /*
@@ -376,80 +386,80 @@ fun SignInScreen(
                 OrRule(stringResource(Res.string.sign_in_or_with_account, siteName))
             }
 
-            // The site's own sentence for a refusal, or a plain one when it sent none. The endpoint
-            // answers `{"success":false,"message":…}` and that message is what the forum wants said;
-            // the fallback deliberately stops short of the board's placeholder lockout numbers, which
-            // nothing has confirmed.
-            if (state.hasCredentialRefusal) {
-                InlineBanner(
-                    text = state.refusal?.detail?.takeIf { it.isNotBlank() }
-                        ?: stringResource(Res.string.sign_in_refused_generic),
-                    icon = PlazaIcons.ErrorCircle,
+            LayerCard(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                // The site's own sentence for a refusal, or a plain one when it sent none. The endpoint
+                // answers `{"success":false,"message":…}` and that message is what the forum wants said;
+                // the fallback deliberately stops short of the board's placeholder lockout numbers, which
+                // nothing has confirmed.
+                if (state.hasCredentialRefusal) {
+                    InlineBanner(
+                        text = state.refusal?.detail?.takeIf { it.isNotBlank() }
+                            ?: stringResource(Res.string.sign_in_refused_generic),
+                        icon = PlazaIcons.ErrorCircle,
+                    )
+                }
+
+                // The site said yes and the app came away with no session — see
+                // [SignInUiState.sessionNotStored]. Its own wording, because the app is the one making the
+                // claim; followed by 改用网页登录, the only move left, since the web view writes into the
+                // same jar by a route that does not depend on what this endpoint sets.
+                if (state.sessionNotStored) {
+                    InlineBanner(text = stringResource(Res.string.sign_in_session_not_stored), icon = PlazaIcons.ErrorCircle)
+                }
+
+                OutlinedTextField(
+                    state = accountState,
+                    enabled = state.isFormEnabled,
+                    label = { Text(stringResource(Res.string.sign_in_account)) },
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                    shape = PlazaFieldDefaults.shape,
+                    colors = PlazaFieldDefaults.colors(),
+                    // Both, because the label offers both and the endpoint takes either in `username`.
+                    // A manager holding only an email would not recognise a username-only field.
+                    modifier =
+                    Modifier.fillMaxWidth().semantics {
+                        contentType = ContentType.Username + ContentType.EmailAddress
+                    },
                 )
-            }
 
-            // The site said yes and the app came away with no session — see
-            // [SignInUiState.sessionNotStored]. Its own wording, because the app is the one making the
-            // claim; followed by 改用网页登录, the only move left, since the web view writes into the
-            // same jar by a route that does not depend on what this endpoint sets.
-            if (state.sessionNotStored) {
-                InlineBanner(text = stringResource(Res.string.sign_in_session_not_stored), icon = PlazaIcons.ErrorCircle)
-            }
-
-            OutlinedTextField(
-                state = accountState,
-                enabled = state.isFormEnabled,
-                label = { Text(stringResource(Res.string.sign_in_account)) },
-                lineLimits = TextFieldLineLimits.SingleLine,
-                shape = PlazaFieldDefaults.shape,
-                colors = PlazaFieldDefaults.colors(),
-                // Both, because the label offers both and the endpoint takes either in `username`.
-                // A manager holding only an email would not recognise a username-only field.
-                modifier =
-                Modifier.fillMaxWidth().semantics {
-                    contentType = ContentType.Username + ContentType.EmailAddress
-                },
-            )
-
-            OutlinedSecureTextField(
-                state = passwordState,
-                enabled = state.isFormEnabled,
-                label = { Text(stringResource(Res.string.sign_in_password)) },
-                isError = state.hasCredentialRefusal,
-                // `RevealLastTyped` rather than the board's eye toggle, which is the same decision
-                // 安全 (d6 2/4) made and for the same reason: it shows the character just typed and
-                // hides it again, with no switch left on and nothing in the state to remember.
-                textObfuscationMode = TextObfuscationMode.RevealLastTyped,
-                shape = PlazaFieldDefaults.shape,
-                colors = PlazaFieldDefaults.colors(),
-                supportingText = { PasswordSupport(state, onOpenSiteSignInPage) },
-                modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Password },
-            )
-
-            VerificationBlock(state.verification, turnstile)
-
-            // Filled when it is the one way in, outlined under a one-tap card (10c), where the
-            // card's button is the primary one on the screen and two filled pills would compete.
-            MediumButton(
-                onClick = onSubmit,
-                style = if (oneTap == null) MediumButtonStyle.Filled else MediumButtonStyle.Outlined,
-                enabled = state.canSubmitCredentials,
-                busy = state.isSubmitting,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(if (state.isSubmitting) Res.string.sign_in_submitting else Res.string.sign_in_submit))
-            }
-
-            // The board puts this line under card 2's button, where it explains a control that is
-            // deliberately dead. Shown whenever the button is down, which is the state that ships.
-            if (!state.canSubmitCredentials) {
-                Text(
-                    stringResource(Res.string.sign_in_readonly_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm),
+                OutlinedSecureTextField(
+                    state = passwordState,
+                    enabled = state.isFormEnabled,
+                    label = { Text(stringResource(Res.string.sign_in_password)) },
+                    isError = state.hasCredentialRefusal,
+                    // `RevealLastTyped` rather than the board's eye toggle, which is the same decision
+                    // 安全 (d6 2/4) made and for the same reason: it shows the character just typed and
+                    // hides it again, with no switch left on and nothing in the state to remember.
+                    textObfuscationMode = TextObfuscationMode.RevealLastTyped,
+                    shape = PlazaFieldDefaults.shape,
+                    colors = PlazaFieldDefaults.colors(),
+                    supportingText = { PasswordSupport(state, onOpenSiteSignInPage) },
+                    modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Password },
                 )
+
+                VerificationBlock(state.verification, turnstile)
+
+                // Filled when it is the one way in, outlined under a one-tap card (10c), where the
+                // card's button is the primary one on the screen and two filled pills would compete.
+                MediumButton(
+                    onClick = onSubmit,
+                    style = if (oneTap == null) MediumButtonStyle.Filled else MediumButtonStyle.Outlined,
+                    enabled = state.canSubmitCredentials,
+                    busy = state.isSubmitting,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(if (state.isSubmitting) Res.string.sign_in_submitting else Res.string.sign_in_submit))
+                }
+
+                if (!state.canSubmitCredentials && !state.isSubmitting) {
+                    Text(
+                        stringResource(Res.string.sign_in_readonly_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm),
+                    )
+                }
             }
 
             if (oneTap == null || state.verification is VerificationState.NotWired || state.sessionNotStored) {
@@ -517,8 +527,7 @@ internal fun AuthHeader(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             title,
-            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 32.sp, lineHeight = 40.sp),
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineSmall,
         )
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

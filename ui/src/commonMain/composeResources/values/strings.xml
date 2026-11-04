@@ -1607,7 +1607,7 @@
     <string name="sign_in_refused_generic">用户名或密码不正确。</string>
     <string name="sign_in_register_hint">还没有账号？注册需要邀请码</string>
     <string name="sign_in_terms">登录即表示同意《服务条款》与《隐私协议》</string>
-    <string name="sign_in_readonly_hint">按钮在验证通过前保持禁用；提交后整表单只读，避免重复请求触发限流。</string>
+    <string name="sign_in_readonly_hint">请填写账号和密码，并完成人机验证。</string>
     <string name="sign_in_use_web">改用网页登录</string>
     <string name="sign_in_one_tap">使用 %1$s 账号登录</string>
     <string name="sign_in_one_tap_hint">在站点页面上完成授权，回来即为登录状态。</string>
@@ -1995,7 +1995,7 @@
     <string name="message_thread_profile">用户资料</string>
     <string name="message_thread_profile_caution">账号等级和注册时间仅供参考，交易时仍请谨慎核实身份。</string>
     <string name="auto_attendance_title">自动签到</string>
-    <string name="auto_attendance_hint">后台尝试每日签到，打开应用时补签。按北京时间计算；系统可能延后后台执行。仅对当前站点生效。</string>
+    <string name="auto_attendance_hint">此开关和签到方式仅控制当前账号。可在“切换账号”中分别开启其他账号。后台依次签到，打开应用时补签；按北京时间计算，系统可能延后后台执行。</string>
     <string name="auto_attendance_mode">签到方式</string>
     <string name="auto_attendance_random">随机鸡腿</string>
     <string name="auto_attendance_fixed">固定 5 个鸡腿</string>

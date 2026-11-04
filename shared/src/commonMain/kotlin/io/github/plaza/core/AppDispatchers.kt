@@ -10,4 +10,5 @@ import kotlinx.coroutines.Dispatchers
 data class AppDispatchers(
     val io: CoroutineDispatcher = ioDispatcher(),
     val default: CoroutineDispatcher = Dispatchers.Default,
+    val main: CoroutineDispatcher = Dispatchers.Main,
 )

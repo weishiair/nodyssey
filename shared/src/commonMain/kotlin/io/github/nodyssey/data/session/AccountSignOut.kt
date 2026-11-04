@@ -45,13 +45,35 @@ class DefaultAccountSignOut(
     private val session: SessionRepository,
 ) : AccountSignOut {
     override suspend fun signOut() {
-        posts.clearSessionData()
-        profiles.clearCachedProfile()
-        offline.clearAll()
-        postDrafts.deleteDraft()
-        commentDrafts.deleteAllDrafts()
-        settings.messageDrafts.clear()
-        settings.setNotificationSeenCounts(NotificationCounts())
+        clearAccountContent(
+            posts,
+            profiles,
+            offline,
+            settings,
+            clearDrafts = {
+                postDrafts.deleteDraft()
+                commentDrafts.deleteAllDrafts()
+            },
+            clearMessages = settings.messageDrafts::clear,
+        )
         session.signOut()
     }
+}
+
+/** The same content boundary for logout and switching; switching archives drafts first. */
+internal suspend fun clearAccountContent(
+    posts: PostRepository,
+    profiles: ProfileRepository,
+    offline: OfflineLibrary,
+    settings: SettingsRepository,
+    clearDrafts: suspend () -> Unit,
+    clearMessages: suspend () -> Unit,
+    evictDownloads: Boolean = true,
+) {
+    posts.clearSessionData()
+    profiles.clearCachedProfile()
+    if (evictDownloads) offline.clearAll()
+    clearDrafts()
+    clearMessages()
+    settings.setNotificationSeenCounts(NotificationCounts())
 }

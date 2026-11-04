@@ -27,6 +27,8 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
     name = "settings",
 )
 
+internal val Context.accountsDataStore: DataStore<Preferences> by preferencesDataStore(name = "accounts")
+
 internal val Context.proxyDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "proxy",
 )

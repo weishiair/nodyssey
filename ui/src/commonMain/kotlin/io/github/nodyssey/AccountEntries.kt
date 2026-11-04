@@ -5,6 +5,8 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import io.github.nodyssey.ui.account.AccountSettingsRoute
 import io.github.nodyssey.ui.account.AccountSettingsViewModel
+import io.github.nodyssey.ui.account.AccountsRoute
+import io.github.nodyssey.ui.account.AccountsViewModel
 import io.github.nodyssey.ui.account.BlockListRoute
 import io.github.nodyssey.ui.account.BlockListViewModel
 import io.github.nodyssey.ui.account.BlockTab
@@ -37,6 +39,10 @@ import io.github.nodyssey.ui.sticker.StickerSourcesRoute
  * for the capture rules they all share.
  */
 internal fun EntryProviderScope<NavKey>.accountEntries(nav: StackEntryScope) = with(nav) {
+    entry<AccountsKey> {
+        val viewModel: AccountsViewModel = viewModel(factory = AccountsViewModel.factory(container))
+        AccountsRoute(viewModel, onBack = { backStack.removeLastOrNull() })
+    }
     entry<AccountSettingsKey> {
         val viewModel: AccountSettingsViewModel =
             viewModel(factory = AccountSettingsViewModel.factory(container))

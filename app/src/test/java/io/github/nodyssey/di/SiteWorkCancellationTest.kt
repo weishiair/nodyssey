@@ -25,7 +25,7 @@ class SiteWorkCancellationTest {
     fun `retiring a graph waits for background work cleanup and rejects work scheduled afterward`() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dispatcher = StandardTestDispatcher(testScheduler)
-        val graph = DefaultAppContainer(context, AppDispatchers(io = dispatcher, default = dispatcher))
+        val graph = DefaultAppContainer(context, AppDispatchers(io = dispatcher, default = dispatcher, main = dispatcher))
         val started = CompletableDeferred<Unit>()
         var cleaned = false
         val work = async {

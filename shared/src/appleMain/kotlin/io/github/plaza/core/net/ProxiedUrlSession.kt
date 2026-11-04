@@ -7,10 +7,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import platform.Foundation.NSURLCredential
 import platform.Foundation.NSURLCredentialPersistence
 import platform.Foundation.NSURLSession
+import platform.Foundation.NSURLSessionTask
+import platform.Foundation.NSURLSessionTaskStateCompleted
 import platform.Foundation.credentialWithUser
+import kotlin.coroutines.resume
 import kotlin.time.Duration.Companion.seconds
 
 /** How a proxy is reached, with nothing in it about who configured it or which screen stored it. */
@@ -130,9 +137,11 @@ internal fun ProxyRoute.credential(): NSURLCredential? =
 class ProxiedUrlSession(
     scope: CoroutineScope,
     route: Flow<ProxyRoute?>,
+    initialRoute: ProxyRoute? = null,
     private val build: (ProxyRoute?) -> NSURLSession,
 ) {
-    private val state = MutableStateFlow(Routed(null, build(null)))
+    private val state = MutableStateFlow(Routed(initialRoute, build(initialRoute)))
+    private val sessions = MutableStateFlow(setOf(state.value.session))
 
     /**
      * Read per request, and racy in exactly the way Android's is: a call that read this an instant
@@ -142,13 +151,20 @@ class ProxiedUrlSession(
      */
     val current: NSURLSession get() = state.value.session
 
+    /** The owner cancels the route collector before closing a short-lived isolated graph. */
+    fun invalidate() {
+        sessions.value.forEach { it.invalidateAndCancel() }
+    }
+
     init {
         route
             .distinctUntilChanged()
             .onEach { updated ->
                 if (state.value.through == updated) return@onEach
                 val previous = state.value.session
-                state.value = Routed(updated, build(updated))
+                val next = build(updated)
+                sessions.update { it + next }
+                state.value = Routed(updated, next)
                 // Invalidation releases the delegate the session holds — without it every edit in
                 // 代理设置 leaks one. It is delayed rather than immediate because a task created on
                 // an already-invalidated session does not fail, it does *nothing*: the completion
@@ -156,7 +172,24 @@ class ProxiedUrlSession(
                 // This window is what covers a caller that read [current] just before the swap.
                 delay(HANDOVER)
                 previous.finishTasksAndInvalidate()
+                scope.launch {
+                    while (tasks(previous).isNotEmpty()) delay(50)
+                    sessions.update { it - previous }
+                }
             }.launchIn(scope)
+    }
+
+    /** A handover can leave requests on the previous session, which shares the same cookie jar. */
+    suspend fun cancelRequests() {
+        val pending = sessions.value.flatMap { tasks(it) }
+        pending.forEach { it.cancel() }
+        withTimeout(10_000) {
+            while (pending.any { it.state != NSURLSessionTaskStateCompleted }) delay(20)
+        }
+    }
+
+    private suspend fun tasks(session: NSURLSession): List<NSURLSessionTask> = suspendCancellableCoroutine { continuation ->
+        session.getAllTasksWithCompletionHandler { continuation.resume(it.orEmpty().filterIsInstance<NSURLSessionTask>()) }
     }
 
     private data class Routed(val through: ProxyRoute?, val session: NSURLSession)

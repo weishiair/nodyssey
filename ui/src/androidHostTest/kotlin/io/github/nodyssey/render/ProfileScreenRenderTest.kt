@@ -40,7 +40,7 @@ class ProfileScreenRenderTest {
         PlazaTheme(darkTheme = darkTheme) {
             ProfileScreen(
                 state = state,
-                destinations = ProfileDestinations(),
+                destinations = ProfileDestinations(accounts = {}),
                 onSignIn = {},
                 onRetry = {},
                 onOpenWebsite = {},

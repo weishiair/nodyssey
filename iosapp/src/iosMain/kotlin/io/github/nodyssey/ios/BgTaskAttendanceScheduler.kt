@@ -43,10 +43,10 @@ class BgTaskAttendanceScheduler(
         var success = false
         val job = scope.launch {
             val graph = container()
-            val outcome = graph.automaticAttendance?.run() ?: AutoAttendanceOutcome.SKIPPED
+            val outcome = graph.withAccountWork { graph.automaticAttendance?.run() ?: AutoAttendanceOutcome.SKIPPED }
             success = outcome != AutoAttendanceOutcome.RETRY
             sync(
-                graph.settingsRepository.automaticAttendance.config.first().enabled,
+                graph.automaticAttendance?.enabled?.first() ?: false,
                 if (outcome == AutoAttendanceOutcome.RETRY) 30.0 * 60.0 else 6.0 * 60.0 * 60.0,
             )
         }

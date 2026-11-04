@@ -93,12 +93,14 @@ fun NodysseyRoot(
         val openAppLinkSettings = rememberAppLinkSettingsLauncher()
         val scope = rememberCoroutineScope()
         Box {
-            MainNavigation(
-                container = container,
-                initialTab = initialTab,
-                launchRequest = launchRequest,
-                onLaunchRequestHandled = onLaunchRequestHandled,
-            )
+            AccountBoundary(container, initialSettings) {
+                MainNavigation(
+                    container = container,
+                    initialTab = initialTab,
+                    launchRequest = launchRequest,
+                    onLaunchRequestHandled = onLaunchRequestHandled,
+                )
+            }
             /*
              * 新手引导, over the app rather than instead of it.
              *

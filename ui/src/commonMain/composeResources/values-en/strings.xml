@@ -1353,7 +1353,7 @@
     <string name="sign_in_refused_generic">The username or the password is wrong.</string>
     <string name="sign_in_register_hint">No account yet? Registering needs an invite code</string>
     <string name="sign_in_terms">Signing in accepts the Terms of Service and the Privacy Policy</string>
-    <string name="sign_in_readonly_hint">The button stays disabled until the check passes; once submitted the whole form is read-only, so a repeated request cannot trip the rate limit.</string>
+    <string name="sign_in_readonly_hint">Enter your account and password, then complete the verification.</string>
     <string name="sign_in_use_web">Sign in on the web instead</string>
     <string name="sign_in_one_tap">Sign in with %1$s</string>
     <string name="sign_in_one_tap_hint">Authorise on the site’s own page; you come back signed in.</string>
@@ -1721,7 +1721,7 @@
     <string name="message_thread_profile">User details</string>
     <string name="message_thread_profile_caution">Account level and age are for reference only. Verify the other party’s identity before trading.</string>
     <string name="auto_attendance_title">Automatic check-in</string>
-    <string name="auto_attendance_hint">Check in daily in the background and catch up when the app opens. Days use Beijing time; the system may delay background runs. Applies to the current site.</string>
+    <string name="auto_attendance_hint">This switch and mode apply to the current account. Enable other accounts individually under Switch account. Accounts check in one at a time, with catch-up when the app opens. Days use Beijing time; the system may delay background runs.</string>
     <string name="auto_attendance_mode">Check-in mode</string>
     <string name="auto_attendance_random">Random drumsticks</string>
     <string name="auto_attendance_fixed">Fixed: 5 drumsticks</string>

@@ -4,6 +4,7 @@ import io.github.nodyssey.core.LevelSpan
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.net.JsonSource
 import io.github.nodyssey.core.net.NodeSeekJsonClient
+import io.github.nodyssey.data.attendance.AttendanceWriteGate
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.SiteError
@@ -121,6 +122,7 @@ class NetworkAssetsRepository(
     private val jsonSource: JsonSource,
     private val dispatchers: AppDispatchers,
     private val clock: AppClock,
+    private val attendanceWrites: AttendanceWriteGate? = null,
 ) : AssetsRepository {
     private val json = Json { ignoreUnknownKeys = true }
     private val attendanceStatus = MutableStateFlow<AttendanceStatus?>(null)
@@ -234,6 +236,15 @@ class NetworkAssetsRepository(
     }
 
     override suspend fun signInForToday(mode: AttendanceMode): AttendanceResult {
+        val writes = attendanceWrites ?: return submitAttendance(mode)
+        val uid = profileRepository.profile().uid
+        return writes.run(uid) {
+            val status = refreshAttendanceStatus(uid)
+            if (status.hasSignedIn) AttendanceResult(status.gain, null) else submitAttendance(mode)
+        }
+    }
+
+    private suspend fun submitAttendance(mode: AttendanceMode): AttendanceResult {
         val response =
             jsonSource.postJson(
                 path = NodeSeekJsonClient.attendancePath(mode.wireValue),

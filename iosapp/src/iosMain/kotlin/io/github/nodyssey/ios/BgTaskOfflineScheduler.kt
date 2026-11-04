@@ -110,7 +110,7 @@ class BgTaskOfflineScheduler(
                 foregroundDrain =
                     scope.launch {
                         if (networkAllows(wifiOnly)) {
-                            (container()?.offlineLibrary as? OfflineDownloads)?.drainQueue()
+                            container()?.let { graph -> graph.withAccountWork { (graph.offlineLibrary as? OfflineDownloads)?.drainQueue() } }
                         }
                     }
             }
@@ -137,7 +137,8 @@ class BgTaskOfflineScheduler(
         // rather than stalling until the app is next opened.
         submit(BGProcessingTaskRequest(DRAIN_TASK_ID).apply { requiresNetworkConnectivity = true })
         runBackgroundTask(task) {
-            val library = container()?.offlineLibrary ?: return@runBackgroundTask true
+            val graph = container() ?: return@runBackgroundTask true
+            val library = graph.offlineLibrary
             val downloads = library as? OfflineDownloads ?: return@runBackgroundTask true
             // On cellular with 仅 Wi-Fi 下载 on: nothing to do now, and reporting success keeps the
             // system's opinion of this task healthy. The chained request above tries again later.
@@ -146,7 +147,7 @@ class BgTaskOfflineScheduler(
             } else {
                 // BLOCKED counts as completed for the same reason the Android worker maps it to
                 // success: the site is refusing, and a rescheduled retry is the refused traffic.
-                downloads.drainQueue() != DrainOutcome.NETWORK_FAILED
+                graph.withAccountWork { downloads.drainQueue() != DrainOutcome.NETWORK_FAILED }
             }
         }
     }
@@ -158,12 +159,14 @@ class BgTaskOfflineScheduler(
             val graph = container() ?: return@runBackgroundTask true
             val library = graph.offlineLibrary
             val downloads = library as? OfflineDownloads ?: return@runBackgroundTask true
-            runOfflineMaintenance(
-                library,
-                downloads,
-                graph.sessionRepository,
-                graph.userSpaceRepository,
-            ) == MaintenanceOutcome.COMPLETED
+            graph.withAccountWork {
+                runOfflineMaintenance(
+                    library,
+                    downloads,
+                    graph.sessionRepository,
+                    graph.userSpaceRepository,
+                ) == MaintenanceOutcome.COMPLETED
+            }
         }
     }
 
