@@ -80,10 +80,14 @@ import platform.UIKit.UITabBarItem
 import platform.UIKit.UIUserInterfaceIdiomPad
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIViewController
+import platform.UIKit.addChildViewController
+import platform.UIKit.didMoveToParentViewController
 import platform.UIKit.hidesBottomBarWhenPushed
 import platform.UIKit.modalInPresentation
+import platform.UIKit.removeFromParentViewController
 import platform.UIKit.tabBarItem
 import platform.UIKit.transitionCoordinator
+import platform.UIKit.willMoveToParentViewController
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 
@@ -189,7 +193,7 @@ private class AccountNativeHost(
             previous.removeFromParentViewController()
         }
         root.addChildViewController(next)
-        next.view.frame = root.view.bounds
+        next.view.setFrame(root.view.bounds)
         next.view.autoresizingMask = platform.UIKit.UIViewAutoresizingFlexibleWidth or platform.UIKit.UIViewAutoresizingFlexibleHeight
         root.view.addSubview(next.view)
         next.didMoveToParentViewController(root)
