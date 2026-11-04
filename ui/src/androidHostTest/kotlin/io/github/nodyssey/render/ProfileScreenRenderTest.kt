@@ -36,6 +36,7 @@ class ProfileScreenRenderTest {
     private fun Screen(
         darkTheme: Boolean,
         state: ProfileUiState = STATE,
+        hasUnreadLotteryResults: Boolean = false,
     ) {
         PlazaTheme(darkTheme = darkTheme) {
             ProfileScreen(
@@ -47,6 +48,7 @@ class ProfileScreenRenderTest {
                 onVerify = {},
                 onAttendance = {},
                 onAttendanceBoard = {},
+                hasUnreadLotteryResults = hasUnreadLotteryResults,
             )
         }
     }
@@ -63,6 +65,20 @@ class ProfileScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = false) }
 
         composeRule.onRoot().captureRender("profile-light")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1000dp")
+    fun `the profile with unread lottery results`() {
+        composeRule.setContent { Screen(darkTheme = false, hasUnreadLotteryResults = true) }
+        composeRule.onRoot().captureRender("profile-lottery-unread")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1000dp")
+    fun `the signed-out profile with unread lottery results`() {
+        composeRule.setContent { Screen(darkTheme = false, state = ProfileUiState(), hasUnreadLotteryResults = true) }
+        composeRule.onRoot().captureRender("profile-guest-lottery-unread")
     }
 
     @Test

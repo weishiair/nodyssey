@@ -2,6 +2,14 @@
 <resources>
     <!-- Official draw links, local reminders and account-bound result checks. -->
     <string name="lottery_title">抽奖助手</string>
+    <string name="lottery_unread_results">有未读抽奖结果</string>
+    <string name="lottery_mark_all_read">全部已读</string>
+    <string name="lottery_mark_read">标为已读</string>
+    <string name="lottery_filter_all">全部</string>
+    <string name="lottery_filter_won">已中奖</string>
+    <string name="lottery_filter_not_entered">未参与</string>
+    <string name="lottery_filter_empty">没有符合筛选的结果</string>
+    <string name="lottery_filter_empty_hint">试试其他筛选，或选择「全部」查看所有已查结果。</string>
     <string name="lottery_create">发起抽奖</string>
     <string name="lottery_card">抽奖提醒</string>
     <string name="lottery_time">开奖时间：%1$s</string>

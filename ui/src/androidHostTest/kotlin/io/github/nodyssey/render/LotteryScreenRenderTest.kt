@@ -63,6 +63,7 @@ class LotteryScreenRenderTest {
             override suspend fun watch(draw: LuckyDrawParams, title: String) = Unit
             override suspend fun remove(key: String) = Unit
             override suspend fun refreshDue(key: String?, force: Boolean) = Unit
+            override suspend fun markResultsRead(entries: List<LotteryEntry>) = Unit
             override suspend fun synchronize() = Unit
         }
         return ViewModelProvider.create(
@@ -112,6 +113,19 @@ class LotteryScreenRenderTest {
         }
         composeRule.onNodeWithText("已查结果").performClick()
         composeRule.onRoot().captureRender("lottery-checked-tablet-dark")
+    }
+
+    @Test
+    fun `unread winning results on a phone`() {
+        val lost = won.copy(draw = won.draw.copy(postId = 1022241), title = "较新的未中奖结果", outcome = LotteryOutcome.LOST, checkedAtMillis = now)
+        val viewModel = model(listOf(upcoming, lost, won.copy(checkedAtMillis = now - 3_600_000)))
+        composeRule.setContent {
+            PlazaTheme { LotteryRoute(viewModel, {}, {}, {}, {}, {}, {}) }
+        }
+        composeRule.onNodeWithText("已查结果").performClick()
+        composeRule.onRoot().captureRender("lottery-unread-winners-phone")
+        composeRule.onNodeWithText("已中奖").performClick()
+        composeRule.onRoot().captureRender("lottery-filter-won-phone")
     }
 
     @Test
