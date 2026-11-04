@@ -84,9 +84,10 @@ class IosLotteryPlatform(
     }
 
     private fun content(entry: LotteryEntry, title: String) = UNMutableNotificationContent().apply {
-        this.title = title
-        body = entry.title
-        sound = UNNotificationSound.defaultSound
-        userInfo = mapOf("lotteryPostId" to entry.draw.postId.toString(), "lotteryOrigin" to site.origin)
+        // Kotlin/Native imports these inherited properties as val; the mutable subclass exposes setters.
+        setTitle(title)
+        setBody(entry.title)
+        setSound(UNNotificationSound.defaultSound)
+        setUserInfo(mapOf("lotteryPostId" to entry.draw.postId.toString(), "lotteryOrigin" to site.origin))
     }
 }
