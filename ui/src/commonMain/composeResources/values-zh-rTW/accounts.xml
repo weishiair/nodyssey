@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accounts_title">切換帳號</string>
+    <string name="accounts_add">新增帳號</string>
+    <string name="accounts_cancel_add">取消新增，返回原帳號</string>
+    <string name="accounts_current">目前帳號</string>
+    <string name="accounts_empty">尚未儲存任何帳號</string>
+    <string name="accounts_expired">需要重新登入</string>
+    <string name="accounts_hint">儲存多個帳號，點選即可切換。每次只使用一個帳號，站內訊息通知跟隨目前帳號。</string>
+    <string name="accounts_uid">UID %1$d</string>
+    <string name="accounts_switch">切換</string>
+    <string name="accounts_remove">移除帳號</string>
+    <string name="accounts_remove_body">將從此裝置移除「%1$s」的登入狀態和已儲存草稿。再次使用時需要登入。</string>
+    <string name="accounts_offline_warning">切換後將清除目前帳號的離線下載。草稿和瀏覽記錄會保留，切回此帳號後可繼續使用。</string>
+    <string name="accounts_failure_expired">無法確認該帳號的登入狀態，請重新登入。</string>
+    <string name="accounts_failure_verify">網站要求驗證，暫時無法確認該帳號。已返回原帳號，請稍後重試或重新登入。</string>
+    <string name="accounts_failure_network">網路連線失敗，已保留原帳號。請檢查網路後重試。</string>
+    <string name="accounts_failure_storage">無法儲存或讀取帳號，請重試。</string>
+    <string name="accounts_failure_unknown">帳號操作未完成，請重試。</string>
+    <string name="accounts_failure_webview">目前系統 WebView 不支援儲存完整登入狀態，請更新 Android System WebView 後重試。</string>
+    <string name="accounts_remove_offline_warning">目前帳號的離線下載也會清除。</string>
+    <string name="accounts_add_hint">登入另一個帳號，完成後會儲存到本機。取消新增可返回原帳號。</string>
+</resources>

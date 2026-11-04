@@ -1,0 +1,89 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
+package io.github.plaza.core.net
+
+import io.github.nodyssey.data.session.AccountCookieStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import platform.Foundation.NSData
+import platform.Foundation.NSDate
+import platform.Foundation.NSHTTPCookie
+import platform.Foundation.NSHTTPCookieExpires
+import platform.Foundation.NSHTTPCookieMaximumAge
+import platform.Foundation.NSHTTPCookieStorage
+import platform.Foundation.NSPropertyListBinaryFormat_v1_0
+import platform.Foundation.NSPropertyListSerialization
+import platform.Foundation.NSURL
+import platform.Foundation.base64EncodedStringWithOptions
+import platform.Foundation.create
+import platform.Foundation.timeIntervalSince1970
+import platform.WebKit.WKHTTPCookieStore
+import platform.WebKit.WKWebsiteDataStore
+import kotlin.coroutines.resume
+
+/** Foundation cookie properties retain domain, path, expiry, Secure and HttpOnly on disk. */
+class AppleAccountCookies(
+    config: SiteConfig,
+    private val storage: NSHTTPCookieStorage = NSHTTPCookieStorage.sharedHTTPCookieStorage,
+    private val webKit: WKHTTPCookieStore? = WKWebsiteDataStore.defaultDataStore().httpCookieStore,
+) : AccountCookieStore {
+    private val host = requireNotNull(NSURL.URLWithString(config.baseUrl)?.host).removePrefix("www.")
+
+    override suspend fun capture(): String = withContext(Dispatchers.Main) {
+        val properties = mine().mapNotNull(::savedCookieProperties)
+        val data = checkNotNull(
+            NSPropertyListSerialization.dataWithPropertyList(
+                properties,
+                format = NSPropertyListBinaryFormat_v1_0,
+                options = 0u,
+                error = null,
+            ),
+        ) { "Cannot preserve account cookies" }
+        data.base64EncodedStringWithOptions(0u)
+    }
+
+    override suspend fun replace(snapshot: String) = withContext(Dispatchers.Main) {
+        val incoming = if (snapshot.isEmpty()) emptyList() else decode(snapshot)
+        val browser = suspendCancellableCoroutine<List<NSHTTPCookie>> { continuation ->
+            if (webKit == null) continuation.resume(emptyList()) else webKit.getAllCookies { continuation.resume(it.orEmpty().filterIsInstance<NSHTTPCookie>()) }
+        }
+        browser.filter(::owns).forEach { cookie ->
+            if (webKit != null) suspendCancellableCoroutine { continuation -> webKit.deleteCookie(cookie) { continuation.resume(Unit) } }
+        }
+        mine().forEach(storage::deleteCookie)
+        incoming.forEach { cookie ->
+            require(owns(cookie)) { "Cookie belongs to another site" }
+            val expiry = cookie.expiresDate
+            if (expiry == null || expiry.timeIntervalSince1970 > NSDate().timeIntervalSince1970) {
+                storage.setCookie(cookie)
+                if (webKit != null) suspendCancellableCoroutine { continuation -> webKit.setCookie(cookie) { continuation.resume(Unit) } }
+            }
+        }
+    }
+
+    private fun mine(): List<NSHTTPCookie> = storage.cookies.orEmpty().filterIsInstance<NSHTTPCookie>().filter(::owns)
+
+    private fun owns(cookie: NSHTTPCookie): Boolean = cookie.domain.trimStart('.').let { it == host || it.endsWith(".$host") }
+
+    private fun decode(snapshot: String): List<NSHTTPCookie> {
+        val data = checkNotNull(NSData.create(base64EncodedString = snapshot, options = 0u))
+        val properties = NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = null) as? List<*>
+            ?: error("Cannot read saved cookies")
+        return properties.map { raw ->
+            @Suppress("UNCHECKED_CAST")
+            val item = raw as? Map<Any?, *> ?: error("Invalid saved cookie")
+            checkNotNull(NSHTTPCookie.cookieWithProperties(item))
+        }
+    }
+}
+
+/** Relative Max-Age must not start over when Foundation constructs a saved cookie later. */
+internal fun savedCookieProperties(cookie: NSHTTPCookie): Map<Any?, Any?>? =
+    cookie.properties?.mapValues { (_, value) ->
+        // OriginURL and CommentURL also accept NSString, which a property list can represent.
+        if (value is NSURL) value.absoluteString.orEmpty() else value
+    }?.toMutableMap()?.apply {
+        remove(NSHTTPCookieMaximumAge)
+        cookie.expiresDate?.let { this[NSHTTPCookieExpires] = it }
+    }

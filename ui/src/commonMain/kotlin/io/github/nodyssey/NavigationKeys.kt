@@ -24,6 +24,9 @@ data object NotificationsKey : NavKey
 data object ProfileKey : NavKey
 
 @Serializable
+data object AccountsKey : NavKey
+
+@Serializable
 data object SettingsKey : NavKey
 
 /**

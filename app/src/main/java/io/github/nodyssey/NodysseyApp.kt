@@ -152,8 +152,7 @@ open class NodysseyApp :
         OfflineWork.ensureMaintenance(this)
         applicationScope.launch {
             sites.state.collectLatest { state ->
-                state.graph.settingsRepository.automaticAttendance.config
-                    .map { it.enabled }
+                checkNotNull(state.graph.automaticAttendance).enabled
                     .distinctUntilChanged()
                     .collect { enabled ->
                         AutoAttendanceWork.sync(this@NodysseyApp, enabled)

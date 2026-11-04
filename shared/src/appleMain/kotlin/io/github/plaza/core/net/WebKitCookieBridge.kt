@@ -57,6 +57,7 @@ import kotlin.coroutines.resume
 class WebKitCookieBridge(
     private val cookieStore: WKHTTPCookieStore,
     private val storage: NSHTTPCookieStorage = NSHTTPCookieStorage.sharedHTTPCookieStorage,
+    private val isCurrentAccount: () -> Boolean = { true },
 ) {
     /**
      * The cookies last seen in WebKit *and* WebKit's to lose: name-domain-path to the value that was
@@ -145,6 +146,14 @@ class WebKitCookieBridge(
 
     private fun runCopy() {
         cookieStore.getAllCookies { cookies ->
+            if (!isCurrentAccount()) {
+                copying = false
+                recopyQueued = false
+                val done = awaiting.toList()
+                awaiting.clear()
+                done.forEach { it() }
+                return@getAllCookies
+            }
             val live = cookies.orEmpty().filterIsInstance<NSHTTPCookie>()
             val liveByKey = live.associate { it.key() to it.value }
 

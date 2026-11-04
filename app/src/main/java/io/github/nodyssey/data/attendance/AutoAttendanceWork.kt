@@ -31,7 +31,7 @@ object AutoAttendanceWork {
 class AutoAttendanceWorker(
     context: Context,
     parameters: WorkerParameters,
-    private val attendance: AutoAttendance?,
+    private val attendance: AutomaticAttendance?,
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result =
         if (attendance?.run() == AutoAttendanceOutcome.RETRY) Result.retry() else Result.success()

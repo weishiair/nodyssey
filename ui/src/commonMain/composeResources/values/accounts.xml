@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Local account sessions; the account picker owns the download eviction confirmation. -->
+    <string name="accounts_title">切换账号</string>
+    <string name="accounts_add">添加账号</string>
+    <string name="accounts_cancel_add">取消添加，返回原账号</string>
+    <string name="accounts_current">当前账号</string>
+    <string name="accounts_empty">还没有保存的账号</string>
+    <string name="accounts_expired">需要重新登录</string>
+    <string name="accounts_hint">保存多个账号，点击即可切换。每次只使用一个账号，站内消息通知跟随当前账号。</string>
+    <string name="accounts_uid">UID %1$d</string>
+    <string name="accounts_switch">切换</string>
+    <string name="accounts_remove">移除账号</string>
+    <string name="accounts_remove_body">将从此设备移除“%1$s”的登录态和已保存草稿。重新使用时需要登录。</string>
+    <string name="accounts_offline_warning">切换后将清除当前账号的离线下载。草稿和浏览记录会保留，切回此账号后可继续使用。</string>
+    <string name="accounts_failure_expired">无法确认该账号的登录状态，请重新登录。</string>
+    <string name="accounts_failure_verify">网站要求验证，暂时无法确认该账号。已返回原账号，请稍后重试或重新登录。</string>
+    <string name="accounts_failure_network">网络连接失败，已保留原账号。请检查网络后重试。</string>
+    <string name="accounts_failure_storage">无法保存或读取账号，请重试。</string>
+    <string name="accounts_failure_unknown">账号操作未完成，请重试。</string>
+    <string name="accounts_failure_webview">当前系统 WebView 不支持保存完整登录态，请更新 Android System WebView 后重试。</string>
+    <string name="accounts_remove_offline_warning">当前账号的离线下载也会清除。</string>
+    <string name="accounts_add_hint">登录另一个账号，完成后会保存到本机。取消添加可返回原账号。</string>
+</resources>

@@ -97,7 +97,10 @@ actual fun WebViewRoute(
     val baseline = remember { session.peek() }
     val policy = remember(goal, session, baseline, isBound) { webViewPolicy(goal, session, baseline, isBound) }
     val bridge =
-        remember { WebKitCookieBridge(WKWebsiteDataStore.defaultDataStore().httpCookieStore) }
+        remember {
+            val accountRevision = session.accountRevision
+            WebKitCookieBridge(WKWebsiteDataStore.defaultDataStore().httpCookieStore, isCurrentAccount = { session.accountRevision == accountRevision })
+        }
     // Outlives the composition on purpose: `rememberCoroutineScope` is cancelled by the very teardown
     // that runs `onDispose`, and the last copy out of WebKit has to survive that teardown to happen.
     val exit = remember { CoroutineScope(Dispatchers.Main + SupervisorJob()) }

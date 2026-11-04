@@ -1,5 +1,6 @@
 package io.github.nodyssey
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
@@ -20,15 +21,23 @@ import io.github.nodyssey.ui.login.WebViewRoute
 internal fun EntryProviderScope<NavKey>.sessionEntries(nav: StackEntryScope) = with(nav) {
     entry<SignInKey> {
         val viewModel: SignInViewModel = viewModel(factory = SignInViewModel.factory(container))
+        val accounts = container.accountRepository?.state?.collectAsStateWithLifecycle()?.value
         SignInRoute(
             viewModel = viewModel,
+            addingAccount = accounts?.adding == true,
             // Both sites share one Turnstile application, but the key is still read per site — see
             // [Site.turnstileSitekey].
             sitekey = ActiveSite.current.turnstileSitekey,
             // The widget's web view has to look like the app's other requests, or Cloudflare
             // is grading a different client than the one that will send the token.
             userAgent = container.userAgent,
-            onClose = { backStack.removeLastOrNull() },
+            onClose = {
+                if (container.accountRepository?.state?.value?.adding == true) {
+                    container.accountRepository?.cancelAdd()
+                } else {
+                    backStack.removeLastOrNull()
+                }
+            },
             // The screen that asked for a session is underneath; dropping this one puts the
             // user back on it, and its own reload keys on the session generation.
             onSignedIn = { backStack.removeLastOrNull() },
@@ -75,7 +84,13 @@ internal fun EntryProviderScope<NavKey>.sessionEntries(nav: StackEntryScope) = w
             session = container.sessionRepository,
             userAgent = container.userAgent,
             onOpenExternal = openExternalUrl,
-            onClose = { backStack.removeLastOrNull() },
+            onClose = {
+                if (container.accountRepository?.state?.value?.adding == true && !container.sessionRepository.peek().isSignedIn) {
+                    container.accountRepository?.cancelAdd()
+                } else {
+                    backStack.removeLastOrNull()
+                }
+            },
             isBound = bindingViewModel::isBound,
         )
     }

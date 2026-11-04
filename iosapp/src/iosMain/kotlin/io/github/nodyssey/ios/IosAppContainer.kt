@@ -52,7 +52,10 @@ import io.github.nodyssey.data.UserSpaceRepository
 import io.github.nodyssey.data.VoteRepository
 import io.github.nodyssey.data.account.AccountSettingsRepository
 import io.github.nodyssey.data.account.NetworkAccountSettingsRepository
+import io.github.nodyssey.data.attendance.AttendanceSession
+import io.github.nodyssey.data.attendance.AttendanceWriteGate
 import io.github.nodyssey.data.attendance.AutoAttendance
+import io.github.nodyssey.data.attendance.MultiAccountAttendance
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultCommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultPostComposerRepository
@@ -88,9 +91,12 @@ import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.proxy.routes
 import io.github.nodyssey.data.security.LegacySecretMigration
 import io.github.nodyssey.data.security.PlaintextSecretCipher
+import io.github.nodyssey.data.session.AccountLocalData
+import io.github.nodyssey.data.session.AccountRepository
+import io.github.nodyssey.data.session.AccountRequestGate
 import io.github.nodyssey.data.session.AccountSignOut
-import io.github.nodyssey.data.session.DefaultAccountSignOut
 import io.github.nodyssey.data.session.NodeSeekSignInRepository
+import io.github.nodyssey.data.session.SavedAccountStore
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.session.SignInRepository
 import io.github.nodyssey.data.settings.ReportCompareStore
@@ -104,6 +110,7 @@ import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.AppVersion
 import io.github.plaza.core.crash.CrashReportStore
 import io.github.plaza.core.crash.NoCrashReports
+import io.github.plaza.core.net.AppleAccountCookies
 import io.github.plaza.core.net.AppleCookieStore
 import io.github.plaza.core.net.AppleEchResponse
 import io.github.plaza.core.net.AppleEchTransport
@@ -130,12 +137,15 @@ import io.github.plaza.core.update.ApkInstaller
 import io.github.plaza.core.update.isPreReleaseVersionName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import platform.Foundation.NSHTTPCookieStorage
 import platform.Foundation.NSURLSession
+import platform.Foundation.NSURLSessionConfiguration
+import platform.UserNotifications.UNUserNotificationCenter
 
 /**
  * The dependency graph on iOS — the counterpart of `DefaultAppContainer` in `:app`.
@@ -188,6 +198,10 @@ class IosAppContainer(
 
     /** Collects the proxy setting for as long as the process lives; nothing else runs on it. */
     private val appScope = CoroutineScope(SupervisorJob() + dispatchers.default)
+    private val accountRequests = AccountRequestGate()
+    private val accountStore by lazy { protectedAccountStore() }
+    private val postDraftStore by lazy { createPreferenceDataStore("post-composer") }
+    private val commentDraftStore by lazy { createPreferenceDataStore("comment-composer") }
 
     /**
      * 代理设置 as a route, or null when this kind of client is meant to go direct.
@@ -296,10 +310,12 @@ class IosAppContainer(
      * the image hosts are six other people's.
      */
     private val transport by lazy {
-        RetryingTransport(
-            DynamicSignTransport(
-                CookieScrubbingTransport(encryptedTransport, sessionCookies),
-                userAgent.value,
+        accountRequests.guard(
+            RetryingTransport(
+                DynamicSignTransport(
+                    CookieScrubbingTransport(encryptedTransport, sessionCookies),
+                    userAgent.value,
+                ),
             ),
         )
     }
@@ -469,7 +485,7 @@ class IosAppContainer(
     }
 
     override val postComposerRepository: PostComposerRepository by lazy {
-        DefaultPostComposerRepository(createPreferenceDataStore("post-composer"), transport, dispatchers, clock)
+        DefaultPostComposerRepository(postDraftStore, transport, dispatchers, clock)
     }
 
     override val accountSettingsRepository: AccountSettingsRepository by lazy {
@@ -504,8 +520,9 @@ class IosAppContainer(
         )
     }
 
+    private val attendanceWrites = AttendanceWriteGate()
     override val automaticAttendance by lazy {
-        AutoAttendance(
+        val legacy = AutoAttendance(
             settingsRepository.automaticAttendance,
             sessionRepository,
             profileRepository,
@@ -513,10 +530,35 @@ class IosAppContainer(
             clock,
             appScope,
         )
+        MultiAccountAttendance(accountRepository, settingsRepository.automaticAttendance, legacy, NodeSeekSite.CONFIG, dispatchers, clock, appScope, attendanceWrites) { snapshot ->
+            val storage = checkNotNull(NSURLSessionConfiguration.ephemeralSessionConfiguration.HTTPCookieStorage)
+            val saved = AppleAccountCookies(NodeSeekSite.CONFIG, storage, webKit = null)
+            saved.replace(snapshot)
+            val sessionScope = CoroutineScope(appScope.coroutineContext + SupervisorJob(appScope.coroutineContext[kotlinx.coroutines.Job]))
+            val isolated = ProxiedUrlSession(sessionScope, proxyRoute(ProxyClientKind.FORUM), initialRoute = proxyRoute(ProxyClientKind.FORUM).first()) { proxy ->
+                appleUrlSession(userAgent.value, acceptLanguage, "${NodeSeekSite.BASE_URL}/", cookies = storage, proxy = proxy)
+            }
+            val cookies = SessionCookies(NodeSeekSite.CONFIG, AppleCookieStore(storage))
+            val encrypted = AppleEchTransport(
+                fallback = NSUrlSessionTransport { isolated.current }, config = { dohSettings.config.first() },
+                usesProxy = { proxySettings.config.first().routes(ProxyClientKind.FORUM) },
+                userAgent = userAgent.value, acceptLanguage = acceptLanguage, referer = "${NodeSeekSite.BASE_URL}/",
+                sessionCookies = cookies, byteSession = { isolated.current }, storage = storage,
+            )
+            AttendanceSession(
+                RetryingTransport(DynamicSignTransport(CookieScrubbingTransport(encrypted, cookies), userAgent.value)),
+                cookies,
+                { saved.capture() },
+                {
+                    sessionScope.cancel()
+                    isolated.invalidate()
+                },
+            )
+        }
     }
 
     override val assetsRepository: AssetsRepository by lazy {
-        NetworkAssetsRepository(profileRepository, creditRepository, jsonClient, dispatchers, clock)
+        NetworkAssetsRepository(profileRepository, creditRepository, jsonClient, dispatchers, clock, attendanceWrites)
     }
 
     override val creditRepository: CreditRepository by lazy { NetworkCreditRepository(jsonClient, dispatchers) }
@@ -539,7 +581,7 @@ class IosAppContainer(
 
     override val commentComposerRepository: CommentComposerRepository by lazy {
         DefaultCommentComposerRepository(
-            createPreferenceDataStore("comment-composer"),
+            commentDraftStore,
             transport,
             dispatchers,
             clock,
@@ -587,17 +629,32 @@ class IosAppContainer(
 
     override val sessionRepository: SessionRepository by lazy { SessionRepository(sessionCookies) }
 
-    override val accountSignOut: AccountSignOut by lazy {
-        DefaultAccountSignOut(
-            posts = postRepository,
-            profiles = profileRepository,
-            offline = offlineLibrary,
-            postDrafts = postComposerRepository,
-            commentDrafts = commentComposerRepository,
-            settings = settingsRepository,
+    override val accountRepository: AccountRepository by lazy {
+        AccountRepository(
+            store = SavedAccountStore(accountStore, PlaintextSecretCipher(), ActiveSite.current.name),
+            cookies = AppleAccountCookies(NodeSeekSite.CONFIG),
             session = sessionRepository,
+            requests = accountRequests,
+            local = AccountLocalData(
+                postDraftStore,
+                commentDraftStore,
+                postRepository,
+                profileRepository,
+                offlineLibrary,
+                settingsRepository,
+            ),
+            currentProfile = { profileRepository.profile(refresh = it) },
+            stopPlatformRequests = {
+                forumSession.cancelRequests()
+                imageHostSession.cancelRequests()
+                UNUserNotificationCenter.currentNotificationCenter().removeAllDeliveredNotifications()
+            },
+            scope = CoroutineScope(appScope.coroutineContext + dispatchers.main),
+            legacyAttendance = { settingsRepository.automaticAttendance.config.first() },
         )
     }
+
+    override val accountSignOut: AccountSignOut by lazy { AccountSignOut { accountRepository.signOut() } }
 
     override val signInRepository: SignInRepository by lazy { NodeSeekSignInRepository(jsonClient) }
 

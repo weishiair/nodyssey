@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,6 +37,8 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -83,6 +87,8 @@ import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.accounts_switch
+import io.github.nodyssey.ui.resources.accounts_title
 import io.github.nodyssey.ui.resources.assets_signed_in
 import io.github.nodyssey.ui.resources.assets_signing_in
 import io.github.nodyssey.ui.resources.lottery_title
@@ -308,20 +314,29 @@ fun ProfileScreen(
             return@Scaffold
         }
 
-        if (state.isLoading && !state.hasProfile) {
-            LoadingState(modifier = Modifier.padding(padding))
-            return@Scaffold
-        }
-
-        if (state.error != null && !state.hasProfile) {
-            SiteErrorState(
-                error = state.error,
-                onRetry = onRetry,
-                onOpenBrowser = onOpenWebsite,
-                onVerify = onVerify,
-                onSignIn = onSignIn,
-                modifier = Modifier.padding(padding),
-            )
+        if (!state.hasProfile && (state.isLoading || state.error != null)) {
+            Column(
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (state.isLoading) {
+                    LoadingState(modifier = Modifier.weight(1f))
+                } else {
+                    SiteErrorState(
+                        error = checkNotNull(state.error),
+                        onRetry = onRetry,
+                        onOpenBrowser = onOpenWebsite,
+                        onVerify = onVerify,
+                        onSignIn = onSignIn,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                destinations.accounts?.let { open ->
+                    TextButton(onClick = open, modifier = Modifier.padding(bottom = Spacing.md)) {
+                        Text(stringResource(Res.string.accounts_title))
+                    }
+                }
+            }
             return@Scaffold
         }
 
@@ -332,6 +347,7 @@ fun ProfileScreen(
                 onCredit = destinations.credit,
                 onStardust = destinations.stardust,
                 onAssets = destinations.assets,
+                onSwitchAccount = destinations.accounts,
             )
         }
         val attendance: @Composable () -> Unit = { AttendanceBanner(state, onAttendance, onAttendanceBoard) }
@@ -447,13 +463,14 @@ private fun AccountCard(
     onCredit: () -> Unit,
     onStardust: () -> Unit,
     onAssets: () -> Unit,
+    onSwitchAccount: (() -> Unit)?,
 ) {
     LayerCard(
         shape = MaterialTheme.shapes.largeIncreased,
         contentPadding = PaddingValues(14.dp),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        IdentityRow(state, onOpenSpace)
+        IdentityRow(state, onOpenSpace, onSwitchAccount)
         Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
             val scheme = MaterialTheme.colorScheme
             val balances =
@@ -535,8 +552,9 @@ private val BALANCE_MIN_FONT_SIZE = 13.sp
 private fun IdentityRow(
     state: ProfileUiState,
     onOpenSpace: () -> Unit,
+    onSwitchAccount: (() -> Unit)?,
 ) {
-    // 头像和 ID 本身就是进空间的入口，右边再挂一个编辑按钮只是重复，去掉。
+    // The identity opens the profile; the inline switch button consumes its own click.
     Row(
         modifier =
         Modifier
@@ -548,12 +566,20 @@ private fun IdentityRow(
     ) {
         UserAvatar(url = state.avatarUrl, name = state.displayName, size = 44.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(
-                text = state.displayName,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(
+                    text = state.displayName,
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                onSwitchAccount?.let { AccountSwitchButton(onClick = it) }
+            }
             Text(
                 text = when {
                     // uid is only ever set from a loaded profile, so its absence is the
@@ -574,12 +600,36 @@ private fun IdentityRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp),
-        )
+        if (onSwitchAccount == null) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AccountSwitchButton(onClick: () -> Unit) {
+    val height = ButtonDefaults.ExtraSmallContainerHeight
+    val description = stringResource(Res.string.accounts_title)
+    FilledTonalButton(
+        onClick = onClick,
+        shapes = ButtonDefaults.shapesFor(height),
+        colors =
+        ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+        contentPadding = ButtonDefaults.contentPaddingFor(height, hasStartIcon = true),
+        modifier = Modifier.heightIn(min = height).semantics { contentDescription = description },
+    ) {
+        Icon(PlazaIcons.SwapHoriz, contentDescription = null, modifier = Modifier.size(ButtonDefaults.iconSizeFor(height)))
+        Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(height)))
+        Text(stringResource(Res.string.accounts_switch), style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -865,6 +915,9 @@ private fun SignedOutProfile(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             MediumButton(onClick = onSignIn, icon = PlazaIcons.Login, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(Res.string.profile_sign_in, siteName))
+            }
+            destinations.accounts?.let { open ->
+                TextButton(onClick = open) { Text(stringResource(Res.string.accounts_title)) }
             }
             Text(
                 text = stringResource(Res.string.profile_sign_in_hint),

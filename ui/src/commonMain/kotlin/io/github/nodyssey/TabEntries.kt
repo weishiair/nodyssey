@@ -162,6 +162,7 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
             // object; see [ProfileDestinations] for why it is not twenty parameters.
             destinations =
             ProfileDestinations(
+                accounts = if (container.accountRepository != null) ({ backStack.add(AccountsKey) }) else null,
                 settings = { backStack.add(SettingsKey) },
                 space = {
                     container.profileRepository.selfUid.value?.let { uid ->

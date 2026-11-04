@@ -36,6 +36,7 @@ fun createPreferenceDataStore(
     name: String,
     keepOutOfBackup: Boolean = false,
     migrations: List<DataMigration<Preferences>> = emptyList(),
+    prepareDirectory: (String) -> Unit = {},
 ): DataStore<Preferences> =
     PreferenceDataStoreFactory.createWithPath(
         migrations = migrations,
@@ -45,6 +46,7 @@ fun createPreferenceDataStore(
             val fileName = "$name.preferences_pb"
             val directory = applicationSupportDirectory()
             val path = if (keepOutOfBackup) backupExcludedPath(directory, fileName) else "$directory/$fileName"
+            prepareDirectory(path.substringBeforeLast('/'))
             path.toPath()
         },
     )

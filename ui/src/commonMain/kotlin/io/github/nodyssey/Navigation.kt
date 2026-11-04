@@ -58,6 +58,7 @@ import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.NotificationTab
+import io.github.nodyssey.data.session.AccountRepository
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
@@ -118,7 +119,10 @@ fun MainNavigation(
     LaunchedEffect(historySession.isSignedIn, historySession.fingerprint) {
         container.postRepository.reconcileSession(historySession.isSignedIn, historySession.fingerprint)
         if (historySession.isSignedIn) {
-            runCatchingExceptCancellation { container.profileRepository.profile() }
+            runCatchingExceptCancellation {
+                val profile = container.profileRepository.profile()
+                container.accountRepository?.remember(profile, historySession.fingerprint)
+            }
         }
     }
     val siteTitle = appName()
@@ -172,7 +176,8 @@ fun MainNavigation(
      */
     val homeStack = rememberNavBackStack(NavKeySavedStateConfiguration, PostListKey)
     val notificationsStack = rememberNavBackStack(NavKeySavedStateConfiguration, NotificationsKey)
-    val profileStack = rememberNavBackStack(NavKeySavedStateConfiguration, ProfileKey)
+    val accountState = container.accountRepository?.state?.collectAsStateWithLifecycle()?.value
+    val profileStack = rememberAccountProfileStack(container.accountRepository)
 
     /*
      * The feed's position belongs to the home stack, not to whichever home entry composition happens
@@ -192,7 +197,9 @@ fun MainNavigation(
     val pendingComposerShare = remember { PendingComposerShare() }
     val pendingAttendance = remember { PendingAttendance() }
 
-    var currentTab by rememberSaveable { mutableStateOf(initialTab) }
+    var currentTab by rememberSaveable {
+        mutableStateOf(if (accountState?.adding == true || (accountState?.revision ?: 0) > 0) TopLevelDestination.PROFILE else initialTab)
+    }
 
     /*
      * Set by whichever tab root is currently reading a long list — only the feed does.
@@ -644,6 +651,23 @@ fun MainNavigation(
             )
         }
     }
+}
+
+@Composable
+internal fun rememberAccountProfileStack(accounts: AccountRepository?): NavBackStack<NavKey> {
+    val state = accounts?.state?.collectAsStateWithLifecycle()?.value
+    val stack = rememberNavBackStack(
+        NavKeySavedStateConfiguration,
+        *buildList<NavKey> {
+            add(ProfileKey)
+            if (state?.adding == true || (state?.revision ?: 0) > 0) add(AccountsKey)
+            if (state?.adding == true) add(SignInKey)
+        }.toTypedArray(),
+    )
+    LaunchedEffect(stack.lastOrNull()) {
+        if (stack.lastOrNull() == AccountsKey) accounts?.cancelIfAbandoned()
+    }
+    return stack
 }
 
 /*

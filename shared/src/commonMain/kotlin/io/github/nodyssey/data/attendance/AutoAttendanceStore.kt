@@ -49,8 +49,10 @@ class AutoAttendanceStore internal constructor(
 
     internal suspend fun save(record: AutoAttendanceRecord) {
         dataStore.edit { values ->
-            val records = decode(values[recordsKey]).filterNot { it.fingerprint == record.fingerprint }
-            values[recordsKey] = json.encodeToString((records + record).takeLast(16))
+            val records = decode(values[recordsKey]).filterNot { it.fingerprint == record.fingerprint || (record.uid != null && it.uid == record.uid) }
+            // One receipt per known UID. Do not evict an enabled account's receipt because many
+            // other saved accounts ran; anonymous pre-identification attempts remain bounded.
+            values[recordsKey] = json.encodeToString(records.filter { it.uid != null } + records.filter { it.uid == null }.takeLast(15) + record)
         }
     }
 
@@ -59,6 +61,7 @@ class AutoAttendanceStore internal constructor(
             ?: emptyList()
 }
 
+@Serializable
 data class AutoAttendanceConfig(
     val enabled: Boolean = false,
     val mode: AttendanceMode = AttendanceMode.RANDOM,

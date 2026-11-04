@@ -23,6 +23,20 @@ class MessageDraftStoreTest {
     private val directory = Files.createTempDirectory("message-drafts").toFile().apply { deleteOnExit() }
 
     @Test
+    fun `removing a saved account blocks its late writes while the active account can keep drafting`() = runTest {
+        val store = settings(backgroundScope).messageDrafts
+        val removed = store.open(11, 42)
+        val active = store.open(22, 42, accountUid = 200)
+        store.save(removed, MessageDraft(text = "remove this account"))
+        store.save(active, MessageDraft(text = "keep this account"))
+        store.clearAccount(11, 100)
+        store.save(removed, MessageDraft(text = "late cleanup must not resurrect this"))
+        store.save(active, MessageDraft(text = "still editing the active account"))
+        assertFalse(store.open(11, 42).initial.hasContent)
+        assertEquals("still editing the active account", store.open(22, 42, accountUid = 200).initial.text)
+    }
+
+    @Test
     fun `text selection quotes and recoverable failures survive closing the store`() = runTest {
         val firstRun = CoroutineScope(coroutineContext + Job())
         val firstStore = settings(firstRun).messageDrafts
