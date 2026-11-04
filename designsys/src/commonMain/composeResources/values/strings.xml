@@ -20,6 +20,12 @@
     <string name="composer_format_hosted_image">图床</string>
     <string name="composer_format_emoji">表情</string>
 
+    <!-- The link key's long press. The tap keeps the plain link; these are the two templates the
+         site's own editor writes, so the image one is |![image](https://)| with no alt text of its
+         own. `composer_format_link` is the menu's first line. -->
+    <string name="composer_link_menu_more">选择链接模板</string>
+    <string name="composer_link_menu_image">图片链接</string>
+
     <!-- The wrench at the end of a composer strip, and the panel it opens -->
     <string name="composer_toolbar_customize">自定义工具栏</string>
     <string name="composer_toolbar_enabled">工具栏上的按键</string>
