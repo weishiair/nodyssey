@@ -245,6 +245,48 @@ class LotteryRepositoryTest {
     }
 
     @Test
+    fun `acknowledging a snapshot leaves later results unread and preserves notification delivery`() = runTest {
+        val h = Harness(backgroundScope)
+        val second = draw.copy(prizeCount = 1)
+        h.repository.watch(draw, "first")
+        h.repository.watch(second, "second")
+        h.now = draw.drawAtMillis + 1_000
+        h.repository.refreshDue(draw.key)
+        val viewed = h.store.all()
+        h.repository.refreshDue(second.key)
+        // Notification bookkeeping may change after the screen receives the result.
+        h.store.update(draw.key, 7767) { it.copy(resultNotified = false) }
+        h.repository.markResultsRead(viewed)
+        val results = h.store.all().associateBy { it.key }
+        assertEquals(true, results.getValue(draw.key).resultRead)
+        assertEquals(false, results.getValue(second.key).resultRead)
+        assertEquals(LotteryOutcome.WON, results.getValue(draw.key).outcome)
+        h.repository.refreshDue()
+        assertEquals(3, h.notified.size)
+        assertEquals(false, h.store.all().first { it.key == second.key }.resultRead)
+    }
+
+    @Test
+    fun `a stale read acknowledgement cannot affect a removed or replacement subscription`() = runTest {
+        val h = Harness(backgroundScope)
+        h.repository.watch(draw, "draw")
+        h.now = draw.drawAtMillis + 1_000
+        h.repository.refreshDue()
+        val viewed = h.store.all()
+        val original = viewed.single()
+        h.repository.remove(draw.key)
+        h.repository.markResultsRead(viewed)
+        assertEquals(emptyList(), h.store.all())
+        h.store.add(original.copy(ownerUid = 71411))
+        h.repository.markResultsRead(viewed)
+        assertEquals(false, h.store.all().single().resultRead)
+        h.repository.remove(draw.key)
+        h.store.add(original.copy(checkedAtMillis = h.now + 1_000))
+        h.repository.markResultsRead(viewed)
+        assertEquals(false, h.store.all().single().resultRead)
+    }
+
+    @Test
     fun `completed results and notification receipts survive reopening the real store`() = runTest {
         val firstJob = Job()
         val firstScope = CoroutineScope(coroutineContext + firstJob)
@@ -252,6 +294,8 @@ class LotteryRepositoryTest {
         h.repository.watch(draw, "draw")
         h.now = draw.drawAtMillis + 1_000
         h.repository.refreshDue()
+        assertEquals(false, h.store.all().single().resultRead)
+        h.repository.markResultsRead(h.store.all())
         firstJob.cancelAndJoin()
         val reopened = PreferenceDataStoreFactory.create(
             storage = OkioStorage(FileSystem.SYSTEM, PreferencesSerializer) { File(directory, "draw.preferences_pb").toOkioPath() },
@@ -261,6 +305,7 @@ class LotteryRepositoryTest {
         assertEquals(LotteryOutcome.WON, saved.outcome)
         assertEquals(listOf(14), saved.winningFloors)
         assertEquals(true, saved.resultNotified)
+        assertEquals(true, saved.resultRead)
         assertEquals(emptyList(), LotteryStore(reopened, Site.DEEPFLOOD).all())
     }
 }

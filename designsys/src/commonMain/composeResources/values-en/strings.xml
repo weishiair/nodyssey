@@ -20,6 +20,9 @@
     <string name="composer_format_hosted_image">Image host</string>
     <string name="composer_format_emoji">Emoji</string>
 
+    <string name="composer_link_menu_more">Choose a link template</string>
+    <string name="composer_link_menu_image">Image link</string>
+
     <string name="composer_toolbar_customize">Customise toolbar</string>
     <string name="composer_toolbar_enabled">On the toolbar</string>
     <string name="composer_toolbar_available">Available</string>

@@ -58,6 +58,21 @@ class MarkdownFormattingTest {
         assertEquals(TextRange("[星辰担保](".length), state.selection)
     }
 
+    /**
+     * The link key's second template. Its caret must land where the link key's does — in the address,
+     * just past the scheme it pre-fills — or the reader has to hunt for the slot they are about to
+     * paste into.
+     */
+    @Test
+    fun `the image template leaves the caret in its url slot`() {
+        val state = field("")
+
+        state.edit { applyImageLinkTemplate() }
+
+        assertEquals("![image](https://)", state.text.toString())
+        assertEquals(TextRange("![image](https://".length), state.selection)
+    }
+
     @Test
     fun `formatting applies in the middle of existing text`() {
         val state = field("交易走星辰担保，勿私", selection = 3..7)

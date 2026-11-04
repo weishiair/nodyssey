@@ -9,6 +9,7 @@ import io.github.nodyssey.core.LuckyDraw
 import io.github.nodyssey.core.LuckyDrawParams
 import io.github.nodyssey.data.lottery.LotteryEntry
 import io.github.nodyssey.data.lottery.LotteryLimitException
+import io.github.nodyssey.data.lottery.LotteryOutcome
 import io.github.nodyssey.data.lottery.LotteryRepository
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.model.PostContent
@@ -65,6 +66,22 @@ class LotteryViewModel(
 
     fun refresh() = perform("refresh") { repository.refreshDue(force = true) }
 
+    fun markAllResultsRead() {
+        val unread = entries.value.filter { it.outcome != null && !it.resultRead }
+        if (unread.isEmpty()) return
+        perform("readAll") { repository.markResultsRead(unread) }
+    }
+
+    fun markResultsRead(entries: List<LotteryEntry>) {
+        val unread = entries.filter { it.outcome != null && !it.resultRead }
+        if (unread.isEmpty()) return
+        viewModelScope.launch {
+            runCatchingExceptCancellation { repository.markResultsRead(unread) }.onFailure {
+                mutableError.value = it.toSiteError()
+            }
+        }
+    }
+
     fun clearError() {
         mutableError.value = null
     }
@@ -92,3 +109,14 @@ class LotteryViewModel(
         }
     }
 }
+
+internal fun lotteryResultsInDisplayOrder(entries: List<LotteryEntry>, outcome: LotteryOutcome? = null): List<LotteryEntry> =
+    entries.filter { it.outcome != null && (outcome == null || it.outcome == outcome) }.sortedWith(
+        compareBy<LotteryEntry> {
+            when {
+                !it.resultRead && it.outcome == LotteryOutcome.WON -> 0
+                !it.resultRead -> 1
+                else -> 2
+            }
+        }.thenByDescending { it.checkedAtMillis },
+    )
