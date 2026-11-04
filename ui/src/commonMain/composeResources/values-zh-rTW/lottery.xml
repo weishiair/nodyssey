@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="lottery_title">抽獎助手</string>
+    <string name="lottery_unread_results">有未讀抽獎結果</string>
+    <string name="lottery_mark_all_read">全部已讀</string>
+    <string name="lottery_mark_read">標為已讀</string>
+    <string name="lottery_filter_all">全部</string>
+    <string name="lottery_filter_won">已中獎</string>
+    <string name="lottery_filter_not_entered">未參與</string>
+    <string name="lottery_filter_empty">沒有符合篩選的結果</string>
+    <string name="lottery_filter_empty_hint">試試其他篩選，或選擇「全部」查看所有已查結果。</string>
     <string name="lottery_create">發起抽獎</string>
     <string name="lottery_card">抽獎提醒</string>
     <string name="lottery_time">開獎時間：%1$s</string>

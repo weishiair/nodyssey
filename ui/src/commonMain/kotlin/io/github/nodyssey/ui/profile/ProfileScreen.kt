@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -92,6 +94,7 @@ import io.github.nodyssey.ui.resources.accounts_title
 import io.github.nodyssey.ui.resources.assets_signed_in
 import io.github.nodyssey.ui.resources.assets_signing_in
 import io.github.nodyssey.ui.resources.lottery_title
+import io.github.nodyssey.ui.resources.lottery_unread_results
 import io.github.nodyssey.ui.resources.profile_attendance_board
 import io.github.nodyssey.ui.resources.profile_attendance_checking
 import io.github.nodyssey.ui.resources.profile_attendance_done
@@ -180,6 +183,7 @@ fun ProfileRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val hasUnreadLotteryResults by viewModel.hasUnreadLotteryResults.collectAsStateWithLifecycle()
     RefreshOnReturnToForeground(viewModel::refreshAttendance)
     ProfileScreen(
         state = state,
@@ -187,6 +191,7 @@ fun ProfileRoute(
         onSignIn = onSignIn,
         onRetry = viewModel::refresh,
         hasAppUpdate = hasAppUpdate,
+        hasUnreadLotteryResults = hasUnreadLotteryResults,
         onOpenWebsite = onOpenWebsite,
         onVerify = onVerify,
         onAttendance = viewModel::requestAttendance,
@@ -256,6 +261,7 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     /** 应用内更新 found something; the gear in the app bar carries the dot that leads to it. */
     hasAppUpdate: Boolean = false,
+    hasUnreadLotteryResults: Boolean = false,
     onSignInForToday: (AttendanceMode) -> Unit = {},
     onDismissAttendanceChooser: () -> Unit = {},
     onAttendanceFailureShown: () -> Unit = {},
@@ -309,6 +315,7 @@ fun ProfileScreen(
             SignedOutProfile(
                 onSignIn = onSignIn,
                 destinations = destinations,
+                hasUnreadLotteryResults = hasUnreadLotteryResults,
                 modifier = Modifier.padding(padding),
             )
             return@Scaffold
@@ -351,7 +358,7 @@ fun ProfileScreen(
             )
         }
         val attendance: @Composable () -> Unit = { AttendanceBanner(state, onAttendance, onAttendanceBoard) }
-        val sections = profileSections(destinations)
+        val sections = profileSections(destinations, hasUnreadLotteryResults)
         val bottom = Spacing.lg + padding.calculateBottomPadding()
         // Under the bottom bar rather than stopping at it — see [withoutBottom].
         BoxWithConstraints(Modifier.padding(padding.withoutBottom()).fillMaxSize()) {
@@ -733,6 +740,7 @@ private data class ProfileTile(
     val label: StringResource,
     val icon: ImageVector,
     val onClick: () -> Unit,
+    val hasUnreadResults: Boolean = false,
 )
 
 /**
@@ -745,7 +753,7 @@ private data class ProfileTile(
  * page is not reached from here while signed in — dropping the tile would have quietly deleted the
  * destination rather than moved it.
  */
-private fun profileSections(destinations: ProfileDestinations): List<ProfileSection> =
+private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryResults: Boolean): List<ProfileSection> =
     listOf(
         ProfileSection(
             title = Res.string.profile_section_content,
@@ -764,7 +772,7 @@ private fun profileSections(destinations: ProfileDestinations): List<ProfileSect
             tiles =
             listOf(
                 ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
-                ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant),
+                ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant, hasUnreadLotteryResults),
                 ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
                 ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
                 ProfileTile(Res.string.profile_tile_providers, Icons.Default.ShoppingCart, destinations.providers),
@@ -845,7 +853,16 @@ private fun ProfileGridTile(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.CenterVertically),
     ) {
-        Icon(tile.icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        BadgedBox(
+            badge = {
+                if (tile.hasUnreadResults) {
+                    val description = stringResource(Res.string.lottery_unread_results)
+                    Badge(Modifier.semantics { contentDescription = description })
+                }
+            },
+        ) {
+            Icon(tile.icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        }
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
@@ -864,6 +881,7 @@ private fun ProfileGridTile(
 private fun SignedOutProfile(
     onSignIn: () -> Unit,
     destinations: ProfileDestinations,
+    hasUnreadLotteryResults: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val welcome: @Composable () -> Unit = {
@@ -938,7 +956,7 @@ private fun SignedOutProfile(
                 listOf(
                     ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
                     ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
-                    ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant),
+                    ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant, hasUnreadLotteryResults),
                     ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
                     ProfileTile(
                         Res.string.profile_tile_providers,
