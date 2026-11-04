@@ -70,6 +70,22 @@ fun TextFieldBuffer.applyMarkdown(action: EditorAction) {
     }
 }
 
+/** The link key's tap: `[链接文字](https://)`, the template the site's own editor writes. */
+internal fun TextFieldBuffer.applyLinkTemplate() {
+    applyMarkdown(LINK)
+}
+
+/**
+ * The link key's long press: `![image](https://)`, the site editor's second template.
+ *
+ * For a picture that is not going through the image host — a temporary link, or one copied from
+ * somewhere else. The 图片 key cannot carry this: it is the upload flow, and a photo picker is the
+ * wrong answer to "I have an address".
+ */
+internal fun TextFieldBuffer.applyImageLinkTemplate() {
+    applyMarkdown(IMAGE_LINK)
+}
+
 private val BOLD =
     MarkdownInsertion(
         prefix = "**",
@@ -108,6 +124,21 @@ private val LINK =
         prefix = "[",
         suffix = MARKDOWN_LINK_SUFFIX,
         placeholder = "链接文字",
+        caretInSuffix = MARKDOWN_LINK_CARET + URL_SCHEME.length,
+        caret = MarkdownCaret.IN_SUFFIX,
+    )
+
+/**
+ * [LINK] with a `!` in front.
+ *
+ * The alt text is the site's own `image` rather than a translated word: it is what a post composed
+ * in the browser already carries, and it is never read unless the picture fails to load.
+ */
+private val IMAGE_LINK =
+    MarkdownInsertion(
+        prefix = "![",
+        suffix = MARKDOWN_LINK_SUFFIX,
+        placeholder = "image",
         caretInSuffix = MARKDOWN_LINK_CARET + URL_SCHEME.length,
         caret = MarkdownCaret.IN_SUFFIX,
     )

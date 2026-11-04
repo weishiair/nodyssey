@@ -23,6 +23,9 @@
     <string name="composer_format_hosted_image">圖床</string>
     <string name="composer_format_emoji">表情</string>
 
+    <string name="composer_link_menu_more">選擇連結模板</string>
+    <string name="composer_link_menu_image">圖片連結</string>
+
     <string name="composer_toolbar_customize">自訂工具列</string>
     <string name="composer_toolbar_enabled">工具列上的按鍵</string>
     <string name="composer_toolbar_available">可加入</string>

@@ -1,25 +1,36 @@
 package io.github.plaza.designsys.editor
 
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.component.PlazaIcons
@@ -80,11 +91,11 @@ fun EditorToolbar(
 }
 
 /**
- * One key, on this strip and on [ComposerEditorBar]'s quick bar. A panel key is a checkbox; every
- * other key is a button.
+ * One key, on this strip and on [ComposerEditorBar]'s quick bar. A panel key is a checkbox; a key
+ * with [longPressMenu] is a button with a second, hidden action; every other key is a button.
  *
- * Both branches draw identically — same box, same [shape], lit state in [checkedContainerColor] +
- * [checkedContentColor]. The split is about semantics: a [checkable] key has an on/off state that
+ * All three branches draw identically — same box, same [shape], lit state in [checkedContainerColor]
+ * + [checkedContentColor]. The split is about semantics: a [checkable] key has an on/off state that
  * colour alone conveys, so it goes through `IconToggleButton` and TalkBack announces 表情 as
  * "已选中"/"未选中". The formatting keys fire and forget, and dressing them as checkboxes would be a
  * regression, not a fix.
@@ -102,10 +113,19 @@ internal fun ToolbarKey(
     contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     checkedContainerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
     checkedContentColor: Color = MaterialTheme.colorScheme.primary,
+    /**
+     * A menu anchored to the key, opened by a long press — a second action that costs no slot on a
+     * strip that already scrolls. Null for every key that only formats.
+     */
+    longPressMenu: (@Composable ColumnScope.(dismiss: () -> Unit) -> Unit)? = null,
+    /** What TalkBack calls that long press; ignored when [longPressMenu] is null. */
+    longPressLabel: String? = null,
 ) {
-    // Both branches take the identical modifier, so the two key flavours measure the same and the
+    // All three branches take the identical modifier, so the key flavours measure the same and the
     // strip stays on one grid. The glyph is half the box: 24dp inside 48dp is the Material ratio.
     val modifier = Modifier.size(size)
+    // No explicit tint: the icon takes `LocalContentColor`, which IconButton sets to the lit or
+    // unlit colour for a checkbox and the menu branch sets to this key's own colour.
     val content: @Composable () -> Unit = {
         Icon(
             imageVector = icon,
@@ -114,27 +134,58 @@ internal fun ToolbarKey(
         )
     }
 
-    if (checkable) {
-        IconToggleButton(
-            checked = selected,
-            onCheckedChange = { onClick() },
-            modifier = modifier,
-            colors = IconButtonDefaults.iconToggleButtonColors(
-                contentColor = contentColor,
-                checkedContainerColor = checkedContainerColor,
-                checkedContentColor = checkedContentColor,
-            ),
-            shape = shape,
-            content = content,
-        )
-    } else {
-        IconButton(
-            onClick = onClick,
-            modifier = modifier,
-            colors = IconButtonDefaults.iconButtonColors(contentColor = contentColor),
-            shape = shape,
-            content = content,
-        )
+    when {
+        checkable -> {
+            IconToggleButton(
+                checked = selected,
+                onCheckedChange = { onClick() },
+                modifier = modifier,
+                colors = IconButtonDefaults.iconToggleButtonColors(
+                    contentColor = contentColor,
+                    checkedContainerColor = checkedContainerColor,
+                    checkedContentColor = checkedContentColor,
+                ),
+                shape = shape,
+                content = content,
+            )
+        }
+
+        longPressMenu == null -> {
+            IconButton(
+                onClick = onClick,
+                modifier = modifier,
+                colors = IconButtonDefaults.iconButtonColors(contentColor = contentColor),
+                shape = shape,
+                content = content,
+            )
+        }
+
+        else -> {
+            var menuOpen by remember { mutableStateOf(false) }
+            // IconButton takes no long click. Nesting a `combinedClickable` around one would hand the
+            // same gesture to two clickables — the inner one still fires its tap when the finger
+            // lifts at the end of a long press. So a menu key is drawn the way IconButton draws
+            // itself: one box clipped to `shape`, its ripple from `LocalIndication`, lit by the
+            // content colour this key was told. Remove this branch when IconButton grows `onLongClick`.
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                Box(
+                    modifier = modifier
+                        .clip(shape)
+                        .combinedClickable(
+                            role = Role.Button,
+                            onLongClickLabel = longPressLabel,
+                            onLongClick = { menuOpen = true },
+                            onClick = onClick,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    content()
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        longPressMenu { menuOpen = false }
+                    }
+                }
+            }
+        }
     }
 }
 
