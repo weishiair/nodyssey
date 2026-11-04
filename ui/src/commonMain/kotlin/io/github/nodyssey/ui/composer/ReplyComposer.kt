@@ -43,10 +43,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -293,6 +296,10 @@ private fun ReplyEditorSheet(
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val stickerPictures = rememberStickerPictures()
+    // The link key's long press opens a popup menu, and a popup takes the window's focus with it.
+    // Asking for the field again on the way back is what keeps the keyboard and the caret where the
+    // writer left them — the post editor does the same.
+    val bodyFocus = remember { FocusRequester() }
 
     // On a tablet the editor is a card in the middle of the window, the way Mail's reply is, rather
     // than a phone's sheet rising from the bottom edge of one column under a scrim that greys out the
@@ -391,6 +398,7 @@ private fun ReplyEditorSheet(
                 modifier = Modifier
                     .readableWidth()
                     .heightIn(min = MIN_EDITOR_HEIGHT, max = MAX_EDITOR_HEIGHT)
+                    .focusRequester(bodyFocus)
                     .padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.sm),
             )
             AttachmentTray(
@@ -427,6 +435,7 @@ private fun ReplyEditorSheet(
                 editorState = editorState,
                 onPickImages = onPickImages,
                 onPickHostedImages = onPickHostedImages,
+                onFormatted = { bodyFocus.requestFocus() },
                 onCustomize = onCustomize,
                 appMenu = {
                     ComposerAppMenu(onInsertVote = onInsertVote, onInsertStardust = onInsertStardust)
