@@ -2,6 +2,7 @@ package io.github.nodyssey.ios
 
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import io.github.nodyssey.core.ActiveSite
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.net.DynamicSignTransport
 import io.github.nodyssey.core.net.NodeSeekJsonClient
@@ -72,6 +73,9 @@ import io.github.nodyssey.data.imagehost.DataStoreImageHostSettings
 import io.github.nodyssey.data.imagehost.DefaultImageHostRepository
 import io.github.nodyssey.data.imagehost.ImageHostRepository
 import io.github.nodyssey.data.local.createNodeSeekDatabase
+import io.github.nodyssey.data.lottery.LotteryRepository
+import io.github.nodyssey.data.lottery.LotteryStore
+import io.github.nodyssey.data.lottery.NetworkLotteryRepository
 import io.github.nodyssey.data.offline.OfflineImageSource
 import io.github.nodyssey.data.offline.OfflineSettingsStore
 import io.github.nodyssey.data.offline.OfflineWorkScheduler
@@ -113,6 +117,8 @@ import io.github.plaza.core.net.ProxyRoute
 import io.github.plaza.core.net.ProxyRouteType
 import io.github.plaza.core.net.RetryingTransport
 import io.github.plaza.core.net.SessionCookies
+import io.github.plaza.core.net.SiteError
+import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.net.SiteHtmlClient
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.core.net.WebUrl
@@ -161,6 +167,7 @@ import platform.Foundation.NSURLSession
 class IosAppContainer(
     override val userAgent: UserAgent,
     private val offlineScheduler: OfflineWorkScheduler,
+    private val lotteryScheduler: BgTaskLotteryScheduler,
     override val dispatchers: AppDispatchers = AppDispatchers(),
     override val clock: AppClock = AppClock.System,
 ) : AppContainer {
@@ -300,6 +307,24 @@ class IosAppContainer(
     private val htmlClient by lazy { SiteHtmlClient(transport, dispatchers, NodeSeekSite.CONFIG) }
 
     private val jsonClient by lazy { NodeSeekJsonClient(transport, dispatchers) }
+
+    override val lotteryRepository: LotteryRepository by lazy {
+        val site = ActiveSite.current
+        NetworkLotteryRepository(
+            dispatchers = dispatchers,
+            store = LotteryStore(createPreferenceDataStore("lottery"), site),
+            source = jsonClient,
+            beaconTransport = NSUrlSessionTransport { imageHostSession.current },
+            platform = IosLotteryPlatform(site, lotteryScheduler),
+            currentProfile = {
+                if (!sessionRepository.peek().isSignedIn) throw SiteException(SiteError.LoginRequired)
+                profileRepository.profile()
+            },
+            sessionFingerprint = { sessionRepository.peek().fingerprint },
+            clock = clock,
+            site = site,
+        )
+    }
 
     private val database by lazy { createNodeSeekDatabase() }
 

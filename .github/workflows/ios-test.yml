@@ -131,7 +131,8 @@ jobs:
   ios:
     if: inputs.platform != 'android'
     runs-on: ${{ inputs.ios_runner || 'macos-15' }}
-    timeout-minutes: 90
+    # The simulator regression links the UI test binary in addition to both app builds.
+    timeout-minutes: 120
     env:
       # macos-15 defaults to Xcode 16.4 / SDK 18.5. That keeps the legacy tab bar even on iOS 26+.
       # This Xcode is installed on all three selectable runner images.
@@ -190,6 +191,19 @@ jobs:
       - name: Run common tests on Kotlin Native
         if: runner.arch == 'ARM64'
         run: ./gradlew :shared:macosArm64Test --max-workers=2
+      - name: Test iOS split navigation on the simulator
+        if: runner.arch == 'ARM64'
+        run: ./gradlew :ui:iosSimulatorArm64Test --max-workers=2
+      - name: Upload iOS simulator test failures
+        if: failure() && runner.arch == 'ARM64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-simulator-test-results-${{ github.run_id }}
+          path: |
+            ui/build/test-results/iosSimulatorArm64Test/
+            ui/build/reports/tests/iosSimulatorArm64Test/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Run common tests on the JVM for the Intel fallback
         if: runner.arch == 'X64'
         run: |

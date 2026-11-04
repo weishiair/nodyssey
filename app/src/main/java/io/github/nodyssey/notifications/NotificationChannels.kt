@@ -18,6 +18,7 @@ import io.github.nodyssey.data.NotificationTab
 object NotificationChannels {
     const val INTERACTIONS = "interactions"
     const val MESSAGES = "messages"
+    const val LOTTERY = "lottery"
 
     /** 提醒关键词 and 追踪新回复 — the app's own alerts, each its own channel so either can be muted. */
     const val KEYWORD_ALERTS = "keyword_alerts"
@@ -48,6 +49,7 @@ object NotificationChannels {
             listOf(
                 channel(context, INTERACTIONS, R.string.notifications_interactions),
                 channel(context, MESSAGES, R.string.notifications_messages),
+                channel(context, LOTTERY, R.string.lottery_title),
                 channel(context, KEYWORD_ALERTS, R.string.notifications_keyword_alerts),
                 channel(context, TRACKED_THREADS, R.string.notifications_tracked_threads),
             ),

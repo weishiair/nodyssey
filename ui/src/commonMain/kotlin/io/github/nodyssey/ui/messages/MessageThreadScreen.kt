@@ -70,6 +70,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetState
@@ -110,10 +111,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.NodeSeekStickers
 import io.github.nodyssey.data.MessageConversation
+import io.github.nodyssey.data.MessageRecovery
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.PickedImage
 import io.github.nodyssey.data.contentPreview
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.shortMessage
+import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.composer.AttachmentTray
 import io.github.nodyssey.ui.composer.HostedImagePickerSheet
@@ -128,19 +132,26 @@ import io.github.nodyssey.ui.resources.action_copy
 import io.github.nodyssey.ui.resources.action_more
 import io.github.nodyssey.ui.resources.action_open_in_browser
 import io.github.nodyssey.ui.resources.action_retry
+import io.github.nodyssey.ui.resources.action_sign_in
+import io.github.nodyssey.ui.resources.action_verify
 import io.github.nodyssey.ui.resources.composer_image_default_name
 import io.github.nodyssey.ui.resources.message_bubble_actions
 import io.github.nodyssey.ui.resources.message_copied
+import io.github.nodyssey.ui.resources.message_discard_failed
+import io.github.nodyssey.ui.resources.message_draft_save_failed
 import io.github.nodyssey.ui.resources.message_input_hint
 import io.github.nodyssey.ui.resources.message_new_messages
 import io.github.nodyssey.ui.resources.message_quote_action
 import io.github.nodyssey.ui.resources.message_quote_chip
 import io.github.nodyssey.ui.resources.message_quote_chip_mine
 import io.github.nodyssey.ui.resources.message_quote_remove
+import io.github.nodyssey.ui.resources.message_retry_later
 import io.github.nodyssey.ui.resources.message_send
 import io.github.nodyssey.ui.resources.message_status_failed
 import io.github.nodyssey.ui.resources.message_status_sending
 import io.github.nodyssey.ui.resources.message_status_sent
+import io.github.nodyssey.ui.resources.message_status_uncertain
+import io.github.nodyssey.ui.resources.message_sync_paused
 import io.github.nodyssey.ui.resources.message_thread_empty
 import io.github.nodyssey.ui.resources.message_thread_open_space
 import io.github.nodyssey.ui.resources.message_thread_profile
@@ -228,6 +239,7 @@ fun MessageThreadRoute(
         onRetryLoad = viewModel::refresh,
         onSend = viewModel::send,
         onRetrySend = viewModel::retry,
+        onDismissFailed = viewModel::dismissFailed,
         onQuote = viewModel::quote,
         onRemoveQuote = viewModel::removeQuote,
         onPickImages = viewModel::addImages,
@@ -278,6 +290,7 @@ fun MessageThreadScreen(
     showBackButton: Boolean = true,
     /** Bubble-content links. Separate from [onOpenBrowser] so our own URLs can stay in the app. */
     onLinkClick: (String) -> Unit = onOpenBrowser,
+    onDismissFailed: (String) -> Unit = {},
 ) {
     val webUrl = NodeSeekSite.BASE_URL + NodeSeekSite.messageThreadWebPath(state.uid)
     var customizing by rememberSaveable { mutableStateOf(false) }
@@ -362,8 +375,41 @@ fun MessageThreadScreen(
                                 .padding(horizontal = Spacing.xl),
                         )
 
-                    else -> MessageBubbles(state, effectiveTopClearance, onLinkClick, onRetrySend, onQuote)
+                    else -> MessageBubbles(
+                        state,
+                        effectiveTopClearance,
+                        onLinkClick,
+                        onRetrySend = { id ->
+                            val failure = state.messages.firstOrNull { it.id == id }?.failure
+                            when (failure?.recovery) {
+                                MessageRecovery.SIGN_IN -> onSignIn()
+                                MessageRecovery.VERIFY -> onVerify(failure.verificationUrl ?: webUrl)
+                                MessageRecovery.NONE -> Unit
+                                else -> onRetrySend(id)
+                            }
+                        },
+                        onQuote = onQuote,
+                        onDismissFailed = onDismissFailed,
+                    )
                 }
+            }
+            state.syncError?.let { error ->
+                val recovery = siteErrorRecovery(error, onVerify = onVerify, onSignIn = onSignIn, onRetry = onRetryLoad)
+                ListItem(
+                    leadingContent = { Icon(PlazaIcons.ErrorCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    trailingContent = { recovery?.let { action -> TextButton(onClick = action.onClick) { Text(action.label) } } },
+                    colors = ListItemDefaults.colors(containerColor = LocalPlazaLayers.current.raised),
+                ) {
+                    Text(stringResource(Res.string.message_sync_paused, error.shortMessage()), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (state.draftSaveFailed) {
+                Text(
+                    stringResource(Res.string.message_draft_save_failed),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = THREAD_GUTTER, vertical = Spacing.xs),
+                )
             }
             MessageComposer(
                 draftState = draftState,
@@ -684,6 +730,7 @@ private fun MessageBubbles(
     onOpenBrowser: (String) -> Unit,
     onRetrySend: (String) -> Unit,
     onQuote: (MessageBubble) -> Unit,
+    onDismissFailed: (String) -> Unit,
 ) {
     val listState = rememberLazyListState()
     /*
@@ -749,6 +796,8 @@ private fun MessageBubbles(
                             onOpenBrowser = onOpenBrowser,
                             onRetrySend = { onRetrySend(row.message.id) },
                             onQuote = { onQuote(row.message) },
+                            onDismissFailed = { onDismissFailed(row.message.id) },
+                            nowMillis = state.nowMillis,
                         )
                 }
             }
@@ -828,6 +877,8 @@ private fun MessageBubbleRow(
     onOpenBrowser: (String) -> Unit,
     onRetrySend: () -> Unit,
     onQuote: () -> Unit,
+    onDismissFailed: () -> Unit,
+    nowMillis: Long,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val layers = LocalPlazaLayers.current
@@ -893,18 +944,19 @@ private fun MessageBubbleRow(
                     Text(message.content, style = textStyle, modifier = contentModifier)
                 }
                 if (message.status != SendStatus.FAILED) {
-                    MessageStatusLine(message = message, showDeliveryStatus = showDeliveryStatus, onRetrySend = onRetrySend)
+                    MessageStatusLine(message = message, showDeliveryStatus = showDeliveryStatus, onRetrySend = onRetrySend, nowMillis = nowMillis)
                 }
                 BubbleMenu(
                     expanded = menuOpen,
                     onDismiss = { menuOpen = false },
                     content = message.content,
                     onQuote = onQuote,
+                    onDiscard = onDismissFailed.takeIf { message.status == SendStatus.FAILED },
                 )
             }
         }
         if (message.status == SendStatus.FAILED) {
-            MessageStatusLine(message = message, showDeliveryStatus = false, onRetrySend = onRetrySend)
+            MessageStatusLine(message = message, showDeliveryStatus = false, onRetrySend = onRetrySend, nowMillis = nowMillis)
         }
     }
 }
@@ -926,6 +978,7 @@ private fun BubbleMenu(
     onDismiss: () -> Unit,
     content: String,
     onQuote: () -> Unit,
+    onDiscard: (() -> Unit)?,
 ) {
     val copy = rememberClipboardCopy()
     val copied = stringResource(Res.string.message_copied)
@@ -956,6 +1009,16 @@ private fun BubbleMenu(
                 onQuote()
             },
         )
+        onDiscard?.let { discard ->
+            BubbleMenuItem(
+                icon = Icons.Default.Close,
+                label = stringResource(Res.string.message_discard_failed),
+                onClick = {
+                    onDismiss()
+                    discard()
+                },
+            )
+        }
     }
 }
 
@@ -975,7 +1038,7 @@ private fun BubbleMenuItem(
 /**
  * The bubble's clock and delivery state; failures stay outside as a full retry target.
  *
- * `21:34 · 已送达`, `10:52 · 发送中` with a clock face, or the failure in the error colour with 重试
+ * `21:34 · 已发送`, `10:52 · 发送中` with a clock face, or the failure in the error colour with recovery
  * after it. The other side's bubbles only ever carry the time.
  */
 @Composable
@@ -983,11 +1046,20 @@ private fun MessageStatusLine(
     message: MessageBubble,
     showDeliveryStatus: Boolean,
     onRetrySend: () -> Unit,
+    nowMillis: Long,
 ) {
     val clock = message.sentAtMillis?.let(TimeFormat::clock) ?: message.sentAtText
     val style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Normal)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val retryLabel = stringResource(Res.string.action_retry)
+    val failure = message.failure
+    val waiting = failure?.recovery == MessageRecovery.WAIT && nowMillis < failure.retryAtMillis
+    val retryLabel = when (failure?.recovery) {
+        MessageRecovery.SIGN_IN -> stringResource(Res.string.action_sign_in)
+        MessageRecovery.VERIFY -> stringResource(Res.string.action_verify)
+        MessageRecovery.WAIT -> stringResource(if (waiting) Res.string.message_retry_later else Res.string.action_retry)
+        MessageRecovery.NONE -> null
+        else -> stringResource(Res.string.action_retry)
+    }
     Row(
         modifier =
         if (message.status == SendStatus.FAILED) {
@@ -995,8 +1067,9 @@ private fun MessageStatusLine(
             // and its words end where every other status line's do. A 48dp box for 重试 alone would
             // leave empty space under a bubble of mine, pushing the line in from the screen's end.
             Modifier
+                .widthIn(max = 320.dp)
                 .heightIn(min = Sizes.minTouchTarget)
-                .clickable(onClickLabel = retryLabel, role = Role.Button, onClick = onRetrySend)
+                .then(if (retryLabel != null) Modifier.clickable(enabled = !waiting, onClickLabel = retryLabel, role = Role.Button, onClick = onRetrySend) else Modifier)
                 .padding(horizontal = 6.dp)
         } else {
             Modifier
@@ -1024,16 +1097,19 @@ private fun MessageStatusLine(
                 )
                 Text(
                     // The server's reason when it gave one — retrying a block never succeeds.
-                    text = message.failureReason ?: stringResource(Res.string.message_status_failed),
+                    text = failure?.detail ?: message.failureReason ?: stringResource(if (failure?.uncertain == true) Res.string.message_status_uncertain else Res.string.message_status_failed),
                     style = style,
                     color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
-                Text(text = "·", style = style, color = MaterialTheme.colorScheme.error)
-                Text(
-                    text = retryLabel,
-                    style = style.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.error,
-                )
+                if (retryLabel != null) {
+                    Text(text = "·", style = style, color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = retryLabel,
+                        style = style.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
             SendStatus.SENT ->

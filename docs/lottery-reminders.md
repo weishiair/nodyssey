@@ -1,0 +1,96 @@
+# 开奖提醒与结果查询
+
+在帖子正文中识别本站官方 `/lucky?post=…&time=…&count=…&start=…&duplicate=…&mode=view`
+链接。卡片显示本机时区的开奖时间和奖品数，可开启、取消提醒，或查询已经开奖的结果。
+「我的 → 抽奖助手」集中管理提醒，保留已查结果，并能进入原有的发起抽奖表单。
+订阅仅安排提醒，不会发送参与评论。最多同时保存 50 条待查询记录。
+
+订阅时获取并保存账号 UID 和名称；以后使用这个 UID 判断是否中奖，不以可能重名、改名的
+昵称判断，也不改用后来切换到的账号。结果分为中奖（带楼层）、未中奖、没有有效参与楼层。
+网络错误、Cloudflare、响应格式变化都保持待查询，不会显示成未中奖。
+移除或改用另一账号重新订阅时，仍在请求中的旧检查不能恢复原记录或覆盖新账号的结果。
+
+## 官网协议
+
+2026-11-02 对公开帖子 1024765 和它的官方开奖页面进行核对：
+
+- 链接里的 `time` 是 Unix 毫秒；`count` 是奖品数；`duplicate=false` 表示去重。
+  同时修正了原表单使用日期字符串、`n` 和 `unique` 的旧链接格式。
+- 网页没有返回中奖名单的接口。它先 GET
+  `/api/content/floor-data?postId={id}&time={millis}`，得到截止时的完整楼层数组；
+  再从 drand 的 `8990e7a9…b2ce` 链获取公开随机数，round 为
+  `floor((time / 1000 - 1595431050) / 30)`。
+- `lucky.f7803609f35861b4ec4d.js` 使用 cyrb128 派生 sfc32 的状态，给**完整数组**
+  的每个下标分配一个随机排序值，再按起始楼层、去重规则取足中奖名额。
+  去重是在原数组顺序里标记首个有效参与，不是打乱之后取每人的第一个。
+  Kotlin 实现保留 JavaScript 的 32 位溢出、无符号右移与稳定排序。
+- 固定样本应得中奖楼层：14、15、35、58、63、69、76、92、96、117。
+  测试读取提交的公开 fixture，不访问网站；fixture 去掉了无关的用户名称。
+
+drand 使用不携带论坛 cookie 的第三方 transport，遵循现有的第三方代理设置。
+算法目前对应上述官网版本；若网站改变开奖规则，需要重新核对并更新算法及 fixture。
+官方开奖页面始终可以从卡片打开，最终以官网为准。
+
+## 平台与持久化
+
+- `:shared` 保存解析、算法和仓库。独立的 lottery Preferences DataStore 按站点分键，
+  无 Room schema 变更；已完成结果和通知回执一起持久化，避免重复查询和重复通知。
+  失败后至少等 15 分钟再自动请求；Cloudflare 暂停整个队列，直到浏览器改变 session
+  指纹或用户明确手动重试。一次检查复用相同 round 的随机数。
+- `:ui` 负责卡片、列表和 ViewModel，使用三种语言的 Compose Resources。返回前台及前台
+  每分钟补查；卡片放进原有正文 lazy item，不改变阅读位置与楼层恢复的索引。
+- Android 用 AlarmManager 安排本地提醒，获准精确闹钟时用精确提醒，否则使用
+  `setAndAllowWhileIdle`。单独的 WorkManager 任务在开奖后联网查结果，失败用指数退避。
+  提醒不依赖网络；取消后撤销 alarm 和对应的 work。重启、安装更新及时间变化后恢复。
+  结果 worker 通过原有 WorkerFactory 和站点生命周期保护，非当前站点的检查等待切回后执行。
+- iOS 用 UNUserNotificationCenter 安排本地提醒；BGAppRefreshTask 尝试后台查结果，
+  注册在 app launch 完成之前，Info.plist 声明 fetch 模式和任务标识。点击通知通过保留的请求
+  进入原生导航的帖子页，兼容 shell 尚未完成初始化的冷启动。
+
+后台执行由系统决定。省电、通知权限、精确闹钟权限和 iOS 后台刷新策略可能延后提醒或查询。
+本地提醒无需服务器，但无法保证开奖瞬间就拿到联网结果。iOS 的编译、通知点击和后台唤醒
+需要在 Mac / 真机上验证；Windows 上的共享测试不能替代这些验证。
+
+## 验证
+
+- `LuckyDrawTest`、`LotteryResultsTest`：真实链接、嵌套正文、域名校验、官网结果、
+  重复参与、空参与、无效响应及错误 round。
+- `LotteryRepositoryTest`：账号切换、持久化和通知去重、断网退避、Cloudflare 队列暂停、
+  删除与重新订阅竞态，以及“未参与”和“未中奖”的区别。
+- `LotteryScreenRenderTest`：可选的手机、平板和结果卡片截图，用于人工检查，不是截图断言。
+- 按仓库 CI 运行格式、全部 host/JVM 测试、lint、debug 和 R8 release 构建；设备与 Apple
+  检查仍须在相应环境完成。
+
+### 本次 Windows 验证记录（2026-11-02）
+
+- 官网固定样本与链接测试、9 项仓库状态和持久化测试、2 项登录/退出后的提醒交互测试通过。
+- 手机卡片、手机提醒列表和平板深色结果列表的渲染产物已人工检查。
+- 全量 host 测试的失败集中在旧 DataStore FileStorage 的 Windows 文件替换和 Room 迁移
+  测试的 Windows 数据库路径。在未改动的 dev 202e736a 导出副本中，
+  ColorSourceSettingTest（4 项）、PreferencesViewModelTest（2 项）和
+  NodeSeekDatabaseMigrationTest（21 项）复现相同错误。它们不属于本次改动。
+- 没有连接的 Android 设备或配置的模拟器，因此未执行 connected 测试与 R8 设备启动 smoke。
+  Apple 编译和实机通知仍待 Mac 验证。
+
+最终格式检查、Android lint（含依赖模块）、Debug 构建和 R8 优化 Release bundle 构建通过。
+共享核心、richtext、设计系统和 gallery 的 JVM 测试通过；未修改版本号或发布产物。
+
+### 1.3.8-test.1 后续修正
+
+前台检查从 ViewModel 的主线程进入仓库。楼层请求由 NodeSeekJsonClient 切入 IO，返回后
+直接执行的 drand 请求却重新处在主线程；OkHttpTransport 的阻塞 execute 会被 Android
+拒绝，原界面统一显示为等待查询。随机数请求现在显式使用注入的 IO dispatcher，回归测试
+在独立的调用与 IO dispatcher 上执行，并核对旧失败记录能够重试成功。
+
+加入公开帖子 1022241 的最小楼层 fixture 与 drand round 6605365。对应去重抽奖的全部
+中奖楼层为 20、54、61、65、76、87、101、115、140、142，与官网逐一一致。
+fixture 只保留 UID、楼层和公开随机数，不保存浏览器账号页面或会话信息。
+
+失败记录现在区分论坛/随机数服务，以及断网、人机验证、登录失效、响应格式和 HTTP 状态。
+原有记录缺少的新字段均有默认值；没有 Room schema 或依赖变化。界面合并标题与抽奖信息，
+采用 Material 3 标签页和卡片，详细提醒说明收进菜单；抽奖助手使用独立的闹钟图标。
+
+Android 的论坛请求和随机数请求分别沿用 okHttpClient 与无 cookie 的 imageContentClient，
+两者都配置同一个 appDns，因此前后台查询均遵循现有 DoH 选择和代理范围。无需为本功能
+单独开启代理；但 DoH 只能处理解析，不能保证目标服务在任意网络均可直连。本地到时提醒
+无需联网，中奖判断需要两个服务可达，系统省电策略仍可能延后后台检查。

@@ -2,12 +2,16 @@ package io.github.nodyssey.data
 
 import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.okio.OkioStorage
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.PreferencesSerializer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import okio.FileSystem
+import okio.Path.Companion.toOkioPath
 import org.junit.rules.ExternalResource
 import java.io.File
 import java.nio.file.Files
@@ -42,9 +46,7 @@ class PreferenceStoreScope(
 
     val dataStore: DataStore<Preferences> by lazy {
         val directory = Files.createTempDirectory("nodyssey-$name").toFile().apply { deleteOnExit() }
-        PreferenceDataStoreFactory.create(scope = scope, migrations = migrations) {
-            File(directory, "$name.preferences_pb")
-        }
+        preferenceStore(File(directory, "$name.preferences_pb"), scope, migrations)
     }
 
     override fun after() {
@@ -63,7 +65,14 @@ internal fun testPreferenceStore(
     migrations: List<DataMigration<Preferences>> = emptyList(),
 ): DataStore<Preferences> {
     val directory = Files.createTempDirectory("nodyssey-$name").toFile().apply { deleteOnExit() }
-    return PreferenceDataStoreFactory.create(scope = scope, migrations = migrations) {
-        File(directory, "$name.preferences_pb")
-    }
+    return preferenceStore(File(directory, "$name.preferences_pb"), scope, migrations)
 }
+
+// FileStorage uses File.renameTo, which cannot replace an existing file on Windows. DataStore's
+// supported OkioStorage keeps the same real serializer and transactions with portable atomic moves.
+private fun preferenceStore(file: File, scope: CoroutineScope, migrations: List<DataMigration<Preferences>>) =
+    PreferenceDataStoreFactory.create(
+        storage = OkioStorage(FileSystem.SYSTEM, PreferencesSerializer) { file.toOkioPath() },
+        scope = scope,
+        migrations = migrations,
+    )

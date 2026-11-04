@@ -1085,9 +1085,18 @@ internal fun PostDetailUiState.readerLastFloor(): Int? {
 /**
  * The site's DOM can put later floors ahead of earlier ones. Order the reading view numerically,
  * including cached replies, while carrying each reply's source page through the same permutation.
+ *
+ * 置顶 is the one exception: the site draws a pinned floor above the rest of the page, so it keeps
+ * that place and the numeric order picks up after it.
  */
 internal fun PostDetailUiState.readingView(): PostDetailUiState {
-    val ordered = comments.indices.sortedBy { NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE }
+    val ordered =
+        comments.indices.sortedWith(
+            compareBy(
+                { if (comments[it].isPinned) 0 else 1 },
+                { NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE },
+            ),
+        )
     val unique =
         ordered.distinctBy { original ->
             val comment = comments[original]

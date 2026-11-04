@@ -274,7 +274,7 @@
     <string name="message_send">傳送</string>
     <string name="message_status_sending">傳送中</string>
     <string name="message_status_failed">傳送失敗</string>
-    <string name="message_status_sent">%1$s · 已送達</string>
+    <string name="message_status_sent">%1$s · 已傳送</string>
     <string name="message_bubble_actions">訊息操作</string>
     <string name="message_quote_action">引用</string>
     <string name="message_quote_chip">引用 %1$s</string>
@@ -1727,4 +1727,11 @@
     <string name="auto_attendance_network">網路連線失敗，將稍後重試。</string>
     <string name="auto_attendance_limit">今日自動嘗試次數已用完，可手動簽到。</string>
     <string name="auto_attendance_failed">自動簽到未完成，可前往手動簽到查看。</string>
+    <string name="message_sync_paused">訊息更新暫停：%1$s</string>
+    <string name="message_draft_save_failed">草稿暫未儲存，請先複製內容再離開</string>
+    <string name="message_status_uncertain">傳送結果未確認，請先核對對話</string>
+    <string name="message_retry_later">稍後重試</string>
+    <string name="message_discard_failed">移除未傳送訊息</string>
+    <string name="messages_draft_preview">[草稿] %1$s</string>
+    <string name="messages_pending_preview">[待傳送] 有訊息尚未傳送成功</string>
 </resources>

@@ -9,11 +9,14 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import io.github.nodyssey.data.MessageFailure
+import io.github.nodyssey.data.MessageRecovery
 import io.github.nodyssey.ui.messages.MessageBubble
 import io.github.nodyssey.ui.messages.MessageThreadScreen
 import io.github.nodyssey.ui.messages.MessageThreadUiState
 import io.github.nodyssey.ui.messages.SendStatus
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Before
 import org.junit.Rule
@@ -122,6 +125,25 @@ class MessageThreadScreenRenderTest {
 
         composeRule.onRoot().captureRender("message-thread-tools-dark")
     }
+
+    @Test
+    fun `paused updates and send recovery in light`() {
+        composeRule.setContent { Screen(darkTheme = false, state = recoveringState()) }
+        composeRule.onRoot().captureRender("message-thread-recovery-light")
+    }
+
+    @Test
+    fun `paused updates and send recovery in dark`() {
+        composeRule.setContent { Screen(darkTheme = true, state = recoveringState()) }
+        composeRule.onRoot().captureRender("message-thread-recovery-dark")
+    }
+
+    private fun recoveringState() = STATE.copy(
+        syncError = SiteError.Network,
+        messages = MESSAGES.take(4) + listOf(
+            MESSAGES[5].copy(failure = MessageFailure(MessageRecovery.VERIFY, verificationUrl = "https://www.nodeseek.com/notification.html")),
+        ),
+    )
 
     private companion object {
         val NOW = TimeFormat.parseTimestamp("2026-09-23 10:53:00")!!

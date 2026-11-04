@@ -136,6 +136,11 @@ kotlin {
             implementation(libs.roborazzi.compose)
         }
 
+        // UIKit containment is tested on an iOS simulator, not by the Android host tests.
+        iosTest.dependencies {
+            implementation(kotlin("test"))
+        }
+
         androidMain.dependencies {
             // The photo picker and `rememberLauncherForActivityResult`. Eight screens reach for it,
             // and there is no neutral seat for it yet — see the `expect` in `commonMain` for which

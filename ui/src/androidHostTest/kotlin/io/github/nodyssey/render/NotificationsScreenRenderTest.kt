@@ -9,6 +9,7 @@ import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import io.github.nodyssey.data.ForumNotification
 import io.github.nodyssey.data.MessageConversation
+import io.github.nodyssey.data.MessageDraft
 import io.github.nodyssey.data.NotificationCategory
 import io.github.nodyssey.data.NotificationCounts
 import io.github.nodyssey.data.NotificationSource
@@ -141,6 +142,23 @@ class NotificationsScreenRenderTest {
         composeRule.waitForIdle()
 
         captureScreenRoboImage(filePath = "build/outputs/renders/messages-new-conversation-light.png")
+    }
+
+    @Test
+    fun `drafts include a recipient without server history`() {
+        composeRule.setContent {
+            Screen(
+                darkTheme = false,
+                tab = NotificationTab.MESSAGES,
+                base = STATE.copy(
+                    drafts = mapOf(
+                        1L to MessageDraft(userName = "轻舟", text = "我先补下测试结果", savedAtMillis = NOW),
+                        99L to MessageDraft(userName = "新收件人", text = "你好，想咨询一下", savedAtMillis = NOW + 1),
+                    ),
+                ),
+            )
+        }
+        composeRule.onRoot().captureRender("messages-drafts-light")
     }
 
     private companion object {

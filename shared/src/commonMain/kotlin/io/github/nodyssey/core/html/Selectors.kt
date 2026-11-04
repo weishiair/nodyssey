@@ -88,6 +88,19 @@ object Selectors {
     const val CONTENT_INFO = "div.content-info"
     const val CONTENT_CATEGORY = "span.content-category a"
     const val CONTENT_FLOOR = "a.floor-link"
+
+    /**
+     * 置顶 on a floor: a bare pin ahead of the floor number, the site's mark for a comment a
+     * moderator pinned.
+     *
+     * `<svg title="置顶" class="iconpark-icon pined-comment-badge"><use href="#pin"></use></svg>`,
+     * inside `div.floor-link-wrapper`. Captured on 2026-11-02 from `/post-1026936-1`, where #2
+     * carried it and the server had already rendered that floor above #1 — the page arrives in the
+     * order the site shows, so nothing downstream re-sorts. The class is misspelled on the wire, the
+     * same way the blob's `pined` field is, and is matched as written.
+     */
+    const val CONTENT_PINNED_BADGE = "div.floor-link-wrapper svg.pined-comment-badge"
+
     const val CONTENT_ARTICLE = "article.post-content"
     const val CONTENT_SIGNATURE = "div.signature"
 

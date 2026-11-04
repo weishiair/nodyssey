@@ -25,8 +25,13 @@ import platform.UIKit.willMoveToParentViewController
  */
 @OptIn(ExperimentalForeignApi::class)
 internal class PaneSplitController(
-    val details: UINavigationController,
+    private val placeholder: UIViewController,
 ) : UIViewController(nibName = null, bundle = null) {
+    // Keep a valid placeholder root while pages move between navigation controllers.
+    val details = UINavigationController(rootViewController = placeholder).apply {
+        setNavigationBarHidden(true, animated = false)
+    }
+
     private val divider = UIView()
     private var list: UIViewController? = null
 
@@ -50,7 +55,24 @@ internal class PaneSplitController(
         view.setNeedsLayout()
     }
 
+    /** Releases pages before this pair leaves the outer navigation controller. */
+    fun releasePages() {
+        // This pair is discarded. Suppress delegate write-back while its pages are detached.
+        val released =
+            details.viewControllers
+                .filterIsInstance<UIViewController>()
+                .filter { it != placeholder }
+        details.delegate = null
+        details.setViewControllers(listOf(placeholder), animated = false)
+        released.forEach { it.view.removeFromSuperview() }
+        showList(null)
+    }
+
     private fun adopt(child: UIViewController) {
+        // A visible navigation stack clears parent before removing its outgoing view.
+        // UIKit also checks that view hierarchy when adopting a child, so detach the view
+        // first even when parentViewController is already null.
+        child.view.removeFromSuperview()
         addChildViewController(child)
         view.addSubview(child.view)
         child.didMoveToParentViewController(this)

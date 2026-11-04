@@ -1,9 +1,17 @@
 package io.github.nodyssey.ui.messages
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.text.TextRange
+import androidx.datastore.core.okio.OkioStorage
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.PreferencesSerializer
+import androidx.lifecycle.viewModelScope
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.net.JsonApi
 import io.github.nodyssey.data.DirectMessage
+import io.github.nodyssey.data.MessageDraftStore
+import io.github.nodyssey.data.MessageRecovery
 import io.github.nodyssey.data.MessageRepository
 import io.github.nodyssey.data.MessageThread
 import io.github.nodyssey.data.NotificationRepository
@@ -12,13 +20,17 @@ import io.github.nodyssey.data.UserProfile
 import io.github.nodyssey.data.composer.ImageUploader
 import io.github.nodyssey.data.session.FakeSessionCookieStore
 import io.github.nodyssey.data.session.SessionRepository
+import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.net.SessionCookies
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -26,13 +38,18 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import okio.FileSystem
+import okio.Path.Companion.toOkioPath
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
+import java.nio.file.Files
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -273,9 +290,11 @@ class MessageThreadViewModelTest {
                 assertEquals(2, repository.threadRequests)
                 assertEquals(1, viewModel.uiState.value.messages.size)
                 assertEquals(null, viewModel.uiState.value.error)
+                assertEquals(null, viewModel.uiState.value.syncError)
                 advanceTimeBy(1)
                 runCurrent()
                 assertEquals(3, repository.threadRequests)
+                assertEquals(SiteError.Network, viewModel.uiState.value.syncError)
                 advanceTimeBy(40_000)
                 runCurrent()
                 assertEquals(4, repository.threadRequests)
@@ -285,6 +304,7 @@ class MessageThreadViewModelTest {
                 advanceTimeBy(60_000)
                 runCurrent()
                 assertEquals("恢复连接", viewModel.uiState.value.messages.last().content)
+                assertEquals(null, viewModel.uiState.value.syncError)
                 advanceTimeBy(10_000)
                 runCurrent()
                 assertEquals(6, repository.threadRequests)
@@ -308,7 +328,7 @@ class MessageThreadViewModelTest {
                 session.signOut()
                 advanceTimeBy(40_000)
                 runCurrent()
-                assertEquals(1, viewModel.uiState.value.messages.size)
+                assertEquals(0, viewModel.uiState.value.messages.size)
                 assertEquals(2, repository.threadRequests)
             } finally {
                 viewModel.stopPolling()
@@ -398,6 +418,242 @@ class MessageThreadViewModelTest {
             assertEquals("> 在的\n\n> 那明天见\n\n看到了", repository.lastContent)
         }
 
+    @Test
+    fun `leaving immediately after editing saves the latest text and selection with its quotes`() = runTest(dispatcher) {
+        val drafts = draftStore(backgroundScope)
+        val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+        val first = viewModel(FakeMessageRepository(), drafts = drafts, session = session)
+        advanceUntilIdle()
+        first.uiState.first { !it.isRestoringDraft }
+        assertFalse(first.uiState.value.draftSaveFailed)
+        first.quote(first.uiState.value.messages.single())
+        first.draftState.edit {
+            replace(0, length, "还没写完的内容")
+            selection = TextRange(2, 5)
+        }
+        // Do not let the editor observer run before removal: Back can follow the last keystroke.
+        first.viewModelScope.cancel()
+        first.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!.join()
+        advanceUntilIdle()
+
+        val reopened = viewModel(FakeMessageRepository(), drafts = drafts, session = session)
+        advanceUntilIdle()
+        reopened.uiState.first { !it.isRestoringDraft }
+        assertEquals("还没写完的内容", reopened.draftState.text.toString())
+        assertEquals(TextRange(2, 5), reopened.draftState.selection)
+        assertEquals(listOf("改名的事我问过管理"), reopened.uiState.value.quotes.map { it.content })
+        reopened.viewModelScope.cancel()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a failure survives reopening and acceptance removes only that pending message`() = runTest(dispatcher) {
+        val drafts = draftStore(backgroundScope)
+        val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+        val repository = FakeMessageRepository(sendError = SiteException(SiteError.Network))
+        val first = viewModel(repository, drafts = drafts, session = session)
+        advanceUntilIdle()
+        first.uiState.first { !it.isRestoringDraft }
+        first.draftState.setTextAndPlaceCursorAtEnd("这条不能丢")
+        first.send()
+        first.uiState.first { state -> state.messages.any { it.status == SendStatus.FAILED } }
+        advanceUntilIdle()
+        first.viewModelScope.cancel()
+        first.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!.join()
+        advanceUntilIdle()
+
+        val reopened = viewModel(repository, drafts = drafts, session = session)
+        advanceUntilIdle()
+        reopened.uiState.first { !it.isRestoringDraft }
+        val pending = reopened.uiState.value.messages.single { it.status == SendStatus.FAILED }
+        assertEquals("这条不能丢", pending.content)
+        assertEquals(1, repository.sendCount)
+        repository.sendError = null
+        reopened.retry(pending.id)
+        reopened.uiState.first { state -> state.messages.any { it.id == pending.id && it.status == SendStatus.SENT } }
+        advanceUntilIdle()
+        assertEquals(2, repository.sendCount)
+        runCurrent()
+        assertTrue(drafts.drafts(session.state.value.fingerprint).first().isEmpty())
+        reopened.viewModelScope.cancel()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `an interrupted send is restored as uncertain without automatically sending it again`() = runTest(dispatcher) {
+        val drafts = draftStore(backgroundScope)
+        val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+        val first = viewModel(FakeMessageRepository(sendDelayMillis = 30_000), drafts = drafts, session = session)
+        advanceUntilIdle()
+        first.uiState.first { !it.isRestoringDraft }
+        first.draftState.setTextAndPlaceCursorAtEnd("正在发送的内容")
+        first.send()
+        runCurrent()
+        first.viewModelScope.cancel()
+        first.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!.join()
+        advanceUntilIdle()
+
+        val repository = FakeMessageRepository()
+        val reopened = viewModel(repository, drafts = drafts, session = session)
+        advanceUntilIdle()
+        reopened.uiState.first { !it.isRestoringDraft }
+        val pending = reopened.uiState.value.messages.single { it.status == SendStatus.FAILED }
+        assertEquals("正在发送的内容", pending.content)
+        assertTrue(pending.failure!!.uncertain)
+        assertEquals(0, repository.sendCount)
+        reopened.dismissFailed(pending.id)
+        advanceUntilIdle()
+        runCurrent()
+        assertTrue(drafts.drafts(session.state.value.fingerprint).first().isEmpty())
+        reopened.viewModelScope.cancel()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `authentication and permanent rejections cannot be retried as network failures`() = runTest(dispatcher) {
+        val cases = listOf(
+            SiteException(SiteError.LoginRequired) to MessageRecovery.SIGN_IN,
+            SiteException(SiteError.Cloudflare("https://www.nodeseek.com/notification.html")) to MessageRecovery.VERIFY,
+            SiteException(SiteError.Unknown, detail = "对方已屏蔽你") to MessageRecovery.NONE,
+        )
+        for ((error, recovery) in cases) {
+            val repository = FakeMessageRepository(sendError = error)
+            val viewModel = viewModel(repository)
+            advanceUntilIdle()
+            viewModel.draftState.setTextAndPlaceCursorAtEnd("消息")
+            viewModel.send()
+            advanceUntilIdle()
+            val pending = viewModel.uiState.value.messages.last()
+            assertEquals(recovery, pending.failure!!.recovery)
+            viewModel.retry(pending.id)
+            advanceUntilIdle()
+            assertEquals(1, repository.sendCount)
+            viewModel.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun `a rate limit enforces its wait before retrying`() = runTest(dispatcher) {
+        val repository = FakeMessageRepository(sendError = SiteException(SiteError.Http(429)))
+        val viewModel = viewModel(repository, clock = AppClock { NOW + testScheduler.currentTime })
+        advanceUntilIdle()
+        viewModel.draftState.setTextAndPlaceCursorAtEnd("别连续重发")
+        viewModel.send()
+        runCurrent()
+        val pending = viewModel.uiState.value.messages.last()
+        assertEquals(MessageRecovery.WAIT, pending.failure!!.recovery)
+        viewModel.retry(pending.id)
+        runCurrent()
+        assertEquals(1, repository.sendCount)
+        advanceTimeBy(60_000)
+        runCurrent()
+        repository.sendError = null
+        viewModel.retry(pending.id)
+        advanceUntilIdle()
+        assertEquals(2, repository.sendCount)
+        assertEquals(SendStatus.SENT, viewModel.uiState.value.messages.last().status)
+        viewModel.viewModelScope.cancel()
+    }
+
+    @Test
+    fun `a challenge exposes recovery on the first failed poll even with readable history`() = runTest(dispatcher) {
+        val repository = FakeMessageRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        val challenge = SiteError.Cloudflare("https://www.nodeseek.com/api/notification/message/with/4471")
+        repository.threadError = SiteException(challenge)
+        viewModel.startPolling()
+        runCurrent()
+        assertEquals(challenge, viewModel.uiState.value.syncError)
+        assertEquals(1, viewModel.uiState.value.messages.size)
+        repository.threadError = null
+        viewModel.refresh()
+        runCurrent()
+        assertEquals(null, viewModel.uiState.value.syncError)
+        viewModel.viewModelScope.cancel()
+    }
+
+    @Test
+    fun `text and quotes autosave while the conversation stays open`() = runTest(dispatcher) {
+        val drafts = draftStore(backgroundScope)
+        val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+        val viewModel = viewModel(FakeMessageRepository(), drafts = drafts, session = session)
+        viewModel.uiState.first { !it.isRestoringDraft && it.messages.isNotEmpty() }
+        viewModel.draftState.setTextAndPlaceCursorAtEnd("无需先退出页面")
+        viewModel.quote(viewModel.uiState.value.messages.single())
+        Snapshot.sendApplyNotifications()
+        advanceUntilIdle()
+        runCurrent()
+
+        val saved = drafts.open(session.state.value.fingerprint, 4471).initial
+        assertEquals("无需先退出页面", saved.text)
+        assertEquals(listOf("改名的事我问过管理"), saved.quotes.map { it.content })
+        viewModel.viewModelScope.cancel()
+        viewModel.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!.join()
+    }
+
+    @Test
+    fun `renewing the same account resumes its failed send and the next draft`() = runTest(dispatcher) {
+        val drafts = draftStore(backgroundScope)
+        val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+        val repository = FakeMessageRepository(sendError = SiteException(SiteError.LoginRequired))
+        val viewModel = viewModel(repository, drafts = drafts, session = session, profiles = accountProfiles { 100L })
+        viewModel.uiState.first { !it.isRestoringDraft }
+        viewModel.draftState.setTextAndPlaceCursorAtEnd("登录失效时发出的内容")
+        viewModel.send()
+        val failed = viewModel.uiState.first { state -> state.messages.any { it.status == SendStatus.FAILED } }.messages.last()
+        viewModel.draftState.setTextAndPlaceCursorAtEnd("还有下一条草稿")
+
+        cookies.setCookie(NodeSeekSite.BASE_URL, "session=renewed")
+        session.sync()
+        runCurrent()
+        val resumed = viewModel.uiState.first { state ->
+            !state.isRestoringDraft && state.messages.any { it.id == failed.id && it.failure?.recovery == MessageRecovery.RETRY }
+        }
+        assertEquals("还有下一条草稿", viewModel.draftState.text.toString())
+        assertEquals("登录失效时发出的内容", resumed.messages.last().content)
+        assertEquals(1, repository.sendCount)
+        repository.sendError = null
+        viewModel.retry(failed.id)
+        viewModel.uiState.first { state -> state.messages.any { it.id == failed.id && it.status == SendStatus.SENT } }
+        viewModel.viewModelScope.cancel()
+        viewModel.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!.join()
+        val saved = drafts.open(session.state.value.fingerprint, 4471, accountUid = 100).initial
+        assertEquals("还有下一条草稿", saved.text)
+        assertTrue(saved.pending.isEmpty())
+    }
+
+    @Test
+    fun `switching to a different verified account never restores the previous private draft`() = runTest(dispatcher) {
+        val drafts = draftStore(backgroundScope)
+        val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies))
+        var accountUid = 100L
+        val viewModel = viewModel(FakeMessageRepository(), drafts = drafts, session = session, profiles = accountProfiles { accountUid })
+        viewModel.uiState.first { !it.isRestoringDraft }
+        viewModel.draftState.setTextAndPlaceCursorAtEnd("上一个账号的私信草稿")
+        accountUid = 200L
+        cookies.setCookie(NodeSeekSite.BASE_URL, "session=other-account")
+        session.sync()
+        runCurrent()
+        viewModel.uiState.first { !it.isRestoringDraft }
+        assertEquals("", viewModel.draftState.text.toString())
+        assertTrue(viewModel.uiState.value.quotes.isEmpty())
+        assertTrue(drafts.drafts(session.state.value.fingerprint).first().isEmpty())
+        viewModel.viewModelScope.cancel()
+        viewModel.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!.join()
+    }
+
+    private fun accountProfiles(uid: () -> Long) = object : ProfileRepository {
+        override fun observeProfile(sessionFingerprint: Int) = flowOf(UserProfile(uid(), "self", ""))
+        override suspend fun profile(refresh: Boolean) = UserProfile(uid(), "self", "")
+        override suspend fun profile(uid: Long) = UserProfile(uid, "peer", "", rank = 4)
+    }
+
+    private fun draftStore(scope: kotlinx.coroutines.CoroutineScope): MessageDraftStore {
+        val directory = Files.createTempDirectory("message-viewmodel").toFile().apply { deleteOnExit() }
+        return SettingsRepository(PreferenceDataStoreFactory.create(storage = OkioStorage(FileSystem.SYSTEM, PreferencesSerializer) { File(directory, "settings.preferences_pb").toOkioPath() }, scope = scope)).messageDrafts
+    }
+
     private fun bubble(
         content: String,
         id: String = "b",
@@ -417,6 +673,7 @@ class MessageThreadViewModelTest {
         profiles: ProfileRepository? = null,
         clock: AppClock = AppClock { NOW },
         session: SessionRepository = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies)),
+        drafts: MessageDraftStore? = null,
     ) = MessageThreadViewModel(
         repository = repository,
         notifications = notifications,
@@ -426,6 +683,7 @@ class MessageThreadViewModelTest {
         uid = 4471,
         userName = "iwil",
         profiles = profiles,
+        drafts = drafts,
     )
 
     private companion object {
