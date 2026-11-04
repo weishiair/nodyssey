@@ -36,13 +36,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -2390,7 +2390,7 @@ private fun OriginalCommentFoot(
         ) {
             listOf(ReactionAction.Upvote, ReactionAction.ChickenLeg).forEach { action ->
                 FloorActionButton(
-                    icon = action.icon(),
+                    icon = action.icon(filled = reactions?.hasSpent(action) == true),
                     label = action.labelRes(),
                     count = reactions?.countOf(action)?.takeIf { it > 0 }?.toString().orEmpty(),
                     spent = reactions?.hasSpent(action) == true,
@@ -2548,7 +2548,7 @@ private fun OpeningPostActions(
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         listOf(ReactionAction.Upvote, ReactionAction.ChickenLeg).forEach { action ->
-            ReactionPill(action, reactions, pending, onReact, showZeroCount = true)
+            ReactionButton(action, reactions, pending, onReact, showZeroCount = true)
         }
         if (collected != null) {
             FloorActionButton(
@@ -2565,9 +2565,8 @@ private fun OpeningPostActions(
 }
 
 /**
- * The official opening post's action row: 点赞 and 投喂 as tonal pills with their tallies, then the
- * bookmark and ⋯ against the far edge. The 1.3.4 row draws the same actions as quiet buttons; the
- * pills are what the pre-fork build put under the opening post, so 原版 keeps them.
+ * The official opening post's compact action row: 点赞 and 投喂 with their tallies, then the
+ * bookmark and ⋯ against the far edge. All reading layouts use quiet, transparent actions.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -2597,7 +2596,7 @@ private fun OriginalOpeningActions(
                     } else {
                         count.orEmpty()
                     }
-                OriginalReactionPill(
+                OriginalReactionButton(
                     action = action,
                     text = text,
                     spent = reactions?.hasSpent(action) == true,
@@ -2627,9 +2626,9 @@ private fun OriginalOpeningActions(
     }
 }
 
-/** One tonal pill of the official opening row, at the 32dp the pre-fork build drew. */
+/** One transparent action of the official opening row, retaining its compact height. */
 @Composable
-private fun OriginalReactionPill(
+private fun OriginalReactionButton(
     action: ReactionAction,
     text: String,
     spent: Boolean,
@@ -2637,26 +2636,15 @@ private fun OriginalReactionPill(
     onClick: (() -> Unit)?,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val layers = LocalPlazaLayers.current
-    val (container, content) =
-        when (action) {
-            ReactionAction.Upvote ->
-                if (spent) scheme.primary to scheme.onPrimary else scheme.primaryContainer to scheme.onPrimaryContainer
-
-            else ->
-                if (spent) scheme.tertiaryContainer to scheme.onTertiaryContainer else layers.inset to scheme.onSurface
-        }
-    FilledTonalButton(
+    val content = if (spent) scheme.primary else scheme.onSurfaceVariant
+    TextButton(
         onClick = onClick ?: {},
         enabled = onClick != null && !spent && !pending,
         colors =
-        ButtonDefaults.filledTonalButtonColors(
-            containerColor = container,
+        ButtonDefaults.textButtonColors(
             contentColor = content,
-            disabledContainerColor = if (spent) container else container.copy(alpha = 0.45f),
             disabledContentColor = if (spent) content else content.copy(alpha = 0.45f),
         ),
-        border = layers.cardBorderStroke,
         shape = MaterialTheme.shapes.medium,
         contentPadding = PaddingValues(horizontal = 10.dp),
         modifier = Modifier.height(32.dp),
@@ -2664,7 +2652,7 @@ private fun OriginalReactionPill(
         if (pending) {
             PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = 16.dp)
         } else {
-            Icon(action.icon(), contentDescription = stringResource(action.labelRes()), modifier = Modifier.size(16.dp))
+            Icon(action.icon(filled = spent), contentDescription = stringResource(action.labelRes()), modifier = Modifier.size(16.dp))
         }
         if (text.isNotEmpty()) {
             Text(
@@ -2679,7 +2667,7 @@ private fun OriginalReactionPill(
 
 /** A spent reaction stays accented and inert; the existing confirmation gate still owns spending. */
 @Composable
-private fun ReactionPill(
+private fun ReactionButton(
     action: ReactionAction,
     reactions: PostReactions?,
     pending: ReactionAction?,
@@ -2687,7 +2675,7 @@ private fun ReactionPill(
     showZeroCount: Boolean = false,
 ) {
     FloorActionButton(
-        icon = action.icon(),
+        icon = action.icon(filled = reactions?.hasSpent(action) == true),
         label = action.labelRes(),
         count = reactions?.countOf(action)?.takeIf { showZeroCount || it > 0 }?.toString().orEmpty(),
         spent = reactions?.hasSpent(action) == true,
@@ -2714,8 +2702,8 @@ private fun CommentFoot(
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        ReactionPill(ReactionAction.Upvote, reactions, pending, onReact)
-        ReactionPill(ReactionAction.ChickenLeg, reactions, pending, onReact)
+        ReactionButton(ReactionAction.Upvote, reactions, pending, onReact)
+        ReactionButton(ReactionAction.ChickenLeg, reactions, pending, onReact)
         Spacer(Modifier.weight(1f))
         when {
             onEdit != null -> FloorActionButton(Icons.Default.Edit, Res.string.post_edit_action, onClick = onEdit)
@@ -2731,7 +2719,7 @@ private fun FloorMoreButton(onClick: () -> Unit, compact: Boolean = false) {
     FloorActionButton(PlazaIcons.MoreHoriz, Res.string.post_floor_actions, onClick = onClick, compact = compact)
 }
 
-/** Material buttons keep their minimum touch targets while drawing a compact rounded pill. */
+/** Transparent Material buttons retain touch targets and accent completed or selected actions. */
 @Composable
 private fun FloorActionButton(
     icon: ImageVector,
@@ -2746,17 +2734,14 @@ private fun FloorActionButton(
 ) {
     val scheme = MaterialTheme.colorScheme
     val accented = spent || selected
-    val container = if (accented) scheme.primaryContainer else Color.Transparent
-    val content = if (accented) scheme.onPrimaryContainer else scheme.onSurfaceVariant
+    val content = if (accented) scheme.primary else scheme.onSurfaceVariant
     val description = stringResource(label)
-    FilledTonalButton(
+    TextButton(
         onClick = onClick ?: {},
         enabled = onClick != null && !spent && !pending,
         shape = CircleShape,
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = container,
+        colors = ButtonDefaults.textButtonColors(
             contentColor = content,
-            disabledContainerColor = container,
             disabledContentColor = if (accented || pending) content else content.copy(alpha = 0.45f),
         ),
         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
@@ -2805,10 +2790,10 @@ private fun FloorActionButton(
 private fun footLabelStyle(): TextStyle =
     MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, fontFeatureSettings = TABULAR_FIGURES)
 
-/** Each mark's glyph, wherever it is drawn — the row, the pill, the 1c tile. */
-private fun ReactionAction.icon(): ImageVector =
+/** Reading rows outline an unspent upvote; action-sheet tiles keep their filled glyphs. */
+private fun ReactionAction.icon(filled: Boolean = true): ImageVector =
     when (this) {
-        ReactionAction.Upvote -> Icons.Default.ThumbUp
+        ReactionAction.Upvote -> if (filled) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp
         ReactionAction.ChickenLeg -> NodeSeekIcons.ChickenLeg
         ReactionAction.Dislike -> PlazaIcons.ThumbDown
     }
