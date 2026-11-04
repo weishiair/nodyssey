@@ -191,6 +191,16 @@ jobs:
       - name: Run common tests on Kotlin Native
         if: runner.arch == 'ARM64'
         run: ./gradlew :shared:macosArm64Test --max-workers=2
+      - name: Resolve the cached Swift simulator library path on this disposable runner
+        shell: bash
+        run: |
+          expected=/Applications/Xcode_26.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator
+          actual="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator"
+          test -f "$actual/libswiftCompatibility51.a"
+          if [[ ! -e "$expected" ]]; then
+            sudo mkdir -p "$(dirname "$expected")"
+            sudo ln -s "$actual" "$expected"
+          fi
       - name: Test iOS split navigation on the simulator
         if: runner.arch == 'ARM64'
         run: ./gradlew :ui:iosSimulatorArm64Test --max-workers=2
