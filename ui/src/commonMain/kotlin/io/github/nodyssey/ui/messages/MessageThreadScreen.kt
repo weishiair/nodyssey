@@ -863,7 +863,7 @@ private fun DayDivider(label: String) {
 }
 
 /**
- * The clock sits inside its bubble; only a failed send needs a separate retry target underneath.
+ * The clock and delivery state sit below the bubble, aligned with its side of the conversation.
  *
  * The other side's bubbles are cards with a small native elevation, and mine are
  * `primaryContainer`: 3d tells the two apart by colour first and by side second, which is what makes
@@ -896,20 +896,23 @@ private fun MessageBubbleRow(
             modifier =
             Modifier
                 .fillMaxWidth(BUBBLE_MAX_WIDTH)
-                .wrapContentWidthTo(message.isMine)
-                .combinedClickable(
-                    // Nothing on a plain tap: the bubble is not a destination, and the whole point of
-                    // the gesture is that it is the *long* press. It goes through `combinedClickable`
-                    // rather than a raw `pointerInput` for what that brings with it — the ripple that
-                    // says the press registered, and a long-click action TalkBack can announce and
-                    // perform, which a hand-rolled detector gives a screen reader no way to reach.
-                    onClick = {},
-                    onLongClick = { menuOpen = true },
-                    onLongClickLabel = stringResource(Res.string.message_bubble_actions),
-                ),
+                .wrapContentWidthTo(message.isMine),
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                modifier =
+                Modifier
+                    // Keep the indication inside Surface's shape clipping, including its corners.
+                    .combinedClickable(
+                        // Nothing on a plain tap: the bubble is not a destination, and the whole point of
+                        // the gesture is that it is the *long* press. It goes through `combinedClickable`
+                        // rather than a raw `pointerInput` for what that brings with it — the ripple that
+                        // says the press registered, and a long-click action TalkBack can announce and
+                        // perform, which a hand-rolled detector gives a screen reader no way to reach.
+                        onClick = {},
+                        onLongClick = { menuOpen = true },
+                        onLongClickLabel = stringResource(Res.string.message_bubble_actions),
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalAlignment = if (message.isMine) Alignment.End else Alignment.Start,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -943,9 +946,6 @@ private fun MessageBubbleRow(
                 } else {
                     Text(message.content, style = textStyle, modifier = contentModifier)
                 }
-                if (message.status != SendStatus.FAILED) {
-                    MessageStatusLine(message = message, showDeliveryStatus = showDeliveryStatus, onRetrySend = onRetrySend, nowMillis = nowMillis)
-                }
                 BubbleMenu(
                     expanded = menuOpen,
                     onDismiss = { menuOpen = false },
@@ -955,9 +955,7 @@ private fun MessageBubbleRow(
                 )
             }
         }
-        if (message.status == SendStatus.FAILED) {
-            MessageStatusLine(message = message, showDeliveryStatus = false, onRetrySend = onRetrySend, nowMillis = nowMillis)
-        }
+        MessageStatusLine(message = message, showDeliveryStatus = showDeliveryStatus, onRetrySend = onRetrySend, nowMillis = nowMillis)
     }
 }
 
@@ -1036,7 +1034,7 @@ private fun BubbleMenuItem(
 }
 
 /**
- * The bubble's clock and delivery state; failures stay outside as a full retry target.
+ * The clock and delivery state below the bubble; failures make the full line a retry target.
  *
  * `21:34 · 已发送`, `10:52 · 发送中` with a clock face, or the failure in the error colour with recovery
  * after it. The other side's bubbles only ever carry the time.
@@ -1072,7 +1070,7 @@ private fun MessageStatusLine(
                 .then(if (retryLabel != null) Modifier.clickable(enabled = !waiting, onClickLabel = retryLabel, role = Role.Button, onClick = onRetrySend) else Modifier)
                 .padding(horizontal = 6.dp)
         } else {
-            Modifier
+            Modifier.padding(horizontal = 6.dp)
         },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
