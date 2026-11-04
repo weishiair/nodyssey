@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="lottery_title">Draw assistant</string>
+    <string name="lottery_unread_results">Unread draw results</string>
+    <string name="lottery_mark_all_read">Mark all read</string>
+    <string name="lottery_mark_read">Mark as read</string>
+    <string name="lottery_filter_all">All</string>
+    <string name="lottery_filter_won">Won</string>
+    <string name="lottery_filter_not_entered">Not entered</string>
+    <string name="lottery_filter_empty">No matching results</string>
+    <string name="lottery_filter_empty_hint">Try another filter or select All to see every checked result.</string>
     <string name="lottery_create">Create draw</string>
     <string name="lottery_card">Draw reminder</string>
     <string name="lottery_time">Draw time: %1$s</string>
