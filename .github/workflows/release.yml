@@ -1,7 +1,7 @@
 name: Release
 
 # Pushing a `v*` tag is the whole trigger: it builds that tag, signs it, and publishes the release.
-# Nothing here reads the working tree of `main`, so a tag can be cut from any commit that deserves one.
+# Android always builds the tag. A manual iOS repair can select a source ref without moving that tag.
 #
 # `v*` belongs to Nodyssey alone, and the shape check in the first step below is what enforces it.
 # That guard was written when a second app shared this repository and needed a tag namespace of its
@@ -22,6 +22,10 @@ on:
       tag:
         description: 'Existing tag to release, e.g. v1.3.5 or v1.3.5-test.1'
         required: true
+      ios_ref:
+        description: 'Optional iOS repair source ref; must retain the release version and build number'
+        type: string
+        default: ''
       ios_runner:
         description: iOS build host (ARM runs Native tests; Intel runs shared JVM tests)
         type: choice
@@ -45,12 +49,13 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # Read by the `ios` job below, which builds the same tag and needs the same three answers. It
+    # Read by the `ios` job below, which builds the same release and needs the same version metadata. It
     # resolves them from `steps.version` here rather than repeating the parsing, so a change to what
     # counts as a release tag is made in one place.
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.declared.outputs.version_code }}
       is_dev: ${{ steps.version.outputs.is_dev }}
     env:
       # Where the app reads its update manifests from; `NodysseyRelease.UPDATES_BASE_URL` is the
@@ -91,6 +96,7 @@ jobs:
       # Read from `gradle.properties` rather than from a module's build file: one key, one app, and no
       # guessing about which module a future glob would have matched.
       - name: Check versionName matches the tag
+        id: declared
         run: |
           declared=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
           if [ -z "$declared" ]; then
@@ -102,6 +108,12 @@ jobs:
             exit 1
           fi
           echo "versionName $declared matches the tag."
+          code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
+          if ! printf '%s' "$code" | grep -qE '^[1-9][0-9]*$'; then
+            echo "::error::The release must declare a positive versionCode." >&2
+            exit 1
+          fi
+          echo "version_code=$code" >> "$GITHUB_OUTPUT"
 
       # Written before anything is built, so a missing changelog section fails in seconds rather than
       # after a full release build. An empty section is treated as missing on purpose: publishing a
@@ -410,7 +422,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          ref: ${{ inputs.ios_ref || needs.release.outputs.tag }}
+
+      # A repair ref supplies iOS-only fixes while the published Android tag remains immutable.
+      - name: Verify the iOS source matches the release version
+        env:
+          EXPECTED_VERSION: ${{ needs.release.outputs.version }}
+          EXPECTED_CODE: ${{ needs.release.outputs.version_code }}
+        run: |
+          version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
+          code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
+          if [ "$version" != "$EXPECTED_VERSION" ] || [ "$code" != "$EXPECTED_CODE" ]; then
+            echo "::error::The iOS source version and build number must match the release tag." >&2
+            exit 1
+          fi
+          echo "Building iOS from $(git rev-parse HEAD) ($version / $code)."
 
       - name: Verify the Xcode and iOS SDK for Liquid Glass
         shell: bash
@@ -629,6 +655,7 @@ jobs:
             echo "此版本同步提供 iOS \`.ipa\`，**没有签名**，需要自行签名后安装。"
             echo "支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。"
             echo "iOS 测试版已完成使用验收；不同平台的部分功能仍有差异。"
+            echo "iOS 源码提交：\`$(git rev-parse HEAD)\`。"
             if [ "${{ runner.arch }}" = "X64" ]; then
               echo "本次使用 Intel Mac 交叉编译，公共 JVM 与网络测试通过；ARM Mac 原生运行测试未执行。"
             fi
