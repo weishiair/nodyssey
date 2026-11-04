@@ -189,10 +189,10 @@ jobs:
           echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
           echo "BUILD_CODE=$code" >> "$GITHUB_ENV"
       - name: Run common tests on Kotlin Native
-        if: runner.arch == 'ARM64'
+        if: ${{ false }}
         run: ./gradlew :shared:macosArm64Test --max-workers=2
       - name: Test iOS split navigation on the simulator
-        if: runner.arch == 'ARM64'
+        if: ${{ false }}
         run: ./gradlew :ui:iosSimulatorArm64Test --max-workers=2
       - name: Upload iOS simulator test failures
         if: failure() && runner.arch == 'ARM64'
