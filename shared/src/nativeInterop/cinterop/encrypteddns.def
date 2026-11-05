@@ -5,7 +5,7 @@
 # through `Kotlin_Interop_refFromObjC`, which finds a block-backed object it has no signature for and
 # throws `NSGenericException: Converting Obj-C blocks with non-reference-typed return value to
 # kotlin.Any is not supported (v)` — on a background dispatch queue, so the process aborts. That is
-# not a DoH-only path: the setting starts off, and the very first emission still reads the global.
+# not a DoH-only path: a saved setting can be off, and its first emission still reads the global.
 #
 # So no `nw_*` object crosses the Kotlin boundary at all. Kotlin passes strings; everything the
 # framework hands back is created, used and released inside `plaza_apply_encrypted_dns`.

@@ -1,5 +1,6 @@
 package io.github.nodyssey.data.dns
 
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.nodyssey.data.PreferenceStoreScope
 import kotlinx.coroutines.flow.first
@@ -7,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -37,8 +39,26 @@ class DohSettingsTest {
         val config = settings.config.first()
 
         assertEquals(DohConfig(), config)
+        assertTrue(config.resolvesOverHttps())
+        assertEquals(listOf("https://resolver.weishiair.de/dns-query"), config.chain.map { it.url })
         // Absent is not false: the default asks for both record types, the way a system resolver does.
         assertEquals(true, config.includeIPv6)
+    }
+
+    @Test
+    fun `an explicitly disabled stored resolver stays off with its selection intact`() = runTest {
+        writeRaw("provider" to "GOOGLE")
+        store.dataStore.updateData { preferences ->
+            preferences.toMutablePreferences().apply {
+                set(booleanPreferencesKey("enabled"), false)
+            }
+        }
+
+        val config = settings.config.first()
+
+        assertFalse(config.enabled)
+        assertFalse(config.resolvesOverHttps())
+        assertEquals(listOf("GOOGLE"), config.chain.map { it.id })
     }
 
     /** Order, ticks, a preset's overridden addresses and a typed server all come back as they went in. */

@@ -82,7 +82,7 @@ data class DohServer(
 }
 
 /**
- * A fresh install offers this fork's ECH resolver first. Other providers remain available, but an
+ * A fresh install enables this fork's ECH resolver. Other providers remain available, but an
  * ordinary resolver's successful answer without ECH is not equivalent to this service's answer.
  * Existing saved lists gain the new provider unticked, preserving the user's selected resolvers.
  */
@@ -118,7 +118,7 @@ private const val CUSTOM_ID_PREFIX = "custom-"
  * can be reached at all, where the alternative is an app that resolves nothing.
  */
 data class DohConfig(
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     /** Every row the screen lists, in the order it lists them. */
     val servers: List<DohServer> = DefaultDohServers,
     val includeIPv6: Boolean = true,
@@ -272,7 +272,7 @@ class DataStoreDohSettings(
         .catch { throwable -> if (throwable is IOException) emit(emptyPreferences()) else throw throwable }
         .map { preferences ->
             DohConfig(
-                enabled = preferences[DohKeys.ENABLED] == true,
+                enabled = preferences[DohKeys.ENABLED] != false,
                 servers = preferences[DohKeys.SERVERS]?.let(::decodeServers) ?: legacyServers(preferences),
                 includeIPv6 = preferences[DohKeys.INCLUDE_IPV6] != false,
                 fallbackToSystem = preferences[DohKeys.FALLBACK_TO_SYSTEM] == true,

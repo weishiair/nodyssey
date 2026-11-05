@@ -72,7 +72,7 @@ class AppDnsTest {
 
     @Test
     fun `with 加密 DNS off every name goes to the platform`() = runTest {
-        val dns = appDns(MutableStateFlow(DohConfig()))
+        val dns = appDns(MutableStateFlow(DohConfig(enabled = false)))
 
         assertEquals(SYSTEM_ANSWER, dns.lookup("www.nodeseek.com"))
         assertEquals(listOf("www.nodeseek.com"), system.asked)
@@ -258,7 +258,7 @@ class AppDnsTest {
      */
     @Test
     fun `a change of resolver empties the connection pool and a cosmetic one does not`() = runTest {
-        val configs = MutableStateFlow(DohConfig())
+        val configs = MutableStateFlow(DohConfig(enabled = false))
         appDns(configs)
         val afterFirstValue = evictions
 

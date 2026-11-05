@@ -2,6 +2,7 @@ package io.github.nodyssey
 
 import android.os.LocaleList
 import android.os.Looper
+import okhttp3.OkHttp
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.TestLifecycleApplication
 import java.lang.reflect.Method
@@ -34,6 +35,12 @@ import java.util.Locale
 class RobolectricApp :
     NodysseyApp(),
     TestLifecycleApplication {
+    override fun onCreate() {
+        // Robolectric does not run OkHttp's Startup initializer before the app's launch requests.
+        OkHttp.initialize(this)
+        super.onCreate()
+    }
+
     /**
      * Pins the locale every test's resources are read under.
      *
