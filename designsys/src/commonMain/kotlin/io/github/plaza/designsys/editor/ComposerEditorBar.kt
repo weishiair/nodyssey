@@ -3,19 +3,23 @@ package io.github.plaza.designsys.editor
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,8 +27,12 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.fadingEndEdge
 import io.github.plaza.designsys.resources.Res
+import io.github.plaza.designsys.resources.composer_format_link
+import io.github.plaza.designsys.resources.composer_link_menu_image
+import io.github.plaza.designsys.resources.composer_link_menu_more
 import io.github.plaza.designsys.resources.composer_toolbar_customize
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import org.jetbrains.compose.resources.stringResource
@@ -74,6 +82,30 @@ fun ComposerEditorBar(
         editorState.dispatch(action, bodyState, onPickImages, onPickHostedImages, onFormatted) { keyboard?.hide() }
     }
 
+    /** What a template does: rewrite the text, then hand focus back the way a formatting key would. */
+    fun insertTemplate(insertion: TextFieldBuffer.() -> Unit) {
+        editorState.closePanels()
+        bodyState.edit { insertion() }
+        onFormatted()
+    }
+
+    // The link key's long press: the site editor's two templates, the plain link and the image one.
+    // They live on the link key rather than on 图片 because that key is the upload flow — a photo
+    // picker is the wrong answer to a reader who already has an address — and because a template is
+    // text, so it belongs with the other text keys (asked for 2026-11-04).
+    val linkMenu: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit = { dismiss ->
+        LinkTemplateMenu(
+            onLink = {
+                dismiss()
+                insertTemplate { applyLinkTemplate() }
+            },
+            onImage = {
+                dismiss()
+                insertTemplate { applyImageLinkTemplate() }
+            },
+        )
+    }
+
     Column(modifier) {
         Strip(
             actions = actions,
@@ -81,6 +113,7 @@ fun ComposerEditorBar(
             onAction = onAction,
             appMenu = appMenu,
             onCustomize = onCustomize,
+            linkMenu = linkMenu,
             modifier = barModifier,
         )
         if (editorState.emojiOpen) emojiPanel(editorState.emojiPanelScope(bodyState, inlinePictures))
@@ -94,6 +127,7 @@ private fun Strip(
     onAction: (EditorAction) -> Unit,
     appMenu: (@Composable () -> Unit)?,
     onCustomize: (() -> Unit)?,
+    linkMenu: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val layers = LocalPlazaLayers.current
@@ -127,6 +161,12 @@ private fun Strip(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                     checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    longPressMenu = if (action == EditorAction.LINK) linkMenu else null,
+                    longPressLabel = if (action == EditorAction.LINK) {
+                        stringResource(Res.string.composer_link_menu_more)
+                    } else {
+                        null
+                    },
                 )
             }
             appMenu?.invoke()
@@ -142,6 +182,29 @@ private fun Strip(
             }
         }
     }
+}
+
+/**
+ * The link key's two templates.
+ *
+ * A menu rather than a second key because both are the same verb — 插入链接 — and the strip already
+ * scrolls; the tap keeps the common one, so only the image form needs the extra gesture.
+ */
+@Composable
+private fun LinkTemplateMenu(
+    onLink: () -> Unit,
+    onImage: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = { Text(stringResource(Res.string.composer_format_link)) },
+        leadingIcon = { Icon(PlazaIcons.Link, contentDescription = null) },
+        onClick = onLink,
+    )
+    DropdownMenuItem(
+        text = { Text(stringResource(Res.string.composer_link_menu_image)) },
+        leadingIcon = { Icon(PlazaIcons.Image, contentDescription = null) },
+        onClick = onImage,
+    )
 }
 
 private val BarMargin = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp)

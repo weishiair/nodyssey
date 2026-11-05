@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accounts_title">Switch account</string>
+    <string name="accounts_add">Add account</string>
+    <string name="accounts_cancel_add">Cancel and return to previous account</string>
+    <string name="accounts_current">Current account</string>
+    <string name="accounts_empty">No saved accounts yet</string>
+    <string name="accounts_expired">Sign in again</string>
+    <string name="accounts_hint">Save multiple accounts and tap to switch. Only one account is active at a time; forum message notifications follow the active account.</string>
+    <string name="accounts_uid">UID %1$d</string>
+    <string name="accounts_switch">Switch</string>
+    <string name="accounts_remove">Remove account</string>
+    <string name="accounts_remove_body">Remove the saved session and drafts for %1$s from this device? Signing in will be required to use it again.</string>
+    <string name="accounts_offline_warning">Switching clears offline downloads for the current account. Drafts and reading history are kept for when you switch back.</string>
+    <string name="accounts_failure_expired">That session could not be verified. Please sign in again.</string>
+    <string name="accounts_failure_verify">The site requires verification. Your previous account was restored. Try again later or sign in again.</string>
+    <string name="accounts_failure_network">Connection failed. Your previous account is kept. Check your network and try again.</string>
+    <string name="accounts_failure_storage">Saved accounts could not be read or written. Please try again.</string>
+    <string name="accounts_failure_unknown">The account operation did not finish. Please try again.</string>
+    <string name="accounts_failure_webview">Update Android System WebView to save complete account sessions on this device.</string>
+    <string name="accounts_remove_offline_warning">Offline downloads for the current account will also be cleared.</string>
+    <string name="accounts_add_hint">Sign in to another account to save it on this device. Cancel to return to your original account.</string>
+</resources>

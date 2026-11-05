@@ -55,6 +55,7 @@ data class LotteryEntry(
     val resultNotified: Boolean = false,
     val failureSource: LotteryFailureSource? = null,
     val failureHttpStatus: Int? = null,
+    val resultRead: Boolean = false,
 ) {
     val key: String get() = draw.key
     val postUrl: String get() = origin + "/post-${draw.postId}-1"
@@ -82,6 +83,24 @@ class LotteryStore(dataStore: DataStore<Preferences>, site: Site) {
 
     suspend fun remove(id: String) {
         dataStore.edit { it[key] = json.encodeToString(decode(it[key]).filterNot { row -> row.key == id }) }
+    }
+
+    suspend fun markResultsRead(entries: List<LotteryEntry>) {
+        val viewed = entries.filter { it.outcome != null && !it.resultRead }.associateBy { it.key }
+        if (viewed.isEmpty()) return
+        dataStore.edit { values ->
+            val old = decode(values[key])
+            val updated = old.map { row ->
+                val seen = viewed[row.key]
+                // Only acknowledge the result the screen actually received, including its owner.
+                if (seen != null && row.ownerUid == seen.ownerUid && row.outcome == seen.outcome && row.checkedAtMillis == seen.checkedAtMillis) {
+                    row.copy(resultRead = true)
+                } else {
+                    row
+                }
+            }
+            if (updated != old) values[key] = json.encodeToString(updated)
+        }
     }
 
     internal suspend fun update(id: String, ownerUid: Long, transform: (LotteryEntry) -> LotteryEntry): LotteryEntry? {
@@ -116,6 +135,7 @@ interface LotteryRepository {
     val entries: Flow<List<LotteryEntry>>
     suspend fun watch(draw: LuckyDrawParams, title: String)
     suspend fun remove(key: String)
+    suspend fun markResultsRead(entries: List<LotteryEntry>)
     suspend fun refreshDue(key: String? = null, force: Boolean = false)
     suspend fun synchronize()
 }
@@ -150,6 +170,8 @@ class NetworkLotteryRepository(
         store.remove(key)
         synchronize()
     }
+
+    override suspend fun markResultsRead(entries: List<LotteryEntry>) = store.markResultsRead(entries)
 
     override suspend fun synchronize() = schedulingMutex.withLock { platform.sync(store.all()) }
 

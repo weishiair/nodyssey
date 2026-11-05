@@ -16,7 +16,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
@@ -141,8 +140,7 @@ object NodysseyApp {
         container = graph
         scope.launch { runCatchingExceptCancellation { graph.lotteryRepository?.synchronize() } }
         scope.launch {
-            graph.settingsRepository.automaticAttendance.config
-                .map { it.enabled }
+            graph.automaticAttendance.enabled
                 .distinctUntilChanged()
                 .collect { attendanceScheduler.sync(it) }
         }

@@ -9,9 +9,9 @@ import io.github.nodyssey.data.AppCacheStore
 import io.github.nodyssey.data.AttendanceMode
 import io.github.nodyssey.data.PostRepository
 import io.github.nodyssey.data.TitleKeywordStore
-import io.github.nodyssey.data.attendance.AutoAttendance
 import io.github.nodyssey.data.attendance.AutoAttendanceConfig
 import io.github.nodyssey.data.attendance.AutoAttendanceState
+import io.github.nodyssey.data.attendance.AutomaticAttendance
 import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.dns.DohSupport
 import io.github.nodyssey.data.dns.resolvesOverHttps
@@ -54,9 +54,9 @@ class SettingsViewModel(
     doh: DohSupport?,
     /** See [SettingsUiState.hasNetworkCheck] — a fact about the platform, fixed for the process. */
     private val hasNetworkCheck: Boolean,
-    automaticAttendance: AutoAttendance? = null,
+    private val automaticAttendance: AutomaticAttendance? = null,
 ) : ViewModel() {
-    val attendanceConfig = settings.automaticAttendance.config.stateIn(
+    val attendanceConfig = (automaticAttendance?.config ?: settings.automaticAttendance.config).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         AutoAttendanceConfig(),
@@ -65,11 +65,15 @@ class SettingsViewModel(
         ?: MutableStateFlow(AutoAttendanceState())
 
     fun setAutoAttendanceEnabled(enabled: Boolean) {
-        viewModelScope.launch { settings.automaticAttendance.setEnabled(enabled) }
+        viewModelScope.launch {
+            if (automaticAttendance != null) automaticAttendance.setEnabled(enabled) else settings.automaticAttendance.setEnabled(enabled)
+        }
     }
 
     fun setAutoAttendanceMode(mode: AttendanceMode) {
-        viewModelScope.launch { settings.automaticAttendance.setMode(mode) }
+        viewModelScope.launch {
+            if (automaticAttendance != null) automaticAttendance.setMode(mode) else settings.automaticAttendance.setMode(mode)
+        }
     }
 
     private val clearingCache = MutableStateFlow(false)

@@ -48,4 +48,5 @@ data class ProfileDestinations(
      * from here at all — the grid exists to remove exactly that hop.
      */
     val tools: () -> Unit = {},
+    val accounts: (() -> Unit)? = null,
 )

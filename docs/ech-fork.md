@@ -16,7 +16,7 @@
 
 从 `1.2.22-ech.7` 起，内置预设使用新的 resolver 域名，避开原域名在部分直连网络上的 TLS 重置。已选择此预设的用户升级后自动使用新入口，自定义 DoH 地址保持原设置。
 
-首次启用加密 DNS 时默认选择此服务。覆盖安装会保留已保存的开关、服务器选择和排序，新服务补入列表后不自动改动选择。
+未保存过加密 DNS 开关时，默认启用此服务。服务针对 NodeSeek 网站提供专属解析优化，结合优选 Cloudflare 地址与 ECH 配置改善访问体验。覆盖安装会保留已保存的开关、服务器选择和排序，新服务补入列表后不自动改动选择。
 
 服务基于 [edge-smart-doh](https://github.com/1molchuan/edge-smart-doh)，提供优选 Cloudflare 地址并补充 ECH 配置；还需要客户端支持 ECH，且目标地址在当前网络中可达。登录 WebView 使用独立的网络栈，不使用 App 的 DoH/ECH；Android 的网页登录、人机验证和登录弹窗会使用已保存的 App 内代理。无认证代理直接通过 AndroidX `ProxyController` 配置；带认证的 HTTP/SOCKS5 通过仅监听本机的 CONNECT 适配层转发，目标域名由代理解析，HTTPS 证书校验仍由 WebView 完成。关闭内置代理后恢复系统网络设置，外部浏览器不受影响。
 
@@ -28,9 +28,9 @@
 
 应用只从 `https://weishiair.github.io/nodyssey/` 的静态清单获取更新和更新日志，下载地址仅允许 `weishiair/nodyssey` 的 GitHub Release，下载后验证 SHA-256。
 
-升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。正式版 `1.3.7` 使用 Android versionCode 117，`1.3.8` 系列 Android／iOS 测试构建已使用至 126，正式版 `1.3.8` 使用 127；下一次测试使用 `1.3.9-test.1`（128）。后续测试递增 `test.N` 和 versionCode，正式版使用 `1.3.8` 这样的格式；旧 `-dev.N` 版本继续兼容。
+升级到此功能的首版时，旧上游更新检查缓存会失效，避免继续提醒安装官方版。旧版 `1.2.22-ech.5` 等 ECH 修订版仍按数字比较；`1.3.0` 会正常替换旧正式版及测试版。正式版 `1.3.8` 使用 Android versionCode 127，`1.3.9` 系列 Android／iOS 测试构建已使用至 133，正式版 `1.3.9` 使用 134；下一次测试使用 `1.3.10-test.1`（135）。后续测试递增 `test.N` 和 versionCode，正式版使用 `1.3.9` 这样的格式；旧 `-dev.N` 版本继续兼容。
 
-新版本发布包含签名 APK 的 `v1.3.8` GitHub Release，APK 使用 `nodyssey-v1.3.8.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
+新版本发布包含签名 APK 的 `v1.3.9` GitHub Release，APK 使用 `nodyssey-v1.3.9.apk` 格式。发布工作流兼容新命名和旧 `ech-*` 历史，生成并发布本分支的 `updates` 清单；不读取上游 Release。GitHub Pages 使用 `updates` 分支根目录，需在仓库设置中保持启用。
 
 ## Android 打包约定
 

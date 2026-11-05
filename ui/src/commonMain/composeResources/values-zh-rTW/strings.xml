@@ -1346,7 +1346,7 @@
     <string name="sign_in_refused_generic">使用者名稱或密碼不正確。</string>
     <string name="sign_in_register_hint">還沒有帳號？註冊需要邀請碼</string>
     <string name="sign_in_terms">登入即表示同意《服務條款》與《隱私協議》</string>
-    <string name="sign_in_readonly_hint">按鈕在驗證通過前保持停用；送出後整張表單唯讀，避免重複請求觸發限流。</string>
+    <string name="sign_in_readonly_hint">請填寫帳號和密碼，並完成人機驗證。</string>
     <string name="sign_in_use_web">改用網頁登入</string>
     <string name="sign_in_one_tap">使用 %1$s 帳號登入</string>
     <string name="sign_in_one_tap_hint">在站點頁面上完成授權，回來即為登入狀態。</string>
@@ -1713,7 +1713,7 @@
     <string name="message_thread_profile">使用者資料</string>
     <string name="message_thread_profile_caution">帳號等級和註冊時間僅供參考，交易時仍請謹慎核實身分。</string>
     <string name="auto_attendance_title">自動簽到</string>
-    <string name="auto_attendance_hint">背景嘗試每日簽到，開啟應用程式時補簽。以北京時間計算；系統可能延後背景執行。僅對目前站點生效。</string>
+    <string name="auto_attendance_hint">此開關和簽到方式僅控制目前帳號。可在「切換帳號」中分別開啟其他帳號。背景依序簽到，開啟應用程式時補簽；以北京時間計算，系統可能延後背景執行。</string>
     <string name="auto_attendance_mode">簽到方式</string>
     <string name="auto_attendance_random">隨機雞腿</string>
     <string name="auto_attendance_fixed">固定 5 個雞腿</string>

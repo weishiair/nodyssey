@@ -32,6 +32,7 @@ internal val NavKeySavedStateConfiguration =
                     subclass(SearchKey::class)
                     subclass(NotificationsKey::class)
                     subclass(ProfileKey::class)
+                    subclass(AccountsKey::class)
                     subclass(SettingsKey::class)
                     subclass(ThemeSettingsKey::class)
                     subclass(DynamicColorKey::class)

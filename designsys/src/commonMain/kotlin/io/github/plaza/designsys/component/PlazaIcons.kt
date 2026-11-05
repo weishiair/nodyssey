@@ -169,6 +169,14 @@ object PlazaIcons {
         )
     }
 
+    /** Switch between accounts without implying that the current session is refreshed. */
+    val SwapHoriz: ImageVector by lazy {
+        materialIcon(
+            name = "SwapHoriz",
+            pathData = "M6.99,11L3,15l3.99,4v-3H14v-2H6.99v-3zM21,9l-3.99,-4v3H10v2h7.01v3L21,9z",
+        )
+    }
+
     /** Sort order — the only action in the home app bar. */
     val SwapVert: ImageVector by lazy {
         materialIcon(

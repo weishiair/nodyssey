@@ -24,7 +24,7 @@ import io.github.nodyssey.data.UserNoteStore
 import io.github.nodyssey.data.UserSpaceRepository
 import io.github.nodyssey.data.VoteRepository
 import io.github.nodyssey.data.account.AccountSettingsRepository
-import io.github.nodyssey.data.attendance.AutoAttendance
+import io.github.nodyssey.data.attendance.AutomaticAttendance
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.ImageUploader
 import io.github.nodyssey.data.composer.PostComposerRepository
@@ -35,6 +35,7 @@ import io.github.nodyssey.data.imagehost.ImageHostRepository
 import io.github.nodyssey.data.lottery.LotteryRepository
 import io.github.nodyssey.data.proxy.ProxyConnectionTester
 import io.github.nodyssey.data.proxy.ProxySettings
+import io.github.nodyssey.data.session.AccountRepository
 import io.github.nodyssey.data.session.AccountSignOut
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.session.SignInRepository
@@ -103,6 +104,7 @@ interface AppContainer {
     /** 我的表情 and the GitHub sticker packs — see [StickerLibrary]. The device owner's; kept on sign-out. */
     val stickerLibrary: StickerLibrary
     val sessionRepository: SessionRepository
+    val accountRepository: AccountRepository? get() = null
 
     /**
      * The one sign-out. Both screens that offer it go through this rather than each keeping its own
@@ -132,7 +134,7 @@ interface AppContainer {
      * repository. See [CollectedPostMetaStore] for why the app has to remember any of this.
      */
     val collectedPostMetaStore: CollectedPostMetaStore
-    val automaticAttendance: AutoAttendance? get() = null
+    val automaticAttendance: AutomaticAttendance? get() = null
     val assetsRepository: AssetsRepository
     val creditRepository: CreditRepository
     val stardustRepository: StardustRepository

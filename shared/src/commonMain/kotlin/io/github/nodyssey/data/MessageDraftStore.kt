@@ -68,6 +68,7 @@ class MessageDraftHandle internal constructor(
     internal val revision: Long,
     val initial: MessageDraft,
     val accountUid: Long? = null,
+    internal val sessionRevision: Long = 0,
 )
 
 /** Unsent conversation content only; delivered history continues to come from the site. */
@@ -92,6 +93,7 @@ class MessageDraftStore internal constructor(
             uid,
             preferences[revisionKey] ?: 0L,
             initial,
+            sessionRevision = preferences[sessionRevisionKey(fingerprint)] ?: 0L,
         )
     }
 
@@ -103,7 +105,7 @@ class MessageDraftStore internal constructor(
     private suspend fun openIdentified(fingerprint: Int, uid: Long, accountUid: Long): MessageDraftHandle {
         val preferences = bindAccount(fingerprint, accountUid)
         val initial = decode(preferences[key(fingerprint)])[uid] ?: MessageDraft(accountUid = accountUid)
-        return MessageDraftHandle(fingerprint, uid, preferences[revisionKey] ?: 0L, initial, accountUid)
+        return MessageDraftHandle(fingerprint, uid, preferences[revisionKey] ?: 0L, initial, accountUid, preferences[sessionRevisionKey(fingerprint)] ?: 0L)
     }
 
     private suspend fun bindAccount(fingerprint: Int, accountUid: Long): Preferences =
@@ -132,6 +134,7 @@ class MessageDraftStore internal constructor(
     suspend fun save(handle: MessageDraftHandle, draft: MessageDraft) {
         dataStore.edit { preferences ->
             if ((preferences[revisionKey] ?: 0L) != handle.revision) return@edit
+            if ((preferences[sessionRevisionKey(handle.fingerprint)] ?: 0L) != handle.sessionRevision) return@edit
             // An older page can finish cleanup after renewed cookies have already resumed this
             // account. It must not resurrect an outbox the resumed page has since sent or removed.
             val key = key(handle.fingerprint)
@@ -151,9 +154,39 @@ class MessageDraftStore internal constructor(
         }
     }
 
+    suspend fun invalidateHandles() {
+        dataStore.edit { it[revisionKey] = (it[revisionKey] ?: 0L) + 1L }
+    }
+
+    /** Forget one account without deleting the other saved accounts' private drafts. */
+    suspend fun clearAccount(fingerprint: Int, accountUid: Long?) {
+        dataStore.edit { preferences ->
+            val affected = mutableSetOf(fingerprint)
+            preferences.asMap().toList().forEach { (storedKey, value) ->
+                if (!storedKey.name.startsWith(prefix) || storedKey.name.removePrefix(prefix).toIntOrNull() == null) return@forEach
+                val previous = decode(value as? String)
+                val drafts = previous.filterValues { draft ->
+                    storedKey != key(fingerprint) && (accountUid == null || draft.accountUid != accountUid)
+                }
+                if (drafts.size != previous.size) affected += storedKey.name.removePrefix(prefix).toInt()
+                val destination = stringPreferencesKey(storedKey.name)
+                if (drafts.isEmpty()) preferences.remove(destination) else preferences[destination] = json.encodeToString(drafts)
+            }
+            accountUid?.let {
+                preferences.remove(accountFingerprintKey(it))
+                Unit
+            }
+            affected.forEach { session ->
+                val key = sessionRevisionKey(session)
+                preferences[key] = (preferences[key] ?: 0L) + 1L
+            }
+        }
+    }
+
     private fun key(fingerprint: Int) = stringPreferencesKey("$prefix$fingerprint")
 
     private fun accountFingerprintKey(uid: Long) = intPreferencesKey("${prefix}account_$uid")
+    private fun sessionRevisionKey(fingerprint: Int) = longPreferencesKey("${prefix}session_revision_$fingerprint")
 
     private fun decode(encoded: String?): Map<Long, MessageDraft> =
         encoded?.let { runCatching { json.decodeFromString<Map<Long, MessageDraft>>(it) }.getOrNull() }.orEmpty()

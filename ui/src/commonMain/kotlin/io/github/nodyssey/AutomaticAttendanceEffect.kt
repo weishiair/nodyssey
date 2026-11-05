@@ -17,9 +17,10 @@ internal fun AutomaticAttendanceEffect(container: AppContainer) {
         val runner = container.automaticAttendance ?: return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             combine(
-                container.settingsRepository.automaticAttendance.config,
+                runner.enabled,
                 container.sessionRepository.state,
-            ) { config, session -> config to session }
+                container.accountRepository?.state ?: kotlinx.coroutines.flow.flowOf(null),
+            ) { enabled, session, accounts -> Triple(enabled, session, accounts) }
                 .collect { runner.request() }
         }
     }

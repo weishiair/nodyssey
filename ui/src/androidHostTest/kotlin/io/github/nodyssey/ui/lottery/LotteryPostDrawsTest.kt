@@ -65,6 +65,7 @@ class LotteryPostDrawsTest {
                 removeRequests++
             }
             override suspend fun refreshDue(key: String?, force: Boolean) = Unit
+            override suspend fun markResultsRead(entries: List<LotteryEntry>) = Unit
             override suspend fun synchronize() = Unit
         }
         val model = ViewModelProvider.create(

@@ -130,6 +130,7 @@ private val EVERY_KEY: List<NavKey> =
         SearchKey(query = "vps"),
         NotificationsKey,
         ProfileKey,
+        AccountsKey,
         SettingsKey,
         ThemeSettingsKey,
         DynamicColorKey,

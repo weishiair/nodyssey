@@ -120,7 +120,8 @@ interface ProfileRepository {
 class NetworkProfileRepository(
     private val htmlSource: HtmlSource,
     private val jsonSource: JsonSource,
-    private val profileDao: ProfileDao,
+    /** Null for isolated background sessions, whose profile must never enter the active cache. */
+    private val profileDao: ProfileDao?,
     private val currentSessionFingerprint: () -> Int,
     /**
      * Whether the app is holding a session at all, which is what separates the two ways the front
@@ -145,7 +146,7 @@ class NetworkProfileRepository(
     override suspend fun authorInfo(uid: Long): AuthorInfo? = authorInfoCache.get(uid)
 
     override fun observeProfile(sessionFingerprint: Int): Flow<UserProfile?> =
-        profileDao.observe(sessionFingerprint).map { entity ->
+        (profileDao?.observe(sessionFingerprint) ?: flowOf(null)).map { entity ->
             entity?.toProfile()?.also {
                 if (isSignedIn() && currentSessionFingerprint() == sessionFingerprint) {
                     selfUidState.value = it.uid
@@ -160,7 +161,7 @@ class NetworkProfileRepository(
 
     override suspend fun clearCachedProfile() {
         cacheLock.withLock {
-            profileDao.deleteAll()
+            profileDao?.deleteAll()
             selfUidState.value = null
             selfIsAdmin = false
         }
@@ -173,7 +174,7 @@ class NetworkProfileRepository(
             val fingerprint = currentSessionFingerprint()
             if (!refresh) {
                 profileDao
-                    .find(fingerprint)
+                    ?.find(fingerprint)
                     ?.takeIf { clock.nowMillis() - it.cachedAtMillis < PROFILE_CACHE_TTL_MILLIS }
                     ?.toProfile()
                     ?.also {
@@ -188,7 +189,7 @@ class NetworkProfileRepository(
     private suspend fun fetchAndStore(sessionFingerprint: Int): UserProfile =
         fetchProfile().also { profile ->
             if (!isSignedIn() || currentSessionFingerprint() != sessionFingerprint) return@also
-            profileDao.replace(profile.toEntity(sessionFingerprint, clock.nowMillis()))
+            profileDao?.replace(profile.toEntity(sessionFingerprint, clock.nowMillis()))
             onAccountIdentified(sessionFingerprint, profile.uid)
         }
 

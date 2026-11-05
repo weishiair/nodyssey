@@ -26,6 +26,14 @@ class SessionRepository(
 
     val state: StateFlow<SessionState> = _state.asStateFlow()
 
+    /** Invalidates a closing browser's asynchronous cookie mirror before account replacement. */
+    var accountRevision: Long = 0
+        private set
+
+    fun beginAccountChange() {
+        accountRevision += 1
+    }
+
     /**
      * Reads the cookie store without publishing anything.
      *

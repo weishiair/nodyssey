@@ -45,17 +45,21 @@ import io.github.nodyssey.ui.resources.about_site
 import io.github.nodyssey.ui.resources.app_name
 import io.github.nodyssey.ui.settings.rememberAppLinkHandlingEnabled
 import io.github.nodyssey.ui.settings.rememberAppLinkSettingsLauncher
+import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.resources.getString
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
@@ -76,11 +80,16 @@ import platform.UIKit.UITabBarItem
 import platform.UIKit.UIUserInterfaceIdiomPad
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIViewController
+import platform.UIKit.addChildViewController
+import platform.UIKit.didMoveToParentViewController
 import platform.UIKit.hidesBottomBarWhenPushed
 import platform.UIKit.modalInPresentation
+import platform.UIKit.removeFromParentViewController
 import platform.UIKit.tabBarItem
 import platform.UIKit.transitionCoordinator
+import platform.UIKit.willMoveToParentViewController
 import platform.darwin.NSObject
+import kotlin.coroutines.resume
 
 /**
  * The iOS app: a system tab bar and a system navigation stack per tab, with one Compose screen in
@@ -120,7 +129,76 @@ suspend fun nativeShellViewController(container: AppContainer): UIViewController
             rssLabel = getString(Res.string.about_rss),
             tabTitles = TopLevelDestination.entries.associateWith { getString(it.label) },
         )
-    return NativeShell(container, settings, strings).root
+    container.accountRepository?.awaitReady()
+    return AccountNativeHost(container, settings, strings).root
+}
+
+/** Keeps one UIKit root while replacing every account-owned controller and ViewModel beneath it. */
+@OptIn(ExperimentalForeignApi::class)
+private class AccountNativeHost(
+    private val container: AppContainer,
+    private val settings: UserSettings,
+    private val strings: ShellStrings,
+) {
+    val root = UIViewController()
+    private val scope = MainScope()
+    private var shell: NativeShell? = null
+    private var child: UIViewController? = null
+    private var identity: Any? = null
+    private var detach: (() -> Unit)? = null
+
+    init {
+        val accounts = container.accountRepository
+        if (accounts == null) {
+            val next = NativeShell(container, settings, strings)
+            shell = next
+            replace(next.root)
+        } else {
+            scope.launch {
+                accounts.state.collect { state ->
+                    if (!state.ready || state.busy) {
+                        if (shell != null || child == null) {
+                            replace(ComposeUIViewController { NodysseySiteSwitchPlaceholder(container, settings) })
+                            shell?.awaitTransitions()
+                            shell?.close()
+                            shell = null
+                            detach?.invoke()
+                            detach = null
+                            identity = null
+                        }
+                    } else {
+                        val nextIdentity = Triple(state.navigationKey, state.adding, state.revision)
+                        if (identity != nextIdentity) {
+                            shell?.awaitTransitions()
+                            val latest = accounts.state.value
+                            if (latest.busy || Triple(latest.navigationKey, latest.adding, latest.revision) != nextIdentity) return@collect
+                            shell?.close()
+                            detach?.invoke()
+                            val next = NativeShell(container, settings, strings)
+                            shell = next
+                            identity = nextIdentity
+                            replace(next.root)
+                            detach = accounts.attachUi(next::close)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun replace(next: UIViewController) {
+        child?.let { previous ->
+            previous.willMoveToParentViewController(null)
+            previous.view.removeFromSuperview()
+            previous.removeFromParentViewController()
+        }
+        root.addChildViewController(next)
+        next.view.setFrame(root.view.bounds)
+        next.view.autoresizingMask = platform.UIKit.UIViewAutoresizingFlexibleWidth or platform.UIKit.UIViewAutoresizingFlexibleHeight
+        root.view.addSubview(next.view)
+        next.didMoveToParentViewController(root)
+        child = next
+    }
 }
 
 private class ShellStrings(
@@ -156,7 +234,15 @@ private class NativeShell(
     private var notificationsScrollToTopRequests by mutableIntStateOf(0)
 
     private val stacks: Map<TopLevelDestination, NavBackStack<NavKey>> =
-        TopLevelDestination.entries.associateWith { NavBackStack(it.key) }
+        TopLevelDestination.entries.associateWith { destination ->
+            NavBackStack<NavKey>(destination.key).apply {
+                val accounts = container.accountRepository?.state?.value
+                if (destination == TopLevelDestination.PROFILE) {
+                    if (accounts?.adding == true || (accounts?.revision ?: 0) > 0) add(AccountsKey)
+                    if (accounts?.adding == true) add(SignInKey)
+                }
+            }
+        }
 
     private var listDetailExpanded by mutableStateOf(false)
     val root: UITabBarController = ShellTabBarController(onWidth = ::onWindowWidth)
@@ -241,8 +327,47 @@ private class NativeShell(
     private val tabBarDelegate = TabBarDelegate()
     private val navigationDelegates = TopLevelDestination.entries.associateWith { NavigationDelegate(it) }
     private val popGestureDelegates = TopLevelDestination.entries.associateWith { PopGestureDelegate(it) }
+    private var foregroundObserver: Any? = null
+    private var closed = false
+
+    suspend fun awaitTransitions() {
+        navigationControllers.values.forEach { controller ->
+            controller.transitionCoordinator?.let { coordinator ->
+                suspendCancellableCoroutine<Unit> { continuation ->
+                    val finish = { if (continuation.isActive) continuation.resume(Unit) }
+                    if (!coordinator.animateAlongsideTransition(animation = null, completion = { finish() })) finish()
+                }
+            }
+        }
+    }
+
+    fun close() {
+        if (closed) return
+        closed = true
+        scope.cancel()
+        foregroundObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
+        splits.values.forEach { pairs ->
+            pairs.values.forEach { it.empty() }
+            pairs.clear()
+        }
+        mirrors.values.forEach { it.reconcile(emptyList()) }
+        navigationControllers.values.forEach { it.setViewControllers(emptyList<UIViewController>(), animated = false) }
+        flushReleases()
+        shellStore.clear()
+    }
 
     init {
+        scope.launch {
+            container.sessionRepository.state.collectLatest { session ->
+                container.postRepository.reconcileSession(session.isSignedIn, session.fingerprint)
+                if (session.isSignedIn) {
+                    runCatchingExceptCancellation {
+                        val profile = container.profileRepository.profile()
+                        container.accountRepository?.remember(profile, session.fingerprint)
+                    }
+                }
+            }
+        }
         scope.launch {
             IosLotteryNavigation.requests.collect { request ->
                 if (request != null) {
@@ -280,6 +405,9 @@ private class NativeShell(
         }
         observeSettings()
         observeNotifications()
+        container.accountRepository?.state?.value?.let { accounts ->
+            if (accounts.adding || accounts.revision > 0) root.selectedIndex = TopLevelDestination.PROFILE.ordinal.toULong()
+        }
     }
 
     /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
@@ -437,6 +565,9 @@ private class NativeShell(
         val views = mirror.views.toSet()
         splits.keys.filter { it !in views }.forEach { splits.remove(it)?.empty() }
         updateTabBar()
+        if (destination == TopLevelDestination.PROFILE && stack.lastOrNull() == AccountsKey) {
+            container.accountRepository?.cancelIfAbandoned()
+        }
     }
 
     /** What every transition ends with: released pages cleared, and a change that had to wait made. */
@@ -594,7 +725,7 @@ private class NativeShell(
         // The Android root refreshes the badge on every resume, because a count grown stale overnight
         // is most visibly wrong the moment the app comes back. This is that resume.
         notificationsViewModel.refreshIfStale()
-        NSNotificationCenter.defaultCenter.addObserverForName(
+        foregroundObserver = NSNotificationCenter.defaultCenter.addObserverForName(
             name = UIApplicationDidBecomeActiveNotification,
             `object` = null,
             queue = NSOperationQueue.mainQueue,
