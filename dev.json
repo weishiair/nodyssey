@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "channel": "dev",
-  "versionName": "1.3.8",
-  "tag": "v1.3.8",
-  "publishedOn": "2026-11-04",
-  "notes": "本次更新新增抽奖助手，完善置顶回复显示与私信恢复，并修复 iPad 旋转闪退。\n\n### 改进\n\n- 新增抽奖助手，支持官方抽奖的开奖提醒、中奖结果查询与记录管理；Android 和 iOS 均可使用，后台查询时机受系统调度影响。\n- 私信草稿与待发送消息按账号保存，应用中断后可恢复；发送失败可重试，消息刷新失败时提供提示。\n\n### 修复\n\n- 被管理员置顶的回复现在会显示图钉标记，并像网页一样排在其他楼层前面。\n- 修复 iPad 旋转、切换分栏和横屏启动时可能闪退的问题。\n- 修复私信未读分组的处理，改善消息已读状态更新。\n\n### 感谢\n\n- 感谢 @Bubbles 提出指定帖子显示的需求。\n- 感谢 @呱 呱 反馈 iPad 旋转闪退的问题并协助排查，以及提出抽奖提醒的需求。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.7...v1.3.8",
+  "versionName": "1.3.9",
+  "tag": "v1.3.9",
+  "publishedOn": "2026-11-05",
+  "notes": "本次更新支持多账号切换与独立自动签到，完善抽奖结果管理，并改进编辑器、私信和网络体验。\n\n### 改进\n\n- 新增多账号管理，可保存、添加和切换账号，每个账号独立控制自动签到；后台签到使用各自的登录态，不切换当前浏览账号。\n- 切换账号时隔离登录态与草稿，验证失败会恢复原账号；如有离线下载，会先确认清除。\n- 抽奖助手新增结果已读状态、单条与全部已读操作，以及中奖、未中奖、未参与筛选；未读中奖结果优先显示，个人页保留未读提醒入口。\n- 回复和发帖编辑器的「链接」键支持长按选择模板：除普通链接外，还能插入图片链接模板\n  `![image](https://)`，临时引用一张不在图床里的图。\n- 简化帖子点赞、投喂等操作区的选中样式，取消突出的常驻底色，用描边和主题色图标区分状态。\n- 私信时间和发送状态移到气泡下方。\n- 内置 Weishiair DoH（ECH）针对 NodeSeek 网站提供专属解析优化，结合优选 Cloudflare 地址与 ECH 配置改善访问体验。未保存过加密 DNS 开关时默认启用，已有开关、服务器选择和排序继续保留。\n\n### 修复\n\n- 修复 iOS 多账号容器的 UIKit 兼容与编译问题。\n- 修复私信气泡长按时高亮超出圆角的问题。\n\n### 感谢\n\n- 感谢 Telegram 用户 @呱 呱 反馈 iOS 问题并协助排查与验证。\n- 感谢 Telegram 用户 @dream7painter 提出编辑器图片链接模板的建议。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.8...v1.3.9",
   "apk": {
-    "name": "nodyssey-v1.3.8.apk",
-    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.8/nodyssey-v1.3.8.apk",
-    "sizeBytes": 11980716,
-    "sha256": "9500c0ea6a8c791f344221660344bde8af98e0fd701e1bf18223b95a47efa57b"
+    "name": "nodyssey-v1.3.9.apk",
+    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.9/nodyssey-v1.3.9.apk",
+    "sizeBytes": 12050026,
+    "sha256": "e23f6170ea27fa9abaa83582f71ea58be0f9154bb642a77f1fe7551d82c06860"
   },
-  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.8"
+  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.9"
 }
