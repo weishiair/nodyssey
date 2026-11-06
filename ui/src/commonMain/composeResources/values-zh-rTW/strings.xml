@@ -1063,7 +1063,12 @@
     <string name="invite_code_copied">邀請碼已複製</string>
     <string name="invite_bought_title">邀請碼已產生</string>
     <string name="invite_bought_body">傳給朋友，註冊時填入這個碼即可。</string>
-    <string name="invite_bought_unknown">餘額已扣除，邀請碼已出現在下方列表裡。</string>
+    <string name="invite_bought_unknown">購買已確認，暫未取得新邀請碼。請重新整理列表以取得邀請碼，無需再次購買。</string>
+    <string name="invite_purchase_unknown_title">購買結果暫未確認</string>
+    <string name="invite_purchase_unknown_body">這次購買可能已扣款。請先重新整理邀請碼列表並核對餘額，避免重複購買。</string>
+    <string name="invite_repeat_purchase_caution">上次購買的結果尚未確認。請先核對邀請碼和餘額；本次確認會再購買一個邀請碼，並再次扣款。</string>
+    <string name="invite_check_result">核對購買結果</string>
+    <string name="invite_web_check">在網頁中核對</string>
     <string name="invite_buy_failed_hint">這次沒有買成，稍後再試一次。</string>
 
     <string name="ruling_title">管理紀錄</string>

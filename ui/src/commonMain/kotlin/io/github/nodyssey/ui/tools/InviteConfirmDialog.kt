@@ -15,6 +15,7 @@ import io.github.nodyssey.ui.resources.invite_confirm_title_stardust
 import io.github.nodyssey.ui.resources.invite_cost
 import io.github.nodyssey.ui.resources.invite_cost_value
 import io.github.nodyssey.ui.resources.invite_cost_value_stardust
+import io.github.nodyssey.ui.resources.invite_repeat_purchase_caution
 import io.github.nodyssey.ui.resources.invite_short_hint
 import io.github.nodyssey.ui.resources.invite_short_hint_stardust
 import io.github.nodyssey.ui.resources.invite_short_title
@@ -45,6 +46,7 @@ fun InviteConfirmDialog(
     balance: Int?,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    previousPurchaseUncertain: Boolean = false,
 ) {
     val shortfall = balance?.let { (cost - it).takeIf { gap -> gap > 0 } }
     if (balance != null && shortfall != null) {
@@ -86,7 +88,12 @@ fun InviteConfirmDialog(
                 )
             }
         },
-        caution = stringResource(caution(currency)),
+        caution =
+        if (previousPurchaseUncertain) {
+            stringResource(Res.string.invite_repeat_purchase_caution) + "\n" + stringResource(caution(currency))
+        } else {
+            stringResource(caution(currency))
+        },
         confirmLabel = stringResource(Res.string.invite_confirm),
         onConfirm = onConfirm,
         onDismiss = onDismiss,

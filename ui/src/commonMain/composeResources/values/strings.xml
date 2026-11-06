@@ -1283,7 +1283,12 @@
     <string name="invite_code_copied">邀请码已复制</string>
     <string name="invite_bought_title">邀请码已生成</string>
     <string name="invite_bought_body">发给朋友，注册时填这个码即可。</string>
-    <string name="invite_bought_unknown">余额已扣除，邀请码已出现在下方列表里。</string>
+    <string name="invite_bought_unknown">购买已确认，暂未取得新邀请码。请刷新列表重新获取，无需再次购买。</string>
+    <string name="invite_purchase_unknown_title">购买结果暂未确认</string>
+    <string name="invite_purchase_unknown_body">这次购买可能已扣款。请先刷新邀请码列表并核对余额，避免重复购买。</string>
+    <string name="invite_repeat_purchase_caution">上次购买的结果尚未确认。请先核对邀请码和余额；本次确认会再购买一个邀请码，并再次扣费。</string>
+    <string name="invite_check_result">核对购买结果</string>
+    <string name="invite_web_check">在网页中核对</string>
     <string name="invite_buy_failed_hint">这次没有买成，稍后再试一次。</string>
 
     <!-- Moderation log (9d) -->

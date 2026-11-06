@@ -48,6 +48,7 @@ import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_copy
+import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.invite_body
 import io.github.nodyssey.ui.resources.invite_bought_body
@@ -55,6 +56,7 @@ import io.github.nodyssey.ui.resources.invite_bought_title
 import io.github.nodyssey.ui.resources.invite_bought_unknown
 import io.github.nodyssey.ui.resources.invite_buy_failed_hint
 import io.github.nodyssey.ui.resources.invite_buy_unavailable
+import io.github.nodyssey.ui.resources.invite_check_result
 import io.github.nodyssey.ui.resources.invite_chicken_balance
 import io.github.nodyssey.ui.resources.invite_code_applied
 import io.github.nodyssey.ui.resources.invite_code_copied
@@ -64,8 +66,11 @@ import io.github.nodyssey.ui.resources.invite_codes_title
 import io.github.nodyssey.ui.resources.invite_codes_truncated
 import io.github.nodyssey.ui.resources.invite_price_coin
 import io.github.nodyssey.ui.resources.invite_price_stardust
+import io.github.nodyssey.ui.resources.invite_purchase_unknown_body
+import io.github.nodyssey.ui.resources.invite_purchase_unknown_title
 import io.github.nodyssey.ui.resources.invite_stardust_balance
 import io.github.nodyssey.ui.resources.invite_title
+import io.github.nodyssey.ui.resources.invite_web_check
 import io.github.nodyssey.ui.resources.invite_web_fallback
 import io.github.nodyssey.ui.resources.spend_got_it
 import io.github.plaza.core.TimeFormat
@@ -163,7 +168,7 @@ fun InviteScreen(
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             PurchaseCard(state = state, onPick = { confirming = it.wireValue }, onRetry = onRetry, onOpenWeb = onOpenWeb)
-            CodesCard(state = state, onCopy = { code -> copy(code, code, copied) })
+            CodesCard(state = state, onCopy = { code -> copy(code, code, copied) }, onRetry = onRetry)
         }
     }
 
@@ -175,6 +180,7 @@ fun InviteScreen(
                 currency = currency,
                 cost = price.cost,
                 balance = state.balanceOf(currency),
+                previousPurchaseUncertain = state.purchaseUncertain,
                 onConfirm = {
                     confirming = null
                     onBuy(currency)
@@ -189,6 +195,10 @@ fun InviteScreen(
             outcome = outcome,
             onCopy = { code -> copy(code, code, copied) },
             onDismiss = onDismissOutcome,
+            onRetry = {
+                onDismissOutcome()
+                onRetry()
+            },
         )
     }
 }
@@ -233,7 +243,7 @@ private fun PurchaseCard(
                         MediumButton(
                             onClick = { onPick(currency) },
                             icon = PlazaIcons.ConfirmationNumber,
-                            enabled = state.isBuying == null,
+                            enabled = state.isBuying == null && !state.isLoading,
                             busy = state.isBuying == currency,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
@@ -248,23 +258,31 @@ private fun PurchaseCard(
             ) {
                 PlazaSpinner(size = 16.dp, strokeWidth = 2.dp)
             }
+        }
 
-            else -> state.error?.let { error ->
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    Text(
-                        text = error.shortMessage(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
-                }
+        state.error?.let { error ->
+            Text(
+                text = error.shortMessage(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            TextButton(onClick = onRetry, enabled = !state.isLoading && state.isBuying == null) {
+                Text(stringResource(Res.string.action_retry))
             }
+        }
+
+        if (state.purchaseUncertain) {
+            Text(
+                text = stringResource(Res.string.invite_purchase_unknown_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
 
         Balances(state = state)
 
-        TextButton(onClick = onOpenWeb) {
-            Text(stringResource(Res.string.invite_web_fallback))
+        TextButton(onClick = onOpenWeb, enabled = state.isBuying == null) {
+            Text(stringResource(if (state.purchaseUncertain) Res.string.invite_web_check else Res.string.invite_web_fallback))
         }
     }
 }
@@ -304,12 +322,26 @@ private fun Balances(state: InviteUiState) {
 private fun CodesCard(
     state: InviteUiState,
     onCopy: (String) -> Unit,
+    onRetry: () -> Unit,
 ) {
     LayerCard(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        Text(
-            text = stringResource(Res.string.invite_codes_title),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(Res.string.invite_codes_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onRetry, enabled = !state.isLoading && state.isBuying == null) {
+                Text(stringResource(if (state.codesError == null) Res.string.action_refresh else Res.string.action_retry))
+            }
+        }
+        state.codesError?.let { error ->
+            Text(
+                text = error.shortMessage(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         when {
             state.codes.isNotEmpty() -> state.codes.forEachIndexed { index, code ->
                 if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -318,7 +350,7 @@ private fun CodesCard(
 
             state.isLoading -> Box(Modifier.fillMaxWidth()) { PlazaSpinner() }
 
-            else -> Text(
+            state.codesError == null -> Text(
                 text = stringResource(Res.string.invite_codes_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -411,6 +443,7 @@ private fun OutcomeDialog(
     outcome: InviteOutcome,
     onCopy: (String) -> Unit,
     onDismiss: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     when (outcome) {
         is InviteOutcome.Bought -> {
@@ -452,18 +485,13 @@ private fun OutcomeDialog(
                 },
                 confirmButton = {
                     if (code == null) {
-                        Button(onClick = onDismiss) { Text(stringResource(Res.string.spend_got_it)) }
+                        Button(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
                     } else {
                         Button(onClick = { onCopy(code) }) { Text(stringResource(Res.string.action_copy)) }
                     }
                 },
-                dismissButton =
-                if (code == null) {
-                    null
-                } else {
-                    {
-                        TextButton(onClick = onDismiss) { Text(stringResource(Res.string.spend_got_it)) }
-                    }
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(Res.string.spend_got_it)) }
                 },
             )
         }
@@ -480,6 +508,19 @@ private fun OutcomeDialog(
             },
             confirmButton = {
                 Button(onClick = onDismiss) { Text(stringResource(Res.string.spend_got_it)) }
+            },
+        )
+
+        is InviteOutcome.Unknown -> AlertDialog(
+            onDismissRequest = onDismiss,
+            icon = { Icon(Icons.Default.Warning, contentDescription = null) },
+            title = { Text(stringResource(Res.string.invite_purchase_unknown_title)) },
+            text = { Text(stringResource(Res.string.invite_purchase_unknown_body)) },
+            confirmButton = {
+                Button(onClick = onRetry) { Text(stringResource(Res.string.invite_check_result)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.spend_got_it)) }
             },
         )
     }

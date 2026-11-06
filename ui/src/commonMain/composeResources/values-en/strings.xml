@@ -1069,7 +1069,12 @@
     <string name="invite_code_copied">Invite code copied</string>
     <string name="invite_bought_title">Invite code generated</string>
     <string name="invite_bought_body">Send it to a friend — it is what they register with.</string>
-    <string name="invite_bought_unknown">The balance was charged; the code is in the list below.</string>
+    <string name="invite_bought_unknown">Your purchase was confirmed, but the new code is not available yet. Refresh the list to retrieve it; you do not need to buy again.</string>
+    <string name="invite_purchase_unknown_title">Purchase result unconfirmed</string>
+    <string name="invite_purchase_unknown_body">This purchase may have charged your account. Refresh your invite codes and check your balance before buying again.</string>
+    <string name="invite_repeat_purchase_caution">Your previous purchase is still unconfirmed. Check your codes and balance first. Confirming here buys another code and charges your account again.</string>
+    <string name="invite_check_result">Check purchase result</string>
+    <string name="invite_web_check">Check on the website</string>
     <string name="invite_buy_failed_hint">The purchase did not go through. Try again in a moment.</string>
 
     <string name="ruling_title">Moderation log</string>

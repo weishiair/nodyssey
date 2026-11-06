@@ -75,6 +75,13 @@ data class InviteCodePage(
     val total: Int,
 )
 
+/** A response the site explicitly confirmed; thrown failures leave the purchase result unknown. */
+sealed interface InvitePurchaseResult {
+    data class Bought(val balance: Int?) : InvitePurchaseResult
+
+    data class Refused(val error: SiteError, val detail: String? = null) : InvitePurchaseResult
+}
+
 interface InviteRepository {
     /**
      * The site's current prices.
@@ -90,14 +97,13 @@ interface InviteRepository {
     /**
      * Buys one code, paid for with [currency].
      *
-     * Returns the balance that currency was left at — the site's own answer carries exactly that — or
-     * null when the answer omitted it. The code itself is not in the answer: see [codes], which is
-     * where the site reads it back too.
+     * A confirmed purchase carries the remaining balance, when supplied. The code itself is not in
+     * the answer: see [codes], which is where the site reads it back too.
      *
-     * A refusal (`success:false`, "鸡腿数目不足") throws with the site's sentence in
-     * [SiteException.detail], because the reader needs to be told which balance was short.
+     * Only an explicit refusal means nothing was bought. An exception can also mean the response was
+     * lost after the server charged the account, so callers must check before offering another spend.
      */
-    suspend fun buy(currency: InviteCurrency): Int?
+    suspend fun buy(currency: InviteCurrency): InvitePurchaseResult
 }
 
 /**
@@ -137,7 +143,7 @@ class NetworkInviteRepository(
         }
     }
 
-    override suspend fun buy(currency: InviteCurrency): Int? {
+    override suspend fun buy(currency: InviteCurrency): InvitePurchaseResult {
         val answer =
             api.sendJson(
                 method = "POST",
@@ -152,10 +158,13 @@ class NetworkInviteRepository(
             // to meet — 鸡腿/星辰不足 — arrives as a 200 with a sentence, and a 403 carrying one is the
             // site saying why, which is worth more to the reader than the sign-in prompt it would
             // otherwise become.
-            root.refusal()?.let { throw it }
-            if (answer.code == 401 || answer.code == 403) throw SiteException(SiteError.LoginRequired)
+            root.refusal()?.let { return@withContext InvitePurchaseResult.Refused(it.error, it.detail) }
+            if (answer.code == 401 || answer.code == 403) {
+                return@withContext InvitePurchaseResult.Refused(SiteError.LoginRequired)
+            }
             if (answer.code !in 200..299) throw SiteException(SiteError.Http(answer.code))
-            root.int(currency.wireValue)
+            if (root.bool("success") != true) throw SiteException(SiteError.Unparsable)
+            InvitePurchaseResult.Bought(root.int(currency.wireValue))
         }
     }
 

@@ -103,7 +103,7 @@ class InviteRepositoryTest {
 
             val balance = NetworkInviteRepository(source, dispatchers).buy(InviteCurrency.STARDUST)
 
-            assertEquals(1, balance)
+            assertEquals(InvitePurchaseResult.Bought(1), balance)
             val sent = source.sent ?: error("nothing was sent")
             assertEquals("POST", sent.method)
             assertEquals("/api/invite/buyOne", sent.path)
@@ -122,11 +122,9 @@ class InviteRepositoryTest {
                     buy = JsonPostResponse(code = 200, body = """{"success":false,"message":"鸡腿数目不足"}"""),
                 )
 
-            val exception =
-                runCatching { NetworkInviteRepository(source, dispatchers).buy(InviteCurrency.COIN) }
-                    .exceptionOrNull()
+            val result = NetworkInviteRepository(source, dispatchers).buy(InviteCurrency.COIN)
 
-            assertEquals("鸡腿数目不足", (exception as? SiteException)?.detail)
+            assertEquals(InvitePurchaseResult.Refused(SiteError.Unknown, "鸡腿数目不足"), result)
         }
 
     /** A 401/403 with no sentence of its own is a session the site no longer honours. */
@@ -135,11 +133,31 @@ class InviteRepositoryTest {
         runTest {
             val source = FakeInviteJsonSource(buy = JsonPostResponse(code = 403, body = """{"message":"forbidden"}"""))
 
-            val exception =
-                runCatching { NetworkInviteRepository(source, dispatchers).buy(InviteCurrency.COIN) }
-                    .exceptionOrNull()
+            val result = NetworkInviteRepository(source, dispatchers).buy(InviteCurrency.COIN)
 
-            assertEquals(SiteError.LoginRequired, (exception as? SiteException)?.error)
+            assertEquals(InvitePurchaseResult.Refused(SiteError.LoginRequired), result)
+        }
+
+    // Bug: any 200 JSON object used to count as a completed purchase, even without confirmation.
+    @Test
+    fun `an unrecognized success body does not confirm a purchase`() =
+        runTest {
+            val source = FakeInviteJsonSource(buy = JsonPostResponse(code = 200, body = """{"message":"unexpected"}"""))
+
+            val exception = runCatching { NetworkInviteRepository(source, dispatchers).buy(InviteCurrency.COIN) }.exceptionOrNull()
+
+            assertEquals(SiteError.Unparsable, (exception as? SiteException)?.error)
+        }
+
+    // A failed server response may follow a committed transaction, unlike an explicit refusal.
+    @Test
+    fun `a server failure without an explicit refusal leaves the result unknown`() =
+        runTest {
+            val source = FakeInviteJsonSource(buy = JsonPostResponse(code = 500, body = """{"message":"server error"}"""))
+
+            val exception = runCatching { NetworkInviteRepository(source, dispatchers).buy(InviteCurrency.COIN) }.exceptionOrNull()
+
+            assertEquals(SiteError.Http(500), (exception as? SiteException)?.error)
         }
 }
 
