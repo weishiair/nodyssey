@@ -14,12 +14,14 @@ import io.github.nodyssey.data.CollectedPostMetaStore
 import io.github.nodyssey.data.CommunityRepository
 import io.github.nodyssey.data.CreditRepository
 import io.github.nodyssey.data.FollowRepository
+import io.github.nodyssey.data.InviteRepository
 import io.github.nodyssey.data.MessageRepository
 import io.github.nodyssey.data.NetworkAssetsRepository
 import io.github.nodyssey.data.NetworkAwardRepository
 import io.github.nodyssey.data.NetworkCommunityRepository
 import io.github.nodyssey.data.NetworkCreditRepository
 import io.github.nodyssey.data.NetworkFollowRepository
+import io.github.nodyssey.data.NetworkInviteRepository
 import io.github.nodyssey.data.NetworkMessageRepository
 import io.github.nodyssey.data.NetworkPostDataSource
 import io.github.nodyssey.data.NetworkProfileRepository
@@ -567,6 +569,8 @@ class IosAppContainer(
     override val creditRepository: CreditRepository by lazy { NetworkCreditRepository(jsonClient, dispatchers) }
 
     override val stardustRepository: StardustRepository by lazy { NetworkStardustRepository(jsonClient, dispatchers) }
+
+    override val inviteRepository: InviteRepository by lazy { NetworkInviteRepository(jsonClient, dispatchers) }
 
     override val awardRepository: AwardRepository by lazy { NetworkAwardRepository(htmlClient, dispatchers) }
 

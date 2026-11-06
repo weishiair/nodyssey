@@ -1201,7 +1201,7 @@
     <string name="tools_lucky">幸运抽奖</string>
     <string name="tools_lucky_subtitle">T 楼抽奖公证工具 · 生成开奖链接</string>
     <string name="tools_invite">邀请好友</string>
-    <string name="tools_invite_subtitle">花费 1000 鸡腿购买一个邀请码</string>
+    <string name="tools_invite_subtitle">花鸡腿或星辰购买一个邀请码</string>
     <string name="tools_ruling">管理记录</string>
     <string name="tools_ruling_subtitle">处罚与奖励公示表格</string>
 
@@ -1249,20 +1249,42 @@
     <!-- Invite (9d) -->
     <string name="invite_title">邀请好友</string>
     <string name="invite_body">%1$s 注册需要邀请码。购买后会生成一个邀请码，发给朋友即可注册。</string>
-    <string name="invite_buy">花费 1000 鸡腿购买一个邀请码</string>
-    <string name="invite_confirm_title">确认花费 1000 鸡腿？</string>
+    <!-- 两个价格都来自站点 /api/invite/config，每次进页重读；站点关掉哪一种，那一行就不出现 -->
+    <string name="invite_price_coin">花费 %1$d 鸡腿购买一个邀请码</string>
+    <string name="invite_price_stardust">花费 %1$d 星辰购买一个邀请码</string>
+    <string name="invite_confirm_title">确认花费 %1$d 鸡腿？</string>
+    <string name="invite_confirm_title_stardust">确认花费 %1$d 星辰？</string>
     <string name="invite_cost">花费</string>
-    <string name="invite_cost_value">1000 鸡腿</string>
+    <string name="invite_cost_value">%1$d 鸡腿</string>
+    <string name="invite_cost_value_stardust">%1$d 星辰</string>
     <string name="invite_balance_after">购买后余额</string>
     <string name="invite_caution">邀请码一经生成即扣除鸡腿，无法退还；一个邀请码只能注册一个账号。</string>
+    <string name="invite_caution_stardust">邀请码一经生成即扣除星辰，无法退还；一个邀请码只能注册一个账号。</string>
     <string name="invite_confirm">确认购买</string>
     <string name="invite_shortfall">还差 %1$d 鸡腿</string>
+    <string name="invite_shortfall_stardust">还差 %1$d 星辰</string>
     <!-- 9e 鸡腿不够买邀请码：标题、卡片上「还差」那一行、底下怎么攒鸡腿 -->
     <string name="invite_short_title">鸡腿不够</string>
+    <string name="invite_short_title_stardust">星辰不够</string>
     <string name="invite_shortfall_label">还差</string>
     <string name="invite_short_hint">回帖、发帖、签到都能攒鸡腿。</string>
-    <string name="invite_opened_web">App 还没有对接购码接口，已在网页中打开邀请页。</string>
+    <string name="invite_short_hint_stardust">评论被点赞、收到转账都能攒星辰。</string>
+    <string name="invite_buy_unavailable">站点现在没有开放邀请码购买。</string>
+    <!-- 原生购买走不通时的兜底入口，不是主按钮的替代 -->
+    <string name="invite_web_fallback">在网页中购买</string>
     <string name="invite_chicken_balance">当前鸡腿 %1$d</string>
+    <string name="invite_stardust_balance">当前星辰 %1$d</string>
+    <!-- 邀请码列表：/api/invite/list 的 code / applied / created_at -->
+    <string name="invite_codes_title">我的邀请码</string>
+    <string name="invite_codes_empty">还没有邀请码。买一个之后会列在这里。</string>
+    <string name="invite_codes_truncated">共 %1$d 个邀请码，这里只显示最近 %2$d 个。</string>
+    <string name="invite_code_applied">已使用</string>
+    <string name="invite_code_unused">未使用</string>
+    <string name="invite_code_copied">邀请码已复制</string>
+    <string name="invite_bought_title">邀请码已生成</string>
+    <string name="invite_bought_body">发给朋友，注册时填这个码即可。</string>
+    <string name="invite_bought_unknown">余额已扣除，邀请码已出现在下方列表里。</string>
+    <string name="invite_buy_failed_hint">这次没有买成，稍后再试一次。</string>
 
     <!-- Moderation log (9d) -->
     <string name="ruling_title">管理记录</string>

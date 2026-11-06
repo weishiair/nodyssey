@@ -467,6 +467,25 @@ class NodeSeekJsonClient(
         const val PATH_STARDUST_PREPARE = "/api/stardust/payment-prepare"
         const val PATH_STARDUST_SEND = "/api/stardust/send"
 
+        /*
+         * 邀请码, read out of the site's own invite-page chunk on 2026-11-06 — a HAR of `/invite`,
+         * whose `index-*.js` ships both these requests and the fields it reads back.
+         *
+         * `config` is why neither price is a constant in this app: the site decides both, per
+         * currency, and can withdraw either one (`enabled:false`) without a client release.
+         * `buyOne` takes the same word the config uses as its own key — `{"payment":"coin"}` or
+         * `{"payment":"stardust"}` — and answers the balance that currency was left at, **not** the
+         * code: the site's page reloads `list` to show what was just bought, and so must this app.
+         * `list` is that list, fifty rows a page, newest first.
+         */
+        const val PATH_INVITE_CONFIG = "/api/invite/config"
+        const val PATH_INVITE_BUY = "/api/invite/buyOne"
+
+        fun inviteListPath(page: Int = 1) = "/api/invite/list?page=${page.coerceAtLeast(1)}"
+
+        /** The site's own page size for [inviteListPath] — `const c = 50` in that chunk. */
+        const val INVITE_PAGE_SIZE = 50
+
         /** `?all=true` with an empty body. */
         fun markAllViewedPath(type: String) = "/api/notification/$type/markViewed?all=true"
 

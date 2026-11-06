@@ -354,7 +354,7 @@ WorkerFactory 构造注入）、CI 门禁（含 R8 minified 冒烟与依赖锁�
 | **P2** | `:app` 内部没有编译期约束防止 `ui/` 直连 `data/` | `:core`（网络基座与更新检查）与 `:shared`（domain model 与站点解析）已拆出，Room 仍在 `:app`；再往下要拆 `:data` / `:feature:*` |
 | **P2** | 修改邮箱与绑定 Telegram 只能转网页（Turnstile 与 Telegram 登录挂件） | 想原生化就得在 WebView 里跑挂件并把令牌回传；在此之前保持明确交接，不做能提交却必然失败的表单 |
 | **P3** | 未验证字号缩放 200% 与 TalkBack | 用真实设备和至少一台大屏设备做发布前验收 |
-| **P3** | 邀请码购买只有网页闭环 | 有可靠契约后原生化，接入前保留明确网页交接。星辰转账已按这条路走完（`payment-prepare` / `send`） |
+| **P3** | ~~邀请码购买只有网页闭环~~ **2026-11-06 已原生化** | 契约来自站点 `/invite` 页自己的 `index-*.js`：`/api/invite/config` 给两档价（鸡腿 / 星辰，各带 `enabled`）、`POST /api/invite/buyOne` 购买且只回新余额、`/api/invite/list` 取码。`NetworkInviteRepository` 与 `InviteScreen` 已接入，网页只剩「在网页中购买」兜底 |
 | **P3** | 无 baseline profile / macrobenchmark | 有真实卡顿反馈后再做，不预先优化 |
 | **P3** | 无崩溃上报 | 发布前再定，涉及隐私取舍 |
 
@@ -469,7 +469,7 @@ Route/Screen 拆分 + Preview；ViewModel 测试（含两个回归用例）。
 检查更新于同日搬进 App：数据源是本项目自己的 GitHub Releases 而不是 NodeSeek，
 约定与理由见上面第 2 节的「应用内更新约定」。
 
-尚未完成：邀请码购买的原生闭环；200% 字号、TalkBack 与大屏的发布级真机验收。
+尚未完成：200% 字号、TalkBack 与大屏的发布级真机验收。
 当前详情页没有收藏操作控件。界面存在不等于功能接入，完整边界以
 [`implementation-status.md`](implementation-status.md) 为准。
 

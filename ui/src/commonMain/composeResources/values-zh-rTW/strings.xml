@@ -997,7 +997,7 @@
     <string name="tools_lucky">幸運抽獎</string>
     <string name="tools_lucky_subtitle">T 樓抽獎公證工具 · 產生開獎連結</string>
     <string name="tools_invite">邀請好友</string>
-    <string name="tools_invite_subtitle">花費 1000 雞腿購買一個邀請碼</string>
+    <string name="tools_invite_subtitle">花雞腿或星辰購買一個邀請碼</string>
     <string name="tools_ruling">管理紀錄</string>
     <string name="tools_ruling_subtitle">處罰與獎勵公告表格</string>
     <string name="report_compare_title">測評比較</string>
@@ -1033,19 +1033,38 @@
 
     <string name="invite_title">邀請好友</string>
     <string name="invite_body">%1$s 註冊需要邀請碼。購買後會產生一個邀請碼，發給朋友即可註冊。</string>
-    <string name="invite_buy">花費 1000 雞腿購買一個邀請碼</string>
-    <string name="invite_confirm_title">確認花費 1000 雞腿？</string>
+    <string name="invite_price_coin">花費 %1$d 雞腿購買一個邀請碼</string>
+    <string name="invite_price_stardust">花費 %1$d 星辰購買一個邀請碼</string>
+    <string name="invite_confirm_title">確認花費 %1$d 雞腿？</string>
+    <string name="invite_confirm_title_stardust">確認花費 %1$d 星辰？</string>
     <string name="invite_cost">花費</string>
-    <string name="invite_cost_value">1000 雞腿</string>
+    <string name="invite_cost_value">%1$d 雞腿</string>
+    <string name="invite_cost_value_stardust">%1$d 星辰</string>
     <string name="invite_balance_after">購買後餘額</string>
     <string name="invite_caution">邀請碼一經產生即扣除雞腿，無法退還；一個邀請碼只能註冊一個帳號。</string>
+    <string name="invite_caution_stardust">邀請碼一經產生即扣除星辰，無法退還；一個邀請碼只能註冊一個帳號。</string>
     <string name="invite_confirm">確認購買</string>
     <string name="invite_shortfall">還差 %1$d 雞腿</string>
+    <string name="invite_shortfall_stardust">還差 %1$d 星辰</string>
     <string name="invite_short_title">雞腿不夠</string>
+    <string name="invite_short_title_stardust">星辰不夠</string>
     <string name="invite_shortfall_label">還差</string>
     <string name="invite_short_hint">回帖、發帖、簽到都能攢雞腿。</string>
-    <string name="invite_opened_web">App 還沒有對接購碼介面，已在網頁中開啟邀請頁。</string>
+    <string name="invite_short_hint_stardust">評論被按讚、收到轉帳都能攢星辰。</string>
+    <string name="invite_buy_unavailable">站點目前沒有開放邀請碼購買。</string>
+    <string name="invite_web_fallback">在網頁中購買</string>
     <string name="invite_chicken_balance">目前雞腿 %1$d</string>
+    <string name="invite_stardust_balance">目前星辰 %1$d</string>
+    <string name="invite_codes_title">我的邀請碼</string>
+    <string name="invite_codes_empty">還沒有邀請碼。買一個之後會列在這裡。</string>
+    <string name="invite_codes_truncated">共 %1$d 個邀請碼，這裡只顯示最近 %2$d 個。</string>
+    <string name="invite_code_applied">已使用</string>
+    <string name="invite_code_unused">未使用</string>
+    <string name="invite_code_copied">邀請碼已複製</string>
+    <string name="invite_bought_title">邀請碼已產生</string>
+    <string name="invite_bought_body">傳給朋友，註冊時填入這個碼即可。</string>
+    <string name="invite_bought_unknown">餘額已扣除，邀請碼已出現在下方列表裡。</string>
+    <string name="invite_buy_failed_hint">這次沒有買成，稍後再試一次。</string>
 
     <string name="ruling_title">管理紀錄</string>
 
