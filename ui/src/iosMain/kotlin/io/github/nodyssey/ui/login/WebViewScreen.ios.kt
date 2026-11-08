@@ -46,7 +46,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.resources.stringResource
+import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
 import platform.WebKit.WKNavigation
@@ -59,6 +61,7 @@ import platform.WebKit.WKWebViewConfiguration
 import platform.WebKit.WKWebsiteDataStore
 import platform.WebKit.WKWindowFeatures
 import platform.darwin.NSObject
+import kotlin.coroutines.resume
 
 /**
  * The iOS half of the escape hatch: a `WKWebView`, plus the bridge that makes its cookies visible to
@@ -96,6 +99,25 @@ actual fun WebViewRoute(
 
     val baseline = remember { session.peek() }
     val policy = remember(goal, session, baseline, isBound) { webViewPolicy(goal, session, baseline, isBound) }
+    val bridge = rememberWebViewCookieBridge(session)
+
+    WebViewScreen(
+        url = url,
+        title = title,
+        userAgent = userAgent,
+        bridge = bridge,
+        onOpenExternal = onOpenExternal,
+        onClose = onClose,
+        onCheckGoal = policy.onCheckGoal,
+        pollIntervalMillis = policy.pollIntervalMillis,
+        isInScope = policy.isInScope,
+        canLeaveToBrowser = policy.canLeaveToBrowser,
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun rememberWebViewCookieBridge(session: SessionRepository): WebKitCookieBridge {
     val bridge =
         remember {
             val accountRevision = session.accountRevision
@@ -130,35 +152,24 @@ actual fun WebViewRoute(
         }
     }
 
-    WebViewScreen(
-        url = url,
-        title = title,
-        userAgent = userAgent,
-        bridge = bridge,
-        onOpenExternal = onOpenExternal,
-        onClose = onClose,
-        onCheckGoal = policy.onCheckGoal,
-        pollIntervalMillis = policy.pollIntervalMillis,
-        isInScope = policy.isInScope,
-        canLeaveToBrowser = policy.canLeaveToBrowser,
-        modifier = modifier,
-    )
+    return bridge
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WebViewScreen(
+internal fun WebViewScreen(
     url: String,
     title: String,
     userAgent: UserAgent,
     bridge: WebKitCookieBridge,
     onClose: () -> Unit,
     onOpenExternal: (String) -> Unit,
-    onCheckGoal: (suspend () -> Boolean)?,
-    pollIntervalMillis: Long,
+    onCheckGoal: (suspend () -> Boolean)? = null,
+    pollIntervalMillis: Long = GOAL_POLL_MILLIS,
     isInScope: (String) -> Boolean,
-    canLeaveToBrowser: Boolean,
+    canLeaveToBrowser: Boolean = false,
     modifier: Modifier = Modifier,
+    sessionCapture: WebSessionCapture? = null,
 ) {
     var loading by remember { mutableStateOf(true) }
     var canGoBack by remember { mutableStateOf(false) }
@@ -170,6 +181,7 @@ private fun WebViewScreen(
     val openExternal by rememberUpdatedState(onOpenExternal)
     val staysHere by rememberUpdatedState(isInScope)
     val checkGoal by rememberUpdatedState(onCheckGoal)
+    val capture by rememberUpdatedState(sessionCapture)
 
     val delegate =
         remember {
@@ -187,6 +199,24 @@ private fun WebViewScreen(
         }
 
     val webView = remember { newWebView(userAgent, delegate) }
+
+    LaunchedEffect(webView, sessionCapture != null) {
+        var prepared = false
+        while (capture != null) {
+            delay(GOAL_POLL_MILLIS)
+            val current = capture ?: return@LaunchedEffect
+            if (!current.isOrigin(webView.URL?.absoluteString.orEmpty())) continue
+            if (!prepared) {
+                prepared = (webView.evaluateResult(current.prepareScript) as? NSNumber)?.boolValue == true
+            } else {
+                val token = webView.evaluateResult(current.readScript) as? String
+                if (!token.isNullOrBlank()) {
+                    bridge.drain()
+                    current.onToken(token)
+                }
+            }
+        }
+    }
 
     // Back dismisses the popup first — it is the topmost thing on screen.
     PlazaBackHandler(enabled = popup != null) { popup = null }
@@ -270,6 +300,12 @@ private fun WebViewScreen(
                 )
             }
         }
+    }
+}
+
+private suspend fun WKWebView.evaluateResult(script: String): Any? = suspendCancellableCoroutine { continuation ->
+    evaluateJavaScript(script) { value, _ ->
+        if (continuation.isActive) continuation.resume(value)
     }
 }
 

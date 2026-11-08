@@ -79,6 +79,9 @@ import io.github.nodyssey.data.local.createNodeSeekDatabase
 import io.github.nodyssey.data.lottery.LotteryRepository
 import io.github.nodyssey.data.lottery.LotteryStore
 import io.github.nodyssey.data.lottery.NetworkLotteryRepository
+import io.github.nodyssey.data.mail.DataStoreMailCredentialStore
+import io.github.nodyssey.data.mail.DefaultMailRepository
+import io.github.nodyssey.data.mail.MailRepository
 import io.github.nodyssey.data.offline.OfflineImageSource
 import io.github.nodyssey.data.offline.OfflineSettingsStore
 import io.github.nodyssey.data.offline.OfflineWorkScheduler
@@ -610,6 +613,23 @@ class IosAppContainer(
         ImageHostUploader(repository = imageHostRepository, preparer = imagePreparer)
     }
 
+    override val mailRepository: MailRepository by lazy {
+        val mailSession = ProxiedUrlSession(appScope, proxyRoute(ProxyClientKind.THIRD_PARTY)) { proxy ->
+            appleUrlSession(
+                userAgent = userAgent.value,
+                acceptLanguage = acceptLanguage,
+                proxy = proxy,
+            )
+        }
+        DefaultMailRepository(
+            credentials = DataStoreMailCredentialStore(secretStore("seek-mail"), secretCipher),
+            http = NSUrlSessionTransport { imageHostSession.current },
+            dispatchers = dispatchers,
+            sessionCookies = cookieStore,
+            sessionHttp = NSUrlSessionTransport { mailSession.current },
+        )
+    }
+
     private val imagePreparer: ImagePreparer by lazy { IosImagePreparer(dispatchers) }
 
     override val stickerLibrary: StickerLibrary by lazy {
@@ -642,6 +662,7 @@ class IosAppContainer(
                 profileRepository,
                 offlineLibrary,
                 settingsRepository,
+                clearMail = mailRepository::disconnect,
             ),
             currentProfile = { profileRepository.profile(refresh = it) },
             stopPlatformRequests = {

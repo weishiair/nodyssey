@@ -45,7 +45,10 @@ import io.github.plaza.core.net.UserAgent
 import io.github.plaza.core.net.resolveUserAgent
 import io.github.plaza.designsys.component.PlazaBackHandler
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.stringResource
+import kotlin.coroutines.resume
 
 /**
  * Stateful entry point: turns a [WebViewGoal] into the cookie condition the screen watches for.
@@ -108,7 +111,7 @@ actual fun WebViewRoute(
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun WebViewScreen(
+internal fun WebViewScreen(
     url: String,
     title: String,
     onClose: () -> Unit,
@@ -145,6 +148,7 @@ private fun WebViewScreen(
     onPageReadyScript: String? = null,
     /** Whether the toolbar offers a way out to a real browser; see the caller for why it is not always. */
     canLeaveToBrowser: Boolean = false,
+    sessionCapture: WebSessionCapture? = null,
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var popup by remember { mutableStateOf<WebView?>(null) }
@@ -167,6 +171,24 @@ private fun WebViewScreen(
     val close by rememberUpdatedState(onClose)
     val openExternal by rememberUpdatedState(onOpenExternal)
     val staysHere by rememberUpdatedState(isInScope)
+    val capture by rememberUpdatedState(sessionCapture)
+
+    LaunchedEffect(webView, sessionCapture != null) {
+        val view = webView ?: return@LaunchedEffect
+        var prepared = false
+        while (capture != null) {
+            delay(GOAL_POLL_MILLIS)
+            val current = capture ?: return@LaunchedEffect
+            if (!current.isOrigin(view.url.orEmpty())) continue
+            if (!prepared) {
+                prepared = view.evaluateResult(current.prepareScript) == "true"
+            } else {
+                val result = view.evaluateResult(current.readScript) ?: continue
+                val token = runCatching { Json.decodeFromString<String?>(result) }.getOrNull()
+                if (!token.isNullOrBlank()) current.onToken(token)
+            }
+        }
+    }
 
     LaunchedEffect(autoReturn) {
         if (!autoReturn) return@LaunchedEffect
@@ -284,6 +306,12 @@ private fun WebViewScreen(
                 )
             }
         }
+    }
+}
+
+private suspend fun WebView.evaluateResult(script: String): String? = suspendCancellableCoroutine { continuation ->
+    evaluateJavascript(script) { value ->
+        if (continuation.isActive) continuation.resume(value)
     }
 }
 

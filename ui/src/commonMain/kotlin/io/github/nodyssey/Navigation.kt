@@ -86,6 +86,7 @@ import io.github.nodyssey.ui.resources.about_site
 import io.github.nodyssey.ui.resources.clipboard_post_open
 import io.github.nodyssey.ui.resources.clipboard_post_prompt
 import io.github.nodyssey.ui.resources.home_pane_empty
+import io.github.nodyssey.ui.resources.mail_pane_empty
 import io.github.nodyssey.ui.resources.notifications_pane_empty
 import io.github.nodyssey.ui.resources.search_pane_empty
 import io.github.nodyssey.ui.resources.space_pane_empty
@@ -843,13 +844,13 @@ internal fun paneRoleOf(key: NavKey?): PaneRole? =
         // it is a menu whose rows are settings pages, and a settings page is not a detail.
         PostListKey, NotificationsKey, MyTopicsKey, MyCommentsKey, BookmarksKey, ReadHistoryKey -> PaneRole.LIST
 
-        is SearchKey -> PaneRole.LIST
+        is SearchKey, MailInboxKey -> PaneRole.LIST
 
         // A user's space is a list wherever it is reached from — including on top of a thread, where
         // tapping an author then leaves their posts beside the one being read.
         is UserSpaceKey -> PaneRole.LIST
 
-        is PostDetailKey, is MessageThreadKey -> PaneRole.DETAIL
+        is PostDetailKey, is MessageThreadKey, is MailDetailKey -> PaneRole.DETAIL
 
         else -> null
     }
@@ -972,6 +973,7 @@ internal fun emptyDetailTextOf(key: NavKey): StringResource =
         PostListKey, MyTopicsKey, MyCommentsKey, BookmarksKey, ReadHistoryKey -> Res.string.home_pane_empty
         is SearchKey -> Res.string.search_pane_empty
         NotificationsKey -> Res.string.notifications_pane_empty
+        MailInboxKey -> Res.string.mail_pane_empty
         is UserSpaceKey -> Res.string.space_pane_empty
         else -> error("$key is a list pane with nothing to say when its detail is empty")
     }

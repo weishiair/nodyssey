@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
@@ -21,6 +22,8 @@ import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.about_community_hint
 import io.github.nodyssey.ui.resources.about_community_title
 import io.github.nodyssey.ui.resources.action_back
+import io.github.nodyssey.ui.resources.mail_entry_hint
+import io.github.nodyssey.ui.resources.mail_title
 import io.github.nodyssey.ui.resources.report_compare_subtitle
 import io.github.nodyssey.ui.resources.report_compare_title
 import io.github.nodyssey.ui.resources.tools_award
@@ -73,6 +76,7 @@ fun CommunityToolsScreen(
     onReportCompare: () -> Unit,
     onAboutCommunity: () -> Unit,
     modifier: Modifier = Modifier,
+    onMail: () -> Unit = {},
 ) {
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
@@ -166,6 +170,15 @@ fun CommunityToolsScreen(
                     )
                 }
             }
+
+            GroupedRow(
+                title = stringResource(Res.string.mail_title),
+                subtitle = stringResource(Res.string.mail_entry_hint),
+                icon = Icons.Default.Email,
+                first = true,
+                last = true,
+                onClick = onMail,
+            )
 
             GroupedRow(
                 title = stringResource(Res.string.about_community_title),

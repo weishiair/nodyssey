@@ -33,6 +33,7 @@ import io.github.nodyssey.data.diagnostics.NetworkDiagnostics
 import io.github.nodyssey.data.dns.DohSupport
 import io.github.nodyssey.data.imagehost.ImageHostRepository
 import io.github.nodyssey.data.lottery.LotteryRepository
+import io.github.nodyssey.data.mail.MailRepository
 import io.github.nodyssey.data.proxy.ProxyConnectionTester
 import io.github.nodyssey.data.proxy.ProxySettings
 import io.github.nodyssey.data.session.AccountRepository
@@ -69,6 +70,7 @@ import io.github.plaza.core.update.ApkInstaller
 interface AppContainer {
     val lotteryRepository: LotteryRepository? get() = null
 
+    val mailRepository: MailRepository
     val dispatchers: AppDispatchers
     val clock: AppClock
 
