@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 interface MailRepository {
+    val supportsNativeAuthorization: Boolean
     val connection: StateFlow<MailConnection>
     val readStates: StateFlow<MailReadStates>
 
@@ -23,6 +24,9 @@ interface MailRepository {
 
     /** An attempt belongs to this generation; sign-out or cancellation invalidates its result. */
     suspend fun beginAuthorization(): Long
+
+    /** Exchanges the current forum session through the official provider without a browser. */
+    suspend fun authorize(generation: Long)
 
     suspend fun completeAuthorization(generation: Long, token: String)
 
@@ -45,8 +49,11 @@ class DefaultMailRepository(
     private val dispatchers: AppDispatchers,
     sessionCookies: SessionCookieStore? = null,
     sessionHttp: HttpTransport = http,
+    authorizationHttp: HttpTransport? = null,
 ) : MailRepository {
     private val client = SeekMailClient(http, sessionCookies, sessionHttp)
+    private val authorization = authorizationHttp?.let { SeekMailAuthorization(it, client) }
+    override val supportsNativeAuthorization: Boolean get() = authorization != null
     private val control = Mutex()
     private var readWrites = Mutex()
     private var key = ""
@@ -89,6 +96,13 @@ class DefaultMailRepository(
         }
         checkGeneration(generation, mustBeConnected = false)
         finishConnection(generation, "web:$token")
+    }
+
+    override suspend fun authorize(generation: Long) {
+        checkGeneration(generation, mustBeConnected = false)
+        val exchange = authorization ?: throw MailException(MailError.WEB_AUTHORIZATION)
+        val token = withContext(dispatchers.io) { exchange.token { checkGeneration(generation, mustBeConnected = false) } }
+        completeAuthorization(generation, token)
     }
 
     override suspend fun cancelAuthorization(generation: Long) = control.withLock {

@@ -8,23 +8,40 @@ back in both the detail and the inbox.
 
 ## Connect
 
-The primary action opens `https://seek.li/login` inside the app. The official
-NodeSeek login opens `https://www.nodeseek.com/connect?target=NodeMailDev` and can
-reuse the app's forum cookies. Once the website finishes its provider callback,
-the app reads the website session token from the main frame's local storage,
-verifies mailbox access, and returns to the native inbox. No API key is created.
+On Android, the primary action exchanges the existing forum session through the
+same native OkHttp DNS/ECH and proxy configuration used by the app. It does not
+open a WebView:
 
-Forum login and mail login remain separate sessions. A forum cookie authorizes
-the provider step; it is not a mail API credential. Each explicit connection
-clears the previous mail token in the website before starting, so switching forum
-accounts cannot silently import the previous mail identity from local storage.
-The official login and any site verification remain visible to the user.
+1. `GET https://seek.li/api/auth/providers` must advertise the enabled `nodeseek`
+   popup provider with the expected NodeSeek origin, `ns-connect` source and
+   `NodeMailDev` target.
+2. `GET https://www.nodeseek.com/api/cAuth?target=NodeMailDev` uses the existing
+   forum cookie bridge. Its signed `data`, `wtf` and `sign` JSON values are
+   preserved, and its receiver list must include `https://seek.li`.
+3. `POST https://seek.li/api/auth/provider/nodeseek/callback` submits only those
+   three fields, using mail-scoped cookies and the website's CSRF header/retry.
+4. The returned token is verified against the mailbox endpoint before it is
+   encrypted and stored. Cancellation, disconnect and account switching invalidate
+   each stage, so an old reply cannot restore a previous account's credential.
 
-The mail browser has its own HTTPS origin policy for `seek.li` and NodeSeek. The
-forum browser's global host policy is unchanged. Token capture checks both the
-native main-frame URL and the script's `location.origin`; no JavaScript interface
-is exposed to email frames. Cancelling authorization or signing out invalidates
-the attempt, including a verification request that completes late.
+The provider GET is not automatically retried: it grants access despite its HTTP
+method. Both authorization clients disable redirects, preventing a 307/308 from
+forwarding the signed callback body to another origin. Forum and mail requests
+use separate cookie bridges; forum cookies are not mail API credentials.
+
+Website authorization remains an explicit fallback for security challenges,
+two-factor verification, onboarding, or an unsupported provider configuration.
+There is no automatic fallback from a failed native request to WebView. The
+fallback uses WebView's own network, which does not inherit the app's native
+DoH/ECH and may still require a proxy. Apple retains website authorization as its
+primary action until a native provider transport is configured there.
+
+The fallback opens `https://seek.li/login` and captures the website session token
+from the main frame's local storage after the official provider callback. Each
+explicit connection clears the old website token first. It has its own HTTPS
+origin policy for `seek.li` and NodeSeek; the forum browser policy is unchanged.
+Capture checks both the native main-frame URL and the script's `location.origin`,
+with no JavaScript interface exposed to email frames.
 
 Manual API key entry remains available as a fallback. The developer page is
 `https://seek.li/manage/support?tab=developer`. A key needs `mailbox:read`,
@@ -46,7 +63,7 @@ cookies through the existing platform cookie bridge. The CSRF header is decoded
 from the `csrf_token` cookie. For the website's three specific CSRF rejection
 messages, a write renews the cookie through `GET /auth/csrf` and retries once.
 Other permission failures are not retried. A 401 erases the saved credential and
-live mail content; a 468 offers another visible website authorization.
+live mail content; a 468 offers explicit website authorization.
 
 This website API is not a documented third-party contract and may change.
 The fallback uses the published specification at `https://seek.li/api/openapi.json`,
@@ -80,9 +97,9 @@ On 2026-11-08, browser research observed successful authenticated website mailbo
 and inbox requests and checked the shipped website client for detail, read-state,
 and CSRF behavior. The live inbox was empty, so a real message detail was not
 opened. No real API key was created. Tests use synthetic replies and a committed
-synthetic HTML fixture. Native device authorization and Apple compilation still
-require device/Mac verification; browser research alone does not establish those
-results.
+synthetic HTML fixture. The native provider protocol is covered by synthetic tests.
+Android device authorization and Apple compilation still require device/Mac
+verification; browser research alone does not establish those results.
 
 ## Local validation
 
@@ -102,3 +119,11 @@ manager and the invite purchase fixes. Both shells clear mail through
 previous account's connection active. A regression test exercises an actual mail
 repository through an account switch. Focused mail/account/navigation tests,
 formatting, Android lint, and release compilation passed on this base.
+
+The native authorization change passes 56 focused Android shared tests (mail,
+account switching and sign-out), nine focused UI/state-boundary tests, and 26 JVM
+mail tests, including eight new provider protocol tests. The seven mail ViewModel
+tests include native challenge recovery and cancellation before callback. The
+full run reports the same Windows failures as the preceding snapshot: 21 app
+Room migration tests, 11 shared file-store tests and two UI preferences tests.
+There are no dependency or schema changes.

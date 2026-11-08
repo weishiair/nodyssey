@@ -825,13 +825,19 @@ class DefaultAppContainer(
     }
 
     override val mailRepository: MailRepository by lazy {
-        val mailClient = ownClient(imageHostClient.newBuilder().cookieJar(SeekMailCookieJar(cookieStore)).build())
+        // A 307/308 must never forward the provider's signed payload to another origin.
+        val mailClient = ownClient(imageHostClient.newBuilder().cookieJar(SeekMailCookieJar(cookieStore)).followRedirects(false).retryOnConnectionFailure(false).build())
+        val forumClient = ownClient(okHttpClient.newBuilder().followRedirects(false).retryOnConnectionFailure(false).build())
         DefaultMailRepository(
             credentials = DataStoreMailCredentialStore(appContext.mailDataStore, KeystoreSecretCipher()),
             http = OkHttpTransport(imageHostClient),
             dispatchers = dispatchers,
             sessionCookies = cookieStore,
             sessionHttp = OkHttpTransport(mailClient),
+            // cAuth grants access despite being a GET; do not put RetryingTransport around it.
+            authorizationHttp = accountRequests.guard(
+                lifetime.guard(CookieScrubbingTransport(OkHttpTransport(forumClient), sessionCookies)),
+            ),
         )
     }
 

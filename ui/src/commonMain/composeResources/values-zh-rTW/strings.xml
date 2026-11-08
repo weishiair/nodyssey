@@ -1741,11 +1741,14 @@
     <string name="mail_scopes_hint">金鑰需要 mailbox:read、mail:read 和 mail:manage 權限，用於列出信箱、閱讀郵件和更新已讀狀態。</string>
     <string name="mail_create_key">前往官網建立金鑰</string>
     <string name="mail_api_key">API Key</string>
+    <string name="mail_authorize_website">網頁授權（備用）</string>
+    <string name="mail_error_forum_sign_in">NodeSeek 登入狀態無法完成授權，請先登入論壇，或使用網頁授權。</string>
+    <string name="mail_error_web_authorization">官網需要額外驗證或授權流程已變更，請使用網頁授權。</string>
     <string name="mail_authorize">使用 NodeSeek 授權</string>
-    <string name="mail_authorize_hint">在應用程式內完成信箱官網授權，即可在這裡收信。現有 NodeSeek 登入狀態可用於授權，無需手動建立或複製金鑰。</string>
+    <string name="mail_authorize_hint">使用現有 NodeSeek 登入狀態授權，無需手動建立或複製金鑰。若官網要求額外驗證，可選擇網頁授權。</string>
     <string name="mail_use_key">使用 API Key 連線</string>
     <string name="mail_reauthorize">重新授權信箱</string>
-    <string name="mail_error_challenge">信箱官網需要驗證，請返回收件匣重新授權並完成驗證。</string>
+    <string name="mail_error_challenge">官網要求安全驗證，請嘗試網頁授權並完成驗證。網頁使用 WebView 網路，可能仍需代理。</string>
     <string name="mail_connect">連線信箱</string>
     <string name="mail_connecting">正在驗證…</string>
     <string name="mail_disconnect">中斷連線</string>

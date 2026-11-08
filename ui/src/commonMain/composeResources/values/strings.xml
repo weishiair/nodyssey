@@ -2024,11 +2024,14 @@
     <string name="mail_scopes_hint">密钥需要 mailbox:read、mail:read 和 mail:manage 权限，用于列出邮箱、阅读邮件和更新已读状态。</string>
     <string name="mail_create_key">前往官网创建密钥</string>
     <string name="mail_api_key">API Key</string>
+    <string name="mail_authorize_website">网页授权（备用）</string>
+    <string name="mail_error_forum_sign_in">NodeSeek 登录态无法完成授权，请先登录论坛，或使用网页授权。</string>
+    <string name="mail_error_web_authorization">官网需要额外验证或授权流程已变更，请使用网页授权。</string>
     <string name="mail_authorize">使用 NodeSeek 授权</string>
-    <string name="mail_authorize_hint">在应用内完成邮箱官网授权，即可在这里收信。已有 NodeSeek 登录态可用于授权，无需手动创建或复制密钥。</string>
+    <string name="mail_authorize_hint">使用已有 NodeSeek 登录态授权，无需手动创建或复制密钥。若官网要求额外验证，可选择网页授权。</string>
     <string name="mail_use_key">使用 API Key 连接</string>
     <string name="mail_reauthorize">重新授权邮箱</string>
-    <string name="mail_error_challenge">邮箱官网需要验证，请返回收件箱重新授权并完成验证。</string>
+    <string name="mail_error_challenge">官网要求安全验证，请尝试网页授权并完成验证。网页使用 WebView 网络，可能仍需代理。</string>
     <string name="mail_connect">连接邮箱</string>
     <string name="mail_connecting">正在验证…</string>
     <string name="mail_disconnect">断开连接</string>

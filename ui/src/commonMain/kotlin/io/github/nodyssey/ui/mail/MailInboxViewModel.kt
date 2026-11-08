@@ -47,6 +47,7 @@ class MailInboxViewModel(private val repository: MailRepository) : ViewModel() {
     private var loadJob: Job? = null
     private var authorizationGeneration: Long? = null
     private var authorizationJob: Job? = null
+    private var authorizationSerial = 0L
     val uiState = combine(state, repository.readStates) { inbox, reads ->
         if (reads.generation != generation) {
             inbox
@@ -73,7 +74,8 @@ class MailInboxViewModel(private val repository: MailRepository) : ViewModel() {
                 state.value = MailInboxUiState(
                     initializing = !connection.initialized,
                     connected = connection.connected,
-                    connecting = state.value.connecting && (!state.value.authorizing || sameAuthorization),
+                    connecting = !connection.connected && state.value.connecting &&
+                        (authorizationGeneration == null || sameAuthorization),
                     authorizing = state.value.authorizing && sameAuthorization,
                     error = connection.error,
                 )
@@ -99,25 +101,47 @@ class MailInboxViewModel(private val repository: MailRepository) : ViewModel() {
         val key = apiKey.text.toString()
         apiKey.clearText()
         state.update { it.copy(connecting = true, error = null) }
-        viewModelScope.launch {
+        val serial = ++authorizationSerial
+        authorizationJob = viewModelScope.launch {
             try {
                 runCatchingExceptCancellation { repository.connect(key) }
                     .onFailure { error -> state.update { it.copy(error = error.mailError()) } }
             } finally {
-                state.update { it.copy(connecting = false) }
+                if (serial == authorizationSerial) state.update { it.copy(connecting = false) }
             }
         }
     }
 
     fun authorize() {
+        startAuthorization(website = !repository.supportsNativeAuthorization)
+    }
+
+    fun authorizeOnWebsite() {
+        startAuthorization(website = true)
+    }
+
+    private fun startAuthorization(website: Boolean) {
         if (state.value.connecting || state.value.authorizing || authorizationJob?.isActive == true) return
         apiKey.clearText()
+        val serial = ++authorizationSerial
+        state.update { it.copy(connecting = true, error = null) }
         authorizationJob = viewModelScope.launch {
-            runCatchingExceptCancellation { repository.beginAuthorization() }
-                .onSuccess { attempt ->
+            try {
+                runCatchingExceptCancellation {
+                    val attempt = repository.beginAuthorization()
+                    currentCoroutineContext().ensureActive()
                     authorizationGeneration = attempt
-                    state.update { it.copy(authorizing = true, error = null) }
-                }.onFailure { error -> state.update { it.copy(error = error.mailError()) } }
+                    state.update { it.copy(authorizing = website, connecting = !website, error = null) }
+                    if (!website) repository.authorize(attempt)
+                }.onFailure { error ->
+                    if (serial == authorizationSerial) state.update { it.copy(error = error.mailError()) }
+                }
+            } finally {
+                if (serial == authorizationSerial && !state.value.authorizing) {
+                    authorizationGeneration = null
+                    state.update { it.copy(connecting = false) }
+                }
+            }
         }
     }
 
@@ -139,10 +163,12 @@ class MailInboxViewModel(private val repository: MailRepository) : ViewModel() {
     }
 
     fun cancelAuthorization() {
-        val attempt = authorizationGeneration ?: return
+        val attempt = authorizationGeneration
+        ++authorizationSerial
         authorizationGeneration = null
         authorizationJob?.cancel()
         state.update { it.copy(authorizing = false, connecting = false) }
+        if (attempt == null) return
         viewModelScope.launch {
             runCatchingExceptCancellation { repository.cancelAuthorization(attempt) }
                 .onFailure { error -> state.update { it.copy(error = error.mailError()) } }

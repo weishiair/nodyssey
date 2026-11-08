@@ -72,7 +72,7 @@ class MailViewModelTest {
         val repository = DefaultMailRepository(store, transport, AppDispatchers(dispatcher, dispatcher))
         val viewModel = MailInboxViewModel(repository)
         advanceUntilIdle()
-        viewModel.authorize()
+        viewModel.authorizeOnWebsite()
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.authorizing)
         viewModel.completeAuthorization("example-session")
@@ -87,6 +87,59 @@ class MailViewModelTest {
         assertFalse(viewModel.uiState.value.authorizing)
         assertFalse(viewModel.uiState.value.connecting)
         assertFalse(repository.connection.value.connected)
+    }
+
+    @Test
+    fun `native challenge stays on the inbox and a retry connects without opening the browser`() = runTest(dispatcher) {
+        val harness = NativeAuthorizationHarness(dispatcher)
+        harness.forumCode = 468
+        val viewModel = MailInboxViewModel(harness.repository)
+        advanceUntilIdle()
+        viewModel.authorize()
+        advanceUntilIdle()
+        assertEquals(MailError.CHALLENGE, viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertFalse(viewModel.uiState.value.connecting)
+        assertEquals("", harness.saved)
+        assertEquals(0, harness.callbacks)
+        harness.forumCode = 200
+        viewModel.authorize()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.connected)
+        assertFalse(viewModel.uiState.value.connecting)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertNull(viewModel.uiState.value.error)
+        assertEquals("web:synthetic-session", harness.saved)
+        assertEquals(1, harness.callbacks)
+    }
+
+    @Test
+    fun `repeated native taps grant once and cancellation rejects a late signature before callback`() = runTest(dispatcher) {
+        val harness = NativeAuthorizationHarness(dispatcher)
+        val gate = CompletableDeferred<Unit>()
+        harness.forumWait = { withContext(NonCancellable) { gate.await() } }
+        val viewModel = MailInboxViewModel(harness.repository)
+        advanceUntilIdle()
+        viewModel.authorize()
+        viewModel.authorize()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.connecting)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertEquals(1, harness.grants)
+        viewModel.cancelAuthorization()
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.connecting)
+        assertFalse(viewModel.uiState.value.connected)
+        assertEquals("", harness.saved)
+        assertEquals(0, harness.callbacks)
+        harness.forumWait = {}
+        viewModel.authorize()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.connected)
+        assertEquals(2, harness.grants)
+        assertEquals(1, harness.callbacks)
     }
 
     @Test
@@ -177,7 +230,50 @@ class MailViewModelTest {
 
 private val MAIL = MailMessage(21, 7, bodyText = "private words")
 
+private class NativeAuthorizationHarness(dispatcher: kotlinx.coroutines.CoroutineDispatcher) {
+    var saved = ""
+    var forumCode = 200
+    var grants = 0
+    var callbacks = 0
+    var forumWait: suspend () -> Unit = {}
+    private val store = object : MailCredentialStore {
+        override suspend fun read() = saved
+        override suspend fun clear() {
+            saved = ""
+        }
+        override suspend fun save(key: String) {
+            saved = key
+        }
+    }
+    private val forum = object : HttpTransport {
+        override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse {
+            grants++
+            forumWait()
+            return HttpResponse(forumCode, request.url, emptyMap(), """{"success":true,"links":["https://seek.li"],"data":{"id":123},"wtf":456,"sign":"synthetic"}""")
+        }
+    }
+    private val mail = object : HttpTransport {
+        override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse {
+            val body = when {
+                request.url.endsWith("/auth/providers") -> """{"providers":[{"id":"nodeseek","enabled":true,"type":"oauth_popup","providerType":"nodeseek","config":{"origin":"https://www.nodeseek.com","popup_url":"https://www.nodeseek.com/connect?target=NodeMailDev","source":"ns-connect","target":"NodeMailDev"}}]}"""
+
+                request.url.endsWith("/callback") -> {
+                    callbacks++
+                    """{"token":"synthetic-session"}"""
+                }
+
+                request.url.endsWith("/mailboxes") -> """{"owned":[{"id":7,"address":"a@example.org"}]}"""
+
+                else -> """{"mails":[],"total":0,"limit":20,"offset":0}"""
+            }
+            return HttpResponse(200, request.url, emptyMap(), body)
+        }
+    }
+    val repository = DefaultMailRepository(store, mail, AppDispatchers(dispatcher, dispatcher), authorizationHttp = forum)
+}
+
 private class FakeMailRepository : MailRepository {
+    override val supportsNativeAuthorization = true
     override val connection = MutableStateFlow(MailConnection(initialized = true, generation = 1, connected = true))
     override val readStates = MutableStateFlow(MailReadStates(generation = 1))
     val offsets = mutableListOf<Int>()
@@ -195,6 +291,8 @@ private class FakeMailRepository : MailRepository {
         if (generation != connection.value.generation) throw kotlinx.coroutines.CancellationException()
         connection.value = connection.value.copy(connected = true)
     }
+
+    override suspend fun authorize(generation: Long) = completeAuthorization(generation, "synthetic-session")
 
     override suspend fun cancelAuthorization(generation: Long) {
         if (generation == connection.value.generation) disconnect()

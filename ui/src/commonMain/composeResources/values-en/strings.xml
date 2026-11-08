@@ -1749,11 +1749,14 @@
     <string name="mail_scopes_hint">The key needs mailbox:read, mail:read and mail:manage to list mailboxes, read messages and update read status.</string>
     <string name="mail_create_key">Create a key on the website</string>
     <string name="mail_api_key">API Key</string>
+    <string name="mail_authorize_website">Website authorization (fallback)</string>
+    <string name="mail_error_forum_sign_in">Your NodeSeek session could not authorize access. Sign in to the forum first, or use website authorization.</string>
+    <string name="mail_error_web_authorization">The website needs additional verification or its authorization flow has changed. Use website authorization.</string>
     <string name="mail_authorize">Authorize with NodeSeek</string>
-    <string name="mail_authorize_hint">Complete authorization on the mail website inside the app to read mail here. Your existing NodeSeek session can authorize access without manually creating or copying a key.</string>
+    <string name="mail_authorize_hint">Authorize with your existing NodeSeek session without creating or copying a key. Use website authorization if additional verification is required.</string>
     <string name="mail_use_key">Connect with an API key</string>
     <string name="mail_reauthorize">Authorize mail again</string>
-    <string name="mail_error_challenge">The mail website requires verification. Return to the inbox, authorize again, and complete verification.</string>
+    <string name="mail_error_challenge">The website requires security verification. Try website authorization to complete it. WebView uses its own network and may still need a proxy.</string>
     <string name="mail_connect">Connect mailbox</string>
     <string name="mail_connecting">Verifying…</string>
     <string name="mail_disconnect">Disconnect</string>

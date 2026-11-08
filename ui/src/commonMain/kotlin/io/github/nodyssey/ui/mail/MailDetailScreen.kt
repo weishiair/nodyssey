@@ -36,6 +36,7 @@ import io.github.nodyssey.ui.resources.mail_attachment_hint
 import io.github.nodyssey.ui.resources.mail_connection_expired
 import io.github.nodyssey.ui.resources.mail_detail
 import io.github.nodyssey.ui.resources.mail_error_challenge
+import io.github.nodyssey.ui.resources.mail_error_forum_sign_in
 import io.github.nodyssey.ui.resources.mail_error_key
 import io.github.nodyssey.ui.resources.mail_error_missing
 import io.github.nodyssey.ui.resources.mail_error_network
@@ -44,6 +45,7 @@ import io.github.nodyssey.ui.resources.mail_error_rate
 import io.github.nodyssey.ui.resources.mail_error_service
 import io.github.nodyssey.ui.resources.mail_error_storage
 import io.github.nodyssey.ui.resources.mail_error_unauthorized
+import io.github.nodyssey.ui.resources.mail_error_web_authorization
 import io.github.nodyssey.ui.resources.mail_from
 import io.github.nodyssey.ui.resources.mail_mark_read
 import io.github.nodyssey.ui.resources.mail_mark_unread
@@ -181,4 +183,6 @@ internal fun MailError.messageRes(): StringResource = when (this) {
     MailError.INVALID_RESPONSE, MailError.SERVICE -> Res.string.mail_error_service
     MailError.NETWORK -> Res.string.mail_error_network
     MailError.CHALLENGE -> Res.string.mail_error_challenge
+    MailError.FORUM_SIGN_IN -> Res.string.mail_error_forum_sign_in
+    MailError.WEB_AUTHORIZATION -> Res.string.mail_error_web_authorization
 }

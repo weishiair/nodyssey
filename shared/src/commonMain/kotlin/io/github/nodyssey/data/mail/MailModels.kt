@@ -53,6 +53,8 @@ enum class MailError {
     INVALID_RESPONSE,
     STORAGE,
     CHALLENGE,
+    FORUM_SIGN_IN,
+    WEB_AUTHORIZATION,
 }
 
 /** Never includes response bodies, mail content or credentials in an exception message. */

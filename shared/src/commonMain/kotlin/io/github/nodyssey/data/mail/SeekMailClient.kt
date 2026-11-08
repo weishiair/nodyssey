@@ -1,5 +1,6 @@
 package io.github.nodyssey.data.mail
 
+import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.SeekMailSite
 import io.github.plaza.core.net.HttpBody
 import io.github.plaza.core.net.HttpRequest
@@ -7,6 +8,7 @@ import io.github.plaza.core.net.HttpResponse
 import io.github.plaza.core.net.HttpTransport
 import io.github.plaza.core.net.SessionCookieStore
 import io.github.plaza.core.net.WebUrl
+import io.github.plaza.core.net.isChallengeAnswer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -58,14 +60,20 @@ internal class SeekMailClient(
         request(key, "/mails/$id/read", "PUT", HttpBody.Text("{\"read\":$read}"))
     }
 
-    private suspend fun request(key: String, path: String, method: String = "GET", body: HttpBody? = null): String {
+    internal suspend fun authorizationRequest(path: String, method: String = "GET", body: HttpBody? = null): String =
+        request("web:", path, method, body, checkUrl = true)
+
+    private suspend fun request(key: String, path: String, method: String = "GET", body: HttpBody? = null, checkUrl: Boolean = false): String {
         var response = execute(key, path, method, body)
+        if (checkUrl) checkAuthorizationUrl(response, path)
         // The website renews CSRF once for precisely these three errors. Retrying other permission
         // failures would repeat a write the user is not entitled to make.
         if (key.isWebSession() && method != "GET" && response.code == 403 && isCsrfFailure(response.body)) {
             val csrf = execute(key, "/auth/csrf", "GET", null)
+            if (checkUrl) checkAuthorizationUrl(csrf, "/auth/csrf")
             checkResponse(csrf)
             response = execute(key, path, method, body)
+            if (checkUrl) checkAuthorizationUrl(response, path)
         }
         checkResponse(response)
         return response.body
@@ -77,7 +85,7 @@ internal class SeekMailClient(
                 url = (if (key.isWebSession()) "${SeekMailSite.ORIGIN}/api" else BASE_URL) + path,
                 method = method,
                 headers = buildMap {
-                    put("Authorization", "Bearer ${key.removePrefix("web:")}")
+                    key.removePrefix("web:").takeIf(String::isNotEmpty)?.let { put("Authorization", "Bearer $it") }
                     put("Accept", "application/json")
                     if (key.isWebSession()) {
                         put("Referer", "${SeekMailSite.ORIGIN}/")
@@ -94,6 +102,9 @@ internal class SeekMailClient(
         )
 
     private fun checkResponse(response: HttpResponse) {
+        if (response.code == 468 || isChallengeAnswer(response.body, response.header("cf-mitigated"), NodeSeekSite.CONFIG.markers)) {
+            throw MailException(MailError.CHALLENGE)
+        }
         if (!response.isSuccessful) {
             throw MailException(
                 when (response.code) {
@@ -105,6 +116,13 @@ internal class SeekMailClient(
                     else -> MailError.SERVICE
                 },
             )
+        }
+    }
+
+    private fun checkAuthorizationUrl(response: HttpResponse, path: String) {
+        // The authorization transport must disable redirects before sending signed provider data.
+        if (response.url != "${SeekMailSite.ORIGIN}/api$path" || response.code in 300..399) {
+            throw MailException(MailError.WEB_AUTHORIZATION)
         }
     }
 

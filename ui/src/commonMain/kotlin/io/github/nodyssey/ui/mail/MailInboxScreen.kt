@@ -50,6 +50,7 @@ import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.mail_api_key
 import io.github.nodyssey.ui.resources.mail_authorize
 import io.github.nodyssey.ui.resources.mail_authorize_hint
+import io.github.nodyssey.ui.resources.mail_authorize_website
 import io.github.nodyssey.ui.resources.mail_choose_mailbox
 import io.github.nodyssey.ui.resources.mail_connect
 import io.github.nodyssey.ui.resources.mail_connect_hint
@@ -65,7 +66,6 @@ import io.github.nodyssey.ui.resources.mail_loading
 import io.github.nodyssey.ui.resources.mail_no_mailboxes
 import io.github.nodyssey.ui.resources.mail_no_subject
 import io.github.nodyssey.ui.resources.mail_open_website
-import io.github.nodyssey.ui.resources.mail_reauthorize
 import io.github.nodyssey.ui.resources.mail_scopes_hint
 import io.github.nodyssey.ui.resources.mail_title
 import io.github.nodyssey.ui.resources.mail_unread
@@ -105,7 +105,10 @@ fun MailInboxRoute(
     MailInboxScreen(
         state = state,
         apiKey = viewModel.apiKey,
-        onBack = onBack,
+        onBack = {
+            viewModel.cancelAuthorization()
+            onBack()
+        },
         onConnect = viewModel::connect,
         onDisconnect = viewModel::requestDisconnect,
         onConfirmDisconnect = viewModel::disconnect,
@@ -116,6 +119,8 @@ fun MailInboxRoute(
         onOpenMail = onOpenMail,
         onOpenWebsite = onOpenWebsite,
         onAuthorize = viewModel::authorize,
+        onAuthorizeWebsite = viewModel::authorizeOnWebsite,
+        onCancelAuthorization = viewModel::cancelAuthorization,
     )
 }
 
@@ -135,10 +140,13 @@ fun MailInboxScreen(
     onOpenWebsite: (String) -> Unit,
     modifier: Modifier = Modifier,
     onAuthorize: () -> Unit = {},
+    onAuthorizeWebsite: () -> Unit = {},
+    onCancelAuthorization: () -> Unit = {},
 ) {
     val appBarState = rememberOneHandAppBarState()
     var choosingMailbox by remember { mutableStateOf(false) }
     var usingKey by remember { mutableStateOf(false) }
+    PlazaBackHandler(enabled = state.connecting, onBack = onCancelAuthorization)
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
@@ -179,9 +187,15 @@ fun MailInboxScreen(
                             Text(stringResource(Res.string.mail_connect_title), style = MaterialTheme.typography.headlineSmall)
                             Text(stringResource(Res.string.mail_authorize_hint), style = MaterialTheme.typography.bodyLarge)
                             Button(onClick = onAuthorize, enabled = !state.connecting) {
-                                Text(stringResource(Res.string.mail_authorize))
+                                Text(stringResource(if (state.connecting) Res.string.mail_connecting else Res.string.mail_authorize))
                             }
-                            TextButton(onClick = { usingKey = !usingKey }) { Text(stringResource(Res.string.mail_use_key)) }
+                            if (state.connecting) {
+                                TextButton(onClick = onCancelAuthorization) { Text(stringResource(Res.string.action_cancel)) }
+                            }
+                            TextButton(onClick = onAuthorizeWebsite, enabled = !state.connecting) {
+                                Text(stringResource(Res.string.mail_authorize_website))
+                            }
+                            TextButton(onClick = { usingKey = !usingKey }, enabled = !state.connecting) { Text(stringResource(Res.string.mail_use_key)) }
                             if (usingKey) {
                                 Text(stringResource(Res.string.mail_connect_hint), style = MaterialTheme.typography.bodyLarge)
                                 Text(stringResource(Res.string.mail_scopes_hint), style = MaterialTheme.typography.bodyMedium)
@@ -287,8 +301,10 @@ fun MailInboxScreen(
                     item {
                         Column(Modifier.padding(LayerPageGutter)) {
                             Text(stringResource(error.messageRes()), color = MaterialTheme.colorScheme.error)
-                            if (error == MailError.CHALLENGE) {
-                                TextButton(onClick = onAuthorize) { Text(stringResource(Res.string.mail_reauthorize)) }
+                            if (error == MailError.CHALLENGE || error == MailError.WEB_AUTHORIZATION || error == MailError.FORUM_SIGN_IN) {
+                                TextButton(onClick = onAuthorizeWebsite, enabled = !state.connecting) {
+                                    Text(stringResource(Res.string.mail_authorize_website))
+                                }
                             }
                             if (state.connected || (error == MailError.STORAGE && !state.connecting)) {
                                 TextButton(onClick = onRefresh) {
