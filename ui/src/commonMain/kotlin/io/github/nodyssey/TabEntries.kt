@@ -197,12 +197,13 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
                 providers = { openWebUrl(NodeSeekSite.BASE_URL + NodeSeekSite.PROVIDERS_PATH) },
                 friends = { openWebUrl(NodeSeekSite.BASE_URL + NodeSeekSite.FRIENDS_PATH) },
                 blockList = { backStack.add(AccountBlockListKey()) },
+                mail = { backStack.add(MailInboxKey) },
                 aboutCommunity = { backStack.add(AboutCommunityKey) },
                 accountSettings = { backStack.add(AccountSettingsKey) },
                 notificationSettings = { backStack.add(NotificationSettingsKey) },
                 themeSettings = { backStack.add(ThemeSettingsKey) },
                 about = { backStack.add(AboutAppKey) },
-                // Signed out only: the six links this page holds are tiles of their own above.
+                // Signed out only: the links this page holds are tiles of their own above.
                 tools = { backStack.add(CommunityToolsKey) },
             ),
             onSignIn = { backStack.add(SignInKey) },

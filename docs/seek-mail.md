@@ -1,6 +1,7 @@
 # NodeSeek Mail — phase one
 
-The entry is **My → Community tools → NodeSeek Mail**. The native screens connect
+The signed-in entry is **My → NodeSeek Mail**, in the community tile group. Guests
+can reach it through **My → Community tools → NodeSeek Mail**. The native screens connect
 an account, list owned mailboxes, switch inboxes, paginate, read a message, and
 mark it read or unread. Opening a message marks it read; a failed update rolls
 back in both the detail and the inbox.

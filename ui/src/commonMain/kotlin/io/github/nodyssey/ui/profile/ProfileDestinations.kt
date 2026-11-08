@@ -35,6 +35,7 @@ data class ProfileDestinations(
     val providers: () -> Unit = {},
     val friends: () -> Unit = {},
     val blockList: () -> Unit = {},
+    val mail: () -> Unit = {},
     val aboutCommunity: () -> Unit = {},
     // 设置与其他
     val accountSettings: () -> Unit = {},
@@ -44,7 +45,7 @@ data class ProfileDestinations(
     /**
      * 社区工具, the last of the signed-out screen's guest tiles, after the four tools 9f draws.
      *
-     * Signed in, the six links it holds are tiles of their own in 社区 and the page is not reached
+     * Signed in, the links it holds are tiles of their own in 社区 and the page is not reached
      * from here at all — the grid exists to remove exactly that hop.
      */
     val tools: () -> Unit = {},

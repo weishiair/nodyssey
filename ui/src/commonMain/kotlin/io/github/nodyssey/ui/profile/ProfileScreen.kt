@@ -95,6 +95,7 @@ import io.github.nodyssey.ui.resources.assets_signed_in
 import io.github.nodyssey.ui.resources.assets_signing_in
 import io.github.nodyssey.ui.resources.lottery_title
 import io.github.nodyssey.ui.resources.lottery_unread_results
+import io.github.nodyssey.ui.resources.mail_title
 import io.github.nodyssey.ui.resources.profile_attendance_board
 import io.github.nodyssey.ui.resources.profile_attendance_checking
 import io.github.nodyssey.ui.resources.profile_attendance_done
@@ -744,7 +745,7 @@ private data class ProfileTile(
 )
 
 /**
- * The three groups: 内容, 社区, 设置 — 6 + 8 + 4 = 18 tiles.
+ * The three groups: 内容, 社区, 设置.
  *
  * There is no 资产 group. 鸡腿流水 and 星辰流水 are the balances on the account card above, 星辰转账 is
  * the 转账 on 星辰流水, and 邀请码 — bought with chicken, but a way into the community — is in 社区.
@@ -779,6 +780,7 @@ private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryR
                 ProfileTile(Res.string.profile_tile_friends, PlazaIcons.Link, destinations.friends),
                 ProfileTile(Res.string.profile_tile_block, PlazaIcons.Block, destinations.blockList),
                 ProfileTile(Res.string.profile_tile_invite, PlazaIcons.ConfirmationNumber, destinations.invite),
+                ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail),
                 ProfileTile(Res.string.profile_tile_about_community, PlazaIcons.Forum, destinations.aboutCommunity),
             ),
         ),
