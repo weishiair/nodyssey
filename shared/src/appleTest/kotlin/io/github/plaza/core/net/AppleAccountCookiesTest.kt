@@ -1,8 +1,5 @@
 package io.github.plaza.core.net
 
-import io.github.nodyssey.data.session.AccountNativeFailure
-import io.github.plaza.core.toByteArray
-import platform.Foundation.NSData
 import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieDomain
 import platform.Foundation.NSHTTPCookieMaximumAge
@@ -12,7 +9,6 @@ import platform.Foundation.NSHTTPCookiePath
 import platform.Foundation.NSHTTPCookieValue
 import platform.Foundation.NSHTTPCookieVersion
 import platform.Foundation.NSURL
-import platform.Foundation.create
 import platform.Foundation.timeIntervalSince1970
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,7 +17,7 @@ import kotlin.test.assertFalse
 class AppleAccountCookiesTest {
     // Bug: testing cookie reconstruction alone misses Foundation property-list serialization.
     @Test
-    fun `account cookies survive the actual binary property list round trip`() {
+    fun `account cookies survive the actual property list round trip`() {
         val cookie = checkNotNull(
             NSHTTPCookie.cookieWithProperties(
                 mapOf<Any?, Any?>(
@@ -35,21 +31,25 @@ class AppleAccountCookiesTest {
                 ),
             ),
         )
-        val encoded = encodeAccountCookies(listOf(cookie))
-        val bytes = checkNotNull(NSData.create(base64EncodedString = encoded, options = 0u)).toByteArray()
-        assertEquals("bplist00", bytes.take(8).toByteArray().decodeToString())
-        val restored = try {
-            decodeAccountCookies(encoded).single()
-        } catch (failure: AccountNativeFailure) {
-            // This snapshot comes only from the synthetic cookie above, never device storage.
-            throw AssertionError("Native decode failure ${failure.safeDomain}/${failure.code}; bytes=${bytes.size}; syntheticPlist=$encoded", failure)
-        }
+        val restored = decodeAccountCookies(encodeAccountCookies(listOf(cookie))).single()
         assertEquals(cookie.name, restored.name)
         assertEquals(cookie.value, restored.value)
         assertEquals(cookie.domain, restored.domain)
         assertEquals(cookie.path, restored.path)
         assertEquals(checkNotNull(cookie.expiresDate).timeIntervalSince1970, checkNotNull(restored.expiresDate).timeIntervalSince1970)
         assertEquals(emptyList(), decodeAccountCookies(encodeAccountCookies(emptyList())))
+    }
+
+    // Bug: changing the writer format must not make valid earlier binary snapshots unreadable.
+    @Test
+    fun `valid binary cookie snapshots remain readable`() {
+        // A synthetic fixture encoded independently with Python plistlib, not the Kotlin bridge.
+        val snapshot = "YnBsaXN0MDChAdQCAwQFBgcICVZEb21haW5UTmFtZVRQYXRoVVZhbHVlXGV4YW1wbGUudGVzdFdzZXNzaW9uUS9ZdGVzdC1vbmx5CAoTGh8kKjc/QQAAAAAAAAEBAAAAAAAAAAoAAAAAAAAAAAAAAAAAAABL"
+        val cookie = decodeAccountCookies(snapshot).single()
+        assertEquals("session", cookie.name)
+        assertEquals("test-only", cookie.value)
+        assertEquals("example.test", cookie.domain)
+        assertEquals("/", cookie.path)
     }
 
     // Bug: restoring Foundation's original Max-Age renews an old session's client-side expiry.

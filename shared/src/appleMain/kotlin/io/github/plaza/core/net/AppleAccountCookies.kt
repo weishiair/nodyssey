@@ -19,8 +19,8 @@ import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieExpires
 import platform.Foundation.NSHTTPCookieMaximumAge
 import platform.Foundation.NSHTTPCookieStorage
-import platform.Foundation.NSPropertyListBinaryFormat_v1_0
 import platform.Foundation.NSPropertyListSerialization
+import platform.Foundation.NSPropertyListXMLFormat_v1_0
 import platform.Foundation.NSURL
 import platform.Foundation.base64EncodedStringWithOptions
 import platform.Foundation.create
@@ -70,9 +70,13 @@ internal fun encodeAccountCookies(cookies: List<NSHTTPCookie>): String {
     val data = memScoped {
         val failure = alloc<ObjCObjectVar<NSError?>>()
         failure.value = null
+        // Foundation's binary writer keys its reference table by Objective-C object identity.
+        // Kotlin 2.4.20 recreates bridge wrappers on repeated reads, yielding self-references
+        // instead of cookie children. XML is Foundation's format without object references.
+        // Reconsider binary only when the Native round-trip test passes with the pinned bridge.
         NSPropertyListSerialization.dataWithPropertyList(
             properties,
-            format = NSPropertyListBinaryFormat_v1_0,
+            format = NSPropertyListXMLFormat_v1_0,
             options = 0u,
             error = failure.ptr,
         ) ?: throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code?.toLong())
