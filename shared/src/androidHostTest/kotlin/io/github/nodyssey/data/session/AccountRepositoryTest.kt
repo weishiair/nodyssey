@@ -22,6 +22,8 @@ import io.github.nodyssey.data.attendance.AttendanceWriteGate
 import io.github.nodyssey.data.attendance.AutoAttendance
 import io.github.nodyssey.data.attendance.AutoAttendanceOutcome
 import io.github.nodyssey.data.attendance.MultiAccountAttendance
+import io.github.nodyssey.data.mail.DefaultMailRepository
+import io.github.nodyssey.data.mail.MailCredentialStore
 import io.github.nodyssey.data.security.SecretCipher
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.testPreferenceStore
@@ -55,6 +57,45 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AccountRepositoryTest {
+    // Bug: switching forum accounts keeps the previous account's mail session and visible data.
+    @Test
+    fun `switching accounts invalidates the active mail connection before the next account is shown`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        var saved = "web:example-session"
+        val mail = DefaultMailRepository(
+            credentials = object : MailCredentialStore {
+                override suspend fun read() = saved
+                override suspend fun save(key: String) {
+                    saved = key
+                }
+                override suspend fun readDefaultMailboxId(): Long? = null
+                override suspend fun saveDefaultMailboxId(id: Long?) = Unit
+                override suspend fun clearDefaultMailboxId() = Unit
+                override suspend fun clear() {
+                    saved = ""
+                }
+            },
+            http = object : HttpTransport {
+                override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse =
+                    error("Account cleanup must not need the mail server")
+            },
+            dispatchers = AppDispatchers(dispatcher, dispatcher, dispatcher),
+        )
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.complete { fixture.accounts.add() }
+        fixture.login(2)
+        fixture.clearMail = mail::disconnect
+        mail.initialize()
+        val generation = mail.connection.value.generation
+        assertTrue(mail.connection.value.connected)
+        fixture.complete { fixture.accounts.switch(1) }
+        assertEquals(1L, fixture.accounts.state.value.activeUid)
+        assertFalse(mail.connection.value.connected)
+        assertEquals("", saved)
+        assertTrue(mail.connection.value.generation > generation)
+    }
+
     // Bug: a platform that leaves the previous login behind opens add, then adopts it as a new login.
     @Test
     fun `adding refuses a cookie replacement that leaves the original login active`() = runTest {
@@ -434,6 +475,7 @@ class AccountRepositoryTest {
     }
 
     private class Fixture(private val test: TestScope) {
+        var clearMail: suspend () -> Unit = {}
         var keepLoginOnClear = false
         val jar = FakeSessionCookieStore()
         val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, jar))
@@ -471,6 +513,7 @@ class AccountRepositoryTest {
             },
             offline,
             settings,
+            clearMail = { clearMail() },
         )
         val accounts = repository()
 

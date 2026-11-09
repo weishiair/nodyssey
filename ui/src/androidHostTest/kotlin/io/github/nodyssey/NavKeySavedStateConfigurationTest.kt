@@ -163,6 +163,8 @@ private val EVERY_KEY: List<NavKey> =
         CreditKey,
         StardustKey,
         CommunityToolsKey,
+        MailInboxKey,
+        MailDetailKey(mailboxId = 12, mailId = 34),
         MyTopicsKey,
         MyCommentsKey,
         AwardKey,

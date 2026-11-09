@@ -55,6 +55,8 @@ import io.github.nodyssey.ui.resources.notify_frequency_60
 import io.github.nodyssey.ui.resources.notify_frequency_every
 import io.github.nodyssey.ui.resources.notify_frequency_hint
 import io.github.nodyssey.ui.resources.notify_keyword_alerts
+import io.github.nodyssey.ui.resources.notify_mail
+import io.github.nodyssey.ui.resources.notify_mail_hint
 import io.github.nodyssey.ui.resources.notify_master_hint
 import io.github.nodyssey.ui.resources.notify_master_title
 import io.github.nodyssey.ui.resources.notify_quiet_hours
@@ -109,6 +111,7 @@ fun NotificationSettingsRoute(
         onQuietHoursChange = viewModel::setQuietHours,
         onNotifyInteractionsChange = viewModel::setNotifyInteractions,
         onNotifyMessagesChange = viewModel::setNotifyMessages,
+        onNotifyMailChange = viewModel::setNotifyMail,
         onOpenTelegram = onOpenTelegram,
         alertCounts = alertCounts,
         onNotifyKeywordAlertsChange = viewModel::setNotifyKeywordAlerts,
@@ -139,6 +142,7 @@ fun NotificationSettingsScreen(
     onNotifyMessagesChange: (Boolean) -> Unit,
     onOpenTelegram: () -> Unit,
     modifier: Modifier = Modifier,
+    onNotifyMailChange: (Boolean) -> Unit = {},
     alertCounts: AlertCounts = AlertCounts(),
     onNotifyKeywordAlertsChange: (Boolean) -> Unit = {},
     onNotifyTrackedThreadsChange: (Boolean) -> Unit = {},
@@ -255,12 +259,21 @@ fun NotificationSettingsScreen(
                     )
                     GroupedRow(
                         title = stringResource(Res.string.notifications_messages),
-                        last = true,
                         icon = Icons.Default.Email,
                         checked = settings.notifyMessages,
                         onCheckedChange = onNotifyMessagesChange,
                         enabled = enabled,
                         trailing = { GroupedListItemSwitch(checked = settings.notifyMessages, enabled = enabled) },
+                    )
+                    GroupedRow(
+                        title = stringResource(Res.string.notify_mail),
+                        subtitle = stringResource(Res.string.notify_mail_hint),
+                        last = true,
+                        icon = Icons.Default.Email,
+                        checked = settings.notifyMail,
+                        onCheckedChange = onNotifyMailChange,
+                        enabled = enabled,
+                        trailing = { GroupedListItemSwitch(checked = settings.notifyMail, enabled = enabled) },
                     )
                 }
 

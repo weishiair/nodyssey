@@ -18,6 +18,16 @@ import org.junit.Test
  */
 class PaneRoleTest {
     @Test
+    fun `opening another mail replaces the tablet detail and closing inbox removes its detail`() {
+        val stack = mutableListOf<NavKey>(ProfileKey, CommunityToolsKey, MailInboxKey, MailDetailKey(7, 21))
+        stack.openFromList(MailInboxKey, MailDetailKey(9, 22), expanded = true)
+        assertEquals(listOf<NavKey>(ProfileKey, CommunityToolsKey, MailInboxKey, MailDetailKey(9, 22)), stack)
+        assertTrue(stack.showsListPane())
+        stack.closeList(MailInboxKey)
+        assertEquals(listOf<NavKey>(ProfileKey, CommunityToolsKey), stack)
+    }
+
+    @Test
     fun `a thread under the feed shares the window with it`() {
         assertTrue(listOf<NavKey>(PostListKey, PostDetailKey(1)).showsListPane())
     }
