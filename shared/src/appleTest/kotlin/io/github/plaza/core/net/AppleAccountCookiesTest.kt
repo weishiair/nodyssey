@@ -41,7 +41,8 @@ class AppleAccountCookiesTest {
         val restored = try {
             decodeAccountCookies(encoded).single()
         } catch (failure: AccountNativeFailure) {
-            throw AssertionError("Native decode failure ${failure.safeDomain}/${failure.code}; bytes=${bytes.size}", failure)
+            // This snapshot comes only from the synthetic cookie above, never device storage.
+            throw AssertionError("Native decode failure ${failure.safeDomain}/${failure.code}; bytes=${bytes.size}; syntheticPlist=$encoded", failure)
         }
         assertEquals(cookie.name, restored.name)
         assertEquals(cookie.value, restored.value)

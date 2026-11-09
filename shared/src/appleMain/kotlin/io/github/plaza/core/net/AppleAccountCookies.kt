@@ -12,10 +12,8 @@ import kotlinx.cinterop.value
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import platform.Foundation.NSArray
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
-import platform.Foundation.NSDictionary
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieExpires
@@ -90,23 +88,11 @@ internal fun decodeAccountCookies(snapshot: String): List<NSHTTPCookie> {
         NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = failure.ptr)
             ?: throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code?.toLong())
     }
-    val properties = when (root) {
-        is List<*> -> root
-        is NSArray -> (0 until root.count.toInt()).map { root.objectAtIndex(it.toULong()) }
-        else -> error("Invalid saved cookie collection type: ${root::class.simpleName}")
-    }
+    val properties = root as? List<*> ?: error("Invalid saved cookie collection type")
     return properties.map { raw ->
         @Suppress("UNCHECKED_CAST")
-        if (raw is Map<*, *>) return@map checkNotNull(NSHTTPCookie.cookieWithProperties(raw as Map<Any?, *>))
-        val item = raw as? NSDictionary ?: error("Invalid saved cookie")
-        val keys = item.keyEnumerator()
-        val values = buildMap<Any?, Any?> {
-            while (true) {
-                val key = keys.nextObject() ?: break
-                put(key, checkNotNull(item.objectForKey(key)))
-            }
-        }
-        checkNotNull(NSHTTPCookie.cookieWithProperties(values))
+        val item = raw as? Map<Any?, *> ?: error("Invalid saved cookie")
+        checkNotNull(NSHTTPCookie.cookieWithProperties(item))
     }
 }
 
