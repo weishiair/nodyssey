@@ -1,0 +1,53 @@
+name: Mail review renders
+
+on:
+  push:
+    branches: [docs/seek-mail-render-review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
+      - name: Render the reviewed implementation
+        run: |
+          ./gradlew :ui:testAndroidHostTest -PrenderUi --tests '*MailScreenRenderTest' --tests '*ProfileScreenRenderTest'
+          mkdir -p review-renders/after
+          cp ui/build/outputs/renders/*.png review-renders/after/
+      - name: Restore the reported spinner size for comparison
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('ui/src/commonMain/kotlin/io/github/nodyssey/ui/mail/MailInboxScreen.kt')
+          source = path.read_text()
+          before = 'size = 16.dp,\n                                            strokeWidth = 2.dp,'
+          after = 'size = 40.dp,\n                                            strokeWidth = 4.dp,'
+          assert source.count(before) == 1
+          path.write_text(source.replace(before, after))
+          PY
+      - name: Render the reported loading state
+        run: |
+          ./gradlew :ui:testAndroidHostTest -PrenderUi --tests '*MailScreenRenderTest.mail inbox marking all read'
+          mkdir -p review-renders/before
+          cp ui/build/outputs/renders/mail-inbox-marking-all-read.png review-renders/before/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mail-review-before-after
+          path: review-renders/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Stop Gradle
+        if: always()
+        run: ./gradlew --stop
