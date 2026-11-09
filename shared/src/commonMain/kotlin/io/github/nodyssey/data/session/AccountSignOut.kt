@@ -6,6 +6,7 @@ import io.github.nodyssey.data.PostRepository
 import io.github.nodyssey.data.ProfileRepository
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.PostComposerRepository
+import io.github.nodyssey.data.mail.MailRepository
 import io.github.nodyssey.data.settings.SettingsRepository
 
 /**
@@ -43,8 +44,10 @@ class DefaultAccountSignOut(
     /** Owns the poll worker's seen counts; stale ones would swallow the next account's first unread. */
     private val settings: SettingsRepository,
     private val session: SessionRepository,
+    private val mail: MailRepository,
 ) : AccountSignOut {
     override suspend fun signOut() {
+        mail.disconnect()
         clearAccountContent(
             posts,
             profiles,

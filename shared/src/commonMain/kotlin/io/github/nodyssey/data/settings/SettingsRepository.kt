@@ -148,6 +148,7 @@ class SettingsRepository(
                     // migration costs nothing and an older build finds its own keys intact.
                     ?: ((preferences[KEY_NOTIFY_MENTIONS] ?: true) || (preferences[KEY_NOTIFY_REPLIES] ?: true)),
                 notifyMessages = preferences[KEY_NOTIFY_MESSAGES] ?: true,
+                notifyMail = preferences[KEY_NOTIFY_MAIL] ?: false,
                 notifyKeywordAlerts = preferences[KEY_NOTIFY_KEYWORD_ALERTS] ?: true,
                 notifyTrackedThreads = preferences[KEY_NOTIFY_TRACKED_THREADS] ?: true,
                 readHistoryLimit = readHistoryLimit(preferences),
@@ -368,6 +369,8 @@ class SettingsRepository(
         edit { it[KEY_NOTIFY_INTERACTIONS] = enabled }
 
     suspend fun setNotifyMessages(enabled: Boolean) = edit { it[KEY_NOTIFY_MESSAGES] = enabled }
+
+    suspend fun setNotifyMail(enabled: Boolean) = edit { it[KEY_NOTIFY_MAIL] = enabled }
 
     suspend fun setNotifyKeywordAlerts(enabled: Boolean) = edit { it[KEY_NOTIFY_KEYWORD_ALERTS] = enabled }
 
@@ -773,6 +776,7 @@ class SettingsRepository(
         private val KEY_NOTIFY_MENTIONS = booleanPreferencesKey("notify_mentions")
         private val KEY_NOTIFY_REPLIES = booleanPreferencesKey("notify_replies")
         private val KEY_NOTIFY_MESSAGES = booleanPreferencesKey("notify_messages")
+        private val KEY_NOTIFY_MAIL = booleanPreferencesKey("notify_mail")
         private val KEY_NOTIFY_KEYWORD_ALERTS = booleanPreferencesKey("notify_keyword_alerts")
         private val KEY_NOTIFY_TRACKED_THREADS = booleanPreferencesKey("notify_tracked_threads")
         private val KEY_SEEN_REPLIES = intPreferencesKey("notification_seen_replies")
@@ -1040,6 +1044,8 @@ data class UserSettings(
      */
     val notifyInteractions: Boolean = true,
     val notifyMessages: Boolean = true,
+    /** New-mail polling is opt-in; it uses the shared notification schedule when enabled. */
+    val notifyMail: Boolean = false,
     /** 提醒关键词: a new thread whose title holds one of them. Off-able without deleting the words. */
     val notifyKeywordAlerts: Boolean = true,
     /** 追踪新回复: new replies on a thread the reader chose to follow. */

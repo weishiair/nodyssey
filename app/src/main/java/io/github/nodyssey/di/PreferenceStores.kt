@@ -102,6 +102,8 @@ internal val Context.imageHostDataStore: DataStore<Preferences> by preferencesDa
     },
 )
 
+internal val Context.mailDataStore: DataStore<Preferences> by preferencesDataStore(name = "seek-mail")
+
 /**
  * Where the NodeImage key lived when nodeimage.com was the only host the app could talk to.
  *

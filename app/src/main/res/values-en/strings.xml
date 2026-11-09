@@ -11,6 +11,8 @@
 <resources>
     <string name="notifications_interactions">Interactions</string>
     <string name="notifications_messages">Direct messages</string>
+    <string name="notifications_mail">Email</string>
+    <string name="notify_mail_title">New NodeSeek email</string>
     <plurals name="notify_body_interactions">
         <item quantity="one">%1$d new interaction</item>
         <item quantity="other">%1$d new interactions</item>
@@ -18,6 +20,10 @@
     <plurals name="notify_body_messages">
         <item quantity="one">%1$d new direct message</item>
         <item quantity="other">%1$d new direct messages</item>
+    </plurals>
+    <plurals name="notify_body_mail">
+        <item quantity="one">%1$d new email in your inbox</item>
+        <item quantity="other">%1$d new emails in your inbox</item>
     </plurals>
     <string name="notifications_keyword_alerts">Keyword alerts</string>
     <string name="notifications_tracked_threads">Followed threads</string>

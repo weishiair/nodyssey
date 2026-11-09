@@ -95,6 +95,8 @@ import io.github.nodyssey.ui.resources.assets_signed_in
 import io.github.nodyssey.ui.resources.assets_signing_in
 import io.github.nodyssey.ui.resources.lottery_title
 import io.github.nodyssey.ui.resources.lottery_unread_results
+import io.github.nodyssey.ui.resources.mail_title
+import io.github.nodyssey.ui.resources.mail_unread
 import io.github.nodyssey.ui.resources.profile_attendance_board
 import io.github.nodyssey.ui.resources.profile_attendance_checking
 import io.github.nodyssey.ui.resources.profile_attendance_done
@@ -184,6 +186,7 @@ fun ProfileRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val hasUnreadLotteryResults by viewModel.hasUnreadLotteryResults.collectAsStateWithLifecycle()
+    val hasUnreadMail by viewModel.hasUnreadMail.collectAsStateWithLifecycle()
     RefreshOnReturnToForeground(viewModel::refreshAttendance)
     ProfileScreen(
         state = state,
@@ -192,6 +195,7 @@ fun ProfileRoute(
         onRetry = viewModel::refresh,
         hasAppUpdate = hasAppUpdate,
         hasUnreadLotteryResults = hasUnreadLotteryResults,
+        hasUnreadMail = hasUnreadMail,
         onOpenWebsite = onOpenWebsite,
         onVerify = onVerify,
         onAttendance = viewModel::requestAttendance,
@@ -262,6 +266,7 @@ fun ProfileScreen(
     /** 应用内更新 found something; the gear in the app bar carries the dot that leads to it. */
     hasAppUpdate: Boolean = false,
     hasUnreadLotteryResults: Boolean = false,
+    hasUnreadMail: Boolean = false,
     onSignInForToday: (AttendanceMode) -> Unit = {},
     onDismissAttendanceChooser: () -> Unit = {},
     onAttendanceFailureShown: () -> Unit = {},
@@ -316,6 +321,7 @@ fun ProfileScreen(
                 onSignIn = onSignIn,
                 destinations = destinations,
                 hasUnreadLotteryResults = hasUnreadLotteryResults,
+                hasUnreadMail = hasUnreadMail,
                 modifier = Modifier.padding(padding),
             )
             return@Scaffold
@@ -358,7 +364,7 @@ fun ProfileScreen(
             )
         }
         val attendance: @Composable () -> Unit = { AttendanceBanner(state, onAttendance, onAttendanceBoard) }
-        val sections = profileSections(destinations, hasUnreadLotteryResults)
+        val sections = profileSections(destinations, hasUnreadLotteryResults, hasUnreadMail)
         val bottom = Spacing.lg + padding.calculateBottomPadding()
         // Under the bottom bar rather than stopping at it — see [withoutBottom].
         BoxWithConstraints(Modifier.padding(padding.withoutBottom()).fillMaxSize()) {
@@ -741,10 +747,11 @@ private data class ProfileTile(
     val icon: ImageVector,
     val onClick: () -> Unit,
     val hasUnreadResults: Boolean = false,
+    val unreadDescription: StringResource = Res.string.lottery_unread_results,
 )
 
 /**
- * The three groups: 内容, 社区, 设置 — 6 + 8 + 4 = 18 tiles.
+ * The three groups: 内容, 社区, 设置.
  *
  * There is no 资产 group. 鸡腿流水 and 星辰流水 are the balances on the account card above, 星辰转账 is
  * the 转账 on 星辰流水, and 邀请码 — bought with chicken, but a way into the community — is in 社区.
@@ -753,7 +760,7 @@ private data class ProfileTile(
  * page is not reached from here while signed in — dropping the tile would have quietly deleted the
  * destination rather than moved it.
  */
-private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryResults: Boolean): List<ProfileSection> =
+private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryResults: Boolean, hasUnreadMail: Boolean): List<ProfileSection> =
     listOf(
         ProfileSection(
             title = Res.string.profile_section_content,
@@ -779,6 +786,7 @@ private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryR
                 ProfileTile(Res.string.profile_tile_friends, PlazaIcons.Link, destinations.friends),
                 ProfileTile(Res.string.profile_tile_block, PlazaIcons.Block, destinations.blockList),
                 ProfileTile(Res.string.profile_tile_invite, PlazaIcons.ConfirmationNumber, destinations.invite),
+                ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail, hasUnreadMail, Res.string.mail_unread),
                 ProfileTile(Res.string.profile_tile_about_community, PlazaIcons.Forum, destinations.aboutCommunity),
             ),
         ),
@@ -856,7 +864,7 @@ private fun ProfileGridTile(
         BadgedBox(
             badge = {
                 if (tile.hasUnreadResults) {
-                    val description = stringResource(Res.string.lottery_unread_results)
+                    val description = stringResource(tile.unreadDescription)
                     Badge(Modifier.semantics { contentDescription = description })
                 }
             },
@@ -882,6 +890,7 @@ private fun SignedOutProfile(
     onSignIn: () -> Unit,
     destinations: ProfileDestinations,
     hasUnreadLotteryResults: Boolean,
+    hasUnreadMail: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val welcome: @Composable () -> Unit = {
@@ -964,6 +973,7 @@ private fun SignedOutProfile(
                         destinations.providers,
                     ),
                     ProfileTile(Res.string.profile_tools, PlazaIcons.DashboardCustomize, destinations.tools),
+                    ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail, hasUnreadMail, Res.string.mail_unread),
                 ),
             )
         }

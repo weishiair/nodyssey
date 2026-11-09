@@ -23,6 +23,10 @@ import io.github.nodyssey.data.NotificationCounts
 import io.github.nodyssey.data.NotificationRepository
 import io.github.nodyssey.data.NotificationTab
 import io.github.nodyssey.data.TrackedThreadUpdate
+import io.github.nodyssey.data.mail.MailArrival
+import io.github.nodyssey.data.mail.MailError
+import io.github.nodyssey.data.mail.MailException
+import io.github.nodyssey.data.mail.MailRepository
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
@@ -52,6 +56,7 @@ class NotificationPollWorker(
     private val notificationRepository: NotificationRepository,
     private val clock: AppClock,
     private val alerts: BackgroundAlertChecker,
+    private val mailRepository: MailRepository,
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
         val settings = settingsRepository.settings.first()
@@ -87,7 +92,45 @@ class NotificationPollWorker(
                 updates.forEach(::notifyTrackedThread)
             }
         }
+        if (settings.notifyMail) {
+            try {
+                mailRepository.checkForNewMessages()?.takeUnless { quiet }?.let(::notifyNewMail)
+            } catch (error: SiteException) {
+                if (error.error is SiteError.Network) retry = true
+            } catch (error: MailException) {
+                if (error.error == MailError.NETWORK) retry = true
+            }
+        }
         return if (retry) Result.retry() else Result.success()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun notifyNewMail(arrival: MailArrival) {
+        if (!canPostNotifications()) return
+        val context = applicationContext
+        val openInbox =
+            PendingIntent.getActivity(
+                context,
+                MAIL_NOTIFICATION_ID,
+                Intent(context, MainActivity::class.java)
+                    .putExtra(MainActivity.EXTRA_OPEN_TAB, MainActivity.TAB_MAIL)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val notification =
+            NotificationCompat
+                .Builder(context, NotificationChannels.MAIL)
+                .setSmallIcon(R.drawable.ic_stat_notification)
+                .setContentTitle(context.getString(R.string.notify_mail_title))
+                .setContentText(context.resources.getQuantityString(R.plurals.notify_body_mail, arrival.count, arrival.count))
+                .setContentIntent(openInbox)
+                .setAutoCancel(true)
+                .build()
+        try {
+            NotificationManagerCompat.from(context).notify(MAIL_NOTIFICATION_ID, notification)
+        } catch (_: SecurityException) {
+            // Permission can be revoked between the explicit check and this call.
+        }
     }
 
     /**
@@ -268,6 +311,7 @@ class NotificationPollWorker(
     private companion object {
         /** The id under each thread's tag; tags keep them apart, and away from the tabs' ids 0 and 1. */
         const val THREAD_NOTIFICATION_ID = 100
+        const val MAIL_NOTIFICATION_ID = 200
 
         /** A burst of matches is a sign the keyword is too broad, not a reason to fill the shade. */
         const val MAX_KEYWORD_NOTIFICATIONS = 5

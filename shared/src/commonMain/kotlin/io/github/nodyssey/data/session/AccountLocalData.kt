@@ -28,6 +28,7 @@ class AccountLocalData(
     private val profiles: ProfileRepository,
     private val offline: OfflineLibrary,
     private val settings: SettingsRepository,
+    private val clearMail: suspend () -> Unit = {},
 ) {
     internal suspend fun capture(): AccountLocalSnapshot {
         val seen = settings.notificationSeenCounts()
@@ -41,6 +42,7 @@ class AccountLocalData(
     }
 
     internal suspend fun clear(evictDownloads: Boolean = true) {
+        clearMail()
         // Version one deliberately evicts downloads, rather than exposing a private offline page
         // to the next account. The account picker asks before this happens.
         clearAccountContent(

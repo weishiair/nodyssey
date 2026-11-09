@@ -8,6 +8,7 @@ import io.github.nodyssey.data.CollectedPostMetaStore
 import io.github.nodyssey.data.CommunityRepository
 import io.github.nodyssey.data.CreditRepository
 import io.github.nodyssey.data.FollowRepository
+import io.github.nodyssey.data.InviteRepository
 import io.github.nodyssey.data.MessageRepository
 import io.github.nodyssey.data.NotificationRepository
 import io.github.nodyssey.data.OfflineLibrary
@@ -33,6 +34,7 @@ import io.github.nodyssey.data.diagnostics.NetworkDiagnostics
 import io.github.nodyssey.data.dns.DohSupport
 import io.github.nodyssey.data.imagehost.ImageHostRepository
 import io.github.nodyssey.data.lottery.LotteryRepository
+import io.github.nodyssey.data.mail.MailRepository
 import io.github.nodyssey.data.proxy.ProxyConnectionTester
 import io.github.nodyssey.data.proxy.ProxySettings
 import io.github.nodyssey.data.session.AccountRepository
@@ -69,6 +71,7 @@ import io.github.plaza.core.update.ApkInstaller
 interface AppContainer {
     val lotteryRepository: LotteryRepository? get() = null
 
+    val mailRepository: MailRepository
     val dispatchers: AppDispatchers
     val clock: AppClock
 
@@ -138,6 +141,15 @@ interface AppContainer {
     val assetsRepository: AssetsRepository
     val creditRepository: CreditRepository
     val stardustRepository: StardustRepository
+
+    /**
+     * 邀请码 — the prices the site is selling at, and the purchase that spends them.
+     *
+     * Its own repository rather than a corner of [stardustRepository]: buying a code moves that
+     * balance, but the code, the price list and the purchase are the invite page's, and this was the
+     * last screen in the app whose write ended by opening a WebView.
+     */
+    val inviteRepository: InviteRepository
     val awardRepository: AwardRepository
     val communityRepository: CommunityRepository
     val termsRepository: TermsRepository

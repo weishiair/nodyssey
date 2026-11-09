@@ -18,6 +18,8 @@ sealed interface LaunchRequest {
     /** A notification tap, or the 通知 launcher shortcut. */
     data class OpenTab(val tab: TopLevelDestination) : LaunchRequest
 
+    data object OpenMail : LaunchRequest
+
     /** A `nodeseek.com` link from another app. Parsed by `NodeSeekSite.parseInternalRoute`. */
     data class OpenLink(val url: String) : LaunchRequest
 

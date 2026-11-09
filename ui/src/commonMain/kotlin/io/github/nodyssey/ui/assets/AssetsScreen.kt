@@ -42,8 +42,6 @@ import io.github.nodyssey.ui.common.GrowthProgressBar
 import io.github.nodyssey.ui.common.LevelProgressLine
 import io.github.nodyssey.ui.common.NodeSeekIcons
 import io.github.nodyssey.ui.common.SiteErrorState
-import io.github.nodyssey.ui.common.SpendConfirmDialog
-import io.github.nodyssey.ui.common.SpendDetail
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.resources.Res
@@ -68,19 +66,7 @@ import io.github.nodyssey.ui.resources.assets_signing_in
 import io.github.nodyssey.ui.resources.assets_stars
 import io.github.nodyssey.ui.resources.assets_title
 import io.github.nodyssey.ui.resources.credit_level
-import io.github.nodyssey.ui.resources.invite_balance_after
-import io.github.nodyssey.ui.resources.invite_caution
-import io.github.nodyssey.ui.resources.invite_confirm
-import io.github.nodyssey.ui.resources.invite_confirm_title
-import io.github.nodyssey.ui.resources.invite_cost
-import io.github.nodyssey.ui.resources.invite_cost_value
-import io.github.nodyssey.ui.resources.invite_opened_web
-import io.github.nodyssey.ui.resources.invite_short_hint
-import io.github.nodyssey.ui.resources.invite_short_title
-import io.github.nodyssey.ui.resources.invite_shortfall
-import io.github.nodyssey.ui.resources.invite_shortfall_label
 import io.github.nodyssey.ui.resources.profile_attendance_title
-import io.github.nodyssey.ui.resources.spend_current_balance
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerCard
@@ -99,9 +85,6 @@ import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
-
-/** What buying an invite code costs, and the reason the confirm dialog exists at all. */
-const val INVITE_CODE_CHICKEN_COST = 1_000
 
 @Composable
 fun AssetsRoute(
@@ -268,70 +251,6 @@ fun AssetsScreen(
             selfUid = state.uid,
         )
     }
-}
-
-/**
- * Buying an invite code, confirmed the same way as every other spend.
- *
- * Shared with the invite screen deliberately: the same 1000 chicken leave the account whichever entry
- * point was tapped, so they get the same sentence and the same dead end when the balance is short.
- * That dead end is 9e's: titled 鸡腿不够, the gap worked out on the card — balance, cost, and what is
- * still missing in the error tone — and a line on how chicken legs are earned instead of a caution
- * about a purchase that is not going to happen.
- */
-@Composable
-fun InviteConfirmDialog(
-    chickenCount: Int?,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val shortfall = chickenCount?.let { (INVITE_CODE_CHICKEN_COST - it).takeIf { gap -> gap > 0 } }
-    if (chickenCount != null && shortfall != null) {
-        SpendConfirmDialog(
-            title = stringResource(Res.string.invite_short_title),
-            details =
-            listOf(
-                SpendDetail(stringResource(Res.string.spend_current_balance), chickenCount.toString()),
-                SpendDetail(stringResource(Res.string.invite_cost), signedAmount(-INVITE_CODE_CHICKEN_COST)),
-                SpendDetail(
-                    stringResource(Res.string.invite_shortfall_label),
-                    shortfall.toString(),
-                    separated = true,
-                    isError = true,
-                ),
-            ),
-            caution = stringResource(Res.string.invite_short_hint),
-            confirmLabel = stringResource(Res.string.invite_confirm),
-            onConfirm = onConfirm,
-            onDismiss = onDismiss,
-            icon = null,
-            shortfall = stringResource(Res.string.invite_shortfall, shortfall),
-        )
-        return
-    }
-    SpendConfirmDialog(
-        title = stringResource(Res.string.invite_confirm_title),
-        details =
-        buildList {
-            add(SpendDetail(stringResource(Res.string.invite_cost), stringResource(Res.string.invite_cost_value)))
-            chickenCount?.let { balance ->
-                add(SpendDetail(stringResource(Res.string.spend_current_balance), balance.toString()))
-                add(
-                    SpendDetail(
-                        stringResource(Res.string.invite_balance_after),
-                        (balance - INVITE_CODE_CHICKEN_COST).toString(),
-                        separated = true,
-                    ),
-                )
-            }
-        },
-        caution =
-        stringResource(Res.string.invite_caution) + "\n" + stringResource(Res.string.invite_opened_web),
-        confirmLabel = stringResource(Res.string.invite_confirm),
-        onConfirm = onConfirm,
-        onDismiss = onDismiss,
-        icon = PlazaIcons.ConfirmationNumber,
-    )
 }
 
 /**

@@ -64,6 +64,10 @@ class NotificationSettingsViewModel(
         viewModelScope.launch { settings.setNotifyMessages(value) }
     }
 
+    fun setNotifyMail(value: Boolean) {
+        viewModelScope.launch { settings.setNotifyMail(value) }
+    }
+
     fun setNotifyKeywordAlerts(value: Boolean) {
         viewModelScope.launch { settings.setNotifyKeywordAlerts(value) }
     }

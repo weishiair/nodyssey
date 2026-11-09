@@ -37,6 +37,7 @@ class ProfileScreenRenderTest {
         darkTheme: Boolean,
         state: ProfileUiState = STATE,
         hasUnreadLotteryResults: Boolean = false,
+        hasUnreadMail: Boolean = false,
     ) {
         PlazaTheme(darkTheme = darkTheme) {
             ProfileScreen(
@@ -49,6 +50,7 @@ class ProfileScreenRenderTest {
                 onAttendance = {},
                 onAttendanceBoard = {},
                 hasUnreadLotteryResults = hasUnreadLotteryResults,
+                hasUnreadMail = hasUnreadMail,
             )
         }
     }
@@ -65,6 +67,13 @@ class ProfileScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = false) }
 
         composeRule.onRoot().captureRender("profile-light")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1000dp")
+    fun `the profile with unread mail`() {
+        composeRule.setContent { Screen(darkTheme = false, hasUnreadMail = true) }
+        composeRule.onRoot().captureRender("profile-mail-unread")
     }
 
     @Test
