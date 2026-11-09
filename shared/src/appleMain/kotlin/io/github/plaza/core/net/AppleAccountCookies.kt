@@ -4,6 +4,7 @@ package io.github.plaza.core.net
 
 import io.github.nodyssey.data.session.AccountCookieStore
 import io.github.nodyssey.data.session.AccountNativeFailure
+import io.github.nodyssey.data.session.InvalidAccountCookieSnapshot
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
@@ -43,6 +44,7 @@ class AppleAccountCookies(
 
     override suspend fun replace(snapshot: String) = withContext(Dispatchers.Main) {
         val incoming = if (snapshot.isEmpty()) emptyList() else decodeAccountCookies(snapshot)
+        if (incoming.any { !owns(it) }) throw InvalidAccountCookieSnapshot()
         val browser = suspendCancellableCoroutine<List<NSHTTPCookie>> { continuation ->
             if (webKit == null) continuation.resume(emptyList()) else webKit.getAllCookies { continuation.resume(it.orEmpty().filterIsInstance<NSHTTPCookie>()) }
         }
@@ -51,7 +53,6 @@ class AppleAccountCookies(
         }
         mine().forEach(storage::deleteCookie)
         incoming.forEach { cookie ->
-            require(owns(cookie)) { "Cookie belongs to another site" }
             val expiry = cookie.expiresDate
             if (expiry == null || expiry.timeIntervalSince1970 > NSDate().timeIntervalSince1970) {
                 storage.setCookie(cookie)
@@ -85,18 +86,18 @@ internal fun encodeAccountCookies(cookies: List<NSHTTPCookie>): String {
 }
 
 internal fun decodeAccountCookies(snapshot: String): List<NSHTTPCookie> {
-    val data = checkNotNull(NSData.create(base64EncodedString = snapshot, options = 0u))
+    val data = NSData.create(base64EncodedString = snapshot, options = 0u) ?: throw InvalidAccountCookieSnapshot()
     val root = memScoped {
         val failure = alloc<ObjCObjectVar<NSError?>>()
         failure.value = null
         NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = failure.ptr)
-            ?: throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code?.toLong())
+            ?: throw InvalidAccountCookieSnapshot(AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code?.toLong()))
     }
-    val properties = root as? List<*> ?: error("Invalid saved cookie collection type")
+    val properties = root as? List<*> ?: throw InvalidAccountCookieSnapshot()
     return properties.map { raw ->
         @Suppress("UNCHECKED_CAST")
-        val item = raw as? Map<Any?, *> ?: error("Invalid saved cookie")
-        checkNotNull(NSHTTPCookie.cookieWithProperties(item))
+        val item = raw as? Map<Any?, *> ?: throw InvalidAccountCookieSnapshot()
+        NSHTTPCookie.cookieWithProperties(item) ?: throw InvalidAccountCookieSnapshot()
     }
 }
 

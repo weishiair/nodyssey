@@ -58,38 +58,12 @@ class AccountRepository(
     init {
         scope.launch {
             try {
-                vault = diagnostics.step(AccountStep.INITIALIZE) { readVault() }
-                vault.recovery?.let { previous ->
-                    requests.pause()
-                    stopRequests()
-                    clearLocal(evictDownloads = false)
-                    replaceCookies(previous.cookies)
-                    syncSession()
-                    restoreLocal(previous.local)
-                    vault = vault.copy(activeUid = previous.previousUid, recovery = null)
-                    writeVault(vault)
-                    requests.resume()
+                diagnostics.step(AccountStep.INITIALIZE) {
+                    vault = readVault()
+                    recoverInterruptedChange()
+                    restoreActiveCookies()
+                    vaultLoaded = true
                 }
-                // Session-only platform cookies may disappear when the process exits. A saved
-                // account still owns the active draft files, so restore its cookies before drawing.
-                if (vault.pending == null && !session.peek().isSignedIn) {
-                    vault.accounts.find { it.account.uid == vault.activeUid }?.let { active ->
-                        requests.pause()
-                        stopRequests()
-                        replaceCookies(active.cookies)
-                        syncSession()
-                        if (!session.state.value.isSignedIn) {
-                            val parked = active.copy(account = active.account.copy(needsSignIn = true))
-                            vault = vault.copy(
-                                accounts = vault.accounts.map { if (it.account.uid == active.account.uid) parked else it },
-                                navigationKey = Uuid.random().toString(),
-                            )
-                            writeVault(vault)
-                        }
-                        requests.resume()
-                    }
-                }
-                vaultLoaded = true
                 publish()
             } catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
@@ -99,6 +73,82 @@ class AccountRepository(
                 ready.complete(Unit)
             }
         }
+    }
+
+    private suspend fun recoverInterruptedChange() {
+        var previous = vault.recovery ?: return
+        requests.pause()
+        stopRequests()
+        try {
+            // Decoding must finish before touching drafts. Platform stores also validate before
+            // replacing live cookies, so a failed quarantine write leaves both originals intact.
+            replaceCookies(previous.cookies)
+        } catch (_: InvalidAccountCookieSnapshot) {
+            quarantineCookies(previous)
+            previous = checkNotNull(vault.recovery)
+            replaceCookies(previous.cookies)
+        }
+        val clearingQuarantine = previous.previousUid == null && previous.cookies.isEmpty() && vault.quarantined.isNotEmpty()
+        clearLocal(evictDownloads = clearingQuarantine)
+        syncSession()
+        if (clearingQuarantine) check(!session.state.value.isSignedIn) { "Could not clear the invalid login" }
+        restoreLocal(previous.local)
+        val next = vault.copy(activeUid = previous.previousUid, recovery = null)
+        writeVault(next)
+        vault = next
+        requests.resume()
+    }
+
+    private suspend fun restoreActiveCookies() {
+        // Session-only platform cookies may disappear when the process exits. A saved account
+        // still owns the active draft files, so restore its cookies before drawing.
+        if (vault.pending != null || session.peek().isSignedIn) return
+        val active = vault.accounts.find { it.account.uid == vault.activeUid } ?: return
+        requests.pause()
+        stopRequests()
+        try {
+            replaceCookies(active.cookies)
+        } catch (_: InvalidAccountCookieSnapshot) {
+            // The files may be newer than the last saved snapshot. Preserve them for this UID,
+            // but never attribute them to whoever signs in after this recovery.
+            quarantineCookies(PendingAccount(active.account.uid, active.cookies, captureLocal()))
+            recoverInterruptedChange()
+            return
+        }
+        syncSession()
+        if (!session.state.value.isSignedIn) {
+            val parked = active.copy(account = active.account.copy(needsSignIn = true))
+            val next = vault.copy(
+                accounts = vault.accounts.map { if (it.account.uid == active.account.uid) parked else it },
+                navigationKey = Uuid.random().toString(),
+            )
+            writeVault(next)
+            vault = next
+        }
+        requests.resume()
+    }
+
+    private suspend fun quarantineCookies(previous: PendingAccount) = diagnostics.step(AccountStep.RECOVER_COOKIES) {
+        val saved = vault.accounts.find { it.account.uid == previous.previousUid }
+        val empty = PendingAccount(null, "", AccountLocalSnapshot())
+        val next = vault.copy(
+            accounts = vault.accounts.map { entry ->
+                if (entry.account.uid == previous.previousUid) {
+                    entry.copy(account = entry.account.copy(needsSignIn = true), cookies = "", local = previous.local)
+                } else {
+                    entry
+                }
+            },
+            activeUid = null,
+            // Keep an empty pending add so signing back into a saved UID restores its own drafts.
+            // The empty recovery journal makes interrupted cleanup safe to repeat on next launch.
+            pending = empty,
+            recovery = empty,
+            quarantined = (vault.quarantined + listOfNotNull(vault.recovery, vault.pending, saved?.let { PendingAccount(it.account.uid, it.cookies, it.local) }, previous)).distinct(),
+            navigationKey = Uuid.random().toString(),
+        )
+        writeVault(next)
+        vault = next
     }
 
     suspend fun awaitReady() = ready.await()
@@ -237,7 +287,7 @@ class AccountRepository(
         val saved = vault.accounts.find { it.account.uid == profile.uid }
         // Logging into an already saved account resumes its drafts rather than overwriting them
         // with the empty files used while the additional account was being signed in.
-        if (vault.pending != null && saved != null) restoreLocal(saved.local)
+        if (saved != null && (vault.pending != null || (vault.activeUid == null && saved.account.needsSignIn))) restoreLocal(saved.local)
         val entry = StoredAccount(
             SavedAccount(profile.uid, profile.name, profile.avatarUrl, attendance = saved?.account?.attendance ?: if (vault.navigationKey == "legacy") legacyAttendance() else AutoAttendanceConfig()),
             captureCookies(),
@@ -326,6 +376,7 @@ class AccountRepository(
             val account = vault.accounts.find { it.account.uid == uid } ?: return@launchAction
             val next = vault.copy(
                 accounts = vault.accounts.filterNot { it.account.uid == uid },
+                quarantined = vault.quarantined.filterNot { it.previousUid == uid },
                 pending = vault.pending?.let { previous ->
                     if (previous.previousUid == uid) PendingAccount(null, "", AccountLocalSnapshot()) else previous
                 },
@@ -364,7 +415,7 @@ class AccountRepository(
             if (attached.isNotEmpty()) disposed.await()
             requests.pause()
             stopRequests()
-            val next = vault.copy(accounts = vault.accounts.filterNot { it.account.uid == uid }, activeUid = null, pending = null, recovery = null, navigationKey = Uuid.random().toString())
+            val next = vault.copy(accounts = vault.accounts.filterNot { it.account.uid == uid }, activeUid = null, pending = null, recovery = null, quarantined = vault.quarantined.filterNot { uid != null && it.previousUid == uid }, navigationKey = Uuid.random().toString())
             writeVault(next)
             vault = next
             clearLocal()

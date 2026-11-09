@@ -1,5 +1,7 @@
 package io.github.plaza.core.net
 
+import io.github.nodyssey.data.session.AccountNativeFailure
+import io.github.nodyssey.data.session.InvalidAccountCookieSnapshot
 import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieDomain
 import platform.Foundation.NSHTTPCookieMaximumAge
@@ -12,9 +14,30 @@ import platform.Foundation.NSURL
 import platform.Foundation.timeIntervalSince1970
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 
 class AppleAccountCookiesTest {
+    // Bug: a legacy self-referencing binary plist is mistaken for an inaccessible account vault.
+    @Test
+    fun `corrupt binary cookies are classified without losing the native diagnostic cause`() {
+        // A synthetic self-referencing array encoded independently with Python plistlib.
+        val snapshot = "YnBsaXN0MDChAAgAAAAAAAABAQAAAAAAAAABAAAAAAAAAAAAAAAAAAAACg=="
+        val failure = assertFailsWith<InvalidAccountCookieSnapshot> { decodeAccountCookies(snapshot) }
+        val native = assertIs<AccountNativeFailure>(failure.cause)
+        assertEquals("NSCocoaErrorDomain", native.safeDomain)
+        assertEquals(3840L, native.code)
+    }
+
+    // Bug: malformed base64 or valid plist values of the wrong shape bypass safe startup recovery.
+    @Test
+    fun `invalid cookie encoding and structure use the same recoverable classification`() {
+        for (snapshot in listOf("not base64!", "bm90IGEgcGxpc3Q=", "YnBsaXN0MDBYbm90LWxpc3QIAAAAAAAAAQEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAABE=")) {
+            assertFailsWith<InvalidAccountCookieSnapshot> { decodeAccountCookies(snapshot) }
+        }
+    }
+
     // Bug: testing cookie reconstruction alone misses Foundation property-list serialization.
     @Test
     fun `account cookies survive the actual property list round trip`() {

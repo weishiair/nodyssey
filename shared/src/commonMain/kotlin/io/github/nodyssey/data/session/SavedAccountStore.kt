@@ -18,6 +18,9 @@ interface AccountCookieStore {
     suspend fun replace(snapshot: String)
 }
 
+/** Only malformed snapshot data, never a failure to access the platform cookie store. */
+class InvalidAccountCookieSnapshot(cause: Throwable? = null) : IllegalStateException("Saved account cookies are invalid", cause)
+
 @Serializable
 data class SavedAccount(
     val uid: Long,
@@ -50,6 +53,8 @@ internal data class AccountVault(
     val activeUid: Long? = null,
     val pending: PendingAccount? = null,
     val recovery: PendingAccount? = null,
+    /** Unreadable snapshots and their drafts remain protected, but are never replayed. */
+    val quarantined: List<PendingAccount> = emptyList(),
     /** Durable namespace for navigation's saved state, including process-death restoration. */
     val navigationKey: String = "legacy",
 )

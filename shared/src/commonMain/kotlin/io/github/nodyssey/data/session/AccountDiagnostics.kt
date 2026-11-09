@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-enum class AccountStep { INITIALIZE, READ_VAULT, FETCH_PROFILE, CAPTURE_COOKIES, CAPTURE_LOCAL, CLEAR_LOCAL, RESTORE_LOCAL, EVICT_DOWNLOADS, REPLACE_COOKIES, SYNC_SESSION, STOP_REQUESTS, WRITE_VAULT, ADD, SAVE_LOGIN, ACTION }
+enum class AccountStep { INITIALIZE, READ_VAULT, FETCH_PROFILE, CAPTURE_COOKIES, CAPTURE_LOCAL, CLEAR_LOCAL, RESTORE_LOCAL, EVICT_DOWNLOADS, REPLACE_COOKIES, RECOVER_COOKIES, SYNC_SESSION, STOP_REQUESTS, WRITE_VAULT, ADD, SAVE_LOGIN, ACTION }
 
 /** Native errors cross the export boundary as a fixed domain and number, never userInfo. */
 class AccountNativeFailure(domainName: String, val code: Long?) :
