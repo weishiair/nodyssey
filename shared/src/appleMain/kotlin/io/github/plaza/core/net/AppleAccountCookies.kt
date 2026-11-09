@@ -8,6 +8,7 @@ import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.value
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -74,7 +75,7 @@ internal fun encodeAccountCookies(cookies: List<NSHTTPCookie>): String {
             format = NSPropertyListBinaryFormat_v1_0,
             options = 0u,
             error = failure.ptr,
-        ) ?: throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code)
+        ) ?: throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code?.toLong())
     }
     return data.base64EncodedStringWithOptions(0u)
 }

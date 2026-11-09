@@ -9,6 +9,7 @@ import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.value
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSFileProtectionCompleteUntilFirstUserAuthentication
@@ -33,7 +34,7 @@ internal fun protectedAccountStore() = createPreferenceDataStore("accounts", kee
                 error = failure.ptr,
             )
         ) {
-            throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code)
+            throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code?.toLong())
         }
         failure.value = null
         if (!NSURL.fileURLWithPath(directory, isDirectory = true).setResourceValue(
@@ -42,7 +43,7 @@ internal fun protectedAccountStore() = createPreferenceDataStore("accounts", kee
                 error = failure.ptr,
             )
         ) {
-            throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code)
+            throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code?.toLong())
         }
     }
 })
