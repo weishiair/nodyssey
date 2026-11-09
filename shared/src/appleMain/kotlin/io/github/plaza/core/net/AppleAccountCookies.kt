@@ -88,7 +88,13 @@ internal fun decodeAccountCookies(snapshot: String): List<NSHTTPCookie> {
         ?: error("Cannot read saved cookies")
     return (0 until properties.count.toInt()).map { index ->
         val item = properties.objectAtIndex(index.toULong()) as? NSDictionary ?: error("Invalid saved cookie")
-        val values = item.allKeys.associateWith { key -> checkNotNull(item.objectForKey(key)) }
+        val keys = item.keyEnumerator()
+        val values = buildMap<Any?, Any?> {
+            while (true) {
+                val key = keys.nextObject() ?: break
+                put(key, checkNotNull(item.objectForKey(key)))
+            }
+        }
         checkNotNull(NSHTTPCookie.cookieWithProperties(values))
     }
 }
