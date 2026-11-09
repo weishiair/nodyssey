@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   validate:
-    if: inputs.platform != 'ios'
+    if: inputs.platform != 'ios' && inputs.checks_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -67,7 +67,7 @@ jobs:
         run: ./gradlew --stop
 
   android:
-    if: inputs.platform != 'ios'
+    if: inputs.platform != 'ios' && inputs.checks_only != true
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
