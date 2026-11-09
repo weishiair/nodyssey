@@ -3,6 +3,13 @@
 手动运行 `.github/workflows/ios-test.yml` 的 **Build Android and iOS test apps**，选择测试分支，
 将 `platform` 设为 `ios`。版本仍取自该测试分支的 `gradle.properties`。
 
+排查 Apple 平台的测试失败时，可在 `platform = ios` 下启用 `checks_only`。该模式运行
+Native 与 iOS 模拟器回归，跳过版本检查与安装包构建；因此可以先在修复分支验证，
+通过后再创建带版本号的测试快照。
+
+`v版本号-ios-test.N` 标签对应 iOS 专用测试快照，使用本工作流构建后将 IPA 附加到
+GitHub prerelease。常规 Release 工作流的标签过滤器排除该命名空间。
+
 `ios_runner` 默认是 `macos-15`，也可选 `macos-26`。GitHub 的 ARM runner 容量不足、
 长时间排队时，可选 `macos-15-intel` 交叉编译同样的 iPhone / 模拟器 arm64 产物。
 Intel 无法执行 `macosArm64Test`，该模式明确跳过此项并运行 `:shared:jvmTest`；

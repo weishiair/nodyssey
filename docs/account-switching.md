@@ -32,7 +32,25 @@ WebView 的 Cookie 属性导出与服务器的 `Set-Cookie` 有一个区别：�
 
 iOS 同时替换 `NSHTTPCookieStorage` 与 `WKHTTPCookieStore`。账号文件位于排除备份的 Application Support 子目录，启用 `NSFileProtectionCompleteUntilFirstUserAuthentication` 的系统数据保护加密。这里沿用自签安装可用的文件保护方案，原因见 `KeychainLegacySecrets`。没有保存账号密码。
 
+Cookie 属性通过 Foundation 的 XML plist 保存，读取端自动识别 XML 和有效的二进制 plist。
+Kotlin 2.4.20 的集合桥接会在重复读取时重建 Objective-C 包装，而 Foundation 的二进制写入器
+按对象身份记录引用；原生回归发现数组元素因此被写成了数组自身，读取报 Cocoa 3840。
+实际编码往返与独立生成的二进制样例分别覆盖新快照保存和旧格式读取。
+
 页面的恢复命名空间随账号切换持久化，防止 Android 进程重建时恢复另一个账号的导航预览。iOS 保留系统根控制器，在 UIKit 转场结束后释放旧账号的所有页面。
+
+## 保存失败与诊断
+
+原生表单登录完成后会等待账号保存。保存失败时停留在提示页，可点「重试保存」继续当前
+登录会话；账号列表也提供重试与「导出账号诊断」入口。重试保存不会再次提交用户名和密码。
+
+复现失败后，在当前启动内打开「导出账号诊断」，点「分享日志文件」保存或分享文本文件；
+也可直接复制。日志只保留本次启动最近 128 个事件，应用进程结束后会丢失。导出内容包含应用与
+系统版本、会话是否可读、账号保存状态，以及资料获取、Cookie 快照、本地数据、账号文件
+读写的步骤。错误只记录异常类型和允许导出的系统错误域及编号。
+
+诊断不包含密码、Cookie、UID、文件路径、响应正文或异常原文；这与只在 CI 使用虚构
+输入的序列化回归测试相互独立。
 
 ## 验证
 
@@ -40,4 +58,11 @@ iOS 同时替换 `NSHTTPCookieStorage` 与 `WKHTTPCookieStore`。账号文件位
 
 主机范围解析和清理失败仍进入添加的两项回归先在旧实现上失败，修复后通过；导航回归覆盖等待验证期间、取消预测返回手势后继续保留添加页。用户已在 Android 手机上验证账号添加和切换，并确认合并测试包的功能正常。
 
-Windows 上运行了 `spotlessCheck`、Android `lintDebug`、Debug APK、R8 Release 构建和专项回归。全量 JVM 测试中，21 项 Room 迁移路径失败和 13 项 DataStore 文件替换失败与干净 `dev` 基线一致。GitHub Actions 的 Android 模拟器调试流程和 R8 启动检查已通过；iOS 的 Native、UIKit、WebKit 运行验证仍需要 Mac/Xcode。
+最初的账号切换实现曾在 Windows 上运行 `spotlessCheck`、Android `lintDebug`、Debug APK、R8 Release 构建和专项回归。全量 JVM 测试中的 21 项 Room 迁移路径失败和 13 项 DataStore 文件替换失败与当时的干净 `dev` 基线一致。
+
+2026-11-09 的账号诊断与保存恢复改动通过 GitHub Actions 完整 Linux CI
+（run `42598835348`），包括全量 JVM/Robolectric/common/gallery 测试、lint、Debug 与
+优化 Release 构建、Android 模拟器流程和 R8 启动检查。Apple 验证
+（run `42604174043`）通过 `:shared:macosArm64Test` 和
+`:ui:iosSimulatorArm64Test`；原生套件的 382 项测试包含实际 Cookie plist 往返与有效旧
+二进制格式读取。该结果不能替代受影响 iPhone 上的复现与诊断日志。
