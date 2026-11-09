@@ -55,6 +55,7 @@ class SignInViewModel(
     private val clock: AppClock,
     private val appVersion: AppVersion? = null,
     private val diagnosticContext: suspend () -> SignInDiagnosticContext = { SignInDiagnosticContext() },
+    private val saveAccount: suspend () -> Boolean = { true },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState: StateFlow<SignInUiState> = _uiState.asStateFlow()
@@ -239,10 +240,33 @@ class SignInViewModel(
     /** The snackbar's 重试 — the same submit, with the same input, for whichever step is showing. */
     fun retry() {
         consumeFailure()
+        if (_uiState.value.accountSaveFailed) {
+            retryAccountSave()
+            return
+        }
         when (_uiState.value.step) {
             SignInStep.Credentials -> submitCredentials()
             SignInStep.TwoFactor -> submitTwoFactor()
             SignInStep.Email -> emailRetry?.invoke()
+        }
+    }
+
+    fun retryAccountSave() {
+        if (submitJob?.isActive == true || !_uiState.value.accountSaveFailed) return
+        submitJob = viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            finishAccountSave()
+        }
+    }
+
+    private suspend fun finishAccountSave() {
+        val saved = saveAccount()
+        _uiState.update {
+            it.copy(
+                isSubmitting = false,
+                signedIn = saved,
+                accountSaveFailed = !saved,
+            )
         }
     }
 
@@ -267,7 +291,7 @@ class SignInViewModel(
                 // accusing a sign-in that worked of not having worked is the one wrong answer this
                 // check must not give.
                 if (session.syncAwaitingSession().isSignedIn) {
-                    _uiState.update { it.copy(isSubmitting = false, signedIn = true) }
+                    finishAccountSave()
                 } else {
                     // Back to card 1 whichever leg we are on: card 3 has nothing left to post, and
                     // 改用网页登录 — the one way forward when the app cannot hold a session of its
@@ -413,6 +437,7 @@ class SignInViewModel(
                                 proxy = container.proxySettings.config.first(),
                             )
                         },
+                        saveAccount = { container.accountRepository?.saveCurrentLogin() ?: true },
                     )
                 }
             }
@@ -484,6 +509,7 @@ data class SignInUiState(
      * the screen says so and points at 改用网页登录 rather than reddening a password that was right.
      */
     val sessionNotStored: Boolean = false,
+    val accountSaveFailed: Boolean = false,
     val signedIn: Boolean = false,
 ) {
     /**

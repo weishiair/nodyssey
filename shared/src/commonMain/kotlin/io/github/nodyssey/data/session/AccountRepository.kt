@@ -51,7 +51,6 @@ class AccountRepository(
     private var vault = AccountVault()
     private var vaultLoaded = false
     internal val storageAvailable: Boolean get() = vaultLoaded
-    private var failedFingerprint: Int? = null
     private val attached = mutableMapOf<Any, () -> Unit>()
     private var detached: CompletableDeferred<Unit>? = null
 
@@ -59,36 +58,8 @@ class AccountRepository(
         scope.launch {
             try {
                 vault = store.read()
-                vault.recovery?.let { previous ->
-                    requests.pause()
-                    stopPlatformRequests()
-                    local.clear(evictDownloads = false)
-                    cookies.replace(previous.cookies)
-                    session.sync()
-                    local.restore(previous.local)
-                    vault = vault.copy(activeUid = previous.previousUid, recovery = null)
-                    store.write(vault)
-                    requests.resume()
-                }
-                // Session-only platform cookies may disappear when the process exits. A saved
-                // account still owns the active draft files, so restore its cookies before drawing.
-                if (vault.pending == null && !session.peek().isSignedIn) {
-                    vault.accounts.find { it.account.uid == vault.activeUid }?.let { active ->
-                        requests.pause()
-                        stopPlatformRequests()
-                        cookies.replace(active.cookies)
-                        session.sync()
-                        if (!session.state.value.isSignedIn) {
-                            val parked = active.copy(account = active.account.copy(needsSignIn = true))
-                            vault = vault.copy(
-                                accounts = vault.accounts.map { if (it.account.uid == active.account.uid) parked else it },
-                                navigationKey = Uuid.random().toString(),
-                            )
-                            store.write(vault)
-                        }
-                        requests.resume()
-                    }
-                }
+                recoverInterruptedChange()
+                restoreActiveCookies()
                 vaultLoaded = true
                 publish()
             } catch (failure: Exception) {
@@ -99,6 +70,82 @@ class AccountRepository(
                 ready.complete(Unit)
             }
         }
+    }
+
+    private suspend fun recoverInterruptedChange() {
+        var previous = vault.recovery ?: return
+        requests.pause()
+        stopPlatformRequests()
+        try {
+            // Decoding must finish before touching drafts. Platform stores also validate before
+            // replacing live cookies, so a failed quarantine write leaves both originals intact.
+            cookies.replace(previous.cookies)
+        } catch (_: InvalidAccountCookieSnapshot) {
+            quarantineCookies(previous)
+            previous = checkNotNull(vault.recovery)
+            cookies.replace(previous.cookies)
+        }
+        val clearingQuarantine = previous.previousUid == null && previous.cookies.isEmpty() && vault.quarantined.isNotEmpty()
+        local.clear(evictDownloads = clearingQuarantine)
+        session.sync()
+        if (clearingQuarantine) check(!session.state.value.isSignedIn) { "Could not clear the invalid login" }
+        local.restore(previous.local)
+        val next = vault.copy(activeUid = previous.previousUid, recovery = null)
+        store.write(next)
+        vault = next
+        requests.resume()
+    }
+
+    private suspend fun restoreActiveCookies() {
+        // Session-only platform cookies may disappear when the process exits. A saved account
+        // still owns the active draft files, so restore its cookies before drawing.
+        if (vault.pending != null || session.peek().isSignedIn) return
+        val active = vault.accounts.find { it.account.uid == vault.activeUid } ?: return
+        requests.pause()
+        stopPlatformRequests()
+        try {
+            cookies.replace(active.cookies)
+        } catch (_: InvalidAccountCookieSnapshot) {
+            // The files may be newer than the last saved snapshot. Preserve them for this UID,
+            // but never attribute them to whoever signs in after this recovery.
+            quarantineCookies(PendingAccount(active.account.uid, active.cookies, local.capture()))
+            recoverInterruptedChange()
+            return
+        }
+        session.sync()
+        if (!session.state.value.isSignedIn) {
+            val parked = active.copy(account = active.account.copy(needsSignIn = true))
+            val next = vault.copy(
+                accounts = vault.accounts.map { if (it.account.uid == active.account.uid) parked else it },
+                navigationKey = Uuid.random().toString(),
+            )
+            store.write(next)
+            vault = next
+        }
+        requests.resume()
+    }
+
+    private suspend fun quarantineCookies(previous: PendingAccount) {
+        val saved = vault.accounts.find { it.account.uid == previous.previousUid }
+        val empty = PendingAccount(null, "", AccountLocalSnapshot())
+        val next = vault.copy(
+            accounts = vault.accounts.map { entry ->
+                if (entry.account.uid == previous.previousUid) {
+                    entry.copy(account = entry.account.copy(needsSignIn = true), cookies = "", local = previous.local)
+                } else {
+                    entry
+                }
+            },
+            activeUid = null,
+            // Keep an empty pending add so signing back into a saved UID restores its own drafts.
+            // The empty recovery journal makes interrupted cleanup safe to repeat on next launch.
+            pending = empty,
+            recovery = empty,
+            quarantined = (vault.quarantined + listOfNotNull(vault.recovery, vault.pending, saved?.let { PendingAccount(it.account.uid, it.cookies, it.local) }, previous)).distinct(),
+            navigationKey = Uuid.random().toString(),
+        )
+        store.write(next)
+        vault = next
     }
 
     suspend fun awaitReady() = ready.await()
@@ -179,10 +226,29 @@ class AccountRepository(
     }
 
     fun refresh() = launchAction {
-        failedFingerprint = null
         if (session.peek().isSignedIn) {
             val fingerprint = session.state.value.fingerprint
             rememberLocked(currentProfile(false), fingerprint)
+        }
+    }
+
+    /** Explicit completion waits for concurrent adoption and never mistakes a cookie for a save. */
+    suspend fun saveCurrentLogin(): Boolean = withContext(scope.coroutineContext.minusKey(Job)) {
+        awaitReady()
+        mutex.withLock {
+            try {
+                check(vaultLoaded) { "Saved accounts are unavailable" }
+                val fingerprint = session.peek().fingerprint
+                if (!session.peek().isSignedIn) return@withLock false
+                val profile = currentProfile(false)
+                rememberLocked(profile, fingerprint)
+                vault.pending == null && vault.activeUid == profile.uid &&
+                    session.peek().isSignedIn && session.peek().fingerprint == fingerprint
+            } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+                publish(failure = classify(failure))
+                false
+            }
         }
     }
 
@@ -201,7 +267,6 @@ class AccountRepository(
             rememberLocked(profile, fingerprint)
         } catch (failure: Exception) {
             if (failure is CancellationException) throw failure
-            failedFingerprint = fingerprint
             publish(failure = classify(failure))
         } finally {
             mutex.unlock()
@@ -210,7 +275,6 @@ class AccountRepository(
 
     private suspend fun rememberLocked(profile: UserProfile, fingerprint: Int) {
         if (profile.uid <= 0 || !session.state.value.isSignedIn || session.state.value.fingerprint != fingerprint) return
-        if (fingerprint == failedFingerprint) return
         if (vault.activeUid != null && vault.activeUid != profile.uid && vault.pending == null) {
             adoptBrowserAccount(profile, fingerprint)
             return
@@ -218,7 +282,7 @@ class AccountRepository(
         val saved = vault.accounts.find { it.account.uid == profile.uid }
         // Logging into an already saved account resumes its drafts rather than overwriting them
         // with the empty files used while the additional account was being signed in.
-        if (vault.pending != null && saved != null) local.restore(saved.local)
+        if (saved != null && (vault.pending != null || (vault.activeUid == null && saved.account.needsSignIn))) local.restore(saved.local)
         val entry = StoredAccount(
             SavedAccount(profile.uid, profile.name, profile.avatarUrl, attendance = saved?.account?.attendance ?: if (vault.navigationKey == "legacy") legacyAttendance() else AutoAttendanceConfig()),
             cookies.capture(),
@@ -264,7 +328,6 @@ class AccountRepository(
             vault = next
         } catch (failure: Exception) {
             failureResult = classify(failure)
-            failedFingerprint = fingerprint
             withContext(NonCancellable) {
                 previous?.let { restore ->
                     local.clear(evictDownloads = false)
@@ -283,7 +346,14 @@ class AccountRepository(
         }
     }
 
-    fun add() = launchAction { transition(targetUid = null, adding = true) }
+    fun add() = launchAction {
+        // Preserve a readable login after a failed save instead of clearing it for another form.
+        if (vault.pending != null && session.peek().isSignedIn) {
+            rememberLocked(currentProfile(false), session.peek().fingerprint)
+        } else {
+            transition(targetUid = null, adding = true)
+        }
+    }
     fun switch(uid: Long) = launchAction {
         if (uid != vault.activeUid) transition(targetUid = uid, adding = false)
     }
@@ -301,6 +371,7 @@ class AccountRepository(
             val account = vault.accounts.find { it.account.uid == uid } ?: return@launchAction
             val next = vault.copy(
                 accounts = vault.accounts.filterNot { it.account.uid == uid },
+                quarantined = vault.quarantined.filterNot { it.previousUid == uid },
                 pending = vault.pending?.let { previous ->
                     if (previous.previousUid == uid) PendingAccount(null, "", AccountLocalSnapshot()) else previous
                 },
@@ -339,7 +410,7 @@ class AccountRepository(
             if (attached.isNotEmpty()) disposed.await()
             requests.pause()
             stopPlatformRequests()
-            val next = vault.copy(accounts = vault.accounts.filterNot { it.account.uid == uid }, activeUid = null, pending = null, recovery = null, navigationKey = Uuid.random().toString())
+            val next = vault.copy(accounts = vault.accounts.filterNot { it.account.uid == uid }, activeUid = null, pending = null, recovery = null, quarantined = vault.quarantined.filterNot { uid != null && it.previousUid == uid }, navigationKey = Uuid.random().toString())
             store.write(next)
             vault = next
             local.clear()

@@ -15,6 +15,10 @@ on:
         type: choice
         options: [macos-15, macos-26, macos-15-intel]
         default: macos-15
+      checks_only:
+        description: Run Apple regression tests without assigning or building a test version
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,7 +29,7 @@ concurrency:
 
 jobs:
   validate:
-    if: inputs.platform != 'ios'
+    if: inputs.platform != 'ios' && inputs.checks_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -63,7 +67,7 @@ jobs:
         run: ./gradlew --stop
 
   android:
-    if: inputs.platform != 'ios'
+    if: inputs.platform != 'ios' && inputs.checks_only != true
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -180,6 +184,7 @@ jobs:
           cargo fmt --check
           cargo run --locked --example probe
       - name: Read the test version
+        if: inputs.checks_only != true
         shell: bash
         run: |
           version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
@@ -209,7 +214,11 @@ jobs:
         run: |
           echo '::notice::Intel fallback: macosArm64Test cannot execute on this host. Running shared JVM tests; the iOS arm64 targets are still compiled below.'
           ./gradlew :shared:jvmTest --max-workers=2
+      - name: Compile the iOS shell without packaging
+        if: inputs.checks_only == true
+        run: ./gradlew :iosapp:compileKotlinIosArm64 :iosapp:compileKotlinIosSimulatorArm64 --max-workers=2
       - name: Build the unsigned iPhone app
+        if: inputs.checks_only != true
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8"
         run: |
@@ -227,6 +236,7 @@ jobs:
             MARKETING_VERSION="$BUILD_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_CODE"
       - name: Verify and package the IPA
+        if: inputs.checks_only != true
         shell: bash
         run: |
           app="$RUNNER_TEMP/Nodyssey.xcarchive/Products/Applications/Nodyssey.app"
@@ -253,6 +263,7 @@ jobs:
           printf 'version=%s\nbuild=%s\nsigning=unsigned\nsdk=%s\n' "$BUILD_VERSION" "$BUILD_CODE" "$sdk_name" > "$RUNNER_TEMP/ios-test-dist/build-info.txt"
           (cd "$RUNNER_TEMP/ios-test-dist" && shasum -a 256 "$name" > SHA256SUMS.txt)
       - name: Upload the unsigned IPA
+        if: inputs.checks_only != true
         uses: actions/upload-artifact@v7
         with:
           name: nodyssey-ios-test-${{ github.run_id }}
@@ -260,10 +271,12 @@ jobs:
           retention-days: 14
           if-no-files-found: error
       - name: Build and verify the iOS Simulator app
+        if: inputs.checks_only != true
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8"
         run: bash .github/scripts/build-ios-simulator.sh "$GITHUB_WORKSPACE/build/ios-simulator"
       - name: Upload the iOS Simulator app
+        if: inputs.checks_only != true
         uses: actions/upload-artifact@v7
         with:
           name: nodyssey-ios-simulator-${{ github.run_id }}

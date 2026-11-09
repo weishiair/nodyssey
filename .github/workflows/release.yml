@@ -15,7 +15,8 @@ name: Release
 # users who didn't go looking for it.
 on:
   push:
-    tags: ['v*']
+    # iOS-only snapshots are built by ios-test.yml and attached to a prerelease separately.
+    tags: ['v*', '!v*-ios-test.*']
   # Re-running a release by hand, for when the tag is already pushed and something below needed a fix.
   workflow_dispatch:
     inputs:

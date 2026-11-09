@@ -20,4 +20,6 @@
     <string name="accounts_failure_webview">Update Android System WebView to save complete account sessions on this device.</string>
     <string name="accounts_remove_offline_warning">Offline downloads for the current account will also be cleared.</string>
     <string name="accounts_add_hint">Sign in to another account to save it on this device. Cancel to return to your original account.</string>
+    <string name="accounts_save_failed">Your login session is ready, but the account has not been saved. Retry saving without entering your password again.</string>
+    <string name="accounts_retry_save">Retry saving account</string>
 </resources>
