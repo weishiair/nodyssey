@@ -206,3 +206,7 @@ Android device was available for installation or live service verification.
 On 2026-11-09 the user reported that test.11 worked on their device. The remaining
 visual feedback was the oversized Read all indicator; its size now follows the
 app's other inline button indicators, with before/after Robolectric renders.
+
+The dev integration selects only the mail commits from those combined test
+snapshots. Invite-purchase changes stay on their own branch. The integration keeps
+dev's stable version, 1.3.9 (134), without importing a test-version bump.
