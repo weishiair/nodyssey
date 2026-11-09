@@ -204,7 +204,7 @@ fun SignInRoute(
     }
 
     if (state.accountSaveFailed) {
-        AccountSaveFailureScreen(state.failureReport, state.isSubmitting, viewModel::retryAccountSave, onClose)
+        AccountSaveFailureScreen(state.isSubmitting, viewModel::retryAccountSave, onClose)
         return
     }
     when (state.step) {

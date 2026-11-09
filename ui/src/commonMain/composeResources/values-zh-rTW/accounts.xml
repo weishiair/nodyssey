@@ -22,8 +22,4 @@
     <string name="accounts_add_hint">登入另一個帳號，完成後會儲存到本機。取消新增可返回原帳號。</string>
     <string name="accounts_save_failed">登入狀態已就緒，但帳號尚未儲存。請重試儲存，無需重新輸入密碼。</string>
     <string name="accounts_retry_save">重試儲存帳號</string>
-    <string name="accounts_diagnostics">匯出帳號診斷</string>
-    <string name="accounts_diagnostics_export">分享紀錄檔案</string>
-    <string name="accounts_diagnostics_export_failed">無法開啟分享，請複製診斷內容。</string>
-    <string name="accounts_diagnostics_privacy">請在本次啟動中重現問題後匯出。紀錄只包含操作步驟、狀態和錯誤類型，不包含密碼、Cookie 或帳號資訊。</string>
 </resources>

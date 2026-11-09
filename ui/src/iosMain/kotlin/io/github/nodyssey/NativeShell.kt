@@ -362,9 +362,7 @@ private class NativeShell(
                 container.postRepository.reconcileSession(session.isSignedIn, session.fingerprint)
                 if (session.isSignedIn) {
                     runCatchingExceptCancellation {
-                        val profile = container.accountRepository?.diagnostics?.step(
-                            io.github.nodyssey.data.session.AccountStep.FETCH_PROFILE,
-                        ) { container.profileRepository.profile() } ?: container.profileRepository.profile()
+                        val profile = container.profileRepository.profile()
                         container.accountRepository?.remember(profile, session.fingerprint)
                     }
                 }

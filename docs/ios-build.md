@@ -4,7 +4,7 @@
 将 `platform` 设为 `ios`。版本仍取自该测试分支的 `gradle.properties`。
 
 排查 Apple 平台的测试失败时，可在 `platform = ios` 下启用 `checks_only`。该模式运行
-Native 与 iOS 模拟器回归，跳过版本检查与安装包构建；因此可以先在修复分支验证，
+Native 与 iOS 模拟器回归，并编译真机和模拟器的 iOS 外壳，跳过版本检查与安装包构建；因此可以先在修复分支验证，
 通过后再创建带版本号的测试快照。
 
 `v版本号-ios-test.N` 标签对应 iOS 专用测试快照，使用本工作流构建后将 IPA 附加到

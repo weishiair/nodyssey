@@ -56,7 +56,6 @@ class SignInViewModel(
     private val appVersion: AppVersion? = null,
     private val diagnosticContext: suspend () -> SignInDiagnosticContext = { SignInDiagnosticContext() },
     private val saveAccount: suspend () -> Boolean = { true },
-    private val accountDiagnostics: () -> String? = { null },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState: StateFlow<SignInUiState> = _uiState.asStateFlow()
@@ -267,7 +266,6 @@ class SignInViewModel(
                 isSubmitting = false,
                 signedIn = saved,
                 accountSaveFailed = !saved,
-                failureReport = if (saved) null else accountDiagnostics(),
             )
         }
     }
@@ -440,7 +438,6 @@ class SignInViewModel(
                             )
                         },
                         saveAccount = { container.accountRepository?.saveCurrentLogin() ?: true },
-                        accountDiagnostics = { container.accountRepository?.diagnostics?.report?.value },
                     )
                 }
             }

@@ -66,8 +66,6 @@ class AccountRepositoryTest {
         assertTrue(fixture.accounts.state.value.accounts.isEmpty())
         assertTrue(fixture.accounts.state.value.adding)
         assertEquals(AccountFailure.STORAGE, fixture.accounts.state.value.failure)
-        assertTrue(fixture.accounts.diagnostics.report.value.contains("CAPTURE_COOKIES failed"))
-        assertFalse(fixture.accounts.diagnostics.report.value.contains("private cookie content"))
         fixture.captureFailure = null
         fixture.accounts.remember(UserProfile(1, "account-1", ""), fixture.session.peek().fingerprint)
         assertEquals(1L, fixture.accounts.state.value.activeUid)
@@ -99,7 +97,6 @@ class AccountRepositoryTest {
         fixture.login(1)
         assertFalse(fixture.accounts.saveCurrentLogin())
         assertTrue(fixture.session.peek().isSignedIn)
-        assertTrue(fixture.accounts.diagnostics.report.value.contains("WRITE_VAULT failed"))
         fixture.cipher.canEncrypt = true
         assertTrue(fixture.accounts.saveCurrentLogin())
         assertEquals(1L, fixture.vault.read().activeUid)
@@ -503,9 +500,6 @@ class AccountRepositoryTest {
         assertNull(reopened.state.value.activeUid)
         assertEquals(setOf(recovery, pending), fixture.vault.read().quarantined.toSet())
         assertNull(fixture.vault.read().recovery)
-        assertTrue(reopened.diagnostics.report.value.contains("native=NSCocoaErrorDomain/3840"))
-        assertTrue(reopened.diagnostics.report.value.contains("RECOVER_COOKIES ok"))
-        assertFalse(reopened.diagnostics.report.value.contains("unidentified private draft"))
         fixture.jar.setCookie(NodeSeekSite.BASE_URL, "session=2")
         fixture.session.sync()
         assertTrue(reopened.saveCurrentLogin())
@@ -572,7 +566,6 @@ class AccountRepositoryTest {
         assertEquals(original, fixture.vault.read())
         assertEquals("session=1", fixture.cookies.capture())
         assertEquals("live draft", fixture.postDrafts.data.first()[draftKey])
-        assertTrue(reopened.diagnostics.report.value.contains("INITIALIZE failed"))
     }
 
     // Bug: clearing a malformed recovery before its quarantine write succeeds loses the only private draft.

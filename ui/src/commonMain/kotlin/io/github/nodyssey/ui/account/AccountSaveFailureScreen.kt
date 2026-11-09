@@ -24,7 +24,7 @@ import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun AccountSaveFailureScreen(report: String?, saving: Boolean, onRetry: () -> Unit, onClose: () -> Unit) {
+internal fun AccountSaveFailureScreen(saving: Boolean, onRetry: () -> Unit, onClose: () -> Unit) {
     Scaffold(topBar = {
         TopAppBar(
             title = { Text(stringResource(Res.string.accounts_title)) },
@@ -41,7 +41,6 @@ internal fun AccountSaveFailureScreen(report: String?, saving: Boolean, onRetry:
             MediumButton(onClick = onRetry, enabled = !saving) {
                 Text(stringResource(if (saving) Res.string.sign_in_submitting else Res.string.accounts_retry_save))
             }
-            report?.let { AccountDiagnosticsAction(it) }
         }
     }
 }

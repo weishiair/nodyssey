@@ -214,6 +214,9 @@ jobs:
         run: |
           echo '::notice::Intel fallback: macosArm64Test cannot execute on this host. Running shared JVM tests; the iOS arm64 targets are still compiled below.'
           ./gradlew :shared:jvmTest --max-workers=2
+      - name: Compile the iOS shell without packaging
+        if: inputs.checks_only == true
+        run: ./gradlew :iosapp:compileKotlinIosArm64 :iosapp:compileKotlinIosSimulatorArm64 --max-workers=2
       - name: Build the unsigned iPhone app
         if: inputs.checks_only != true
         env:

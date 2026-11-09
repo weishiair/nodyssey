@@ -85,13 +85,12 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun AccountsRoute(viewModel: AccountsViewModel, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
     val usage by viewModel.usage.collectAsStateWithLifecycle(OfflineUsage())
     val attendanceStates by viewModel.attendanceStates.collectAsStateWithLifecycle()
     // NavDisplay also composes this entry behind sign-in for predictive back. Only the
     // owning back stack may decide that an add was abandoned (see MainNavigation).
     LaunchedEffect(Unit) { viewModel.refresh() }
-    AccountsScreen(state, usage.posts > 0, onBack, viewModel::add, viewModel::switch, viewModel::remove, viewModel::cancelAdd, viewModel::dismissFailure, viewModel::setAttendanceEnabled, attendanceStates, diagnostics, viewModel::refresh)
+    AccountsScreen(state, usage.posts > 0, onBack, viewModel::add, viewModel::switch, viewModel::remove, viewModel::cancelAdd, viewModel::dismissFailure, viewModel::setAttendanceEnabled, attendanceStates, viewModel::refresh)
 }
 
 private data class AccountAction(val account: SavedAccount? = null, val remove: Boolean = false)
@@ -109,7 +108,6 @@ fun AccountsScreen(
     onFailureShown: () -> Unit,
     onAttendanceEnabled: (Long, Boolean) -> Unit = { _, _ -> },
     attendanceStates: Map<Long, AutoAttendanceState> = emptyMap(),
-    diagnostics: String? = null,
     onRetrySave: () -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
@@ -172,7 +170,6 @@ fun AccountsScreen(
                     TextButton(onClick = onRetrySave, enabled = !state.busy) { Text(stringResource(Res.string.accounts_retry_save)) }
                 }
             }
-            diagnostics?.let { report -> item { AccountDiagnosticsAction(report) } }
             items(state.accounts, key = { it.uid }) { account ->
                 val current = account.uid == state.activeUid
                 val attendance = attendanceStates[account.uid]

@@ -68,7 +68,6 @@ class SignInViewModelTest {
                     saveAttempts++
                     if (saveAttempts == 1) saving.await() else true
                 },
-                accountDiagnostics = { "redacted diagnostic report" },
             ),
         )
         vm.accountState.typeText("reader")
@@ -83,7 +82,6 @@ class SignInViewModelTest {
         advanceUntilIdle()
         assertTrue(vm.uiState.value.accountSaveFailed)
         assertFalse(vm.uiState.value.signedIn)
-        assertEquals("redacted diagnostic report", vm.uiState.value.failureReport)
         repository.failure = AssertionError("retry must not submit credentials")
         vm.retryAccountSave()
         advanceUntilIdle()

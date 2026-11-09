@@ -22,8 +22,4 @@
     <string name="accounts_add_hint">Sign in to another account to save it on this device. Cancel to return to your original account.</string>
     <string name="accounts_save_failed">Your login session is ready, but the account has not been saved. Retry saving without entering your password again.</string>
     <string name="accounts_retry_save">Retry saving account</string>
-    <string name="accounts_diagnostics">Export account diagnostics</string>
-    <string name="accounts_diagnostics_export">Share log file</string>
-    <string name="accounts_diagnostics_export_failed">Could not open sharing. Copy the diagnostics instead.</string>
-    <string name="accounts_diagnostics_privacy">Reproduce the problem and export before restarting the app. The log contains operation steps, states and error types, with no passwords, cookies or account details.</string>
 </resources>

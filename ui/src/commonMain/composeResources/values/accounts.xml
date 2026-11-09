@@ -23,8 +23,4 @@
     <string name="accounts_add_hint">登录另一个账号，完成后会保存到本机。取消添加可返回原账号。</string>
     <string name="accounts_save_failed">登录会话已就绪，但账号尚未保存。请重试保存，无需重新输入密码。</string>
     <string name="accounts_retry_save">重试保存账号</string>
-    <string name="accounts_diagnostics">导出账号诊断</string>
-    <string name="accounts_diagnostics_export">分享日志文件</string>
-    <string name="accounts_diagnostics_export_failed">无法打开分享，请复制诊断内容。</string>
-    <string name="accounts_diagnostics_privacy">请在本次启动中复现问题后导出。日志只包含操作步骤、状态和错误类型，不包含密码、Cookie 或账号信息。</string>
 </resources>
