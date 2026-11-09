@@ -119,7 +119,7 @@ nodeimage、兰空 Lsky Pro、简单图床 EasyImage、sm.ms、imgbb，以及手
 |---|---|
 | 修改邮箱 | 站点发验证码要 Cloudflare Turnstile 令牌，原生拿不到；联系方式页说明原因并打开 `/setting#contact` |
 | 绑定 Telegram | 站点用 telegram.org 的登录挂件完成绑定，必须有浏览器环境；确认弹窗打开 `/setting#contact`，返回后自动轮询绑定状态。**解绑和状态读取是原生的** |
-| 邀请码购买 | App 显示真实鸡腿余额并二次确认，最终打开站点邀请页购买 |
+| ~~邀请码购买~~ | **2026-11-06 已原生化**：`/api/invite/config` 取两档价（1000 鸡腿 / 100 星辰，站点可关任一种）、`buyOne` 购买、`list` 回读邀请码；确认弹窗按货币分别报价，WebView 只留作兜底 |
 
 检查更新于 2026-08-02 原生化，因此不在这张表里了：它问的是 GitHub 而不是 NodeSeek，
 `GET https://5151561.github.io/nodyssey/stable.json` 是本项目自己发布的静态文件，草稿和预发布由 `release.yml`

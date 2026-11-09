@@ -12,17 +12,18 @@ import com.github.takahirom.roborazzi.captureScreenRoboImage
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.CreditEntry
 import io.github.nodyssey.data.DailyQuota
+import io.github.nodyssey.data.InviteCurrency
 import io.github.nodyssey.data.StardustEntry
 import io.github.nodyssey.data.StardustType
 import io.github.nodyssey.ui.assets.AssetsScreen
 import io.github.nodyssey.ui.assets.AssetsUiState
 import io.github.nodyssey.ui.assets.CreditScreen
 import io.github.nodyssey.ui.assets.CreditUiState
-import io.github.nodyssey.ui.assets.InviteConfirmDialog
 import io.github.nodyssey.ui.assets.RecipientCheck
 import io.github.nodyssey.ui.assets.StardustScreen
 import io.github.nodyssey.ui.assets.StardustUiState
 import io.github.nodyssey.ui.assets.TransferForm
+import io.github.nodyssey.ui.tools.InviteConfirmDialog
 import io.github.plaza.designsys.theme.PlazaTheme
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Before
@@ -172,13 +173,37 @@ class AssetsScreenRenderTest {
     @Test
     fun `invite shortfall in light`() =
         renderScreen("invite-short-light", darkTheme = false) {
-            InviteConfirmDialog(chickenCount = 344, onConfirm = {}, onDismiss = {})
+            InviteConfirmDialog(
+                currency = InviteCurrency.COIN,
+                cost = 1_000,
+                balance = 344,
+                onConfirm = {},
+                onDismiss = {},
+            )
         }
 
     @Test
     fun `invite confirmation in dark`() =
         renderScreen("invite-confirm-dark", darkTheme = true) {
-            InviteConfirmDialog(chickenCount = 1_286, onConfirm = {}, onDismiss = {})
+            InviteConfirmDialog(
+                currency = InviteCurrency.COIN,
+                cost = 1_000,
+                balance = 1_286,
+                onConfirm = {},
+                onDismiss = {},
+            )
+        }
+
+    @Test
+    fun `invite stardust shortfall in light`() =
+        renderScreen("invite-stardust-short-light", darkTheme = false) {
+            InviteConfirmDialog(
+                currency = InviteCurrency.STARDUST,
+                cost = 100,
+                balance = 1,
+                onConfirm = {},
+                onDismiss = {},
+            )
         }
 
     private companion object {
