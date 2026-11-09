@@ -9,6 +9,7 @@ import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.core.toNSData
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
+import platform.Foundation.writeToURL
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.popoverPresentationController
 
