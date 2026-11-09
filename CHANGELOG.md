@@ -75,7 +75,7 @@
 ### 感谢
 
 - 感谢 @istiao 反馈表情管理的问题。
-- 感谢 Telegram 用户 x 反馈回帖鸡腿和用户资料页没有展示禁言标签的问题。
+- 感谢 @x 反馈回帖鸡腿和用户资料页没有展示禁言标签的问题。
 - 感谢 @chinazihan 提出帖子高亮显示的需求。
 - 感谢 @呱 提出 iPad 展示优化需求，也感谢 [nodyssey-wa](https://github.com/eddielee214/nodyssey-wa) 项目提供的思路。
 
