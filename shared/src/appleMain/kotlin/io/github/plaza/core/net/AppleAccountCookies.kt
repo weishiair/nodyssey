@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
 
 package io.github.plaza.core.net
 
@@ -84,10 +84,21 @@ internal fun encodeAccountCookies(cookies: List<NSHTTPCookie>): String {
 
 internal fun decodeAccountCookies(snapshot: String): List<NSHTTPCookie> {
     val data = checkNotNull(NSData.create(base64EncodedString = snapshot, options = 0u))
-    val properties = NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = null) as? NSArray
-        ?: error("Cannot read saved cookies")
-    return (0 until properties.count.toInt()).map { index ->
-        val item = properties.objectAtIndex(index.toULong()) as? NSDictionary ?: error("Invalid saved cookie")
+    val root = memScoped {
+        val failure = alloc<ObjCObjectVar<NSError?>>()
+        failure.value = null
+        NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = failure.ptr)
+            ?: throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code?.toLong())
+    }
+    val properties = when (root) {
+        is List<*> -> root
+        is NSArray -> (0 until root.count.toInt()).map { root.objectAtIndex(it.toULong()) }
+        else -> error("Invalid saved cookie collection type: ${root::class.simpleName}")
+    }
+    return properties.map { raw ->
+        @Suppress("UNCHECKED_CAST")
+        if (raw is Map<*, *>) return@map checkNotNull(NSHTTPCookie.cookieWithProperties(raw as Map<Any?, *>))
+        val item = raw as? NSDictionary ?: error("Invalid saved cookie")
         val keys = item.keyEnumerator()
         val values = buildMap<Any?, Any?> {
             while (true) {

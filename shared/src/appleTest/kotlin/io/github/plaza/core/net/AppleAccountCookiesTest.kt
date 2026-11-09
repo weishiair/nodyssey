@@ -1,5 +1,8 @@
 package io.github.plaza.core.net
 
+import io.github.nodyssey.data.session.AccountNativeFailure
+import io.github.plaza.core.toByteArray
+import platform.Foundation.NSData
 import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieDomain
 import platform.Foundation.NSHTTPCookieMaximumAge
@@ -9,6 +12,7 @@ import platform.Foundation.NSHTTPCookiePath
 import platform.Foundation.NSHTTPCookieValue
 import platform.Foundation.NSHTTPCookieVersion
 import platform.Foundation.NSURL
+import platform.Foundation.create
 import platform.Foundation.timeIntervalSince1970
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,7 +35,14 @@ class AppleAccountCookiesTest {
                 ),
             ),
         )
-        val restored = decodeAccountCookies(encodeAccountCookies(listOf(cookie))).single()
+        val encoded = encodeAccountCookies(listOf(cookie))
+        val bytes = checkNotNull(NSData.create(base64EncodedString = encoded, options = 0u)).toByteArray()
+        assertEquals("bplist00", bytes.take(8).toByteArray().decodeToString())
+        val restored = try {
+            decodeAccountCookies(encoded).single()
+        } catch (failure: AccountNativeFailure) {
+            throw AssertionError("Native decode failure ${failure.safeDomain}/${failure.code}; bytes=${bytes.size}", failure)
+        }
         assertEquals(cookie.name, restored.name)
         assertEquals(cookie.value, restored.value)
         assertEquals(cookie.domain, restored.domain)
