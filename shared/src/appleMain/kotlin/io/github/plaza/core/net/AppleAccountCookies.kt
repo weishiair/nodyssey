@@ -12,8 +12,10 @@ import kotlinx.cinterop.value
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import platform.Foundation.NSArray
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
+import platform.Foundation.NSDictionary
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieExpires
@@ -82,12 +84,12 @@ internal fun encodeAccountCookies(cookies: List<NSHTTPCookie>): String {
 
 internal fun decodeAccountCookies(snapshot: String): List<NSHTTPCookie> {
     val data = checkNotNull(NSData.create(base64EncodedString = snapshot, options = 0u))
-    val properties = NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = null) as? List<*>
+    val properties = NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = null) as? NSArray
         ?: error("Cannot read saved cookies")
-    return properties.map { raw ->
-        @Suppress("UNCHECKED_CAST")
-        val item = raw as? Map<Any?, *> ?: error("Invalid saved cookie")
-        checkNotNull(NSHTTPCookie.cookieWithProperties(item))
+    return (0 until properties.count.toInt()).map { index ->
+        val item = properties.objectAtIndex(index.toULong()) as? NSDictionary ?: error("Invalid saved cookie")
+        val values = item.allKeys.associateWith { key -> checkNotNull(item.objectForKey(key)) }
+        checkNotNull(NSHTTPCookie.cookieWithProperties(values))
     }
 }
 
