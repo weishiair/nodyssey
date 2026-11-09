@@ -2,7 +2,9 @@
 
 package io.github.nodyssey.ui.login
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,6 +18,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -35,6 +38,8 @@ import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_open_in_external_browser
+import io.github.nodyssey.ui.resources.action_retry
+import io.github.nodyssey.ui.resources.webview_load_failed
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.core.net.WebKitCookieBridge
 import io.github.plaza.designsys.component.PlazaBackHandler
@@ -48,6 +53,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.resources.stringResource
+import platform.Foundation.NSError
 import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
@@ -172,6 +178,7 @@ internal fun WebViewScreen(
     sessionCapture: WebSessionCapture? = null,
 ) {
     var loading by remember { mutableStateOf(true) }
+    var loadFailed by remember { mutableStateOf(false) }
     var canGoBack by remember { mutableStateOf(false) }
     var popup by remember { mutableStateOf<WKWebView?>(null) }
     // Where the user actually is, not where they came in.
@@ -190,8 +197,17 @@ internal fun WebViewScreen(
                 openExternal = { openExternal(it) },
                 onPageLoaded = { view ->
                     loading = false
+                    loadFailed = false
                     canGoBack = view.canGoBack
                     view.URL?.absoluteString?.let { currentUrl = it }
+                },
+                onPageLoadStarted = {
+                    loading = true
+                    loadFailed = false
+                },
+                onPageLoadFailed = {
+                    loading = false
+                    loadFailed = true
                 },
                 onOpenPopup = { child -> popup = child },
                 onClosePopup = { popup = null },
@@ -299,6 +315,22 @@ internal fun WebViewScreen(
                         .describedAsLoading(),
                 )
             }
+            if (loadFailed) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(stringResource(Res.string.webview_load_failed))
+                    TextButton(
+                        onClick = {
+                            loadFailed = false
+                            loading = true
+                            webView.reload()
+                        },
+                    ) { Text(stringResource(Res.string.action_retry)) }
+                }
+            }
         }
     }
 }
@@ -347,6 +379,8 @@ private class NodeSeekWebViewDelegate(
     private val staysHere: (String) -> Boolean,
     private val openExternal: (String) -> Unit,
     private val onPageLoaded: (WKWebView) -> Unit,
+    private val onPageLoadStarted: () -> Unit,
+    private val onPageLoadFailed: () -> Unit,
     private val onOpenPopup: (WKWebView) -> Unit,
     private val onClosePopup: () -> Unit,
 ) : NSObject(),
@@ -377,6 +411,18 @@ private class NodeSeekWebViewDelegate(
 
     override fun webView(webView: WKWebView, didFinishNavigation: WKNavigation?) {
         onPageLoaded(webView)
+    }
+
+    override fun webView(webView: WKWebView, didStartProvisionalNavigation: WKNavigation?) {
+        onPageLoadStarted()
+    }
+
+    override fun webView(webView: WKWebView, didFailProvisionalNavigation: WKNavigation?, withError: NSError) {
+        onPageLoadFailed()
+    }
+
+    override fun webView(webView: WKWebView, didFailNavigation: WKNavigation?, withError: NSError) {
+        onPageLoadFailed()
     }
 
     /**

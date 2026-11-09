@@ -13,10 +13,79 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class MailWebSessionTest {
+    @Test
+    fun `switching from api to web preserves the key and read state until a verified token replaces it`() = runTest {
+        val store = MemoryMailCredentials("sk_live_example").apply { defaultMailboxId = 7 }
+        val transport = MailTestTransport()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = DefaultMailRepository(store, transport, AppDispatchers(dispatcher, dispatcher))
+        repository.initialize()
+        val before = repository.connection.value
+        repository.markRead(before.generation, MailMessage(21, 7), true)
+        val readsBefore = repository.readStates.value
+        val attempt = repository.beginAuthorization()
+        assertEquals(before, repository.connection.value)
+        assertEquals(readsBefore, repository.readStates.value)
+        assertEquals("sk_live_example", store.key)
+        assertEquals(listOf(7L, 9L), repository.mailboxes(before.generation).map { it.id })
+        transport.answer = { httpResponse(WEB_MAILBOXES) }
+        repository.completeAuthorization(attempt, "example-session")
+        assertEquals("web:example-session", store.key)
+        assertEquals(MailAuthMode.WEB_SESSION, repository.connection.value.authMode)
+        assertTrue(repository.connection.value.generation > before.generation)
+        assertNull(repository.defaultMailboxId(repository.connection.value.generation))
+        assertFailsWith<CancellationException> { repository.mailboxes(before.generation) }
+    }
+
+    @Test
+    fun `refused and cancelled web switches keep the current api connection and reject late tokens`() = runTest {
+        val store = MemoryMailCredentials("sk_live_example").apply {
+            defaultMailboxId = 9
+            notificationCursors[9] = 21
+        }
+        val transport = MailTestTransport().apply { answer = { httpResponse("{}", code = 401) } }
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = DefaultMailRepository(store, transport, AppDispatchers(dispatcher, dispatcher))
+        repository.initialize()
+        val before = repository.connection.value
+        val attempt = repository.beginAuthorization()
+        assertEquals(MailError.UNAUTHORIZED, assertFailsWith<MailException> { repository.completeAuthorization(attempt, "refused-session") }.error)
+        assertEquals(before, repository.connection.value)
+        assertEquals("sk_live_example", store.key)
+        assertEquals(9L, store.defaultMailboxId)
+        assertEquals(21L, store.notificationCursors[9])
+        val gate = CompletableDeferred<Unit>()
+        transport.answer = {
+            gate.await()
+            httpResponse(WEB_MAILBOXES)
+        }
+        val pending = async { repository.completeAuthorization(attempt, "late-session") }
+        runCurrent()
+        repository.cancelAuthorization(attempt)
+        gate.complete(Unit)
+        assertFailsWith<CancellationException> { pending.await() }
+        assertEquals(before, repository.connection.value)
+        assertEquals("sk_live_example", store.key)
+    }
+
+    @Test
+    fun `replacing an api key invalidates an earlier pending web switch`() = runTest {
+        val store = MemoryMailCredentials("sk_live_original")
+        val transport = MailTestTransport()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = DefaultMailRepository(store, transport, AppDispatchers(dispatcher, dispatcher))
+        val attempt = repository.beginAuthorization()
+        repository.connect("sk_live_replacement")
+        assertFailsWith<CancellationException> { repository.completeAuthorization(attempt, "late-session") }
+        assertEquals("sk_live_replacement", store.key)
+        assertEquals(MailAuthMode.API_KEY, repository.connection.value.authMode)
+    }
+
     @Test
     fun `web session reads website envelopes and only owned mailboxes`() = runTest {
         val transport = MailTestTransport().apply {

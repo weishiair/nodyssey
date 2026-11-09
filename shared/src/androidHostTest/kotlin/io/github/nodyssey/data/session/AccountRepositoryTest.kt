@@ -68,6 +68,9 @@ class AccountRepositoryTest {
                 override suspend fun save(key: String) {
                     saved = key
                 }
+                override suspend fun readDefaultMailboxId(): Long? = null
+                override suspend fun saveDefaultMailboxId(id: Long?) = Unit
+                override suspend fun clearDefaultMailboxId() = Unit
                 override suspend fun clear() {
                     saved = ""
                 }

@@ -7,7 +7,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,6 +23,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -33,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.session.SessionRepository
@@ -40,7 +44,9 @@ import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_open_in_external_browser
+import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.proxy_webview_unavailable
+import io.github.nodyssey.ui.resources.webview_load_failed
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.core.net.resolveUserAgent
 import io.github.plaza.designsys.component.PlazaBackHandler
@@ -153,6 +159,7 @@ internal fun WebViewScreen(
     var webView by remember { mutableStateOf<WebView?>(null) }
     var popup by remember { mutableStateOf<WebView?>(null) }
     var loading by remember { mutableStateOf(true) }
+    var loadFailed by remember { mutableStateOf(false) }
     var canGoBack by remember { mutableStateOf(false) }
     // Where the user actually is, not where they came in — they may have followed links since, and
     // the handoff to the browser should carry the page they are looking at.
@@ -260,9 +267,18 @@ internal fun WebViewScreen(
                             openExternal = { openExternal(it) },
                             onPageLoaded = { view ->
                                 loading = false
+                                loadFailed = false
                                 canGoBack = view.canGoBack()
                                 view.url?.let { currentUrl = it }
                                 readyScript?.let { view.evaluateJavascript(it, null) }
+                            },
+                            onPageLoadStarted = {
+                                loading = true
+                                loadFailed = false
+                            },
+                            onPageLoadFailed = {
+                                loading = false
+                                loadFailed = true
                             },
                             onOpenPopup = { child -> popup = child },
                             onClosePopup = { popup = null },
@@ -305,6 +321,22 @@ internal fun WebViewScreen(
                         .describedAsLoading(),
                 )
             }
+            if (loadFailed) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(stringResource(Res.string.webview_load_failed))
+                    TextButton(
+                        onClick = {
+                            loadFailed = false
+                            loading = true
+                            webView?.reload()
+                        },
+                    ) { Text(stringResource(Res.string.action_retry)) }
+                }
+            }
         }
     }
 }
@@ -328,6 +360,8 @@ private fun WebView.configureForNodeSeek(
     staysHere: (String) -> Boolean,
     openExternal: (String) -> Unit,
     onPageLoaded: (WebView) -> Unit,
+    onPageLoadStarted: () -> Unit,
+    onPageLoadFailed: () -> Unit,
     onOpenPopup: (WebView) -> Unit,
     onClosePopup: () -> Unit,
     /**
@@ -373,6 +407,8 @@ private fun WebView.configureForNodeSeek(
                 openExternal = openExternal,
                 // A popup carries no progress bar and cannot go back; only the page owns those.
                 onPageLoaded = {},
+                onPageLoadStarted = {},
+                onPageLoadFailed = {},
                 onOpenPopup = onOpenPopup,
                 onClosePopup = onClosePopup,
                 // A blocked popup closes as well as handing off: unlike the page, there is nothing
@@ -423,7 +459,11 @@ private fun WebView.configureForNodeSeek(
          * that is what a popup shows in the moment before its opener scripts it somewhere real.
          */
         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-            if (url == null || url == "about:blank" || staysHere(url)) return
+            if (url == null || url == "about:blank") return
+            if (staysHere(url)) {
+                onPageLoadStarted()
+                return
+            }
             view?.stopLoading()
             onBlockedNavigation(url)
         }
@@ -432,6 +472,14 @@ private fun WebView.configureForNodeSeek(
             view?.let(onPageLoaded)
             // Persist immediately: the user may leave right after logging in.
             CookieManager.getInstance().flush()
+        }
+
+        override fun onReceivedError(
+            view: WebView?,
+            request: WebResourceRequest?,
+            error: android.webkit.WebResourceError?,
+        ) {
+            if (request?.isForMainFrame == true) onPageLoadFailed()
         }
     }
 }

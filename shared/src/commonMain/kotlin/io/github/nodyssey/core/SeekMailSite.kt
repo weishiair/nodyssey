@@ -6,6 +6,7 @@ import io.github.plaza.core.net.WebUrl
 object SeekMailSite {
     const val ORIGIN = "https://seek.li"
     const val LOGIN = "$ORIGIN/login"
+    const val NODESEEK_AUTHORIZATION_CHALLENGE = "https://www.nodeseek.com/api/cAuth?target=NodeMailDev"
 
     fun isMailUrl(value: String): Boolean = trustedHost(value) == "seek.li"
 

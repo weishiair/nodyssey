@@ -1,10 +1,17 @@
 # NodeSeek Mail — phase one
 
 The signed-in entry is **My → NodeSeek Mail**, in the community tile group. Guests
-can reach it through **My → Community tools → NodeSeek Mail**. The native screens connect
+also have a direct mail tile and can reach it through **My → Community tools → NodeSeek Mail**. The native screens connect
 an account, list owned mailboxes, switch inboxes, paginate, read a message, and
 mark it read or unread. Opening a message marks it read; a failed update rolls
 back in both the detail and the inbox.
+
+**Read all**, beside the inbox heading, marks the selected inbox across every
+page. It captures existing message IDs, skips already-read mail, and sends
+sequential read updates in either connection mode. Mail arriving during the
+operation is excluded. Repeated taps are blocked while it runs; a permission,
+network, or rate-limit failure stops further updates, keeps completed changes,
+and reports the incomplete result. Switching accounts invalidates the operation.
 
 ## Connect
 
@@ -91,7 +98,55 @@ targets. Email HTML never enters a WebView. Scripts, embedded documents, and rem
 images are not executed or fetched. Web/mail links open only on an explicit tap.
 
 Attachments have an explanatory website action. Sending, attachment downloads,
-folders, search, and notification polling remain outside phase one.
+folders, and search remain outside phase one.
+
+## New mail monitoring
+
+The navigation root owns one foreground monitor across all tabs, independently of
+forum sign-in. It checks immediately on resume, then about every 30 seconds with
+an API key, or every 15 seconds while an inbox or message is open. Website-session
+connections use 60 seconds. Pausing the app cancels this fast loop. Requests are
+sequential; errors back off up to five minutes, and changing screens cannot bypass
+a rate-limit cooldown.
+
+The owned-mailbox catalog is cached in memory for five minutes; normal ticks need
+only the first inbox page. Manual refresh reloads the catalog, and a removed inbox
+invalidates it. Unchanged pages do not reparse message previews. This reduces
+request count but does not establish a measured battery or data-usage figure.
+
+Foreground checks and the Android notification worker share a serialized,
+persisted per-inbox newest-ID cursor. The first successful check establishes a
+baseline without announcing historical mail; an empty baseline still detects the
+first later message. Newly arrived mail already read on the website is silent.
+Credential replacement and default-inbox changes cannot accept a previous poll's
+cursor or snapshot. No email content is persisted by this monitor.
+
+The profile mail tile shows a dot when the current default inbox's fetched first
+page contains unread mail, with optimistic read changes and rollback applied.
+This is a detected-unread indicator, not an unread total over every page. A global
+in-app snackbar announces new arrivals and opens the inbox; the inbox consumes the
+same first-page snapshot without starting another polling loop.
+
+Historical unread mail also keeps the dot visible after a newer message is read.
+The detail response now publishes its read state to the same repository used by
+the list and dot, even when no extra read write is needed. Successful local read
+changes remain authoritative until an inbox response acknowledges them, so a
+lagging response cannot immediately restore the unread dot. Later website read
+changes still synchronize after that acknowledgement. Failed writes roll back.
+
+Read all walks every page of the selected inbox and marks messages sequentially,
+bounded by the newest ID seen when the operation starts so later arrivals stay
+unread. An error stops the batch while keeping successful writes. Replacing the
+account invalidates the operation. The disabled action shows a compact 16dp
+indicator with a 2dp stroke while work is in progress.
+
+Foreground detection and in-app alerts work while connected, regardless of the
+background notification switch. Android system notifications require both the
+notification master switch and the mail switch, plus OS permission. They follow
+the configured WorkManager interval, network constraints, and quiet hours. Android
+periodic work has a minimum interval of 15 minutes and can run later; the app does
+not promise second-level delivery while backgrounded. An API key supplies polling
+access and is not itself a push subscription.
 
 On 2026-11-08, browser research observed successful authenticated website mailbox
 and inbox requests and checked the shipped website client for detail, read-state,
@@ -127,3 +182,27 @@ tests include native challenge recovery and cancellation before callback. The
 full run reports the same Windows failures as the preceding snapshot: 21 app
 Room migration tests, 11 shared file-store tests and two UI preferences tests.
 There are no dependency or schema changes.
+
+The `1.3.10-test.10` foreground-monitor update passes the mail and profile state
+regressions on Android host, common mail tests on desktop JVM, architecture and
+string boundaries, render inspection, standalone formatting, and Android lint
+(0 errors, 0 warnings). Debug, signed R8 Release APK, and Release bundle assembly
+pass. The full test run retains exactly the same 34 failed test names as test.9
+(21 app Room path tests, 11 shared file-store tests, two UI preferences tests).
+The APK is version code 144, uses the existing certificate and application ID,
+and contains only ARM64/ARMv7 native libraries. No connected Android device was
+available; battery and data consumption have not been measured on a device.
+
+The `1.3.10-test.11` read-state and Read all update passes mail/profile regressions,
+including both connection modes, unloaded pages, arrivals shifting pagination,
+permission/rate-limit interruption, cancellation rollback, and account replacement.
+Formatting, mail render inspection, Android lint (0 errors, 0 warnings), Debug,
+signed R8 Release APK, and Release bundle assembly pass. The full run executes
+2,621 tests and retains exactly the same 34 failed test names as test.10, with
+214 skipped tests. The APK is version code 145, 12,156,758 bytes, and retains the
+existing application ID, signing certificate, and ARM64/ARMv7 targets. No connected
+Android device was available for installation or live service verification.
+
+On 2026-11-09 the user reported that test.11 worked on their device. The remaining
+visual feedback was the oversized Read all indicator; its size now follows the
+app's other inline button indicators, with before/after Robolectric renders.

@@ -75,6 +75,7 @@ import io.github.nodyssey.ui.compare.LocalOpenReportCompare
 import io.github.nodyssey.ui.composer.ComposerShare
 import io.github.nodyssey.ui.composer.PendingComposerShare
 import io.github.nodyssey.ui.login.WebViewGoal
+import io.github.nodyssey.ui.mail.MailMonitorViewModel
 import io.github.nodyssey.ui.navigation.NodysseyNavigationItems
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
@@ -86,6 +87,8 @@ import io.github.nodyssey.ui.resources.about_site
 import io.github.nodyssey.ui.resources.clipboard_post_open
 import io.github.nodyssey.ui.resources.clipboard_post_prompt
 import io.github.nodyssey.ui.resources.home_pane_empty
+import io.github.nodyssey.ui.resources.mail_new_messages
+import io.github.nodyssey.ui.resources.mail_open_inbox
 import io.github.nodyssey.ui.resources.mail_pane_empty
 import io.github.nodyssey.ui.resources.notifications_pane_empty
 import io.github.nodyssey.ui.resources.search_pane_empty
@@ -152,6 +155,9 @@ fun MainNavigation(
     val notificationsViewModel: NotificationsViewModel =
         viewModel(factory = NotificationsViewModel.factory(container))
     val notificationsState by notificationsViewModel.uiState.collectAsStateWithLifecycle()
+    val mailMonitor: MailMonitorViewModel =
+        viewModel(factory = MailMonitorViewModel.factory(container))
+    val mailNotice by mailMonitor.notice.collectAsStateWithLifecycle()
     // The tab badge is only as fresh as the last count fetch, and nothing used to fetch again once
     // the app was running. This root outlives every tab, so its ON_RESUME is "the app came back to
     // the foreground" — the moment a badge grown stale overnight is most visibly wrong.
@@ -235,6 +241,12 @@ fun MainNavigation(
             TopLevelDestination.PROFILE -> profileStack
         }
 
+    val mailInboxVisible = backStack.lastOrNull().let { it is MailInboxKey || it is MailDetailKey }
+    LifecycleResumeEffect(mailMonitor, mailInboxVisible) {
+        mailMonitor.startPolling(inboxVisible = mailInboxVisible)
+        onPauseOrDispose { mailMonitor.stopPolling() }
+    }
+
     val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
     val paneDirective = remember(windowAdaptiveInfo) {
         calculatePaneScaffoldDirective(windowAdaptiveInfo).copy(horizontalPartitionSpacerSize = 0.dp)
@@ -290,6 +302,11 @@ fun MainNavigation(
             null -> return@LaunchedEffect
 
             is LaunchRequest.OpenTab -> currentTab = request.tab
+
+            LaunchRequest.OpenMail -> {
+                currentTab = TopLevelDestination.PROFILE
+                profileStack.bringToTop(MailInboxKey)
+            }
 
             // 搜索 and 发帖 ride 首页's stack wherever else they are opened from, so a shortcut or a
             // text selection lands them there too — and Back walks out through the feed.
@@ -403,6 +420,22 @@ fun MainNavigation(
      * be moved somewhere else.
      */
     val clipboardSnackbar = remember { SnackbarHostState() }
+    val mailMessage = mailNotice?.let { stringResource(Res.string.mail_new_messages, it.arrival.count) }
+    val mailOpen = stringResource(Res.string.mail_open_inbox)
+    LaunchedEffect(mailNotice) {
+        val notice = mailNotice ?: return@LaunchedEffect
+        val result = clipboardSnackbar.showSnackbar(
+            message = mailMessage.orEmpty(),
+            actionLabel = mailOpen,
+            withDismissAction = true,
+            duration = SnackbarDuration.Long,
+        )
+        if (result == SnackbarResult.ActionPerformed && container.mailRepository.connection.value.generation == notice.arrival.generation) {
+            currentTab = TopLevelDestination.PROFILE
+            profileStack.bringToTop(MailInboxKey)
+        }
+        mailMonitor.dismissNotice(notice.id)
+    }
     val readClipboard = rememberNewClipboardText()
     val windowFocused = LocalWindowInfo.current.isWindowFocused
     val currentBackStack by rememberUpdatedState(backStack)

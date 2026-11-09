@@ -3,7 +3,9 @@ package io.github.nodyssey.render
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
+import io.github.nodyssey.data.mail.MailAuthMode
 import io.github.nodyssey.data.mail.MailMessage
+import io.github.nodyssey.data.mail.MailPreview
 import io.github.nodyssey.data.mail.Mailbox
 import io.github.nodyssey.ui.mail.MailDetailScreen
 import io.github.nodyssey.ui.mail.MailDetailUiState
@@ -46,14 +48,57 @@ class MailScreenRenderTest {
                     MailInboxUiState(
                         initializing = false,
                         connected = true,
+                        authMode = MailAuthMode.API_KEY,
                         mailboxes = listOf(Mailbox(7, "reader@nodeseek.org")),
                         selectedMailboxId = 7,
-                        messages = listOf(MAIL, MAIL.copy(id = 22, subject = "Your weekly update", isRead = true)),
+                        messages = MAILS,
+                        nowMillis = 1794182400000,
+                        previews = MAILS.associate { it.id to MailPreview.from(it) },
                     ),
                 )
             }
         }
         composeRule.onRoot().captureRender("mail-inbox")
+    }
+
+    @Test
+    fun `mail inbox marking all read`() {
+        composeRule.setContent {
+            PlazaTheme {
+                Inbox(
+                    MailInboxUiState(
+                        initializing = false,
+                        connected = true,
+                        authMode = MailAuthMode.API_KEY,
+                        mailboxes = listOf(Mailbox(7, "reader@nodeseek.org")),
+                        selectedMailboxId = 7,
+                        messages = MAILS,
+                        markingAllRead = true,
+                        nowMillis = 1794182400000,
+                        previews = MAILS.associate { it.id to MailPreview.from(it) },
+                    ),
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("mail-inbox-marking-all-read")
+    }
+
+    @Test
+    fun `mail empty inbox`() {
+        composeRule.setContent {
+            PlazaTheme {
+                Inbox(
+                    MailInboxUiState(
+                        initializing = false,
+                        connected = true,
+                        authMode = MailAuthMode.API_KEY,
+                        mailboxes = listOf(Mailbox(7, "reader@nodeseek.org")),
+                        selectedMailboxId = 7,
+                    ),
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("mail-inbox-empty")
     }
 
     @Test
@@ -63,8 +108,9 @@ class MailScreenRenderTest {
                 MailDetailScreen(
                     state = MailDetailUiState(
                         loading = false,
-                        message = MAIL.copy(isRead = true),
-                        body = "Hello,\n\nYour mailbox is ready. Read messages and switch between mailboxes here.\n\nhttps://example.org/welcome\n\nHave a great day!",
+                        message = OTP.copy(isRead = true),
+                        body = OTP.bodyText.orEmpty(),
+                        verificationCode = MailPreview.from(OTP).verificationCode,
                     ),
                     onBack = {},
                     onRetry = {},
@@ -102,5 +148,21 @@ private val MAIL = MailMessage(
     fromName = "NodeSeek Mail",
     toAddress = "reader@nodeseek.org",
     subject = "Welcome to your inbox",
+    bodyText = "Your mailbox is ready. Read messages and switch between mailboxes here.",
     receivedAt = "2026-11-08T10:30:00Z",
+)
+
+private val OTP = MAIL.copy(
+    id = 22,
+    fromName = "Example Security",
+    subject = "Your Example Verification Code",
+    bodyText = "Hello,\n\nYour Example verification code is:\n\n016845\n\nThis code expires in 5 minutes. If you did not request it, please ignore this email.",
+)
+
+private val MAILS = listOf(
+    MAIL.copy(id = 20, subject = "What's new: backbone, looking glass, status page and more", isRead = true),
+    MAIL.copy(id = 19, subject = "Black Friday countdown: this month's offers", bodyText = "A few updates and offers from our team. See what's new this month.", isRead = true),
+    OTP,
+    OTP.copy(id = 23, isRead = true),
+    MAIL.copy(id = 24, subject = "[Network Alert] Case #138: network issue", bodyText = "Service incident notification: we are investigating the issue.", isRead = true),
 )

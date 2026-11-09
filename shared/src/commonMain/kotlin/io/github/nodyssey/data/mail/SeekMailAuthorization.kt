@@ -30,7 +30,7 @@ internal class SeekMailAuthorization(private val forum: HttpTransport, private v
         }
         val response = forum.execute(
             HttpRequest(
-                url = SIGNATURE_URL,
+                url = SeekMailSite.NODESEEK_AUTHORIZATION_CHALLENGE,
                 headers = mapOf("Accept" to "application/json", "Referer" to CONNECT_URL),
             ),
         )
@@ -38,7 +38,7 @@ internal class SeekMailAuthorization(private val forum: HttpTransport, private v
         if (response.code == 468 || isChallengeAnswer(response.body, response.header("cf-mitigated"), NodeSeekSite.CONFIG.markers)) {
             throw MailException(MailError.CHALLENGE)
         }
-        if (response.code == 401 || response.code in 300..399 || response.url != SIGNATURE_URL) {
+        if (response.code == 401 || response.code in 300..399 || response.url != SeekMailSite.NODESEEK_AUTHORIZATION_CHALLENGE) {
             throw MailException(MailError.FORUM_SIGN_IN)
         }
         if (!response.isSuccessful) {
@@ -75,7 +75,6 @@ internal class SeekMailAuthorization(private val forum: HttpTransport, private v
         const val FORUM_ORIGIN = "https://www.nodeseek.com"
         const val TARGET = "NodeMailDev"
         const val CONNECT_URL = "$FORUM_ORIGIN/connect?target=$TARGET"
-        const val SIGNATURE_URL = "$FORUM_ORIGIN/api/cAuth?target=$TARGET"
     }
 }
 

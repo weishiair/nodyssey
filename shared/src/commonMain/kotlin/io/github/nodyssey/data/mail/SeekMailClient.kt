@@ -12,6 +12,8 @@ import io.github.plaza.core.net.isChallengeAnswer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /** Website session API, with the published OpenAPI retained for manually supplied API keys. */
 internal class SeekMailClient(
@@ -37,13 +39,15 @@ internal class SeekMailClient(
             decode<MailsEnvelope>(body)
         }
         val paging = result.pagination
-        if (paging.offset != offset || paging.total < 0 || result.data.any { it.mailboxId != mailboxId }) {
+        // OpenAPI returns data: null for an empty inbox. A nonzero total must still have rows.
+        val messages = result.data ?: if (paging.total == 0) emptyList() else throw MailException(MailError.INVALID_RESPONSE)
+        if (paging.offset != offset || paging.total < 0 || messages.any { it.mailboxId != mailboxId }) {
             throw MailException(MailError.INVALID_RESPONSE)
         }
-        val consumed = offset + result.data.size
+        val consumed = offset + messages.size
         return MailPage(
-            messages = result.data,
-            nextOffset = consumed.takeIf { result.data.isNotEmpty() && it < paging.total },
+            messages = messages,
+            nextOffset = consumed.takeIf { messages.isNotEmpty() && it < paging.total },
             total = paging.total,
         )
     }
@@ -51,7 +55,12 @@ internal class SeekMailClient(
     suspend fun detail(key: String, mailboxId: Long, id: Long): MailMessage {
         require(mailboxId > 0 && id > 0)
         val body = request(key, "/mails/$id")
-        val mail = if (key.isWebSession()) decode<MailMessage>(body) else decode<MailEnvelope>(body).data
+        val mail = if (key.isWebSession()) {
+            decode<MailMessage>(body)
+        } else {
+            decode<ApiMailEnvelope>(body).data?.toMailMessage(json)
+                ?: throw MailException(MailError.INVALID_RESPONSE)
+        }
         if (mail.id != id || mail.mailboxId != mailboxId) throw MailException(MailError.NOT_FOUND)
         return mail
     }
@@ -149,10 +158,59 @@ internal class SeekMailClient(
 private data class MailboxesEnvelope(val data: List<Mailbox>)
 
 @Serializable
-private data class MailsEnvelope(val data: List<MailMessage>, val pagination: MailPagination)
+private data class MailsEnvelope(val data: List<MailMessage>?, val pagination: MailPagination)
+
+/** The public API does not mark mail fields as required, and real messages can contain nulls. */
+@Serializable
+private data class ApiMailEnvelope(val data: JsonObject? = null)
 
 @Serializable
-private data class MailEnvelope(val data: MailMessage)
+private data class ApiMailPayload(
+    val id: Long? = null,
+    val mailboxId: Long? = null,
+    val fromAddress: String? = null,
+    val fromName: String? = null,
+    val toAddress: String? = null,
+    val subject: String? = null,
+    val bodyText: String? = null,
+    val bodyHtml: String? = null,
+    val isRead: Boolean = false,
+    val hasAttachments: Boolean = false,
+    val receivedAt: String? = null,
+)
+
+private fun JsonObject.toMailMessage(json: Json): MailMessage? {
+    val payload = this["mail"]?.let { mail ->
+        try {
+            json.decodeFromJsonElement<ApiMailPayload>(mail)
+        } catch (_: SerializationException) {
+            return null
+        } catch (_: IllegalArgumentException) {
+            return null
+        }
+    } ?: try {
+        json.decodeFromJsonElement<ApiMailPayload>(this)
+    } catch (_: SerializationException) {
+        return null
+    } catch (_: IllegalArgumentException) {
+        return null
+    }
+    val id = payload.id ?: return null
+    val mailboxId = payload.mailboxId ?: return null
+    return MailMessage(
+        id = id,
+        mailboxId = mailboxId,
+        fromAddress = payload.fromAddress.orEmpty(),
+        fromName = payload.fromName,
+        toAddress = payload.toAddress.orEmpty(),
+        subject = payload.subject,
+        bodyText = payload.bodyText,
+        bodyHtml = payload.bodyHtml,
+        isRead = payload.isRead,
+        hasAttachments = payload.hasAttachments,
+        receivedAt = payload.receivedAt,
+    )
+}
 
 @Serializable
 private data class MailPagination(val total: Int, val limit: Int, val offset: Int)

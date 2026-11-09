@@ -28,6 +28,7 @@
     <!-- 对比栏不空时出现在卡片底部，打开测评对比页；%1$d 是对比栏里的报告数 -->
     <string name="report_compare_open">对比 (%1$d)</string>
     <string name="action_retry">重试</string>
+    <string name="webview_load_failed">网页加载失败</string>
     <string name="action_refresh">刷新</string>
     <string name="search_load_more_failed">加载更多失败</string>
     <string name="action_sign_in">登录</string>
@@ -818,6 +819,8 @@
     <string name="notify_quiet_hours">免打扰时段</string>
     <string name="notify_quiet_hours_hint">23:00 – 07:00 · 时段内静默收取，不发通知</string>
     <string name="notify_channels_section">通知类别 · 映射 Android 通知渠道</string>
+    <string name="notify_mail">邮箱新邮件</string>
+    <string name="notify_mail_hint">后台按上方频率检查默认邮箱；前台自动快速检查并显示应用内提醒</string>
     <string name="notify_telegram_title">想要即时提醒？</string>
     <string name="notify_telegram_body">绑定 Telegram 后由站点即时转发未读消息</string>
     <string name="notify_telegram_action">去绑定</string>
@@ -2028,10 +2031,20 @@
     <string name="mail_error_forum_sign_in">NodeSeek 登录态无法完成授权，请先登录论坛，或使用网页授权。</string>
     <string name="mail_error_web_authorization">官网需要额外验证或授权流程已变更，请使用网页授权。</string>
     <string name="mail_authorize">使用 NodeSeek 授权</string>
-    <string name="mail_authorize_hint">使用已有 NodeSeek 登录态授权，无需手动创建或复制密钥。若官网要求额外验证，可选择网页授权。</string>
+    <string name="mail_authorize_hint">使用已有 NodeSeek 登录态授权，无需手动创建或复制密钥。若 NodeSeek 要求安全验证，可在应用内完成后自动重试。</string>
     <string name="mail_use_key">使用 API Key 连接</string>
+    <string name="mail_replace_key">更换 API Key</string>
+    <string name="mail_connected_api_key">已通过 API Key 连接</string>
+    <string name="mail_connected_web_session">已通过网页登录态连接</string>
+    <string name="mail_api_key_switch_title">改用 API Key</string>
+    <string name="mail_api_key_switch_hint">验证成功后才会使用新密钥；验证失败时保留当前连接。</string>
+    <string name="mail_new_messages">收件箱有 %1$d 封新邮件</string>
     <string name="mail_reauthorize">重新授权邮箱</string>
-    <string name="mail_error_challenge">官网要求安全验证，请尝试网页授权并完成验证。网页使用 WebView 网络，可能仍需代理。</string>
+    <string name="mail_error_challenge">NodeSeek 要求浏览器安全验证。可在应用内完成验证，通过后会自动重试原生授权。</string>
+    <string name="mail_verify_challenge">完成 NodeSeek 安全验证</string>
+    <string name="mail_verify_and_retry">验证后重试授权</string>
+    <string name="mail_default_mailbox">默认邮箱</string>
+    <string name="mail_options">邮箱选项</string>
     <string name="mail_connect">连接邮箱</string>
     <string name="mail_connecting">正在验证…</string>
     <string name="mail_disconnect">断开连接</string>
@@ -2040,12 +2053,16 @@
     <string name="mail_choose_mailbox">选择邮箱</string>
     <string name="mail_no_mailboxes">账号下还没有邮箱，可前往官网创建。</string>
     <string name="mail_empty">收件箱空空的，下拉可刷新。</string>
-    <string name="mail_unread">未读</string>
+    <string name="mail_unread">有未读邮件</string>
     <string name="mail_no_subject">无主题</string>
     <string name="mail_loading">正在加载…</string>
     <string name="mail_load_more">加载更多邮件</string>
     <string name="mail_detail">邮件</string>
     <string name="mail_mark_read">标为已读</string>
+    <string name="mail_mark_all_read">全部已读</string>
+    <string name="mail_marking_all_read">正在标为已读…</string>
+    <string name="mail_mark_all_read_done">当前收件箱已全部标为已读</string>
+    <string name="mail_mark_all_read_failed">未能全部标为已读：%1$s。已完成的更改会保留。</string>
     <string name="mail_mark_unread">标为未读</string>
     <string name="mail_connection_expired">邮箱连接已改变，请返回收件箱重新打开邮件。</string>
     <string name="mail_from">发件人：%1$s &lt;%2$s&gt;</string>
@@ -2063,4 +2080,13 @@
     <string name="mail_error_storage">无法安全保存或读取邮箱凭据，请稍后重试。</string>
     <string name="mail_error_service">邮箱服务暂时无法响应，请稍后重试。</string>
     <string name="mail_error_network">连接邮箱失败，请检查网络后重试。</string>
+    <string name="mail_mode_api_key">API Key 已连接</string>
+    <string name="mail_mode_web_session">网页登录态已连接</string>
+    <string name="mail_switch_web_session">切换为网页登录态</string>
+    <string name="mail_verification_code">检测到验证码</string>
+    <string name="mail_copy_code">复制验证码</string>
+    <string name="mail_code_copied">验证码已复制</string>
+    <string name="mail_open_inbox">查看邮箱</string>
+    <string name="mail_poll_api_hint">前台约每 30 秒检查；邮箱页约每 15 秒</string>
+    <string name="mail_poll_web_hint">前台约每 60 秒检查新邮件</string>
 </resources>

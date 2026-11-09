@@ -830,6 +830,7 @@ class DefaultAppContainer(
         val forumClient = ownClient(okHttpClient.newBuilder().followRedirects(false).retryOnConnectionFailure(false).build())
         DefaultMailRepository(
             credentials = DataStoreMailCredentialStore(appContext.mailDataStore, KeystoreSecretCipher()),
+            clock = clock,
             http = OkHttpTransport(imageHostClient),
             dispatchers = dispatchers,
             sessionCookies = cookieStore,

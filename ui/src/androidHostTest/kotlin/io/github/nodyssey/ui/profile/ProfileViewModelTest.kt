@@ -20,7 +20,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -51,6 +53,52 @@ class ProfileViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `mail badge follows optimistic reads and rollback and ignores a previous account snapshot`() = runTest(dispatcher) {
+        val mail = io.github.nodyssey.ui.mail.FakeMailRepository()
+        val viewModel = ProfileViewModel(
+            session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, FakeSessionCookieStore())),
+            profileRepository = FakeProfileRepository(),
+            assetsRepository = FakeAssetsRepository(),
+            mailRepository = mail,
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.hasUnreadMail.collect {} }
+        val message = io.github.nodyssey.data.mail.MailMessage(21, 7)
+        mail.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(
+            1,
+            7,
+            io.github.nodyssey.data.mail.MailPage(listOf(message), null, 1),
+        )
+        runCurrent()
+        assertEquals(true, viewModel.hasUnreadMail.value)
+
+        val gate = CompletableDeferred<Unit>()
+        mail.readAnswer = {
+            gate.await()
+            throw io.github.nodyssey.data.mail.MailException(io.github.nodyssey.data.mail.MailError.PERMISSION)
+        }
+        val read = backgroundScope.launch { runCatching { mail.markRead(1, message, true) } }
+        runCurrent()
+        assertFalse(viewModel.hasUnreadMail.value)
+        gate.complete(Unit)
+        read.join()
+        runCurrent()
+        assertEquals(true, viewModel.hasUnreadMail.value)
+        mail.connect("synthetic")
+        runCurrent()
+        assertFalse(viewModel.hasUnreadMail.value)
+        mail.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(
+            2,
+            7,
+            io.github.nodyssey.data.mail.MailPage(listOf(message), null, 1),
+        )
+        runCurrent()
+        assertEquals(true, viewModel.hasUnreadMail.value)
+        mail.disconnect()
+        runCurrent()
+        assertFalse(viewModel.hasUnreadMail.value)
     }
 
     @Test

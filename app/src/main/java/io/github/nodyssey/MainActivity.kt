@@ -70,12 +70,11 @@ class MainActivity : ComponentActivity() {
         val container = app.container
         // Only a poll notification carries the extra; a cold start from it should land on 通知.
         // A saved UI state still wins — see the rememberSaveable inside MainNavigation.
-        val initialTab =
-            if (intent?.getStringExtra(EXTRA_OPEN_TAB) == TAB_NOTIFICATIONS) {
-                TopLevelDestination.NOTIFICATIONS
-            } else {
-                TopLevelDestination.HOME
-            }
+        val initialTab = when (intent?.getStringExtra(EXTRA_OPEN_TAB)) {
+            TAB_NOTIFICATIONS -> TopLevelDestination.NOTIFICATIONS
+            TAB_MAIL -> TopLevelDestination.PROFILE
+            else -> TopLevelDestination.HOME
+        }
         // A cold start from a notification is already covered by `initialTab` above; a link, a share,
         // a selected word or a launcher shortcut needs the composition to go somewhere it would not
         // have gone on its own — and only on a start that is not a recreation. See [launchRequestOf].
@@ -132,6 +131,7 @@ class MainActivity : ComponentActivity() {
         /** Read by a notification tap and by the 通知 launcher shortcut (`res/xml/shortcuts.xml`). */
         const val EXTRA_OPEN_TAB = "io.github.nodyssey.OPEN_TAB"
         const val TAB_NOTIFICATIONS = "notifications"
+        const val TAB_MAIL = "mail"
 
         /** Which launcher shortcut this is; the values are spelled again in `res/xml/shortcuts.xml`. */
         const val EXTRA_SHORTCUT = "io.github.nodyssey.SHORTCUT"
@@ -180,9 +180,11 @@ internal fun requestOf(
         Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> shareOf(intent, contentResolver, ownPackage)
         Intent.ACTION_PROCESS_TEXT -> selectedTextOf(intent)
         else -> null
-    } ?: intent
-        .takeIf { it.getStringExtra(MainActivity.EXTRA_OPEN_TAB) == MainActivity.TAB_NOTIFICATIONS }
-        ?.let { LaunchRequest.OpenTab(TopLevelDestination.NOTIFICATIONS) }
+    } ?: when (intent.getStringExtra(MainActivity.EXTRA_OPEN_TAB)) {
+        MainActivity.TAB_NOTIFICATIONS -> LaunchRequest.OpenTab(TopLevelDestination.NOTIFICATIONS)
+        MainActivity.TAB_MAIL -> LaunchRequest.OpenMail
+        else -> null
+    }
 
 /** The screen a site link asks for, or null when the intent carries no link. */
 internal fun deepLinkOf(intent: Intent): LaunchRequest.OpenLink? =

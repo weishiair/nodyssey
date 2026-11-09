@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.mail.MailRepository
+import io.github.nodyssey.data.mail.MailVerificationCode
 import io.github.nodyssey.di.AppContainer
 import io.github.plaza.core.runCatchingExceptCancellation
 import kotlinx.coroutines.Job
@@ -23,6 +24,7 @@ data class MailDetailUiState(
     val expired: Boolean = false,
     val message: MailMessage? = null,
     val body: String = "",
+    val verificationCode: String? = null,
     val updatingRead: Boolean = false,
     val error: MailError? = null,
 )
@@ -77,7 +79,12 @@ class MailDetailViewModel(
                 val mail = repository.detail(expected, mailboxId, mailId)
                 val body = mail.bodyText.orEmpty()
                 if (repository.connection.value.generation == expected) {
-                    state.value = MailDetailUiState(loading = false, message = mail, body = body)
+                    state.value = MailDetailUiState(
+                        loading = false,
+                        message = mail,
+                        body = body,
+                        verificationCode = MailVerificationCode.extract(mail.subject, body),
+                    )
                     if (!mail.isRead) setRead(true)
                 }
             }.onFailure { error ->

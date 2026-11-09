@@ -25,6 +25,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.mail.MailError
@@ -81,9 +82,14 @@ fun MailDetailScreen(
 ) {
     val appBarState = rememberOneHandAppBarState()
     val linkColor = MaterialTheme.colorScheme.primary
-    val body = remember(state.body, linkColor, onOpenWebsite) {
+    val body = remember(state.body, state.verificationCode, linkColor, onOpenWebsite) {
         buildAnnotatedString {
             append(state.body)
+            state.verificationCode?.let { code ->
+                Regex("(?<![a-zA-Z0-9_])${Regex.escape(code)}(?![a-zA-Z0-9_])").findAll(state.body).forEach { match ->
+                    addStyle(SpanStyle(fontWeight = FontWeight.Bold, color = linkColor), match.range.first, match.range.last + 1)
+                }
+            }
             MAIL_LINKS.findAll(state.body).forEach { match ->
                 val url = match.value.trimEnd('.', ',', ';', ':', '!', '?')
                 if (isSafeMailLink(url)) {
@@ -137,18 +143,19 @@ fun MailDetailScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                         Text(
                             mail.subject?.takeIf(String::isNotBlank) ?: stringResource(Res.string.mail_no_subject),
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.titleLarge,
                         )
                         Column {
-                            Text(stringResource(Res.string.mail_from, mail.sender, mail.fromAddress))
-                            Text(stringResource(Res.string.mail_to, mail.toAddress))
-                            Text(mailTimestamp(mail.receivedAt), style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(Res.string.mail_from, mail.sender, mail.fromAddress), style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(Res.string.mail_to, mail.toAddress), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(mailTimestamp(mail.receivedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        state.verificationCode?.let { MailVerificationCodeCard(it) }
                         HorizontalDivider()
                         if (state.body.isBlank()) {
                             Text(stringResource(Res.string.mail_no_body), style = MaterialTheme.typography.bodyLarge)
                         } else {
-                            Text(body, style = MaterialTheme.typography.bodyLarge)
+                            Text(body, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
