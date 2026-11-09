@@ -3,11 +3,17 @@
 package io.github.plaza.core.net
 
 import io.github.nodyssey.data.session.AccountCookieStore
+import io.github.nodyssey.data.session.AccountNativeFailure
+import kotlinx.cinterop.ObjCObjectVar
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
+import platform.Foundation.NSError
 import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieExpires
 import platform.Foundation.NSHTTPCookieMaximumAge
@@ -31,20 +37,11 @@ class AppleAccountCookies(
     private val host = requireNotNull(NSURL.URLWithString(config.baseUrl)?.host).removePrefix("www.")
 
     override suspend fun capture(): String = withContext(Dispatchers.Main) {
-        val properties = mine().mapNotNull(::savedCookieProperties)
-        val data = checkNotNull(
-            NSPropertyListSerialization.dataWithPropertyList(
-                properties,
-                format = NSPropertyListBinaryFormat_v1_0,
-                options = 0u,
-                error = null,
-            ),
-        ) { "Cannot preserve account cookies" }
-        data.base64EncodedStringWithOptions(0u)
+        encodeAccountCookies(mine())
     }
 
     override suspend fun replace(snapshot: String) = withContext(Dispatchers.Main) {
-        val incoming = if (snapshot.isEmpty()) emptyList() else decode(snapshot)
+        val incoming = if (snapshot.isEmpty()) emptyList() else decodeAccountCookies(snapshot)
         val browser = suspendCancellableCoroutine<List<NSHTTPCookie>> { continuation ->
             if (webKit == null) continuation.resume(emptyList()) else webKit.getAllCookies { continuation.resume(it.orEmpty().filterIsInstance<NSHTTPCookie>()) }
         }
@@ -65,16 +62,31 @@ class AppleAccountCookies(
     private fun mine(): List<NSHTTPCookie> = storage.cookies.orEmpty().filterIsInstance<NSHTTPCookie>().filter(::owns)
 
     private fun owns(cookie: NSHTTPCookie): Boolean = cookie.domain.trimStart('.').let { it == host || it.endsWith(".$host") }
+}
 
-    private fun decode(snapshot: String): List<NSHTTPCookie> {
-        val data = checkNotNull(NSData.create(base64EncodedString = snapshot, options = 0u))
-        val properties = NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = null) as? List<*>
-            ?: error("Cannot read saved cookies")
-        return properties.map { raw ->
-            @Suppress("UNCHECKED_CAST")
-            val item = raw as? Map<Any?, *> ?: error("Invalid saved cookie")
-            checkNotNull(NSHTTPCookie.cookieWithProperties(item))
-        }
+internal fun encodeAccountCookies(cookies: List<NSHTTPCookie>): String {
+    val properties = cookies.mapNotNull(::savedCookieProperties)
+    val data = memScoped {
+        val failure = alloc<ObjCObjectVar<NSError?>>()
+        failure.value = null
+        NSPropertyListSerialization.dataWithPropertyList(
+            properties,
+            format = NSPropertyListBinaryFormat_v1_0,
+            options = 0u,
+            error = failure.ptr,
+        ) ?: throw AccountNativeFailure(failure.value?.domain.orEmpty(), failure.value?.code)
+    }
+    return data.base64EncodedStringWithOptions(0u)
+}
+
+internal fun decodeAccountCookies(snapshot: String): List<NSHTTPCookie> {
+    val data = checkNotNull(NSData.create(base64EncodedString = snapshot, options = 0u))
+    val properties = NSPropertyListSerialization.propertyListWithData(data, options = 0u, format = null, error = null) as? List<*>
+        ?: error("Cannot read saved cookies")
+    return properties.map { raw ->
+        @Suppress("UNCHECKED_CAST")
+        val item = raw as? Map<Any?, *> ?: error("Invalid saved cookie")
+        checkNotNull(NSHTTPCookie.cookieWithProperties(item))
     }
 }
 

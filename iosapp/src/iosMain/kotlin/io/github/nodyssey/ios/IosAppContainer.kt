@@ -651,6 +651,11 @@ class IosAppContainer(
             },
             scope = CoroutineScope(appScope.coroutineContext + dispatchers.main),
             legacyAttendance = { settingsRepository.automaticAttendance.config.first() },
+            diagnostics = io.github.nodyssey.data.session.AccountDiagnostics(
+                clock,
+                appVersion,
+                platform.Foundation.NSProcessInfo.processInfo.operatingSystemVersionString,
+            ),
         )
     }
 

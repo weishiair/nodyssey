@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 
 class AccountsViewModel(private val accounts: AccountRepository, offline: OfflineLibrary, attendance: AutomaticAttendance? = null) : ViewModel() {
     val state = accounts.state
+    val diagnostics = accounts.diagnostics.report
     val usage = offline.usage
     val attendanceStates = attendance?.accountStates ?: MutableStateFlow<Map<Long, AutoAttendanceState>>(emptyMap())
     fun setAttendanceEnabled(uid: Long, enabled: Boolean) {

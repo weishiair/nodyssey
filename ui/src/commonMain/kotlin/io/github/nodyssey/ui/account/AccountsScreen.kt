@@ -58,6 +58,7 @@ import io.github.nodyssey.ui.resources.accounts_offline_warning
 import io.github.nodyssey.ui.resources.accounts_remove
 import io.github.nodyssey.ui.resources.accounts_remove_body
 import io.github.nodyssey.ui.resources.accounts_remove_offline_warning
+import io.github.nodyssey.ui.resources.accounts_retry_save
 import io.github.nodyssey.ui.resources.accounts_switch
 import io.github.nodyssey.ui.resources.accounts_title
 import io.github.nodyssey.ui.resources.accounts_uid
@@ -84,12 +85,13 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun AccountsRoute(viewModel: AccountsViewModel, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
     val usage by viewModel.usage.collectAsStateWithLifecycle(OfflineUsage())
     val attendanceStates by viewModel.attendanceStates.collectAsStateWithLifecycle()
     // NavDisplay also composes this entry behind sign-in for predictive back. Only the
     // owning back stack may decide that an add was abandoned (see MainNavigation).
     LaunchedEffect(Unit) { viewModel.refresh() }
-    AccountsScreen(state, usage.posts > 0, onBack, viewModel::add, viewModel::switch, viewModel::remove, viewModel::cancelAdd, viewModel::dismissFailure, viewModel::setAttendanceEnabled, attendanceStates)
+    AccountsScreen(state, usage.posts > 0, onBack, viewModel::add, viewModel::switch, viewModel::remove, viewModel::cancelAdd, viewModel::dismissFailure, viewModel::setAttendanceEnabled, attendanceStates, diagnostics, viewModel::refresh)
 }
 
 private data class AccountAction(val account: SavedAccount? = null, val remove: Boolean = false)
@@ -107,6 +109,8 @@ fun AccountsScreen(
     onFailureShown: () -> Unit,
     onAttendanceEnabled: (Long, Boolean) -> Unit = { _, _ -> },
     attendanceStates: Map<Long, AutoAttendanceState> = emptyMap(),
+    diagnostics: String? = null,
+    onRetrySave: () -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
     var confirmation by remember { mutableStateOf<AccountAction?>(null) }
@@ -163,6 +167,12 @@ fun AccountsScreen(
                 )
             }
             if (state.accounts.isEmpty()) item { Text(stringResource(Res.string.accounts_empty)) }
+            if (state.adding) {
+                item {
+                    TextButton(onClick = onRetrySave, enabled = !state.busy) { Text(stringResource(Res.string.accounts_retry_save)) }
+                }
+            }
+            diagnostics?.let { report -> item { AccountDiagnosticsAction(report) } }
             items(state.accounts, key = { it.uid }) { account ->
                 val current = account.uid == state.activeUid
                 val attendance = attendanceStates[account.uid]

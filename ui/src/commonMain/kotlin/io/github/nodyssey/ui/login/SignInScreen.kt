@@ -57,6 +57,7 @@ import io.github.nodyssey.core.ActiveSite
 import io.github.nodyssey.data.session.SignInOutcome
 import io.github.nodyssey.data.session.SignInRefusal
 import io.github.nodyssey.data.session.TwoFactorChallenge
+import io.github.nodyssey.ui.account.AccountSaveFailureScreen
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
@@ -202,6 +203,10 @@ fun SignInRoute(
         } while (true)
     }
 
+    if (state.accountSaveFailed) {
+        AccountSaveFailureScreen(state.failureReport, state.isSubmitting, viewModel::retryAccountSave, onClose)
+        return
+    }
     when (state.step) {
         SignInStep.Credentials ->
             SignInScreen(

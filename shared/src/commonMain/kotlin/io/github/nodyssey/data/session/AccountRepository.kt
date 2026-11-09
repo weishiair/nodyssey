@@ -43,6 +43,7 @@ class AccountRepository(
     private val stopPlatformRequests: suspend () -> Unit,
     private val scope: CoroutineScope,
     private val legacyAttendance: suspend () -> AutoAttendanceConfig = { AutoAttendanceConfig() },
+    val diagnostics: AccountDiagnostics = AccountDiagnostics(),
 ) {
     private val mutableState = MutableStateFlow(AccountsState())
     val state = mutableState.asStateFlow()
@@ -51,23 +52,22 @@ class AccountRepository(
     private var vault = AccountVault()
     private var vaultLoaded = false
     internal val storageAvailable: Boolean get() = vaultLoaded
-    private var failedFingerprint: Int? = null
     private val attached = mutableMapOf<Any, () -> Unit>()
     private var detached: CompletableDeferred<Unit>? = null
 
     init {
         scope.launch {
             try {
-                vault = store.read()
+                vault = diagnostics.step(AccountStep.INITIALIZE) { readVault() }
                 vault.recovery?.let { previous ->
                     requests.pause()
-                    stopPlatformRequests()
-                    local.clear(evictDownloads = false)
-                    cookies.replace(previous.cookies)
-                    session.sync()
-                    local.restore(previous.local)
+                    stopRequests()
+                    clearLocal(evictDownloads = false)
+                    replaceCookies(previous.cookies)
+                    syncSession()
+                    restoreLocal(previous.local)
                     vault = vault.copy(activeUid = previous.previousUid, recovery = null)
-                    store.write(vault)
+                    writeVault(vault)
                     requests.resume()
                 }
                 // Session-only platform cookies may disappear when the process exits. A saved
@@ -75,16 +75,16 @@ class AccountRepository(
                 if (vault.pending == null && !session.peek().isSignedIn) {
                     vault.accounts.find { it.account.uid == vault.activeUid }?.let { active ->
                         requests.pause()
-                        stopPlatformRequests()
-                        cookies.replace(active.cookies)
-                        session.sync()
+                        stopRequests()
+                        replaceCookies(active.cookies)
+                        syncSession()
                         if (!session.state.value.isSignedIn) {
                             val parked = active.copy(account = active.account.copy(needsSignIn = true))
                             vault = vault.copy(
                                 accounts = vault.accounts.map { if (it.account.uid == active.account.uid) parked else it },
                                 navigationKey = Uuid.random().toString(),
                             )
-                            store.write(vault)
+                            writeVault(vault)
                         }
                         requests.resume()
                     }
@@ -121,7 +121,7 @@ class AccountRepository(
                     },
                 )
                 try {
-                    store.write(next)
+                    writeVault(next)
                     vault = next
                     publish()
                 } catch (failure: Exception) {
@@ -138,7 +138,7 @@ class AccountRepository(
             val entry = vault.accounts.find { it.account.uid == uid } ?: return@withLock null
             if (!entry.account.attendance.enabled || entry.account.needsSignIn || vault.pending != null) return@withLock null
             val active = uid == vault.activeUid
-            AttendanceAccount(uid, if (active) cookies.capture() else entry.cookies, entry.cookies, if (active) session.peek().fingerprint else entry.fingerprint)
+            AttendanceAccount(uid, if (active) captureCookies() else entry.cookies, entry.cookies, if (active) session.peek().fingerprint else entry.fingerprint)
         }
     }
 
@@ -157,7 +157,7 @@ class AccountRepository(
                         if (entry.account.uid == lease.uid) entry.copy(cookies = updated, fingerprint = fingerprint, account = entry.account.copy(needsSignIn = expired)) else entry
                     },
                 )
-                store.write(next)
+                writeVault(next)
                 vault = next
                 publish()
             }
@@ -179,10 +179,31 @@ class AccountRepository(
     }
 
     fun refresh() = launchAction {
-        failedFingerprint = null
         if (session.peek().isSignedIn) {
             val fingerprint = session.state.value.fingerprint
-            rememberLocked(currentProfile(false), fingerprint)
+            rememberLocked(diagnostics.step(AccountStep.FETCH_PROFILE) { currentProfile(false) }, fingerprint)
+        }
+    }
+
+    /** Explicit completion waits for concurrent adoption and never mistakes a cookie for a save. */
+    suspend fun saveCurrentLogin(): Boolean = withContext(scope.coroutineContext.minusKey(Job)) {
+        awaitReady()
+        mutex.withLock {
+            try {
+                diagnostics.step(AccountStep.SAVE_LOGIN) {
+                    check(vaultLoaded) { "Saved accounts are unavailable" }
+                    val fingerprint = session.peek().fingerprint
+                    if (!session.peek().isSignedIn) return@step false
+                    val profile = diagnostics.step(AccountStep.FETCH_PROFILE) { currentProfile(false) }
+                    rememberLocked(profile, fingerprint)
+                    vault.pending == null && vault.activeUid == profile.uid &&
+                        session.peek().isSignedIn && session.peek().fingerprint == fingerprint
+                }
+            } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+                publish(failure = classify(failure))
+                false
+            }
         }
     }
 
@@ -198,10 +219,9 @@ class AccountRepository(
         if (!vaultLoaded) return
         if (!mutex.tryLock()) return
         try {
-            rememberLocked(profile, fingerprint)
+            diagnostics.step(AccountStep.SAVE_LOGIN) { rememberLocked(profile, fingerprint) }
         } catch (failure: Exception) {
             if (failure is CancellationException) throw failure
-            failedFingerprint = fingerprint
             publish(failure = classify(failure))
         } finally {
             mutex.unlock()
@@ -210,7 +230,6 @@ class AccountRepository(
 
     private suspend fun rememberLocked(profile: UserProfile, fingerprint: Int) {
         if (profile.uid <= 0 || !session.state.value.isSignedIn || session.state.value.fingerprint != fingerprint) return
-        if (fingerprint == failedFingerprint) return
         if (vault.activeUid != null && vault.activeUid != profile.uid && vault.pending == null) {
             adoptBrowserAccount(profile, fingerprint)
             return
@@ -218,12 +237,12 @@ class AccountRepository(
         val saved = vault.accounts.find { it.account.uid == profile.uid }
         // Logging into an already saved account resumes its drafts rather than overwriting them
         // with the empty files used while the additional account was being signed in.
-        if (vault.pending != null && saved != null) local.restore(saved.local)
+        if (vault.pending != null && saved != null) restoreLocal(saved.local)
         val entry = StoredAccount(
             SavedAccount(profile.uid, profile.name, profile.avatarUrl, attendance = saved?.account?.attendance ?: if (vault.navigationKey == "legacy") legacyAttendance() else AutoAttendanceConfig()),
-            cookies.capture(),
+            captureCookies(),
             fingerprint,
-            local.capture(),
+            captureLocal(),
         )
         val next = vault.copy(
             accounts = vault.accounts.filterNot { it.account.uid == profile.uid } + entry,
@@ -231,7 +250,7 @@ class AccountRepository(
             pending = null,
             navigationKey = if (vault.pending != null) Uuid.random().toString() else vault.navigationKey,
         )
-        store.write(next)
+        writeVault(next)
         vault = next
         publish()
     }
@@ -248,32 +267,31 @@ class AccountRepository(
         try {
             if (attached.isNotEmpty()) disposed.await()
             requests.pause()
-            stopPlatformRequests()
-            previous = PendingAccount(old.account.uid, old.cookies, local.capture())
+            stopRequests()
+            previous = PendingAccount(old.account.uid, old.cookies, captureLocal())
             vault = original.copy(
                 accounts = original.accounts.map { if (it.account.uid == old.account.uid) it.copy(local = previous.local) else it },
                 recovery = previous,
             )
-            store.write(vault)
-            local.clear(evictDownloads = false)
-            local.restore(original.accounts.find { it.account.uid == profile.uid }?.local ?: AccountLocalSnapshot())
-            val entry = StoredAccount(SavedAccount(profile.uid, profile.name, profile.avatarUrl, attendance = original.accounts.find { it.account.uid == profile.uid }?.account?.attendance ?: AutoAttendanceConfig()), cookies.capture(), fingerprint, local.capture())
+            writeVault(vault)
+            clearLocal(evictDownloads = false)
+            restoreLocal(original.accounts.find { it.account.uid == profile.uid }?.local ?: AccountLocalSnapshot())
+            val entry = StoredAccount(SavedAccount(profile.uid, profile.name, profile.avatarUrl, attendance = original.accounts.find { it.account.uid == profile.uid }?.account?.attendance ?: AutoAttendanceConfig()), captureCookies(), fingerprint, captureLocal())
             val next = vault.copy(accounts = vault.accounts.filterNot { it.account.uid == profile.uid } + entry, activeUid = profile.uid, recovery = null, navigationKey = Uuid.random().toString())
-            local.evictDownloads()
-            store.write(next)
+            evictDownloads()
+            writeVault(next)
             vault = next
         } catch (failure: Exception) {
             failureResult = classify(failure)
-            failedFingerprint = fingerprint
             withContext(NonCancellable) {
                 previous?.let { restore ->
-                    local.clear(evictDownloads = false)
-                    cookies.replace(restore.cookies)
-                    session.sync()
-                    local.restore(restore.local)
+                    clearLocal(evictDownloads = false)
+                    replaceCookies(restore.cookies)
+                    syncSession()
+                    restoreLocal(restore.local)
                 }
                 vault = original
-                store.write(vault)
+                writeVault(vault)
             }
             if (failure is CancellationException) throw failure
         } finally {
@@ -283,7 +301,14 @@ class AccountRepository(
         }
     }
 
-    fun add() = launchAction { transition(targetUid = null, adding = true) }
+    fun add() = launchAction {
+        // Preserve a readable login after a failed save instead of clearing it for another form.
+        if (vault.pending != null && session.peek().isSignedIn) {
+            rememberLocked(diagnostics.step(AccountStep.FETCH_PROFILE) { currentProfile(false) }, session.peek().fingerprint)
+        } else {
+            diagnostics.step(AccountStep.ADD) { transition(targetUid = null, adding = true) }
+        }
+    }
     fun switch(uid: Long) = launchAction {
         if (uid != vault.activeUid) transition(targetUid = uid, adding = false)
     }
@@ -305,7 +330,7 @@ class AccountRepository(
                     if (previous.previousUid == uid) PendingAccount(null, "", AccountLocalSnapshot()) else previous
                 },
             )
-            store.write(next)
+            writeVault(next)
             vault = next
             local.forgetMessages(account.fingerprint, uid)
             publish()
@@ -338,14 +363,14 @@ class AccountRepository(
         try {
             if (attached.isNotEmpty()) disposed.await()
             requests.pause()
-            stopPlatformRequests()
+            stopRequests()
             val next = vault.copy(accounts = vault.accounts.filterNot { it.account.uid == uid }, activeUid = null, pending = null, recovery = null, navigationKey = Uuid.random().toString())
-            store.write(next)
+            writeVault(next)
             vault = next
-            local.clear()
+            clearLocal()
             local.forgetMessages(fingerprint, uid)
-            cookies.replace("")
-            session.sync()
+            replaceCookies("")
+            syncSession()
         } catch (failure: Exception) {
             failureResult = classify(failure)
             throw failure
@@ -362,7 +387,7 @@ class AccountRepository(
             if (!mutex.tryLock()) return@launch
             try {
                 check(vaultLoaded) { "Saved accounts are unavailable" }
-                block()
+                diagnostics.step(AccountStep.ACTION) { block() }
             } catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
                 var result = classify(failure)
@@ -373,7 +398,7 @@ class AccountRepository(
                         },
                     )
                     try {
-                        store.write(next)
+                        writeVault(next)
                         vault = next
                     } catch (storage: Exception) {
                         if (storage is CancellationException) throw storage
@@ -404,8 +429,8 @@ class AccountRepository(
         try {
             if (attached.isNotEmpty()) disposed.await()
             requests.pause()
-            stopPlatformRequests()
-            previous = PendingAccount(vault.activeUid, cookies.capture(), local.capture())
+            stopRequests()
+            previous = PendingAccount(vault.activeUid, captureCookies(), captureLocal())
             val currentUid = vault.activeUid
             val parked = vault.accounts.map { entry ->
                 if (entry.account.uid == currentUid) {
@@ -421,21 +446,21 @@ class AccountRepository(
             // A restart between clearing the active files and committing the new identity restores
             // this journal before either shell renders a page.
             vault = vault.copy(accounts = parked, recovery = previous)
-            store.write(vault)
-            local.clear(evictDownloads = false)
+            writeVault(vault)
+            clearLocal(evictDownloads = false)
             changed = true
-            cookies.replace(cancel?.cookies ?: target?.cookies.orEmpty())
-            session.sync()
+            replaceCookies(cancel?.cookies ?: target?.cookies.orEmpty())
+            syncSession()
             // An untouched form must not adopt the old account as a completed additional login.
             // The platform replacement must have removed its session before any page can load.
             if (adding) check(!session.state.value.isSignedIn) { "Could not clear the previous login" }
-            local.restore(cancel?.local ?: target?.local ?: AccountLocalSnapshot())
+            restoreLocal(cancel?.local ?: target?.local ?: AccountLocalSnapshot())
             var verified: StoredAccount? = null
             if (target != null && cancel == null) {
-                val profile = requests.verify { currentProfile(true) }
+                val profile = requests.verify { diagnostics.step(AccountStep.FETCH_PROFILE) { currentProfile(true) } }
                 if (profile.uid != target.account.uid) throw SiteException(SiteError.LoginRequired)
-                session.sync()
-                verified = target.copy(account = target.account.copy(name = profile.name, avatarUrl = profile.avatarUrl, needsSignIn = false), cookies = cookies.capture(), fingerprint = session.state.value.fingerprint)
+                syncSession()
+                verified = target.copy(account = target.account.copy(name = profile.name, avatarUrl = profile.avatarUrl, needsSignIn = false), cookies = captureCookies(), fingerprint = session.state.value.fingerprint)
             }
             val next = vault.copy(
                 accounts = vault.accounts.map { if (it.account.uid == verified?.account?.uid) checkNotNull(verified) else it },
@@ -444,18 +469,18 @@ class AccountRepository(
                 recovery = null,
                 navigationKey = Uuid.random().toString(),
             )
-            local.evictDownloads()
-            store.write(next)
+            evictDownloads()
+            writeVault(next)
             vault = next
         } catch (failure: Exception) {
             failureResult = classify(failure)
             withContext(NonCancellable) {
                 val restore = previous
                 if (changed && restore != null) {
-                    local.clear(evictDownloads = false)
-                    cookies.replace(restore.cookies)
-                    session.sync()
-                    local.restore(restore.local)
+                    clearLocal(evictDownloads = false)
+                    replaceCookies(restore.cookies)
+                    syncSession()
+                    restoreLocal(restore.local)
                 }
                 vault = originalVault.copy(
                     accounts = originalVault.accounts.map { entry ->
@@ -466,7 +491,7 @@ class AccountRepository(
                         }
                     },
                 )
-                store.write(vault)
+                writeVault(vault)
             }
             if (failure is CancellationException) throw failure
         } finally {
@@ -477,6 +502,7 @@ class AccountRepository(
     }
 
     private fun publish(revision: Long = mutableState.value.revision, failure: AccountFailure? = null) {
+        diagnostics.state(session.peek().isSignedIn, vault.pending != null, vault.accounts.size, vaultLoaded)
         mutableState.value = AccountsState(
             ready = true,
             accounts = vault.accounts.map { it.account },
@@ -487,6 +513,17 @@ class AccountRepository(
             navigationKey = vault.navigationKey,
         )
     }
+
+    private suspend fun readVault() = diagnostics.step(AccountStep.READ_VAULT) { store.read() }
+    private suspend fun writeVault(value: AccountVault) = diagnostics.step(AccountStep.WRITE_VAULT) { store.write(value) }
+    private suspend fun captureCookies() = diagnostics.step(AccountStep.CAPTURE_COOKIES) { cookies.capture() }
+    private suspend fun captureLocal() = diagnostics.step(AccountStep.CAPTURE_LOCAL) { local.capture() }
+    private suspend fun restoreLocal(value: AccountLocalSnapshot) = diagnostics.step(AccountStep.RESTORE_LOCAL) { local.restore(value) }
+    private suspend fun replaceCookies(value: String) = diagnostics.step(AccountStep.REPLACE_COOKIES) { cookies.replace(value) }
+    private suspend fun clearLocal(evictDownloads: Boolean = true) = diagnostics.step(AccountStep.CLEAR_LOCAL) { local.clear(evictDownloads) }
+    private suspend fun evictDownloads() = diagnostics.step(AccountStep.EVICT_DOWNLOADS) { local.evictDownloads() }
+    private suspend fun syncSession() = diagnostics.step(AccountStep.SYNC_SESSION) { session.sync() }
+    private suspend fun stopRequests() = diagnostics.step(AccountStep.STOP_REQUESTS) { stopPlatformRequests() }
 
     private fun classify(failure: Exception): AccountFailure = when ((failure as? SiteException)?.error) {
         SiteError.LoginRequired, SiteError.SessionUnrecognised -> AccountFailure.EXPIRED

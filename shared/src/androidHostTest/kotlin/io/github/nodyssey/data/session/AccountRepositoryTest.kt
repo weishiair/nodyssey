@@ -55,6 +55,57 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AccountRepositoryTest {
+    // Bug: a failed fingerprint permanently suppresses saving a now-readable login.
+    @Test
+    fun `a failed cookie snapshot can be saved again under the same session`() = runTest {
+        val fixture = Fixture(this)
+        fixture.complete { fixture.accounts.add() }
+        fixture.captureFailure = IllegalStateException("private cookie content")
+        fixture.login(1)
+        assertTrue(fixture.session.peek().isSignedIn)
+        assertTrue(fixture.accounts.state.value.accounts.isEmpty())
+        assertTrue(fixture.accounts.state.value.adding)
+        assertEquals(AccountFailure.STORAGE, fixture.accounts.state.value.failure)
+        assertTrue(fixture.accounts.diagnostics.report.value.contains("CAPTURE_COOKIES failed"))
+        assertFalse(fixture.accounts.diagnostics.report.value.contains("private cookie content"))
+        fixture.captureFailure = null
+        fixture.accounts.remember(UserProfile(1, "account-1", ""), fixture.session.peek().fingerprint)
+        assertEquals(1L, fixture.accounts.state.value.activeUid)
+        assertFalse(fixture.accounts.state.value.adding)
+        assertEquals(1L, fixture.vault.read().activeUid)
+    }
+
+    // Bug: adding again after a save failure clears the valid session and asks for another login.
+    @Test
+    fun `adding after a failed save preserves and retries the readable login`() = runTest {
+        val fixture = Fixture(this)
+        fixture.complete { fixture.accounts.add() }
+        fixture.captureFailure = IllegalStateException("capture failed")
+        fixture.login(1)
+        fixture.captureFailure = null
+        fixture.accounts.add()
+        fixture.accounts.state.first { it.activeUid == 1L }
+        assertEquals("session=1", fixture.cookies.capture())
+        assertFalse(fixture.accounts.state.value.adding)
+        assertNull(fixture.accounts.state.value.failure)
+    }
+
+    // Bug: the login screen reports success when writing the account vault failed.
+    @Test
+    fun `explicit login completion reports write failure and can recover without another sign in`() = runTest {
+        val fixture = Fixture(this)
+        fixture.complete { fixture.accounts.add() }
+        fixture.cipher.canEncrypt = false
+        fixture.login(1)
+        assertFalse(fixture.accounts.saveCurrentLogin())
+        assertTrue(fixture.session.peek().isSignedIn)
+        assertTrue(fixture.accounts.diagnostics.report.value.contains("WRITE_VAULT failed"))
+        fixture.cipher.canEncrypt = true
+        assertTrue(fixture.accounts.saveCurrentLogin())
+        assertEquals(1L, fixture.vault.read().activeUid)
+        assertFalse(fixture.accounts.state.value.adding)
+    }
+
     // Bug: a platform that leaves the previous login behind opens add, then adopts it as a new login.
     @Test
     fun `adding refuses a cookie replacement that leaves the original login active`() = runTest {
@@ -435,10 +486,14 @@ class AccountRepositoryTest {
 
     private class Fixture(private val test: TestScope) {
         var keepLoginOnClear = false
+        var captureFailure: Exception? = null
         val jar = FakeSessionCookieStore()
         val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, jar))
         val cookies = object : AccountCookieStore {
-            override suspend fun capture() = jar.cookieHeader(NodeSeekSite.BASE_URL).orEmpty()
+            override suspend fun capture(): String {
+                captureFailure?.let { throw it }
+                return jar.cookieHeader(NodeSeekSite.BASE_URL).orEmpty()
+            }
             override suspend fun replace(snapshot: String) {
                 if (snapshot.isEmpty() && keepLoginOnClear) return
                 jar.removeAll()
