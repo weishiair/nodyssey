@@ -2,7 +2,9 @@
 
 package io.github.nodyssey.ui.login
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,6 +18,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.session.SessionRepository
@@ -35,10 +39,13 @@ import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_open_in_external_browser
+import io.github.nodyssey.ui.resources.action_retry
+import io.github.nodyssey.ui.resources.webview_load_failed
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.core.net.WebKitCookieBridge
 import io.github.plaza.designsys.component.PlazaBackHandler
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.readValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +53,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.resources.stringResource
+import platform.Foundation.NSError
+import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
 import platform.WebKit.WKNavigation
@@ -59,6 +69,7 @@ import platform.WebKit.WKWebViewConfiguration
 import platform.WebKit.WKWebsiteDataStore
 import platform.WebKit.WKWindowFeatures
 import platform.darwin.NSObject
+import kotlin.coroutines.resume
 
 /**
  * The iOS half of the escape hatch: a `WKWebView`, plus the bridge that makes its cookies visible to
@@ -96,6 +107,25 @@ actual fun WebViewRoute(
 
     val baseline = remember { session.peek() }
     val policy = remember(goal, session, baseline, isBound) { webViewPolicy(goal, session, baseline, isBound) }
+    val bridge = rememberWebViewCookieBridge(session)
+
+    WebViewScreen(
+        url = url,
+        title = title,
+        userAgent = userAgent,
+        bridge = bridge,
+        onOpenExternal = onOpenExternal,
+        onClose = onClose,
+        onCheckGoal = policy.onCheckGoal,
+        pollIntervalMillis = policy.pollIntervalMillis,
+        isInScope = policy.isInScope,
+        canLeaveToBrowser = policy.canLeaveToBrowser,
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun rememberWebViewCookieBridge(session: SessionRepository): WebKitCookieBridge {
     val bridge =
         remember {
             val accountRevision = session.accountRevision
@@ -130,37 +160,27 @@ actual fun WebViewRoute(
         }
     }
 
-    WebViewScreen(
-        url = url,
-        title = title,
-        userAgent = userAgent,
-        bridge = bridge,
-        onOpenExternal = onOpenExternal,
-        onClose = onClose,
-        onCheckGoal = policy.onCheckGoal,
-        pollIntervalMillis = policy.pollIntervalMillis,
-        isInScope = policy.isInScope,
-        canLeaveToBrowser = policy.canLeaveToBrowser,
-        modifier = modifier,
-    )
+    return bridge
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WebViewScreen(
+internal fun WebViewScreen(
     url: String,
     title: String,
     userAgent: UserAgent,
     bridge: WebKitCookieBridge,
     onClose: () -> Unit,
     onOpenExternal: (String) -> Unit,
-    onCheckGoal: (suspend () -> Boolean)?,
-    pollIntervalMillis: Long,
+    onCheckGoal: (suspend () -> Boolean)? = null,
+    pollIntervalMillis: Long = GOAL_POLL_MILLIS,
     isInScope: (String) -> Boolean,
-    canLeaveToBrowser: Boolean,
+    canLeaveToBrowser: Boolean = false,
     modifier: Modifier = Modifier,
+    sessionCapture: WebSessionCapture? = null,
 ) {
     var loading by remember { mutableStateOf(true) }
+    var loadFailed by remember { mutableStateOf(false) }
     var canGoBack by remember { mutableStateOf(false) }
     var popup by remember { mutableStateOf<WKWebView?>(null) }
     // Where the user actually is, not where they came in.
@@ -170,6 +190,7 @@ private fun WebViewScreen(
     val openExternal by rememberUpdatedState(onOpenExternal)
     val staysHere by rememberUpdatedState(isInScope)
     val checkGoal by rememberUpdatedState(onCheckGoal)
+    val capture by rememberUpdatedState(sessionCapture)
 
     val delegate =
         remember {
@@ -178,8 +199,17 @@ private fun WebViewScreen(
                 openExternal = { openExternal(it) },
                 onPageLoaded = { view ->
                     loading = false
+                    loadFailed = false
                     canGoBack = view.canGoBack
                     view.URL?.absoluteString?.let { currentUrl = it }
+                },
+                onPageLoadStarted = {
+                    loading = true
+                    loadFailed = false
+                },
+                onPageLoadFailed = {
+                    loading = false
+                    loadFailed = true
                 },
                 onOpenPopup = { child -> popup = child },
                 onClosePopup = { popup = null },
@@ -187,6 +217,24 @@ private fun WebViewScreen(
         }
 
     val webView = remember { newWebView(userAgent, delegate) }
+
+    LaunchedEffect(webView, sessionCapture != null) {
+        var prepared = false
+        while (capture != null) {
+            delay(GOAL_POLL_MILLIS)
+            val current = capture ?: return@LaunchedEffect
+            if (!current.isOrigin(webView.URL?.absoluteString.orEmpty())) continue
+            if (!prepared) {
+                prepared = (webView.evaluateResult(current.prepareScript) as? NSNumber)?.boolValue == true
+            } else {
+                val token = webView.evaluateResult(current.readScript) as? String
+                if (!token.isNullOrBlank()) {
+                    bridge.drain()
+                    current.onToken(token)
+                }
+            }
+        }
+    }
 
     // Back dismisses the popup first — it is the topmost thing on screen.
     PlazaBackHandler(enabled = popup != null) { popup = null }
@@ -269,7 +317,29 @@ private fun WebViewScreen(
                         .describedAsLoading(),
                 )
             }
+            if (loadFailed) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(stringResource(Res.string.webview_load_failed))
+                    TextButton(
+                        onClick = {
+                            loadFailed = false
+                            loading = true
+                            webView.reload()
+                        },
+                    ) { Text(stringResource(Res.string.action_retry)) }
+                }
+            }
         }
+    }
+}
+
+private suspend fun WKWebView.evaluateResult(script: String): Any? = suspendCancellableCoroutine { continuation ->
+    evaluateJavaScript(script) { value, _ ->
+        if (continuation.isActive) continuation.resume(value)
     }
 }
 
@@ -311,6 +381,8 @@ private class NodeSeekWebViewDelegate(
     private val staysHere: (String) -> Boolean,
     private val openExternal: (String) -> Unit,
     private val onPageLoaded: (WKWebView) -> Unit,
+    private val onPageLoadStarted: () -> Unit,
+    private val onPageLoadFailed: () -> Unit,
     private val onOpenPopup: (WKWebView) -> Unit,
     private val onClosePopup: () -> Unit,
 ) : NSObject(),
@@ -339,8 +411,24 @@ private class NodeSeekWebViewDelegate(
         }
     }
 
+    @ObjCSignatureOverride
     override fun webView(webView: WKWebView, didFinishNavigation: WKNavigation?) {
         onPageLoaded(webView)
+    }
+
+    @ObjCSignatureOverride
+    override fun webView(webView: WKWebView, didStartProvisionalNavigation: WKNavigation?) {
+        onPageLoadStarted()
+    }
+
+    @ObjCSignatureOverride
+    override fun webView(webView: WKWebView, didFailProvisionalNavigation: WKNavigation?, withError: NSError) {
+        onPageLoadFailed()
+    }
+
+    @ObjCSignatureOverride
+    override fun webView(webView: WKWebView, didFailNavigation: WKNavigation?, withError: NSError) {
+        onPageLoadFailed()
     }
 
     /**

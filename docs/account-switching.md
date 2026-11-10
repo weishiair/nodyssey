@@ -32,7 +32,24 @@ WebView 的 Cookie 属性导出与服务器的 `Set-Cookie` 有一个区别：�
 
 iOS 同时替换 `NSHTTPCookieStorage` 与 `WKHTTPCookieStore`。账号文件位于排除备份的 Application Support 子目录，启用 `NSFileProtectionCompleteUntilFirstUserAuthentication` 的系统数据保护加密。这里沿用自签安装可用的文件保护方案，原因见 `KeychainLegacySecrets`。没有保存账号密码。
 
+Cookie 属性通过 Foundation 的 XML plist 保存，读取端自动识别 XML 和有效的二进制 plist。
+Kotlin 2.4.20 的集合桥接会在重复读取时重建 Objective-C 包装，而 Foundation 的二进制写入器
+按对象身份记录引用；原生回归发现数组元素因此被写成了数组自身，读取报 Cocoa 3840。
+实际编码往返与独立生成的二进制样例分别覆盖新快照保存和旧格式读取。
+
+启动恢复也会处理已经落盘的损坏快照。只有明确的 Cookie 编码或结构错误才进入隔离：
+先在原受保护账号库中保留恢复记录、添加记录和原账号草稿，写入可重复执行的空恢复记录，
+随后清除不可信会话和活动文件，回到添加登录流程。清理中途退出时，下次只重放空记录，
+不会再次解析坏快照。已知 UID 的账号标记为需登录；重新登录后恢复该 UID 自己的草稿，
+无法确定归属的草稿不会交给新登录账号。移除已知账号也删除其隔离记录。
+普通平台存储错误、账号库读取失败或隔离记录写入失败仍报告存储错误，不跳过或覆盖原数据。
+
 页面的恢复命名空间随账号切换持久化，防止 Android 进程重建时恢复另一个账号的导航预览。iOS 保留系统根控制器，在 UIKit 转场结束后释放旧账号的所有页面。
+
+## 保存失败重试
+
+原生表单登录完成后会等待账号保存。保存失败时停留在提示页，可点「重试保存」继续当前
+登录会话；账号列表也提供重试入口。重试保存不会再次提交用户名和密码。
 
 ## 验证
 
@@ -40,4 +57,22 @@ iOS 同时替换 `NSHTTPCookieStorage` 与 `WKHTTPCookieStore`。账号文件位
 
 主机范围解析和清理失败仍进入添加的两项回归先在旧实现上失败，修复后通过；导航回归覆盖等待验证期间、取消预测返回手势后继续保留添加页。用户已在 Android 手机上验证账号添加和切换，并确认合并测试包的功能正常。
 
-Windows 上运行了 `spotlessCheck`、Android `lintDebug`、Debug APK、R8 Release 构建和专项回归。全量 JVM 测试中，21 项 Room 迁移路径失败和 13 项 DataStore 文件替换失败与干净 `dev` 基线一致。GitHub Actions 的 Android 模拟器调试流程和 R8 启动检查已通过；iOS 的 Native、UIKit、WebKit 运行验证仍需要 Mac/Xcode。
+最初的账号切换实现曾在 Windows 上运行 `spotlessCheck`、Android `lintDebug`、Debug APK、R8 Release 构建和专项回归。全量 JVM 测试中的 21 项 Room 迁移路径失败和 13 项 DataStore 文件替换失败与当时的干净 `dev` 基线一致。
+
+2026-11-09 的账号诊断与保存恢复改动通过 GitHub Actions 完整 Linux CI
+（run `42598835348`），包括全量 JVM/Robolectric/common/gallery 测试、lint、Debug 与
+优化 Release 构建、Android 模拟器流程和 R8 启动检查。Apple 验证
+（run `42604174043`）通过 `:shared:macosArm64Test` 和
+`:ui:iosSimulatorArm64Test`；原生套件的 382 项测试包含实际 Cookie plist 往返与有效旧
+二进制格式读取。该结果不能替代受影响 iPhone 上的复现与诊断日志。
+
+旧坏快照的启动恢复另补 8 项专项回归：隔离后保存新登录、已知账号草稿归属、普通平台
+错误不隔离、隔离写入失败保留原数据、活动账号较新草稿保留、清理提交失败后重启、取消
+恢复登录后再次登录，以及平台未真正清空 Cookie 时拒绝完成恢复。前 6 项在旧恢复实现上
+均失败；修复后账号仓库全部 31 项测试及 `spotlessCheck` 通过。Apple 的独立损坏二进制
+样例另验证解析错误的分类与 Cocoa 错误编号保留。
+
+用户已在原先受影响的 iPhone 上确认 `1.3.10-ios-test.6` 修复有效。该测试版通过完整
+Linux CI（run `42623998455`）及 Apple 原生测试、iOS 模拟器测试和真机 Release 归档
+（run `42623969296`）。确认后删除临时账号日志记录和导出功能，保留保存重试、坏快照
+隔离恢复及其回归测试。

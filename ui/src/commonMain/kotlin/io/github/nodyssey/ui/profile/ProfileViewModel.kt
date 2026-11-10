@@ -14,6 +14,7 @@ import io.github.nodyssey.data.AttendanceStatus
 import io.github.nodyssey.data.ProfileRepository
 import io.github.nodyssey.data.UserProfile
 import io.github.nodyssey.data.lottery.LotteryRepository
+import io.github.nodyssey.data.mail.MailRepository
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.postlist.toSiteError
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -52,6 +54,7 @@ class ProfileViewModel(
     private val profileRepository: ProfileRepository,
     private val assetsRepository: AssetsRepository,
     lotteryRepository: LotteryRepository? = null,
+    mailRepository: MailRepository? = null,
 ) : ViewModel() {
     private var loadJob: Job? = null
     private var profileJob: Job? = null
@@ -73,6 +76,16 @@ class ProfileViewModel(
             // A badge's local store being unavailable must not take down the profile screen.
             .catch { emit(false) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val hasUnreadMail: StateFlow<Boolean> =
+        (
+            mailRepository?.let { mail ->
+                combine(mail.inboxUpdates, mail.readStates, mail.connection) { inbox, reads, connection ->
+                    connection.connected && inbox != null && inbox.generation == connection.generation &&
+                        inbox.page.messages.any { !(reads.values.takeIf { reads.generation == inbox.generation }?.get(it.id) ?: it.isRead) }
+                }
+            } ?: flowOf(false)
+            ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     init {
         assetsRepository
@@ -324,6 +337,7 @@ class ProfileViewModel(
                         profileRepository = container.profileRepository,
                         assetsRepository = container.assetsRepository,
                         lotteryRepository = container.lotteryRepository,
+                        mailRepository = container.mailRepository,
                     )
                 }
             }

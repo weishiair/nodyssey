@@ -28,6 +28,7 @@
     <!-- 对比栏不空时出现在卡片底部，打开测评对比页；%1$d 是对比栏里的报告数 -->
     <string name="report_compare_open">对比 (%1$d)</string>
     <string name="action_retry">重试</string>
+    <string name="webview_load_failed">网页加载失败</string>
     <string name="action_refresh">刷新</string>
     <string name="search_load_more_failed">加载更多失败</string>
     <string name="action_sign_in">登录</string>
@@ -818,6 +819,8 @@
     <string name="notify_quiet_hours">免打扰时段</string>
     <string name="notify_quiet_hours_hint">23:00 – 07:00 · 时段内静默收取，不发通知</string>
     <string name="notify_channels_section">通知类别 · 映射 Android 通知渠道</string>
+    <string name="notify_mail">邮箱新邮件</string>
+    <string name="notify_mail_hint">后台按上方频率检查默认邮箱；前台自动快速检查并显示应用内提醒</string>
     <string name="notify_telegram_title">想要即时提醒？</string>
     <string name="notify_telegram_body">绑定 Telegram 后由站点即时转发未读消息</string>
     <string name="notify_telegram_action">去绑定</string>
@@ -1198,7 +1201,7 @@
     <string name="tools_lucky">幸运抽奖</string>
     <string name="tools_lucky_subtitle">T 楼抽奖公证工具 · 生成开奖链接</string>
     <string name="tools_invite">邀请好友</string>
-    <string name="tools_invite_subtitle">花费 1000 鸡腿购买一个邀请码</string>
+    <string name="tools_invite_subtitle">花鸡腿或星辰购买一个邀请码</string>
     <string name="tools_ruling">管理记录</string>
     <string name="tools_ruling_subtitle">处罚与奖励公示表格</string>
 
@@ -1246,20 +1249,47 @@
     <!-- Invite (9d) -->
     <string name="invite_title">邀请好友</string>
     <string name="invite_body">%1$s 注册需要邀请码。购买后会生成一个邀请码，发给朋友即可注册。</string>
-    <string name="invite_buy">花费 1000 鸡腿购买一个邀请码</string>
-    <string name="invite_confirm_title">确认花费 1000 鸡腿？</string>
+    <!-- 两个价格都来自站点 /api/invite/config，每次进页重读；站点关掉哪一种，那一行就不出现 -->
+    <string name="invite_price_coin">花费 %1$d 鸡腿购买一个邀请码</string>
+    <string name="invite_price_stardust">花费 %1$d 星辰购买一个邀请码</string>
+    <string name="invite_confirm_title">确认花费 %1$d 鸡腿？</string>
+    <string name="invite_confirm_title_stardust">确认花费 %1$d 星辰？</string>
     <string name="invite_cost">花费</string>
-    <string name="invite_cost_value">1000 鸡腿</string>
+    <string name="invite_cost_value">%1$d 鸡腿</string>
+    <string name="invite_cost_value_stardust">%1$d 星辰</string>
     <string name="invite_balance_after">购买后余额</string>
     <string name="invite_caution">邀请码一经生成即扣除鸡腿，无法退还；一个邀请码只能注册一个账号。</string>
+    <string name="invite_caution_stardust">邀请码一经生成即扣除星辰，无法退还；一个邀请码只能注册一个账号。</string>
     <string name="invite_confirm">确认购买</string>
     <string name="invite_shortfall">还差 %1$d 鸡腿</string>
+    <string name="invite_shortfall_stardust">还差 %1$d 星辰</string>
     <!-- 9e 鸡腿不够买邀请码：标题、卡片上「还差」那一行、底下怎么攒鸡腿 -->
     <string name="invite_short_title">鸡腿不够</string>
+    <string name="invite_short_title_stardust">星辰不够</string>
     <string name="invite_shortfall_label">还差</string>
     <string name="invite_short_hint">回帖、发帖、签到都能攒鸡腿。</string>
-    <string name="invite_opened_web">App 还没有对接购码接口，已在网页中打开邀请页。</string>
+    <string name="invite_short_hint_stardust">评论被点赞、收到转账都能攒星辰。</string>
+    <string name="invite_buy_unavailable">站点现在没有开放邀请码购买。</string>
+    <!-- 原生购买走不通时的兜底入口，不是主按钮的替代 -->
+    <string name="invite_web_fallback">在网页中购买</string>
     <string name="invite_chicken_balance">当前鸡腿 %1$d</string>
+    <string name="invite_stardust_balance">当前星辰 %1$d</string>
+    <!-- 邀请码列表：/api/invite/list 的 code / applied / created_at -->
+    <string name="invite_codes_title">我的邀请码</string>
+    <string name="invite_codes_empty">还没有邀请码。买一个之后会列在这里。</string>
+    <string name="invite_codes_truncated">共 %1$d 个邀请码，这里只显示最近 %2$d 个。</string>
+    <string name="invite_code_applied">已使用</string>
+    <string name="invite_code_unused">未使用</string>
+    <string name="invite_code_copied">邀请码已复制</string>
+    <string name="invite_bought_title">邀请码已生成</string>
+    <string name="invite_bought_body">发给朋友，注册时填这个码即可。</string>
+    <string name="invite_bought_unknown">购买已确认，暂未取得新邀请码。请刷新列表重新获取，无需再次购买。</string>
+    <string name="invite_purchase_unknown_title">购买结果暂未确认</string>
+    <string name="invite_purchase_unknown_body">这次购买可能已扣款。请先刷新邀请码列表并核对余额，避免重复购买。</string>
+    <string name="invite_repeat_purchase_caution">上次购买的结果尚未确认。请先核对邀请码和余额；本次确认会再购买一个邀请码，并再次扣费。</string>
+    <string name="invite_check_result">核对购买结果</string>
+    <string name="invite_web_check">在网页中核对</string>
+    <string name="invite_buy_failed_hint">这次没有买成，稍后再试一次。</string>
 
     <!-- Moderation log (9d) -->
     <string name="ruling_title">管理记录</string>
@@ -2016,4 +2046,74 @@
     <string name="message_discard_failed">移除未发送消息</string>
     <string name="messages_draft_preview">[草稿] %1$s</string>
     <string name="messages_pending_preview">[待发送] 有消息尚未发送成功</string>
+    <!-- NodeSeek Mail connects through the service's own user-managed API key. -->
+    <string name="mail_title">NodeSeek 邮箱</string>
+    <string name="mail_entry_hint">收件箱、切换邮箱与阅读邮件</string>
+    <string name="mail_connect_title">把邮箱带到这里</string>
+    <string name="mail_connect_hint">在邮箱官网使用 NodeSeek 一键登录，创建 API Key 后粘贴到下方。只需连接一次，就能在这里收信。</string>
+    <string name="mail_scopes_hint">密钥需要 mailbox:read、mail:read 和 mail:manage 权限，用于列出邮箱、阅读邮件和更新已读状态。</string>
+    <string name="mail_create_key">前往官网创建密钥</string>
+    <string name="mail_api_key">API Key</string>
+    <string name="mail_authorize_website">网页授权（备用）</string>
+    <string name="mail_error_forum_sign_in">NodeSeek 登录态无法完成授权，请先登录论坛，或使用网页授权。</string>
+    <string name="mail_error_web_authorization">官网需要额外验证或授权流程已变更，请使用网页授权。</string>
+    <string name="mail_authorize">使用 NodeSeek 授权</string>
+    <string name="mail_authorize_hint">使用已有 NodeSeek 登录态授权，无需手动创建或复制密钥。若 NodeSeek 要求安全验证，可在应用内完成后自动重试。</string>
+    <string name="mail_use_key">使用 API Key 连接</string>
+    <string name="mail_replace_key">更换 API Key</string>
+    <string name="mail_connected_api_key">已通过 API Key 连接</string>
+    <string name="mail_connected_web_session">已通过网页登录态连接</string>
+    <string name="mail_api_key_switch_title">改用 API Key</string>
+    <string name="mail_api_key_switch_hint">验证成功后才会使用新密钥；验证失败时保留当前连接。</string>
+    <string name="mail_new_messages">收件箱有 %1$d 封新邮件</string>
+    <string name="mail_reauthorize">重新授权邮箱</string>
+    <string name="mail_error_challenge">NodeSeek 要求浏览器安全验证。可在应用内完成验证，通过后会自动重试原生授权。</string>
+    <string name="mail_verify_challenge">完成 NodeSeek 安全验证</string>
+    <string name="mail_verify_and_retry">验证后重试授权</string>
+    <string name="mail_default_mailbox">默认邮箱</string>
+    <string name="mail_options">邮箱选项</string>
+    <string name="mail_connect">连接邮箱</string>
+    <string name="mail_connecting">正在验证…</string>
+    <string name="mail_disconnect">断开连接</string>
+    <string name="mail_disconnect_hint">移除此设备保存的邮箱密钥并清空当前邮件。官网的邮箱和邮件会保留。</string>
+    <string name="mail_inbox">收件箱</string>
+    <string name="mail_choose_mailbox">选择邮箱</string>
+    <string name="mail_no_mailboxes">账号下还没有邮箱，可前往官网创建。</string>
+    <string name="mail_empty">收件箱空空的，下拉可刷新。</string>
+    <string name="mail_unread">有未读邮件</string>
+    <string name="mail_no_subject">无主题</string>
+    <string name="mail_loading">正在加载…</string>
+    <string name="mail_load_more">加载更多邮件</string>
+    <string name="mail_detail">邮件</string>
+    <string name="mail_mark_read">标为已读</string>
+    <string name="mail_mark_all_read">全部已读</string>
+    <string name="mail_marking_all_read">正在标为已读…</string>
+    <string name="mail_mark_all_read_done">当前收件箱已全部标为已读</string>
+    <string name="mail_mark_all_read_failed">未能全部标为已读：%1$s。已完成的更改会保留。</string>
+    <string name="mail_mark_unread">标为未读</string>
+    <string name="mail_connection_expired">邮箱连接已改变，请返回收件箱重新打开邮件。</string>
+    <string name="mail_from">发件人：%1$s &lt;%2$s&gt;</string>
+    <string name="mail_to">收件人：%1$s</string>
+    <string name="mail_no_body">这封邮件没有可显示的正文。</string>
+    <string name="mail_plain_text_hint">以纯文本阅读，不加载远程图片。长按可选择和复制正文。</string>
+    <string name="mail_attachment_hint">这封邮件有附件，请在官网查看或下载。</string>
+    <string name="mail_open_website">在官网打开邮箱</string>
+    <string name="mail_pane_empty">选择一封邮件开始阅读</string>
+    <string name="mail_error_key">请输入完整的 sk_live_ 开头的 API Key。</string>
+    <string name="mail_error_unauthorized">邮箱连接已失效，请重新授权或使用有效的 API Key 连接。</string>
+    <string name="mail_error_permission">密钥权限不足，请在官网检查 mailbox:read、mail:read 和 mail:manage 权限。</string>
+    <string name="mail_error_missing">这封邮件已不存在，或不属于当前邮箱。</string>
+    <string name="mail_error_rate">请求过于频繁，请稍后再试。</string>
+    <string name="mail_error_storage">无法安全保存或读取邮箱凭据，请稍后重试。</string>
+    <string name="mail_error_service">邮箱服务暂时无法响应，请稍后重试。</string>
+    <string name="mail_error_network">连接邮箱失败，请检查网络后重试。</string>
+    <string name="mail_mode_api_key">API Key 已连接</string>
+    <string name="mail_mode_web_session">网页登录态已连接</string>
+    <string name="mail_switch_web_session">切换为网页登录态</string>
+    <string name="mail_verification_code">检测到验证码</string>
+    <string name="mail_copy_code">复制验证码</string>
+    <string name="mail_code_copied">验证码已复制</string>
+    <string name="mail_open_inbox">查看邮箱</string>
+    <string name="mail_poll_api_hint">前台约每 30 秒检查；邮箱页约每 15 秒</string>
+    <string name="mail_poll_web_hint">前台约每 60 秒检查新邮件</string>
 </resources>

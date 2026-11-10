@@ -20,4 +20,6 @@
     <string name="accounts_failure_webview">目前系統 WebView 不支援儲存完整登入狀態，請更新 Android System WebView 後重試。</string>
     <string name="accounts_remove_offline_warning">目前帳號的離線下載也會清除。</string>
     <string name="accounts_add_hint">登入另一個帳號，完成後會儲存到本機。取消新增可返回原帳號。</string>
+    <string name="accounts_save_failed">登入狀態已就緒，但帳號尚未儲存。請重試儲存，無需重新輸入密碼。</string>
+    <string name="accounts_retry_save">重試儲存帳號</string>
 </resources>

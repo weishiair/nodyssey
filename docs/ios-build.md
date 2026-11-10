@@ -3,6 +3,13 @@
 手动运行 `.github/workflows/ios-test.yml` 的 **Build Android and iOS test apps**，选择测试分支，
 将 `platform` 设为 `ios`。版本仍取自该测试分支的 `gradle.properties`。
 
+排查 Apple 平台的测试失败时，可在 `platform = ios` 下启用 `checks_only`。该模式运行
+Native 与 iOS 模拟器回归，并编译真机和模拟器的 iOS 外壳，跳过版本检查与安装包构建；因此可以先在修复分支验证，
+通过后再创建带版本号的测试快照。
+
+`v版本号-ios-test.N` 标签对应 iOS 专用测试快照，使用本工作流构建后将 IPA 附加到
+GitHub prerelease。常规 Release 工作流的标签过滤器排除该命名空间。
+
 `ios_runner` 默认是 `macos-15`，也可选 `macos-26`。GitHub 的 ARM runner 容量不足、
 长时间排队时，可选 `macos-15-intel` 交叉编译同样的 iPhone / 模拟器 arm64 产物。
 Intel 无法执行 `macosArm64Test`，该模式明确跳过此项并运行 `:shared:jvmTest`；
@@ -42,9 +49,21 @@ Windows 上可检查配置、脚本和共享代码；Swift 编译和以上视觉
 
 `dev` 通过发布 PR 合入 `main` 后，推送 `v版本号` 标签触发 `release.yml`。
 Android 签名包发布后，iOS job 使用同一标签编译并附加未签名 IPA。
-正式版默认使用已验证的 `macos-26` ARM Mac 与 Xcode 26.3，同时执行 Kotlin/Native 运行测试。
-`1.3.6-ios-test.2` 的真机包、模拟器包和原生测试已在此宿主通过。手动重跑时仍可通过
-`ios_runner` 选择其他 Mac；Intel 宿主只运行 JVM 测试，不声称通过 ARM 原生运行测试。
+正式版使用 `macos-15` ARM Mac 与 Xcode 26.3，运行 Kotlin/Native 和 iOS 模拟器回归后再打包。
+工作流核对宿主确为 arm64；正式版不能选择 Intel，也不会跳过原生运行测试。手动重跑时可通过
+`ios_runner` 选择 `macos-26` ARM Mac。
+
+发布前可在准备分支运行 `ios-test.yml`，选择 `platform = ios`、`checks_only = false`。
+该工作流同时接受稳定版本号，先完成原生测试、Release 真机 IPA 和模拟器包验证，将产物保存在
+Actions artifacts 中，不创建 GitHub Release。稳定版本的预检同样要求 ARM Mac。
+
+`1.3.10-test.12` 的 ARM Release 链接在 5 GB 堆中耗尽内存，因此打包前停止测试 daemon，
+用单 worker、5 GB 堆和 Serial GC 启动独立构建。6 GB 的预检仍在优化链接中运行了 64 分钟，随后主动停止。
+`:iosapp` 的 Release framework 通过 Kotlin/Native 的 `-Xdisable-phases` 暂时跳过
+`RemoveRedundantCallsToStaticInitializersPhase`，保留初始化调用，其余 Release 优化继续执行。
+这可能增加初始化检查的运行开销；待上游约束该分析在完整应用调用图中的内存占用后移除。关闭 Gradle 构建缓存后仍复现 Swift 库路径错配，说明它来自已发布原生依赖的链接参数。
+`:ui` 与 `:iosapp` 通过 Kotlin/Native 的 `linkerOpts` 补充 `DEVELOPER_DIR` 中所选 Xcode 的
+Swift compatibility 搜索路径，覆盖真机和模拟器。依赖修复绝对路径后可移除此兼容配置。
 IPA 旁同时提供 SHA-256 和 `ios-build-v版本号.txt`，记录版本、SDK 与源提交。
 
 推送版本标签会发布安装包和更新清单。需要向 Telegram 频道发送公告和安装包时，

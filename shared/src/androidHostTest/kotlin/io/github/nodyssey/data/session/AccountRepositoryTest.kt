@@ -22,6 +22,8 @@ import io.github.nodyssey.data.attendance.AttendanceWriteGate
 import io.github.nodyssey.data.attendance.AutoAttendance
 import io.github.nodyssey.data.attendance.AutoAttendanceOutcome
 import io.github.nodyssey.data.attendance.MultiAccountAttendance
+import io.github.nodyssey.data.mail.DefaultMailRepository
+import io.github.nodyssey.data.mail.MailCredentialStore
 import io.github.nodyssey.data.security.SecretCipher
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.testPreferenceStore
@@ -55,6 +57,93 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AccountRepositoryTest {
+    // Bug: a failed fingerprint permanently suppresses saving a now-readable login.
+    @Test
+    fun `a failed cookie snapshot can be saved again under the same session`() = runTest {
+        val fixture = Fixture(this)
+        fixture.complete { fixture.accounts.add() }
+        fixture.captureFailure = IllegalStateException("private cookie content")
+        fixture.login(1)
+        assertTrue(fixture.session.peek().isSignedIn)
+        assertTrue(fixture.accounts.state.value.accounts.isEmpty())
+        assertTrue(fixture.accounts.state.value.adding)
+        assertEquals(AccountFailure.STORAGE, fixture.accounts.state.value.failure)
+        fixture.captureFailure = null
+        fixture.accounts.remember(UserProfile(1, "account-1", ""), fixture.session.peek().fingerprint)
+        assertEquals(1L, fixture.accounts.state.value.activeUid)
+        assertFalse(fixture.accounts.state.value.adding)
+        assertEquals(1L, fixture.vault.read().activeUid)
+    }
+
+    // Bug: adding again after a save failure clears the valid session and asks for another login.
+    @Test
+    fun `adding after a failed save preserves and retries the readable login`() = runTest {
+        val fixture = Fixture(this)
+        fixture.complete { fixture.accounts.add() }
+        fixture.captureFailure = IllegalStateException("capture failed")
+        fixture.login(1)
+        fixture.captureFailure = null
+        fixture.accounts.add()
+        fixture.accounts.state.first { it.activeUid == 1L }
+        assertEquals("session=1", fixture.cookies.capture())
+        assertFalse(fixture.accounts.state.value.adding)
+        assertNull(fixture.accounts.state.value.failure)
+    }
+
+    // Bug: the login screen reports success when writing the account vault failed.
+    @Test
+    fun `explicit login completion reports write failure and can recover without another sign in`() = runTest {
+        val fixture = Fixture(this)
+        fixture.complete { fixture.accounts.add() }
+        fixture.cipher.canEncrypt = false
+        fixture.login(1)
+        assertFalse(fixture.accounts.saveCurrentLogin())
+        assertTrue(fixture.session.peek().isSignedIn)
+        fixture.cipher.canEncrypt = true
+        assertTrue(fixture.accounts.saveCurrentLogin())
+        assertEquals(1L, fixture.vault.read().activeUid)
+        assertFalse(fixture.accounts.state.value.adding)
+    }
+
+    // Bug: switching forum accounts keeps the previous account's mail session and visible data.
+    @Test
+    fun `switching accounts invalidates the active mail connection before the next account is shown`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        var saved = "web:example-session"
+        val mail = DefaultMailRepository(
+            credentials = object : MailCredentialStore {
+                override suspend fun read() = saved
+                override suspend fun save(key: String) {
+                    saved = key
+                }
+                override suspend fun readDefaultMailboxId(): Long? = null
+                override suspend fun saveDefaultMailboxId(id: Long?) = Unit
+                override suspend fun clearDefaultMailboxId() = Unit
+                override suspend fun clear() {
+                    saved = ""
+                }
+            },
+            http = object : HttpTransport {
+                override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse =
+                    error("Account cleanup must not need the mail server")
+            },
+            dispatchers = AppDispatchers(dispatcher, dispatcher, dispatcher),
+        )
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.complete { fixture.accounts.add() }
+        fixture.login(2)
+        fixture.clearMail = mail::disconnect
+        mail.initialize()
+        val generation = mail.connection.value.generation
+        assertTrue(mail.connection.value.connected)
+        fixture.complete { fixture.accounts.switch(1) }
+        assertEquals(1L, fixture.accounts.state.value.activeUid)
+        assertFalse(mail.connection.value.connected)
+        assertEquals("", saved)
+        assertTrue(mail.connection.value.generation > generation)
+    }
+
     // Bug: a platform that leaves the previous login behind opens add, then adopts it as a new login.
     @Test
     fun `adding refuses a cookie replacement that leaves the original login active`() = runTest {
@@ -433,16 +522,223 @@ class AccountRepositoryTest {
         assertEquals("newer than the saved account snapshot", fixture.postDrafts.data.first()[draftKey])
     }
 
+    // Bug: a malformed legacy recovery cookie keeps vaultLoaded false forever, even after a new login.
+    @Test
+    fun `invalid interrupted add is quarantined and a new login can actually be saved`() = runTest {
+        val fixture = Fixture(this)
+        fixture.accounts.awaitReady()
+        val recovery = PendingAccount(null, "broken-recovery", AccountLocalSnapshot(postDrafts = mapOf("draft" to "unidentified private draft")))
+        val pending = PendingAccount(null, "broken-pending", AccountLocalSnapshot(postDrafts = mapOf("draft" to "earlier private draft")))
+        fixture.vault.write(AccountVault(pending = pending, recovery = recovery))
+        fixture.invalidSnapshots += recovery.cookies
+        fixture.jar.setCookie(NodeSeekSite.BASE_URL, "session=2")
+        fixture.session.sync()
+        val reopened = fixture.repository()
+        reopened.awaitReady()
+        assertTrue(reopened.storageAvailable)
+        assertTrue(reopened.state.value.adding)
+        assertFalse(fixture.session.peek().isSignedIn)
+        assertNull(reopened.state.value.activeUid)
+        assertEquals(setOf(recovery, pending), fixture.vault.read().quarantined.toSet())
+        assertNull(fixture.vault.read().recovery)
+        fixture.jar.setCookie(NodeSeekSite.BASE_URL, "session=2")
+        fixture.session.sync()
+        assertTrue(reopened.saveCurrentLogin())
+        assertEquals(2L, fixture.vault.read().activeUid)
+        assertTrue(fixture.vault.read().accounts.single().local.postDrafts.isEmpty())
+        val restarted = fixture.repository()
+        restarted.awaitReady()
+        assertTrue(restarted.storageAvailable)
+        assertEquals(2L, restarted.state.value.activeUid)
+        assertEquals(setOf(recovery, pending), fixture.vault.read().quarantined.toSet())
+    }
+
+    // Bug: skipping invalid recovery associates A's journal drafts with the next successfully signed-in UID.
+    @Test
+    fun `quarantining one account preserves other accounts and restores drafts only to their owner`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.complete { fixture.accounts.add() }
+        fixture.login(2)
+        fixture.draft("beta saved draft")
+        fixture.accounts.configureAttendance(2) { it.copy(enabled = true) }
+        fixture.complete { fixture.accounts.switch(1) }
+        val original = fixture.vault.read()
+        val beta = original.accounts.single { it.account.uid == 2L }
+        val recovery = PendingAccount(1, "broken-alpha", AccountLocalSnapshot(postDrafts = mapOf("draft" to "alpha journal draft")))
+        fixture.vault.write(original.copy(recovery = recovery))
+        fixture.invalidSnapshots += recovery.cookies
+        fixture.offline.hasCopy = true
+        val reopened = fixture.repository()
+        reopened.awaitReady()
+        assertTrue(reopened.storageAvailable)
+        assertEquals(beta, fixture.vault.read().accounts.single { it.account.uid == 2L })
+        val alpha = fixture.vault.read().accounts.single { it.account.uid == 1L }
+        assertTrue(alpha.account.needsSignIn)
+        assertEquals("", alpha.cookies)
+        assertEquals(recovery.local, alpha.local)
+        assertNull(fixture.postDrafts.data.first()[draftKey])
+        assertFalse(fixture.offline.hasCopy)
+        fixture.complete(reopened) { reopened.switch(2) }
+        assertEquals("beta saved draft", fixture.postDrafts.data.first()[draftKey])
+        fixture.complete(reopened) { reopened.add() }
+        fixture.login(1, reopened)
+        assertEquals("alpha journal draft", fixture.postDrafts.data.first()[draftKey])
+        assertFalse(fixture.vault.read().accounts.single { it.account.uid == 1L }.account.needsSignIn)
+        assertTrue(fixture.vault.read().accounts.single { it.account.uid == 2L }.account.attendance.enabled)
+        reopened.remove(1)
+        reopened.state.first { state -> state.accounts.none { it.uid == 1L } }
+        assertTrue(fixture.vault.read().quarantined.none { it.previousUid == 1L })
+    }
+
+    // Bug: treating a platform-store error as corrupt data destroys a valid recovery record and live draft.
+    @Test
+    fun `ordinary cookie store failure never quarantines or clears the recovery data`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.draft("live draft")
+        val original = fixture.vault.read().copy(recovery = PendingAccount(1, "session=1", AccountLocalSnapshot()))
+        fixture.vault.write(original)
+        fixture.replaceFailure = AccountNativeFailure("NSPOSIXErrorDomain", 13)
+        val reopened = fixture.repository()
+        reopened.awaitReady()
+        assertFalse(reopened.storageAvailable)
+        assertEquals(AccountFailure.STORAGE, reopened.state.value.failure)
+        assertEquals(original, fixture.vault.read())
+        assertEquals("session=1", fixture.cookies.capture())
+        assertEquals("live draft", fixture.postDrafts.data.first()[draftKey])
+    }
+
+    // Bug: clearing a malformed recovery before its quarantine write succeeds loses the only private draft.
+    @Test
+    fun `failed quarantine persistence leaves the original vault and live files untouched`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.draft("keep live draft")
+        val original = fixture.vault.read().copy(recovery = PendingAccount(1, "broken", AccountLocalSnapshot(postDrafts = mapOf("draft" to "keep journal"))))
+        fixture.vault.write(original)
+        fixture.invalidSnapshots += "broken"
+        fixture.cipher.canEncrypt = false
+        val reopened = fixture.repository()
+        reopened.awaitReady()
+        assertFalse(reopened.storageAvailable)
+        assertEquals(original, fixture.vault.read())
+        assertEquals("session=1", fixture.cookies.capture())
+        assertEquals("keep live draft", fixture.postDrafts.data.first()[draftKey])
+    }
+
+    // Bug: invalid active cookies either block initialization forever or discard newer on-disk drafts.
+    @Test
+    fun `invalid active cookies retain newer live drafts for the same account to sign in again`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.draft("newer live draft")
+        val original = fixture.vault.read()
+        fixture.vault.write(original.copy(accounts = original.accounts.map { it.copy(cookies = "broken") }))
+        fixture.invalidSnapshots += "broken"
+        fixture.jar.removeAll()
+        fixture.session.sync()
+        val reopened = fixture.repository()
+        reopened.awaitReady()
+        assertTrue(reopened.storageAvailable)
+        assertNull(fixture.postDrafts.data.first()[draftKey])
+        assertTrue(fixture.vault.read().quarantined.any { it.local.postDrafts["draft"] == "newer live draft" })
+        fixture.login(1, reopened)
+        assertEquals("newer live draft", fixture.postDrafts.data.first()[draftKey])
+        assertFalse(reopened.state.value.adding)
+    }
+
+    // Bug: a crash after quarantine but before cleanup commit repeats the bad snapshot or exposes old files.
+    @Test
+    fun `a failed cleanup commit restarts with an empty journal and never replays the corrupt snapshot`() = runTest {
+        val fixture = Fixture(this)
+        fixture.accounts.awaitReady()
+        val recovery = PendingAccount(null, "broken", AccountLocalSnapshot(postDrafts = mapOf("draft" to "protected draft")))
+        fixture.vault.write(AccountVault(recovery = recovery))
+        fixture.invalidSnapshots += "broken"
+        fixture.afterReplace = { if (it.isEmpty()) fixture.cipher.canEncrypt = false }
+        val failed = fixture.repository()
+        failed.awaitReady()
+        assertFalse(failed.storageAvailable)
+        val checkpoint = fixture.vault.read()
+        assertEquals(listOf(recovery), checkpoint.quarantined)
+        assertEquals("", checkNotNull(checkpoint.recovery).cookies)
+        fixture.afterReplace = {}
+        fixture.cipher.canEncrypt = true
+        fixture.jar.setCookie(NodeSeekSite.BASE_URL, "session=99")
+        fixture.draft("partial cleanup must not be adopted")
+        val restarted = fixture.repository()
+        restarted.awaitReady()
+        assertTrue(restarted.storageAvailable)
+        assertFalse(fixture.session.peek().isSignedIn)
+        assertNull(fixture.postDrafts.data.first()[draftKey])
+        assertEquals(listOf(recovery), fixture.vault.read().quarantined)
+        assertNull(fixture.vault.read().recovery)
+        assertTrue(restarted.state.value.adding)
+    }
+
+    // Bug: canceling the automatic recovery login lets a later normal login overwrite its owner's saved drafts.
+    @Test
+    fun `canceling recovery login still preserves the known account drafts when signing in later`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        val recovery = PendingAccount(1, "broken", AccountLocalSnapshot(postDrafts = mapOf("draft" to "owner draft")))
+        fixture.vault.write(fixture.vault.read().copy(recovery = recovery))
+        fixture.invalidSnapshots += "broken"
+        val reopened = fixture.repository()
+        reopened.awaitReady()
+        fixture.complete(reopened) { reopened.cancelAdd() }
+        assertFalse(reopened.state.value.adding)
+        fixture.login(1, reopened)
+        assertEquals("owner draft", fixture.postDrafts.data.first()[draftKey])
+        assertEquals("owner draft", fixture.vault.read().accounts.single().local.postDrafts["draft"])
+    }
+
+    // Bug: a platform clear that silently leaves cookies active makes quarantine adopt an untrusted identity.
+    @Test
+    fun `incomplete cookie cleanup cannot report successful recovery and remains restartable`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        val recovery = PendingAccount(1, "broken", AccountLocalSnapshot(postDrafts = mapOf("draft" to "owner draft")))
+        fixture.vault.write(fixture.vault.read().copy(recovery = recovery))
+        fixture.invalidSnapshots += "broken"
+        fixture.keepLoginOnClear = true
+        val failed = fixture.repository()
+        failed.awaitReady()
+        assertFalse(failed.storageAvailable)
+        assertEquals(AccountFailure.STORAGE, failed.state.value.failure)
+        assertEquals("", checkNotNull(fixture.vault.read().recovery).cookies)
+        fixture.keepLoginOnClear = false
+        val restarted = fixture.repository()
+        restarted.awaitReady()
+        assertTrue(restarted.storageAvailable)
+        assertFalse(fixture.session.peek().isSignedIn)
+        assertNull(fixture.postDrafts.data.first()[draftKey])
+        assertNull(fixture.vault.read().recovery)
+        assertEquals(recovery.local, fixture.vault.read().accounts.single().local)
+    }
+
     private class Fixture(private val test: TestScope) {
+        var clearMail: suspend () -> Unit = {}
         var keepLoginOnClear = false
+        var captureFailure: Exception? = null
+        val invalidSnapshots = mutableSetOf<String>()
+        var replaceFailure: Exception? = null
+        var afterReplace: suspend (String) -> Unit = {}
         val jar = FakeSessionCookieStore()
         val session = SessionRepository(SessionCookies(NodeSeekSite.CONFIG, jar))
         val cookies = object : AccountCookieStore {
-            override suspend fun capture() = jar.cookieHeader(NodeSeekSite.BASE_URL).orEmpty()
+            override suspend fun capture(): String {
+                captureFailure?.let { throw it }
+                return jar.cookieHeader(NodeSeekSite.BASE_URL).orEmpty()
+            }
             override suspend fun replace(snapshot: String) {
+                if (snapshot in invalidSnapshots) throw InvalidAccountCookieSnapshot(AccountNativeFailure("NSCocoaErrorDomain", 3840))
+                replaceFailure?.let { throw it }
                 if (snapshot.isEmpty() && keepLoginOnClear) return
                 jar.removeAll()
                 if (snapshot.isNotEmpty()) jar.setCookie(NodeSeekSite.BASE_URL, snapshot)
+                afterReplace(snapshot)
             }
         }
         val cipher = TestCipher()
@@ -471,6 +767,7 @@ class AccountRepositoryTest {
             },
             offline,
             settings,
+            clearMail = { clearMail() },
         )
         val accounts = repository()
 
@@ -528,17 +825,17 @@ class AccountRepositoryTest {
             return MultiAccountAttendance(accounts, settings.automaticAttendance, legacy, NodeSeekSite.CONFIG, dispatchers, clock, test.backgroundScope, attendanceWrites, ::isolated)
         }
 
-        suspend fun login(uid: Long) {
-            accounts.awaitReady()
+        suspend fun login(uid: Long, repository: AccountRepository = accounts) {
+            repository.awaitReady()
             jar.removeAll()
             jar.setCookie(NodeSeekSite.BASE_URL, "session=$uid")
             session.sync()
-            accounts.remember(UserProfile(uid, "account-$uid", ""), session.state.value.fingerprint)
+            repository.remember(UserProfile(uid, "account-$uid", ""), session.state.value.fingerprint)
         }
-        suspend fun complete(action: () -> Unit) {
-            val revision = accounts.state.value.revision
+        suspend fun complete(repository: AccountRepository = accounts, action: () -> Unit) {
+            val revision = repository.state.value.revision
             action()
-            accounts.state.first { !it.busy && it.revision > revision }
+            repository.state.first { !it.busy && it.revision > revision }
         }
 
         suspend fun draft(text: String) {

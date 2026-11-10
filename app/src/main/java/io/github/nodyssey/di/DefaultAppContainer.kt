@@ -27,12 +27,14 @@ import io.github.nodyssey.data.CommunityRepository
 import io.github.nodyssey.data.CreditRepository
 import io.github.nodyssey.data.DefaultAppCacheStore
 import io.github.nodyssey.data.FollowRepository
+import io.github.nodyssey.data.InviteRepository
 import io.github.nodyssey.data.MessageRepository
 import io.github.nodyssey.data.NetworkAssetsRepository
 import io.github.nodyssey.data.NetworkAwardRepository
 import io.github.nodyssey.data.NetworkCommunityRepository
 import io.github.nodyssey.data.NetworkCreditRepository
 import io.github.nodyssey.data.NetworkFollowRepository
+import io.github.nodyssey.data.NetworkInviteRepository
 import io.github.nodyssey.data.NetworkMessageRepository
 import io.github.nodyssey.data.NetworkPostDataSource
 import io.github.nodyssey.data.NetworkProfileRepository
@@ -93,6 +95,10 @@ import io.github.nodyssey.data.imagehost.ImageHostRepository
 import io.github.nodyssey.data.lottery.LotteryRepository
 import io.github.nodyssey.data.lottery.LotteryStore
 import io.github.nodyssey.data.lottery.NetworkLotteryRepository
+import io.github.nodyssey.data.mail.DataStoreMailCredentialStore
+import io.github.nodyssey.data.mail.DefaultMailRepository
+import io.github.nodyssey.data.mail.MailRepository
+import io.github.nodyssey.data.mail.SeekMailCookieJar
 import io.github.nodyssey.data.offline.AndroidOfflineFileStore
 import io.github.nodyssey.data.offline.OfflineSettingsStore
 import io.github.nodyssey.data.offline.OkHttpOfflineImageSource
@@ -726,6 +732,10 @@ class DefaultAppContainer(
         NetworkStardustRepository(jsonClient, dispatchers)
     }
 
+    override val inviteRepository: InviteRepository by lazy {
+        NetworkInviteRepository(jsonClient, dispatchers)
+    }
+
     override val awardRepository: AwardRepository by lazy {
         NetworkAwardRepository(htmlClient, dispatchers)
     }
@@ -820,6 +830,24 @@ class DefaultAppContainer(
         )
     }
 
+    override val mailRepository: MailRepository by lazy {
+        // A 307/308 must never forward the provider's signed payload to another origin.
+        val mailClient = ownClient(imageHostClient.newBuilder().cookieJar(SeekMailCookieJar(cookieStore)).followRedirects(false).retryOnConnectionFailure(false).build())
+        val forumClient = ownClient(okHttpClient.newBuilder().followRedirects(false).retryOnConnectionFailure(false).build())
+        DefaultMailRepository(
+            credentials = DataStoreMailCredentialStore(appContext.mailDataStore, KeystoreSecretCipher()),
+            clock = clock,
+            http = OkHttpTransport(imageHostClient),
+            dispatchers = dispatchers,
+            sessionCookies = cookieStore,
+            sessionHttp = OkHttpTransport(mailClient),
+            // cAuth grants access despite being a GET; do not put RetryingTransport around it.
+            authorizationHttp = accountRequests.guard(
+                lifetime.guard(CookieScrubbingTransport(OkHttpTransport(forumClient), sessionCookies)),
+            ),
+        )
+    }
+
     private val imagePreparer: ImagePreparer by lazy { DefaultImagePreparer(appContext, dispatchers) }
 
     override val imageUploader: ImageUploader by lazy {
@@ -860,6 +888,7 @@ class DefaultAppContainer(
                 profileRepository,
                 offlineLibrary,
                 settingsRepository,
+                clearMail = mailRepository::disconnect,
             ),
             currentProfile = { profileRepository.profile(refresh = it) },
             stopPlatformRequests = {

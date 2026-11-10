@@ -82,6 +82,7 @@ class NodysseyWorkerFactory(
                         container.notificationRepository,
                         container.clock,
                         container.backgroundAlerts,
+                        container.mailRepository,
                     )
 
                 LotteryResultWorker::class.qualifiedName ->

@@ -8,6 +8,12 @@ import io.github.plaza.core.net.CLOUDFLARE_CHALLENGE_MARKERS
  */
 object Selectors {
 
+    // Safe text conversion for email HTML; these depend on HTML semantics rather than forum markup.
+    const val MAIL_ACTIVE_CONTENT = "script,style,iframe,object,embed,svg,form,input,noscript,template,head"
+    const val MAIL_LINK = "a[href]"
+    const val MAIL_BLOCK = "p,div,section,article,header,footer,h1,h2,h3,h4,h5,h6,li,tr,blockquote,pre,hr"
+    const val MAIL_CELL = "td,th"
+
     // --- Topic list ---------------------------------------------------------
     const val LIST_ITEM = "ul.post-list > li.post-list-item"
     const val LIST_TITLE_LINK = "div.post-title > a[href]"

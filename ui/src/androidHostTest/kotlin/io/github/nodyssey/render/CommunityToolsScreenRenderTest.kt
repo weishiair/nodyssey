@@ -4,10 +4,14 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
+import io.github.nodyssey.data.InviteCode
+import io.github.nodyssey.data.InvitePrice
+import io.github.nodyssey.data.InvitePricing
 import io.github.nodyssey.ui.settings.AboutCommunityScreen
 import io.github.nodyssey.ui.settings.CommunityStatsUiState
 import io.github.nodyssey.ui.tools.CommunityToolsScreen
 import io.github.nodyssey.ui.tools.InviteScreen
+import io.github.nodyssey.ui.tools.InviteUiState
 import io.github.nodyssey.ui.tools.LuckyScreen
 import io.github.nodyssey.ui.tools.LuckyUiState
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -93,7 +97,26 @@ class CommunityToolsScreenRenderTest {
     fun `invite in light`() {
         composeRule.setContent {
             PlazaTheme(darkTheme = false) {
-                InviteScreen(chickenCount = 1_240, onBack = {}, onBuy = {})
+                InviteScreen(
+                    state =
+                    InviteUiState(
+                        pricing =
+                        InvitePricing(
+                            coin = InvitePrice(1_000, enabled = true),
+                            stardust = InvitePrice(100, enabled = true),
+                        ),
+                        chickenCount = 1_240,
+                        stardustCount = 1,
+                        codes = listOf(InviteCode("8F3K2Q9M", applied = false, createdAtMillis = 1_784_804_442_000)),
+                        codesTotal = 1,
+                        isLoading = false,
+                    ),
+                    onBack = {},
+                    onBuy = {},
+                    onRetry = {},
+                    onOpenWeb = {},
+                    onDismissOutcome = {},
+                )
             }
         }
 

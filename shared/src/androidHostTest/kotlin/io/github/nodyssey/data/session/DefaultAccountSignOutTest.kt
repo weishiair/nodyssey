@@ -17,12 +17,17 @@ import io.github.nodyssey.data.composer.CommentSubmission
 import io.github.nodyssey.data.composer.PostComposerRepository
 import io.github.nodyssey.data.composer.PostDraft
 import io.github.nodyssey.data.composer.PostSubmission
+import io.github.nodyssey.data.mail.DefaultMailRepository
+import io.github.nodyssey.data.mail.MailTestTransport
+import io.github.nodyssey.data.mail.MemoryMailCredentials
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.testPreferenceStore
+import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.SessionCookies
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -53,6 +58,11 @@ class DefaultAccountSignOutTest {
         val postDrafts = RecordingPostComposer()
         val commentDrafts = RecordingCommentComposer()
         val settings = SettingsRepository(testPreferenceStore(backgroundScope, name = "sign-out"))
+        val mailCredentials = MemoryMailCredentials("sk_live_example")
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val mail = DefaultMailRepository(mailCredentials, MailTestTransport(), AppDispatchers(dispatcher, dispatcher))
+        mail.initialize()
+        assertTrue(mail.connection.value.connected)
         settings.setNotificationSeenCounts(NotificationCounts(replies = 40, mentions = 3, messages = 7))
         val messagePage = settings.messageDrafts.open(session.state.value.fingerprint, 42)
         settings.messageDrafts.save(messagePage, MessageDraft(text = "private message"))
@@ -65,6 +75,7 @@ class DefaultAccountSignOutTest {
             commentDrafts = commentDrafts,
             settings = settings,
             session = session,
+            mail = mail,
         ).signOut()
 
         // The downloaded copies: fetched signed in, and the row the review pinned this on —
@@ -82,6 +93,8 @@ class DefaultAccountSignOutTest {
         assertTrue(profiles.cacheCleared)
         assertFalse(session.state.value.isSignedIn)
         assertNull(cookies.cookieHeader(NodeSeekSite.BASE_URL))
+        assertFalse(mail.connection.value.connected)
+        assertEquals("", mailCredentials.key)
     }
 }
 

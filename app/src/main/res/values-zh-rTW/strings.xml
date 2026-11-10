@@ -12,11 +12,16 @@
 <resources>
     <string name="notifications_interactions">互動</string>
     <string name="notifications_messages">私訊</string>
+    <string name="notifications_mail">郵件</string>
+    <string name="notify_mail_title">NodeSeek 信箱有新郵件</string>
     <plurals name="notify_body_interactions">
         <item quantity="other">%1$d 則新互動</item>
     </plurals>
     <plurals name="notify_body_messages">
         <item quantity="other">%1$d 則新私訊</item>
+    </plurals>
+    <plurals name="notify_body_mail">
+        <item quantity="other">收件匣收到 %1$d 封新郵件</item>
     </plurals>
     <string name="notifications_keyword_alerts">關鍵詞提醒</string>
     <string name="notifications_tracked_threads">追蹤新回覆</string>

@@ -29,6 +29,15 @@ kotlin {
     // `EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64`, in both configurations; it is recorded here too
     // because Xcode rewrites `project.pbxproj` freely and this file is where the reason is.
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        // Match Swift compatibility libraries to the Xcode selected by the build. The
+        // pinned native dependencies embed their producer's absolute Xcode path, which
+        // Kotlin/Native does not rewrite. Remove once those linkerOpts are relocatable.
+        providers.environmentVariable("DEVELOPER_DIR").orNull?.let { developerDir ->
+            val platform = if (target.name == "iosArm64") "iphoneos" else "iphonesimulator"
+            target.binaries.configureEach {
+                linkerOpts("-L$developerDir/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$platform")
+            }
+        }
         target.binaries.framework {
             // What the Xcode project imports. Named for what it is rather than for the app: the app
             // is the Xcode target, and this is the Kotlin half it embeds.
@@ -76,6 +85,15 @@ kotlin {
              * with this on was installed and launched, and drew its first screen.
              */
             binaryOption("smallBinary", "true")
+
+            if (buildType == org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType.RELEASE) {
+                // Kotlin/Native 2.4.20's static-initializer call elimination exhausted a
+                // 5 GB ARM-host heap and did not finish within 64 minutes with 6 GB.
+                // The public phase switch retains initialization calls instead; the
+                // rest of Release optimization remains enabled. Remove when upstream
+                // bounds this analysis's memory use on the full application graph.
+                freeCompilerArgs += "-Xdisable-phases=RemoveRedundantCallsToStaticInitializersPhase"
+            }
         }
     }
 

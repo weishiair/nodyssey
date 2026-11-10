@@ -20,6 +20,7 @@ import io.github.plaza.core.net.SessionCookies
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.net.TransportFailureDiagnostics
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -52,6 +53,43 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SignInViewModelTest {
+    // Bug: signedIn closes navigation before the account has reached durable storage.
+    @Test
+    fun `successful credentials wait for account storage and retry only the save`() = runTest(dispatcher) {
+        val saving = CompletableDeferred<Boolean>()
+        var saveAttempts = 0
+        val repository = FakeSignInRepository(jar = cookies)
+        val vm = viewModels.track(
+            SignInViewModel(
+                repository,
+                SessionRepository(SessionCookies(NodeSeekSite.CONFIG, cookies)),
+                AppClock { FIXED_MILLIS },
+                saveAccount = {
+                    saveAttempts++
+                    if (saveAttempts == 1) saving.await() else true
+                },
+            ),
+        )
+        vm.accountState.typeText("reader")
+        vm.passwordState.typeText("password")
+        runCurrent()
+        vm.onVerified("proof")
+        vm.submitCredentials()
+        runCurrent()
+        assertFalse(vm.uiState.value.signedIn)
+        assertTrue(vm.uiState.value.isSubmitting)
+        saving.complete(false)
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.accountSaveFailed)
+        assertFalse(vm.uiState.value.signedIn)
+        repository.failure = AssertionError("retry must not submit credentials")
+        vm.retryAccountSave()
+        advanceUntilIdle()
+        assertEquals(2, saveAttempts)
+        assertTrue(vm.uiState.value.signedIn)
+        assertFalse(vm.uiState.value.accountSaveFailed)
+    }
+
     private val dispatcher = StandardTestDispatcher()
     private val viewModels = ViewModels()
     private val cookies = FakeSessionCookieStore()
