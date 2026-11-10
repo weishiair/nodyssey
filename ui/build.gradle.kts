@@ -30,8 +30,18 @@ kotlin {
     // D3a stopped at compiling: with no shell to launch it from, what the device arch bought was a
     // compiler checking that 40,000 lines of screen name nothing Android-only. D3b adds the simulator
     // arch, which is the one the shell is actually run on.
-    iosArm64()
-    iosSimulatorArm64()
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        // The pinned Compose native libraries carry a producer's Xcode 26.4 Swift path.
+        // Kotlin/Native's selected Xcode does not replace transitive linkerOpts, so supply
+        // its Swift compatibility directory through the public binary linker API. Remove
+        // this when the dependencies stop embedding the producer's absolute Xcode path.
+        providers.environmentVariable("DEVELOPER_DIR").orNull?.let { developerDir ->
+            val platform = if (target.name == "iosArm64") "iphoneos" else "iphonesimulator"
+            target.binaries.configureEach {
+                linkerOpts("-L$developerDir/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$platform")
+            }
+        }
+    }
 
     applyDefaultHierarchyTemplate {
         common {

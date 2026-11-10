@@ -541,7 +541,7 @@ jobs:
         run: ./gradlew :shared:macosArm64Test --max-workers=1
 
       - name: Test iOS navigation on the ARM simulator
-        run: ./gradlew :ui:iosSimulatorArm64Test --no-build-cache --max-workers=1
+        run: ./gradlew :ui:iosSimulatorArm64Test --max-workers=1
 
       - name: Release the test daemon before optimized linking
         run: ./gradlew --stop

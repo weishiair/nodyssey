@@ -58,8 +58,9 @@ Android 签名包发布后，iOS job 使用同一标签编译并附加未签名 
 Actions artifacts 中，不创建 GitHub Release。稳定版本的预检同样要求 ARM Mac。
 
 `1.3.10-test.12` 的 ARM Release 链接在 5 GB 堆中耗尽内存，因此打包前停止测试 daemon，
-用单 worker、6 GB 堆和 Serial GC 启动独立构建。模拟器测试禁用 Gradle 构建缓存，避免复用
-由其他 Xcode 安装路径生成的链接参数；是否解决路径问题以实际 ARM 预检为准。
+用单 worker、6 GB 堆和 Serial GC 启动独立构建。关闭 Gradle 构建缓存后仍复现 Swift 库路径错配，说明它来自已发布原生依赖的链接参数。
+`:ui` 与 `:iosapp` 通过 Kotlin/Native 的 `linkerOpts` 补充 `DEVELOPER_DIR` 中所选 Xcode 的
+Swift compatibility 搜索路径，覆盖真机和模拟器。依赖修复绝对路径后可移除此兼容配置。
 IPA 旁同时提供 SHA-256 和 `ios-build-v版本号.txt`，记录版本、SDK 与源提交。
 
 推送版本标签会发布安装包和更新清单。需要向 Telegram 频道发送公告和安装包时，

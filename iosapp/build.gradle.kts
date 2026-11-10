@@ -29,6 +29,15 @@ kotlin {
     // `EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64`, in both configurations; it is recorded here too
     // because Xcode rewrites `project.pbxproj` freely and this file is where the reason is.
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        // Match Swift compatibility libraries to the Xcode selected by the build. The
+        // pinned native dependencies embed their producer's absolute Xcode path, which
+        // Kotlin/Native does not rewrite. Remove once those linkerOpts are relocatable.
+        providers.environmentVariable("DEVELOPER_DIR").orNull?.let { developerDir ->
+            val platform = if (target.name == "iosArm64") "iphoneos" else "iphonesimulator"
+            target.binaries.configureEach {
+                linkerOpts("-L$developerDir/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$platform")
+            }
+        }
         target.binaries.framework {
             // What the Xcode project imports. Named for what it is rather than for the app: the app
             // is the Xcode target, and this is the Kotlin half it embeds.
