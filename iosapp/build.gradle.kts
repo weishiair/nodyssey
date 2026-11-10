@@ -85,6 +85,15 @@ kotlin {
              * with this on was installed and launched, and drew its first screen.
              */
             binaryOption("smallBinary", "true")
+
+            if (buildType == org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType.RELEASE) {
+                // Kotlin/Native 2.4.20's static-initializer call elimination exhausted a
+                // 5 GB ARM-host heap and did not finish within 64 minutes with 6 GB.
+                // The public phase switch retains initialization calls instead; the
+                // rest of Release optimization remains enabled. Remove when upstream
+                // bounds this analysis's memory use on the full application graph.
+                freeCompilerArgs += "-Xdisable-phases=RemoveRedundantCallsToStaticInitializersPhase"
+            }
         }
     }
 
