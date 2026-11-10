@@ -28,10 +28,10 @@ on:
         type: string
         default: ''
       ios_runner:
-        description: iOS build host (ARM runs Native tests; Intel runs shared JVM tests)
+        description: ARM Mac host for the iOS release and Native tests
         type: choice
-        options: [macos-26, macos-15, macos-15-intel]
-        default: macos-26
+        options: [macos-15, macos-26]
+        default: macos-15
       notify_telegram:
         description: Send the release announcement and packages to Telegram
         type: boolean
@@ -414,8 +414,8 @@ jobs:
   # arrives when the break is fixed and the workflow is re-run for the same tag.
   ios:
     needs: release
-    # This ARM image passed the 1.3.6 iPhone and Simulator builds plus Native runtime tests.
-    runs-on: ${{ inputs.ios_runner || 'macos-26' }}
+    # Release builds require an ARM host so the Native runtime gates cannot be skipped.
+    runs-on: ${{ inputs.ios_runner || 'macos-15' }}
     timeout-minutes: 120
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -442,6 +442,8 @@ jobs:
       - name: Verify the Xcode and iOS SDK for Liquid Glass
         shell: bash
         run: |
+          test "$(uname -m)" = arm64
+          sysctl hw.memsize
           test -d "$DEVELOPER_DIR"
           xcodebuild -version
           sdk_version=$(xcrun --sdk iphoneos --show-sdk-version)
@@ -536,38 +538,19 @@ jobs:
           cargo fmt --check
 
       - name: Run the common tests on Kotlin/Native
-        if: runner.arch == 'ARM64'
-        run: ./gradlew :shared:macosArm64Test --max-workers=2
+        run: ./gradlew :shared:macosArm64Test --max-workers=1
 
-      - name: Run common JVM tests on the Intel host
-        if: runner.arch == 'X64'
-        run: |
-          echo '::notice::Intel host cannot execute macosArm64Test. Running shared JVM tests; Native runtime tests are not claimed as passed.'
-          ./gradlew :shared:jvmTest --max-workers=2
+      - name: Test iOS navigation on the ARM simulator
+        run: ./gradlew :ui:iosSimulatorArm64Test --no-build-cache --max-workers=1
+
+      - name: Release the test daemon before optimized linking
+        run: ./gradlew --stop
 
       - name: Build the unsigned app
         env:
-          # Raises the Gradle daemon's heap for this job only, and it is not a precaution: at the
-          # project's own `-Xmx4096m` the release link of the iOS framework dies with
-          #
-          #   error: Compilation failed: Java heap space
-          #     at ...optimizations.StaticInitializersOptimization$InterproceduralAnalysis.analyze
-          #
-          # — Kotlin/Native's whole-program optimization pass, which only runs for a *release*
-          # binary, which is why nothing before this job ever needed the headroom (the simulator
-          # builds `docs/kmp-migration-plan.md` step D3b describes are debug ones). The Kotlin/Native
-          # compiler runs inside the Gradle daemon here rather than a process of its own, so this is
-          # the knob, and `kotlin.native.jvmArgs` is not.
-          #
-          # `GRADLE_OPTS` rather than editing a `gradle.properties`: the Gradle invocation this has
-          # to reach is the one inside the Xcode project's "Build Kotlin framework" run script,
-          # which takes no arguments from here.
-          #
-          # 5g, not more, because this runner has 7 GB in total (GitHub's macOS runners are 3-core
-          # M1s) and xcodebuild wants its share. Measured at 4g fails, 5g succeeds, ~7 minutes for
-          # the link. If a future version of the compiler needs more than fits, the fallback is a
-          # `macos-15-intel` runner — same build, 14 GB.
-          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8"
+          # The expanded app exhausted a 5 GB heap in StaticInitializersOptimization.
+          # Use a fresh daemon, one worker and Serial GC to keep non-heap overhead down.
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
         run: |
           xcodebuild \
             -project iosapp/Nodyssey.xcodeproj \
@@ -615,7 +598,7 @@ jobs:
           (cd "$RUNNER_TEMP" && zip -qry "$name" Payload && unzip -t "$name" >/dev/null)
           (cd "$RUNNER_TEMP" && shasum -a 256 "$name" > "$name.sha256")
           info="ios-build-${{ needs.release.outputs.tag }}.txt"
-          printf 'version=%s\nbuild=%s\nsdk=%s\nsource=%s\nsigning=unsigned\n' "${{ needs.release.outputs.version }}" "$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)" "$sdk_name" "$(git rev-parse HEAD)" > "$RUNNER_TEMP/$info"
+          printf 'version=%s\nbuild=%s\nsdk=%s\nsource=%s\nsigning=unsigned\nhost=arm64\n' "${{ needs.release.outputs.version }}" "$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)" "$sdk_name" "$(git rev-parse HEAD)" > "$RUNNER_TEMP/$info"
           echo "path=$RUNNER_TEMP/$name" >> "$GITHUB_OUTPUT"
           echo "checksum=$RUNNER_TEMP/$name.sha256" >> "$GITHUB_OUTPUT"
           echo "info=$RUNNER_TEMP/$info" >> "$GITHUB_OUTPUT"
@@ -657,9 +640,7 @@ jobs:
             echo "支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。"
             echo "iOS 测试版已完成使用验收；不同平台的部分功能仍有差异。"
             echo "iOS 源码提交：\`$(git rev-parse HEAD)\`。"
-            if [ "${{ runner.arch }}" = "X64" ]; then
-              echo "本次使用 Intel Mac 交叉编译，公共 JVM 与网络测试通过；ARM Mac 原生运行测试未执行。"
-            fi
+            echo "本次使用 ARM Mac 构建，Kotlin/Native 与 iOS 模拟器回归测试通过。"
           } > release-notes-with-ios.md
           gh release edit "$tag" --notes-file release-notes-with-ios.md
           echo "Added the iOS note to $tag."

@@ -49,9 +49,17 @@ Windows 上可检查配置、脚本和共享代码；Swift 编译和以上视觉
 
 `dev` 通过发布 PR 合入 `main` 后，推送 `v版本号` 标签触发 `release.yml`。
 Android 签名包发布后，iOS job 使用同一标签编译并附加未签名 IPA。
-正式版默认使用已验证的 `macos-26` ARM Mac 与 Xcode 26.3，同时执行 Kotlin/Native 运行测试。
-`1.3.6-ios-test.2` 的真机包、模拟器包和原生测试已在此宿主通过。手动重跑时仍可通过
-`ios_runner` 选择其他 Mac；Intel 宿主只运行 JVM 测试，不声称通过 ARM 原生运行测试。
+正式版使用 `macos-15` ARM Mac 与 Xcode 26.3，运行 Kotlin/Native 和 iOS 模拟器回归后再打包。
+工作流核对宿主确为 arm64；正式版不能选择 Intel，也不会跳过原生运行测试。手动重跑时可通过
+`ios_runner` 选择 `macos-26` ARM Mac。
+
+发布前可在准备分支运行 `ios-test.yml`，选择 `platform = ios`、`checks_only = false`。
+该工作流同时接受稳定版本号，先完成原生测试、Release 真机 IPA 和模拟器包验证，将产物保存在
+Actions artifacts 中，不创建 GitHub Release。稳定版本的预检同样要求 ARM Mac。
+
+`1.3.10-test.12` 的 ARM Release 链接在 5 GB 堆中耗尽内存，因此打包前停止测试 daemon，
+用单 worker、6 GB 堆和 Serial GC 启动独立构建。模拟器测试禁用 Gradle 构建缓存，避免复用
+由其他 Xcode 安装路径生成的链接参数；是否解决路径问题以实际 ARM 预检为准。
 IPA 旁同时提供 SHA-256 和 `ios-build-v版本号.txt`，记录版本、SDK 与源提交。
 
 推送版本标签会发布安装包和更新清单。需要向 Telegram 频道发送公告和安装包时，

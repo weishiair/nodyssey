@@ -183,14 +183,18 @@ jobs:
           cargo test --locked
           cargo fmt --check
           cargo run --locked --example probe
-      - name: Read the test version
+      - name: Read the package version
         if: inputs.checks_only != true
         shell: bash
         run: |
           version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
           code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ios-test\.[0-9]+$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-ios-test\.[0-9]+)?$ ]]
           [[ "$code" =~ ^[1-9][0-9]*$ ]]
+          if [[ "$version" != *-ios-test.* ]]; then
+            test "$(uname -m)" = arm64
+          fi
+          sysctl hw.memsize
           echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
           echo "BUILD_CODE=$code" >> "$GITHUB_ENV"
       - name: Run common tests on Kotlin Native
@@ -198,7 +202,7 @@ jobs:
         run: ./gradlew :shared:macosArm64Test --max-workers=2
       - name: Test iOS split navigation on the simulator
         if: runner.arch == 'ARM64'
-        run: ./gradlew :ui:iosSimulatorArm64Test --max-workers=2
+        run: ./gradlew :ui:iosSimulatorArm64Test --no-build-cache --max-workers=1
       - name: Upload iOS simulator test failures
         if: failure() && runner.arch == 'ARM64'
         uses: actions/upload-artifact@v7
@@ -217,10 +221,13 @@ jobs:
       - name: Compile the iOS shell without packaging
         if: inputs.checks_only == true
         run: ./gradlew :iosapp:compileKotlinIosArm64 :iosapp:compileKotlinIosSimulatorArm64 --max-workers=2
+      - name: Release the test daemon before optimized linking
+        if: inputs.checks_only != true
+        run: ./gradlew --stop
       - name: Build the unsigned iPhone app
         if: inputs.checks_only != true
         env:
-          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8"
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
         run: |
           xcodebuild \
             -project iosapp/Nodyssey.xcodeproj \
@@ -273,7 +280,7 @@ jobs:
       - name: Build and verify the iOS Simulator app
         if: inputs.checks_only != true
         env:
-          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8"
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
         run: bash .github/scripts/build-ios-simulator.sh "$GITHUB_WORKSPACE/build/ios-simulator"
       - name: Upload the iOS Simulator app
         if: inputs.checks_only != true
