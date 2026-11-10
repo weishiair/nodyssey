@@ -548,9 +548,9 @@ jobs:
 
       - name: Build the unsigned app
         env:
-          # The expanded app exhausted a 5 GB heap in StaticInitializersOptimization.
-          # Use a fresh daemon, one worker and Serial GC to keep non-heap overhead down.
-          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
+          # iosapp disables the unbounded static-initializer call-elimination phase.
+          # Use a fresh daemon, one worker and Serial GC to limit non-heap overhead.
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
         run: |
           xcodebuild \
             -project iosapp/Nodyssey.xcodeproj \

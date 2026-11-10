@@ -227,7 +227,7 @@ jobs:
       - name: Build the unsigned iPhone app
         if: inputs.checks_only != true
         env:
-          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
         run: |
           xcodebuild \
             -project iosapp/Nodyssey.xcodeproj \
@@ -280,7 +280,7 @@ jobs:
       - name: Build and verify the iOS Simulator app
         if: inputs.checks_only != true
         env:
-          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
         run: bash .github/scripts/build-ios-simulator.sh "$GITHUB_WORKSPACE/build/ios-simulator"
       - name: Upload the iOS Simulator app
         if: inputs.checks_only != true
