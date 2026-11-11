@@ -47,14 +47,15 @@ interface MailRepository {
 
     suspend fun mailboxes(generation: Long): List<Mailbox>
 
-    suspend fun inbox(generation: Long, mailboxId: Long, offset: Int = 0): MailPage
+    /** A null mailbox ID lists mail across all mailboxes, with server-side ordering and paging. */
+    suspend fun inbox(generation: Long, mailboxId: Long?, offset: Int = 0): MailPage
 
     suspend fun detail(generation: Long, mailboxId: Long, id: Long): MailMessage
 
     suspend fun markRead(generation: Long, mail: MailMessage, read: Boolean)
 
     /** Marks the current inbox, including unloaded pages, without consuming mail arriving later. */
-    suspend fun markAllRead(generation: Long, mailboxId: Long): Int
+    suspend fun markAllRead(generation: Long, mailboxId: Long?): Int
 
     /** Polls the selected inbox and advances its persisted cursor without treating old mail as new. */
     suspend fun checkForNewMessages(): MailArrival? = null
@@ -237,7 +238,7 @@ class DefaultMailRepository(
         return boxes
     }
 
-    override suspend fun inbox(generation: Long, mailboxId: Long, offset: Int): MailPage {
+    override suspend fun inbox(generation: Long, mailboxId: Long?, offset: Int): MailPage {
         val serial = if (offset == 0) {
             control.withLock {
                 checkGeneration(generation)
@@ -303,7 +304,7 @@ class DefaultMailRepository(
         markReadLocked(generation, mail, read)
     }
 
-    override suspend fun markAllRead(generation: Long, mailboxId: Long): Int = readWrites.withLock {
+    override suspend fun markAllRead(generation: Long, mailboxId: Long?): Int = readWrites.withLock {
         // Both connection modes provide the single-message read endpoint. Capture the
         // existing pages before writing, then issue sequential updates with no guessed batch API.
         val head = inbox(generation, mailboxId)
@@ -376,8 +377,9 @@ class DefaultMailRepository(
             }
             return@withLock null
         }
-        val selected = defaultMailboxId(generation)?.takeIf { id -> mailboxes.any { it.id == id } }
-            ?: mailboxes.first().id.also { setDefaultMailboxId(generation, it) }
+        val savedMailboxId = defaultMailboxId(generation)
+        val selected = savedMailboxId?.takeIf { id -> mailboxes.any { it.id == id } }
+        if (selected != savedMailboxId) setDefaultMailboxId(generation, selected)
         val page = try {
             inbox(generation, selected)
         } catch (error: MailException) {

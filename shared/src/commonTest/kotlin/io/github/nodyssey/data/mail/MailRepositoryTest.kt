@@ -165,7 +165,7 @@ class MailRepositoryTest {
                 }
             }
         }
-        val store = MemoryMailCredentials("sk_live_example")
+        val store = MemoryMailCredentials("sk_live_example").apply { defaultMailboxId = 7 }
         val dispatcher = StandardTestDispatcher(testScheduler)
         val repository = DefaultMailRepository(store, transport, AppDispatchers(dispatcher, dispatcher))
 
@@ -191,7 +191,7 @@ class MailRepositoryTest {
             }
         }
         val dispatcher = StandardTestDispatcher(testScheduler)
-        val repository = DefaultMailRepository(MemoryMailCredentials("sk_live_example"), transport, AppDispatchers(dispatcher, dispatcher))
+        val repository = DefaultMailRepository(MemoryMailCredentials("sk_live_example").apply { defaultMailboxId = 7 }, transport, AppDispatchers(dispatcher, dispatcher))
         val arrivals = mutableListOf<MailArrival>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.arrivals.collect { arrivals += it } }
         assertEquals(null, repository.checkForNewMessages())
@@ -231,13 +231,14 @@ class MailRepositoryTest {
         repository.setDefaultMailboxId(1, 9)
         gate.complete(Unit)
         assertEquals(null, pending.await())
-        assertEquals(mapOf(7L to 0L), store.notificationCursors)
+        assertEquals(mapOf<Long?, Long>(7L to 0L), store.notificationCursors)
         assertEquals(null, repository.inboxUpdates.value)
     }
 
     @Test
     fun `a new id already read on the website advances the cursor without a new mail alert`() = runTest {
         val store = MemoryMailCredentials("sk_live_example").apply {
+            defaultMailboxId = 7
             notificationCursors[7] = 0
         }
         val transport = MailTestTransport().apply {
@@ -301,7 +302,7 @@ class MailRepositoryTest {
             }
         }
         val dispatcher = StandardTestDispatcher(testScheduler)
-        val store = MemoryMailCredentials("sk_live_example")
+        val store = MemoryMailCredentials("sk_live_example").apply { defaultMailboxId = 7 }
         val repository = DefaultMailRepository(store, transport, AppDispatchers(dispatcher, dispatcher), clock = io.github.plaza.core.AppClock { now })
         repository.checkForNewMessages()
         now = 30_000
@@ -314,8 +315,8 @@ class MailRepositoryTest {
         assertEquals(MailError.NOT_FOUND, assertFailsWith<MailException> { repository.checkForNewMessages() }.error)
         repository.checkForNewMessages()
         assertEquals(3, catalogRequests)
-        assertEquals(9L, store.defaultMailboxId)
-        assertEquals(9L, repository.inboxUpdates.value!!.mailboxId)
+        assertEquals(null, store.defaultMailboxId)
+        assertEquals(null, repository.inboxUpdates.value!!.mailboxId)
     }
 
     @Test
