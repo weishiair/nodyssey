@@ -54,3 +54,4 @@ iosapp/**/*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 # Python bytecode from running the release-script tests locally; CI never commits, so this only
 # exists to keep a local `python3 -m unittest` run out of `git status`.
 __pycache__/
+.ai_memory/

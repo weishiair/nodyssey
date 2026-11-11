@@ -71,6 +71,12 @@ val LocalOneHandModeAvailable = staticCompositionLocalOf { true }
  */
 val LocalEinkMode = staticCompositionLocalOf { false }
 
+/**
+ * 毛玻璃质感 — whether navigation bars and floating chrome controls wear translucent liquid-glass
+ * gradients and specular rim highlights. Automatically false when [LocalEinkMode] is active.
+ */
+val LocalFrostedGlass = staticCompositionLocalOf { false }
+
 @Composable
 fun PlazaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -123,9 +129,12 @@ fun PlazaTheme(
      * have to pass both.
      */
     einkMode: Boolean = false,
+    /** 毛玻璃质感; see [LocalFrostedGlass]. Ignored when [einkMode] is active. */
+    frostedGlass: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val neutralSurfaces = pureWhite && !einkMode
+    val activeFrostedGlass = frostedGlass && !einkMode
     // Asked for only when it could win: 角色预设 beats it, and building a scheme that is about to be
     // discarded is work on every recomposition of the whole app. Null means this platform — or this
     // Android version — has no system palette; see [platformSystemColorScheme].
@@ -154,8 +163,8 @@ fun PlazaTheme(
                     plazaSeedColorScheme(seedColor, darkTheme, paletteStyle)
                 }
         }
-    val layers = remember(baseScheme, darkTheme, einkMode, neutralSurfaces, softPalette, characterPalette) {
-        val layers = plazaLayers(baseScheme, darkTheme, einkMode, pureWhite = neutralSurfaces)
+    val layers = remember(baseScheme, darkTheme, einkMode, neutralSurfaces, softPalette, characterPalette, activeFrostedGlass) {
+        val layers = plazaLayers(baseScheme, darkTheme, einkMode, pureWhite = neutralSurfaces, frostedGlass = activeFrostedGlass)
         if (softPalette != null && characterPalette == null && !einkMode && !neutralSurfaces) {
             layers.copy(inset = softPalette.inset(darkTheme))
         } else {
@@ -179,6 +188,7 @@ fun PlazaTheme(
         LocalPlazaFontScale provides fontScale.coerceIn(MIN_TYPE_SCALE, MAX_TYPE_SCALE),
         LocalOneHandMode provides oneHandMode,
         LocalEinkMode provides einkMode,
+        LocalFrostedGlass provides activeFrostedGlass,
         // Tonal elevation is a colour difference, and 墨水屏模式's container ladder has none left to
         // make. Turning it off here means a `Surface` handed a `tonalElevation` by some caller does
         // not go and compute one anyway — the scheme's intent holds even where a call site disagrees.

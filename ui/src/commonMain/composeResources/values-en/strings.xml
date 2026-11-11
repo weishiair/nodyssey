@@ -1838,4 +1838,6 @@
     <string name="mail_open_inbox">Open inbox</string>
     <string name="mail_poll_api_hint">Checks about every 30 seconds in the foreground, or 15 seconds in the inbox</string>
     <string name="mail_poll_web_hint">Checks for new mail about every 60 seconds while the app is open</string>
+    <string name="settings_frosted_glass">Frosted glass chrome</string>
+    <string name="settings_frosted_glass_hint">Floating translucent bottom bar and specular rims; post cards stay solid for reading contrast</string>
 </resources>

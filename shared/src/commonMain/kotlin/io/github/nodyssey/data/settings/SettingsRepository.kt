@@ -98,6 +98,7 @@ class SettingsRepository(
                 fontScale = preferences[KEY_FONT_SCALE] ?: 1f,
                 oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: true,
                 einkMode = preferences[KEY_EINK_MODE] ?: false,
+                frostedGlass = preferences[KEY_FROSTED_GLASS] ?: false,
                 predictiveBack = preferences[KEY_PREDICTIVE_BACK] ?: true,
                 postReplyStyle = preferences[KEY_POST_REPLY_STYLE]
                     ?.let { runCatching { PostReplyStyle.valueOf(it) }.getOrNull() }
@@ -279,6 +280,9 @@ class SettingsRepository(
 
     /** 墨水屏模式; see [UserSettings.einkMode] for everything it takes over. */
     suspend fun setEinkMode(enabled: Boolean) = edit { it[KEY_EINK_MODE] = enabled }
+
+    /** 毛玻璃质感; see [UserSettings.frostedGlass]. */
+    suspend fun setFrostedGlass(enabled: Boolean) = edit { it[KEY_FROSTED_GLASS] = enabled }
 
     suspend fun setDisplayRefreshRate(hertz: Int) =
         edit { it[KEY_DISPLAY_REFRESH_RATE] = hertz.takeIf { rate -> rate in DISPLAY_REFRESH_RATE_CHOICES } ?: 0 }
@@ -725,6 +729,7 @@ class SettingsRepository(
         private val KEY_FONT_SCALE = floatPreferencesKey("font_scale")
         private val KEY_ONE_HAND_MODE = booleanPreferencesKey("one_hand_mode")
         private val KEY_EINK_MODE = booleanPreferencesKey("eink_mode")
+        private val KEY_FROSTED_GLASS = booleanPreferencesKey("frosted_glass")
         private val KEY_PREDICTIVE_BACK = booleanPreferencesKey("predictive_back")
         private val KEY_POST_REPLY_STYLE = stringPreferencesKey("post_reply_style")
         private val KEY_SHOW_AUTHOR_ACCOUNT_INFO = booleanPreferencesKey("show_author_account_info")
@@ -946,6 +951,12 @@ data class UserSettings(
      * screen — which is why paper books are not black.
      */
     val einkMode: Boolean = false,
+    /**
+     * 毛玻璃质感 — whether navigation bars and floating chrome controls wear a translucent
+     * liquid-glass gradient, floating pill geometry, and a directional 1dp specular rim. Reading
+     * cards and post floors stay solid so reading contrast is unchanged.
+     */
+    val frostedGlass: Boolean = false,
     val predictiveBack: Boolean = true,
     /** Reply presentation only; switching never changes floor keys, ordering or pagination. */
     val postReplyStyle: PostReplyStyle = PostReplyStyle.CARDS,

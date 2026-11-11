@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -53,8 +54,12 @@ import io.github.nodyssey.ui.resources.post_reading_original_position
 import io.github.nodyssey.ui.resources.post_reply_action
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalEinkMode
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
+import io.github.plaza.designsys.theme.cardBorderStroke
+import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.stringResource
 
 /** The position and reply share a fixed row; scrolling never moves either control. */
@@ -67,7 +72,9 @@ internal fun ThreadReadingControls(
     modifier: Modifier = Modifier,
 ) {
     val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
     val einkMode = LocalEinkMode.current
+    val backdrop = LocalLiquidGlassBackdrop.current
     val positionLabel = if (currentFloor == 0) {
         stringResource(Res.string.post_reading_original_position)
     } else {
@@ -80,11 +87,27 @@ internal fun ThreadReadingControls(
         ) {
             Surface(
                 onClick = onJump,
-                modifier = Modifier.widthIn(min = 104.dp).heightIn(min = 48.dp)
+                modifier = Modifier
+                    .widthIn(min = 104.dp)
+                    .heightIn(min = 48.dp)
+                    .then(
+                        if (layers.frostedGlass) {
+                            Modifier.glassChromeSurface(
+                                layers = layers,
+                                darkTheme = darkTheme,
+                                shape = CircleShape,
+                                elevated = true,
+                                backdrop = backdrop,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
                     .semantics { contentDescription = positionLabel },
                 shape = CircleShape,
-                color = layers.raised,
-                shadowElevation = if (einkMode) 0.dp else 2.dp,
+                color = if (layers.frostedGlass) Color.Transparent else layers.raised,
+                border = if (layers.frostedGlass) null else layers.cardBorderStroke,
+                shadowElevation = if (einkMode || layers.frostedGlass) 0.dp else 2.dp,
             ) {
                 Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                     Text(
@@ -95,13 +118,43 @@ internal fun ThreadReadingControls(
                 }
             }
         }
+        val fabShape = RoundedCornerShape(16.dp)
         FloatingActionButton(
             onClick = onReply,
-            modifier = Modifier.align(Alignment.CenterEnd).size(48.dp),
-            shape = RoundedCornerShape(16.dp),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .size(48.dp)
+                .then(
+                    if (layers.frostedGlass) {
+                        Modifier.glassChromeSurface(
+                            layers = layers,
+                            darkTheme = darkTheme,
+                            shape = fabShape,
+                            elevated = true,
+                            backdrop = backdrop,
+                            surfaceTint =
+                            MaterialTheme.colorScheme.primaryContainer.copy(
+                                alpha = if (darkTheme) 0.54f else 0.62f,
+                            ),
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
+            shape = fabShape,
+            containerColor =
+            if (layers.frostedGlass) {
+                Color.Transparent
+            } else {
+                MaterialTheme.colorScheme.primaryContainer
+            },
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = if (einkMode) 0.dp else 2.dp),
+            elevation =
+            if (layers.frostedGlass) {
+                FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
+            } else {
+                FloatingActionButtonDefaults.elevation(defaultElevation = if (einkMode) 0.dp else 2.dp)
+            },
         ) {
             Icon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
         }

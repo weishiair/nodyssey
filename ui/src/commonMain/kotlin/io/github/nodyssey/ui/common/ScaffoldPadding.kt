@@ -4,8 +4,23 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/**
+ * Extra bottom clearance reserved when the floating liquid-glass bottom navigation pill is active
+ * in place of `NavigationSuiteScaffold`'s docked bar.
+ */
+internal val LocalFloatingBottomBarHeight = compositionLocalOf { 0.dp }
+
+/**
+ * The `Scaffold`'s bottom inset plus any floating bottom navigation pill clearance.
+ */
+@Composable
+internal fun PaddingValues.bottomWithFloatingBar(): Dp =
+    calculateBottomPadding() + LocalFloatingBottomBarHeight.current
 
 /**
  * A `Scaffold`'s inner padding minus its bottom edge, for a tab root whose list runs on under the

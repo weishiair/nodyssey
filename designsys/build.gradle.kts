@@ -101,6 +101,11 @@ kotlin {
             // DynamicScheme itself.
             implementation(libs.material.color.utilities)
 
+            // Liquid Glass / real-time backdrop sampling and refraction for floating chrome.
+            // `api` so `:ui` can wire `rememberLayerBackdrop()` / `layerBackdrop(...)` on its
+            // scrolling containers and pass the backdrop down to floating bars and pills.
+            api(libs.backdrop)
+
             // Avatars load over the network. Only `coil-compose` — the GIF and SVG decoders are a
             // decision about a particular site's content, so they stay with the app that needs them.
             implementation(libs.coil.compose)

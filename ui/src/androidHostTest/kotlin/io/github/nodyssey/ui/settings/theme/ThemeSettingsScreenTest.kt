@@ -84,12 +84,28 @@ class ThemeSettingsScreenTest {
         composeRule.onAllNodes(hasSetTextAction() and hasText("海雾")).assertCountEquals(0)
     }
 
+    @Test
+    fun `毛玻璃质感 toggles frostedGlass and goes flat under 墨水屏模式`() {
+        var toggled: Boolean? = null
+        setScreen(
+            settings = UserSettings(frostedGlass = false, einkMode = false),
+            onFrostedGlassChange = { toggled = it },
+        )
+
+        composeRule.onNodeWithText("毛玻璃质感").performScrollTo().performClick()
+        assertEquals(true, toggled)
+    }
+
     private fun setScreen(
         settings: UserSettings = UserSettings(seedColor = SettingsRepository.DEFAULT_SEED_COLOR),
         onPaletteStyleChange: (PaletteStyle) -> Unit = {},
+        onFrostedGlassChange: (Boolean) -> Unit = {},
     ) {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(
+                einkMode = settings.einkMode,
+                frostedGlass = settings.frostedGlass,
+            ) {
                 ThemeSettingsScreen(
                     settings = settings,
                     onBack = {},
@@ -99,6 +115,7 @@ class ThemeSettingsScreenTest {
                     onPaletteStyleChange = onPaletteStyleChange,
                     onSaveTheme = { _, _ -> },
                     onDeleteTheme = {},
+                    onFrostedGlassChange = onFrostedGlassChange,
                 )
             }
         }

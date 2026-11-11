@@ -2116,4 +2116,6 @@
     <string name="mail_open_inbox">查看邮箱</string>
     <string name="mail_poll_api_hint">前台约每 30 秒检查；邮箱页约每 15 秒</string>
     <string name="mail_poll_web_hint">前台约每 60 秒检查新邮件</string>
+    <string name="settings_frosted_glass">毛玻璃质感</string>
+    <string name="settings_frosted_glass_hint">悬浮胶囊底栏与顶栏半透明高光；帖子卡片保持纯色以确保阅读对比度</string>
 </resources>

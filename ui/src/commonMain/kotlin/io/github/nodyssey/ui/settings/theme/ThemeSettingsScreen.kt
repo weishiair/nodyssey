@@ -66,6 +66,8 @@ import io.github.nodyssey.ui.resources.settings_color_source
 import io.github.nodyssey.ui.resources.settings_color_source_custom
 import io.github.nodyssey.ui.resources.settings_color_source_preset
 import io.github.nodyssey.ui.resources.settings_color_source_wallpaper
+import io.github.nodyssey.ui.resources.settings_frosted_glass
+import io.github.nodyssey.ui.resources.settings_frosted_glass_hint
 import io.github.nodyssey.ui.resources.settings_my_themes
 import io.github.nodyssey.ui.resources.settings_my_themes_hint
 import io.github.nodyssey.ui.resources.settings_palette_style
@@ -78,6 +80,8 @@ import io.github.nodyssey.ui.settings.SettingsItemGap
 import io.github.nodyssey.ui.settings.SettingsMenuRow
 import io.github.nodyssey.ui.settings.SettingsPagePadding
 import io.github.plaza.designsys.component.ChoiceSegments
+import io.github.plaza.designsys.component.GroupedListItemSwitch
+import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
@@ -108,6 +112,7 @@ fun ThemeSettingsRoute(
         onWallpaperSeedSelected = viewModel::selectWallpaperSeed,
         onWallpaperSystemPaletteChange = viewModel::setWallpaperSystemPalette,
         onWallpaperAutoUpdateChange = viewModel::setWallpaperAutoUpdate,
+        onFrostedGlassChange = viewModel::setFrostedGlass,
         modifier = modifier,
     )
 }
@@ -140,6 +145,7 @@ fun ThemeSettingsScreen(
     onWallpaperSeedSelected: (Int) -> Unit = {},
     onWallpaperSystemPaletteChange: (Boolean) -> Unit = {},
     onWallpaperAutoUpdateChange: (Boolean) -> Unit = {},
+    onFrostedGlassChange: (Boolean) -> Unit = {},
 ) {
     // Which way into the colour sheet: 新建 starts a theme from nothing, so it opens with no name —
     // prefilled with the theme in use, saving under a new colour made a second theme of the same
@@ -217,6 +223,11 @@ fun ThemeSettingsScreen(
                     selected = settings.paletteStyle,
                     onSelect = onPaletteStyleChange,
                     enabled = activePreset(settings)?.hasFixedColors != true,
+                )
+                FrostedGlassRow(
+                    checked = settings.frostedGlass,
+                    enabled = !settings.einkMode,
+                    onCheckedChange = onFrostedGlassChange,
                 )
             }
 
@@ -516,8 +527,31 @@ private fun PaletteStyleRow(
         choices = PaletteStyleChoices.map { it to stringResource(paletteStyleLabel(it)) },
         selected = selected,
         onSelect = onSelect,
-        last = true,
+        last = false,
         enabled = enabled,
+    )
+}
+
+@Composable
+private fun FrostedGlassRow(
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    GroupedRow(
+        icon = PlazaIcons.Palette,
+        title = stringResource(Res.string.settings_frosted_glass),
+        subtitle = stringResource(Res.string.settings_frosted_glass_hint),
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        enabled = enabled,
+        last = true,
+        trailing = {
+            GroupedListItemSwitch(
+                checked = checked && enabled,
+                enabled = enabled,
+            )
+        },
     )
 }
 

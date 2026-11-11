@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -90,11 +91,14 @@ import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.theme.ControlShape
 import io.github.plaza.designsys.theme.LocalEinkMode
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.cardBorderStroke
+import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -234,6 +238,9 @@ private fun PageKey(
     content: @Composable () -> Unit,
 ) {
     val eink = LocalEinkMode.current
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
+    val backdrop = LocalLiquidGlassBackdrop.current
     Box(modifier = Modifier.size(Sizes.minTouchTarget), contentAlignment = Alignment.Center) {
         Surface(
             onClick = onClick,
@@ -241,7 +248,12 @@ private fun PageKey(
             shape = ControlShape,
             // The raised layer, not the page's grey: the rail floats over cards and over the gaps
             // between them, and a key the colour of the gaps disappeared into them there.
-            color = LocalPlazaLayers.current.raised,
+            color =
+            if (layers.frostedGlass) {
+                Color.Transparent
+            } else {
+                layers.raised
+            },
             // Material's Surface otherwise leaves a disabled key looking exactly like a live one.
             contentColor =
             if (enabled) {
@@ -254,9 +266,23 @@ private fun PageKey(
             },
             // A key is a pale square on a pale ground, and the shadow is what makes it a key.
             // On paper the shadow cannot be drawn, so the outline takes the job over.
-            shadowElevation = if (eink) 0.dp else PageKeyElevation,
+            shadowElevation = if (eink || layers.frostedGlass) 0.dp else PageKeyElevation,
             border = if (eink) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
-            modifier = Modifier.size(PageKeySize),
+            modifier = Modifier
+                .size(PageKeySize)
+                .then(
+                    if (layers.frostedGlass) {
+                        Modifier.glassChromeSurface(
+                            layers = layers,
+                            darkTheme = darkTheme,
+                            shape = ControlShape,
+                            elevated = true,
+                            backdrop = backdrop,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
             Box(
                 modifier = Modifier

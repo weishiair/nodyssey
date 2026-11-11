@@ -85,6 +85,7 @@ import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.UpdateDot
+import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.common.withoutBottom
@@ -365,7 +366,7 @@ fun ProfileScreen(
         }
         val attendance: @Composable () -> Unit = { AttendanceBanner(state, onAttendance, onAttendanceBoard) }
         val sections = profileSections(destinations, hasUnreadLotteryResults, hasUnreadMail)
-        val bottom = Spacing.lg + padding.calculateBottomPadding()
+        val bottom = Spacing.lg + padding.bottomWithFloatingBar()
         // Under the bottom bar rather than stopping at it — see [withoutBottom].
         BoxWithConstraints(Modifier.padding(padding.withoutBottom()).fillMaxSize()) {
             if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {
