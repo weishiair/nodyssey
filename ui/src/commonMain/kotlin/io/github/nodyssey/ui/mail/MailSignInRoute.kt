@@ -7,6 +7,11 @@ import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.ui.login.WebSessionCapture
 import io.github.plaza.core.net.UserAgent
 
+/**
+ * The provider's full web flow. During native recovery, [onChallengePassed] resumes the exchange
+ * once the forum issues new clearance; the existing cookie alone must never dismiss verification.
+ * A captured mail token may finish first, while manually closing the page cancels the attempt.
+ */
 @Composable
 expect fun MailSignInRoute(
     session: SessionRepository,
@@ -15,6 +20,7 @@ expect fun MailSignInRoute(
     onClose: () -> Unit,
     onOpenExternal: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onChallengePassed: (() -> Unit)? = null,
 )
 
 /**

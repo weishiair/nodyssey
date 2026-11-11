@@ -106,6 +106,8 @@ class MailInboxViewModel(
                     connecting = !connection.connected && state.value.connecting &&
                         (authorizationGeneration == null || sameAuthorization),
                     authorizing = state.value.authorizing && sameAuthorization,
+                    challengeVerificationAvailable = state.value.challengeVerificationAvailable && sameAuthorization,
+                    verifyingChallenge = state.value.verifyingChallenge && sameAuthorization,
                     error = connection.error,
                 )
                 if (authorizationGeneration != connection.generation || connection.connected) {
@@ -182,10 +184,10 @@ class MailInboxViewModel(
     }
 
     fun authorizeOnWebsite() {
-        startAuthorization(website = true)
+        startAuthorization(website = true, recoveringChallenge = state.value.challengeVerificationAvailable)
     }
 
-    private fun startAuthorization(website: Boolean) {
+    private fun startAuthorization(website: Boolean, recoveringChallenge: Boolean = false, automaticallyVerifyChallenge: Boolean = true) {
         if (state.value.connecting || state.value.authorizing || authorizationJob?.isActive == true) return
         apiKey.clearText()
         val serial = ++authorizationSerial
@@ -193,8 +195,8 @@ class MailInboxViewModel(
             it.copy(
                 connecting = true,
                 error = null,
-                challengeVerificationAvailable = false,
-                verifyingChallenge = false,
+                challengeVerificationAvailable = recoveringChallenge,
+                verifyingChallenge = recoveringChallenge,
             )
         }
         authorizationJob = viewModelScope.launch {
@@ -203,16 +205,29 @@ class MailInboxViewModel(
                     val attempt = repository.beginAuthorization()
                     currentCoroutineContext().ensureActive()
                     authorizationGeneration = attempt
-                    state.update { it.copy(authorizing = website, connecting = !website, error = null) }
+                    state.update {
+                        it.copy(
+                            authorizing = website,
+                            connecting = !website,
+                            error = null,
+                            challengeVerificationAvailable = recoveringChallenge,
+                            verifyingChallenge = recoveringChallenge,
+                        )
+                    }
                     if (!website) repository.authorize(attempt)
                 }.onFailure { error ->
                     val mailError = error.mailError()
                     if (serial == authorizationSerial) {
+                        val challenge = !website && mailError == MailError.CHALLENGE
                         state.update {
                             it.copy(
                                 error = mailError,
-                                challengeVerificationAvailable = !website && mailError == MailError.CHALLENGE,
-                                verifyingChallenge = false,
+                                connecting = false,
+                                // Use the provider's real web flow: the forum home page need not
+                                // trigger the rule that refused the authorization request.
+                                authorizing = challenge && automaticallyVerifyChallenge,
+                                challengeVerificationAvailable = challenge,
+                                verifyingChallenge = challenge && automaticallyVerifyChallenge,
                             )
                         }
                     }
@@ -237,7 +252,7 @@ class MailInboxViewModel(
             } finally {
                 if (authorizationGeneration == attempt) {
                     authorizationGeneration = null
-                    state.update { it.copy(connecting = false, authorizing = false) }
+                    state.update { it.copy(connecting = false, authorizing = false, verifyingChallenge = false) }
                 }
             }
         }
@@ -258,14 +273,17 @@ class MailInboxViewModel(
 
     fun openChallengeVerification() {
         if (state.value.challengeVerificationAvailable && !state.value.connecting) {
-            state.update { it.copy(verifyingChallenge = true) }
+            startAuthorization(website = true, recoveringChallenge = true)
         }
     }
 
     fun retryAfterChallengeVerification() {
-        if (!state.value.verifyingChallenge && !state.value.challengeVerificationAvailable) return
-        state.update { it.copy(verifyingChallenge = false) }
-        authorize()
+        val current = state.value
+        if (!current.verifyingChallenge || !current.authorizing || current.connecting) return
+        state.update { it.copy(authorizing = false, verifyingChallenge = false) }
+        // A renewed cookie is a reason to try once, not proof the endpoint will accept it.
+        // A second challenge stays on the inbox until the reader explicitly opens verification.
+        startAuthorization(website = false, automaticallyVerifyChallenge = false)
     }
 
     fun requestDisconnect() = state.update { it.copy(confirmingDisconnect = true) }

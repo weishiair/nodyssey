@@ -178,6 +178,7 @@ internal fun WebViewScreen(
     canLeaveToBrowser: Boolean = false,
     modifier: Modifier = Modifier,
     sessionCapture: WebSessionCapture? = null,
+    onGoalReached: (() -> Unit)? = null,
 ) {
     var loading by remember { mutableStateOf(true) }
     var loadFailed by remember { mutableStateOf(false) }
@@ -186,7 +187,7 @@ internal fun WebViewScreen(
     // Where the user actually is, not where they came in.
     var currentUrl by remember { mutableStateOf(url) }
 
-    val close by rememberUpdatedState(onClose)
+    val goalReached by rememberUpdatedState(onGoalReached ?: onClose)
     val openExternal by rememberUpdatedState(onOpenExternal)
     val staysHere by rememberUpdatedState(isInScope)
     val checkGoal by rememberUpdatedState(onCheckGoal)
@@ -254,7 +255,7 @@ internal fun WebViewScreen(
             delay(pollIntervalMillis)
             if (checkGoal?.invoke() == true) {
                 delay(GOAL_SETTLE_MILLIS)
-                close()
+                goalReached()
                 return@LaunchedEffect
             }
         }
