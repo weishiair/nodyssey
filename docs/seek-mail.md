@@ -232,5 +232,8 @@ resource bundles have no duplicate keys, and no Room schema changed.
 The combined-list request and read operations are covered with synthetic replies
 for both authentication modes. The official API document was blocked by its
 website security check during this change; a live authenticated combined inbox,
-device installation and Apple compilation remain unverified. There are no
-dependency or application-version changes.
+device installation and Apple compilation were not verified by the automated
+checks. The signed Android test build `1.3.11-test.2` (150) passed packaging and
+signature checks, and the user reported no issues before approving dev
+integration. There are no dependency or application-version changes on the
+feature branch; the test version bump stays on its snapshot branch.
