@@ -155,6 +155,8 @@ internal fun WebViewScreen(
     /** Whether the toolbar offers a way out to a real browser; see the caller for why it is not always. */
     canLeaveToBrowser: Boolean = false,
     sessionCapture: WebSessionCapture? = null,
+    /** Successful verification may continue an errand; manually closing it still cancels it. */
+    onGoalReached: (() -> Unit)? = null,
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var popup by remember { mutableStateOf<WebView?>(null) }
@@ -175,7 +177,7 @@ internal fun WebViewScreen(
     val readyScript by rememberUpdatedState(onPageReadyScript)
     val autoReturn = onCheckGoal != null
     val checkGoal by rememberUpdatedState(onCheckGoal)
-    val close by rememberUpdatedState(onClose)
+    val goalReached by rememberUpdatedState(onGoalReached ?: onClose)
     val openExternal by rememberUpdatedState(onOpenExternal)
     val staysHere by rememberUpdatedState(isInScope)
     val capture by rememberUpdatedState(sessionCapture)
@@ -203,7 +205,7 @@ internal fun WebViewScreen(
             delay(pollIntervalMillis)
             if (checkGoal?.invoke() == true) {
                 delay(GOAL_SETTLE_MILLIS)
-                close()
+                goalReached()
                 return@LaunchedEffect
             }
         }

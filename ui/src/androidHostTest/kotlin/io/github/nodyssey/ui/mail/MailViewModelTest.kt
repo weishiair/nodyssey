@@ -170,7 +170,7 @@ class MailViewModelTest {
     }
 
     @Test
-    fun `native challenge stays on the inbox and a retry connects without opening the browser`() = runTest(dispatcher) {
+    fun `native challenge opens web authorization and verification resumes the native exchange`() = runTest(dispatcher) {
         val harness = NativeAuthorizationHarness(dispatcher)
         harness.forumCode = 468
         val viewModel = MailInboxViewModel(harness.repository, AppDispatchers(dispatcher, dispatcher))
@@ -178,14 +178,12 @@ class MailViewModelTest {
         viewModel.authorize()
         advanceUntilIdle()
         assertEquals(MailError.CHALLENGE, viewModel.uiState.value.error)
-        assertFalse(viewModel.uiState.value.authorizing)
+        assertTrue(viewModel.uiState.value.authorizing)
         assertFalse(viewModel.uiState.value.connecting)
         assertTrue(viewModel.uiState.value.challengeVerificationAvailable)
+        assertTrue(viewModel.uiState.value.verifyingChallenge)
         assertEquals("", harness.saved)
         assertEquals(0, harness.callbacks)
-        viewModel.openChallengeVerification()
-        advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.verifyingChallenge)
         harness.forumCode = 200
         viewModel.retryAfterChallengeVerification()
         advanceUntilIdle()
@@ -196,6 +194,75 @@ class MailViewModelTest {
         assertEquals("web:synthetic-session", harness.saved)
         assertEquals(1, harness.callbacks)
         assertEquals(2, harness.grants)
+    }
+
+    @Test
+    fun `a rejected verification retries once and waits for an explicit web recovery before trying again`() = runTest(dispatcher) {
+        val harness = NativeAuthorizationHarness(dispatcher).apply { forumCode = 468 }
+        val viewModel = MailInboxViewModel(harness.repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        viewModel.authorize()
+        advanceUntilIdle()
+        viewModel.retryAfterChallengeVerification()
+        advanceUntilIdle()
+        assertEquals(2, harness.grants)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertFalse(viewModel.uiState.value.verifyingChallenge)
+        assertFalse(viewModel.uiState.value.connecting)
+        assertEquals(MailError.CHALLENGE, viewModel.uiState.value.error)
+        assertEquals("", harness.saved)
+        viewModel.retryAfterChallengeVerification()
+        advanceUntilIdle()
+        assertEquals(2, harness.grants)
+        viewModel.openChallengeVerification()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.authorizing)
+        assertTrue(viewModel.uiState.value.verifyingChallenge)
+        harness.forumCode = 200
+        viewModel.retryAfterChallengeVerification()
+        advanceUntilIdle()
+        assertEquals(3, harness.grants)
+        assertEquals(1, harness.callbacks)
+        assertEquals("web:synthetic-session", harness.saved)
+    }
+
+    @Test
+    fun `cancelling challenge recovery ignores late verification and browser tokens`() = runTest(dispatcher) {
+        val harness = NativeAuthorizationHarness(dispatcher).apply { forumCode = 468 }
+        val viewModel = MailInboxViewModel(harness.repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        viewModel.authorize()
+        advanceUntilIdle()
+        viewModel.cancelAuthorization()
+        harness.forumCode = 200
+        viewModel.retryAfterChallengeVerification()
+        viewModel.completeAuthorization("late-session")
+        advanceUntilIdle()
+        assertEquals(1, harness.grants)
+        assertEquals(0, harness.callbacks)
+        assertEquals("", harness.saved)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertFalse(viewModel.uiState.value.verifyingChallenge)
+        assertFalse(viewModel.uiState.value.connected)
+    }
+
+    @Test
+    fun `a browser token arriving before the verification poll completes the same authorization once`() = runTest(dispatcher) {
+        val harness = NativeAuthorizationHarness(dispatcher).apply { forumCode = 468 }
+        val viewModel = MailInboxViewModel(harness.repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        viewModel.authorize()
+        advanceUntilIdle()
+        viewModel.completeAuthorization("browser-session")
+        viewModel.retryAfterChallengeVerification()
+        advanceUntilIdle()
+        assertEquals("web:browser-session", harness.saved)
+        assertEquals(1, harness.grants)
+        assertEquals(0, harness.callbacks)
+        assertTrue(viewModel.uiState.value.connected)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertFalse(viewModel.uiState.value.verifyingChallenge)
+        assertFalse(viewModel.uiState.value.connecting)
     }
 
     @Test

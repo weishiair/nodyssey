@@ -2,10 +2,13 @@ package io.github.nodyssey.ui.mail
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import io.github.nodyssey.core.SeekMailSite
 import io.github.nodyssey.data.session.SessionRepository
+import io.github.nodyssey.ui.login.WebViewGoal
 import io.github.nodyssey.ui.login.WebViewScreen
+import io.github.nodyssey.ui.login.webViewPolicy
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.mail_authorize
 import io.github.plaza.core.net.UserAgent
@@ -19,13 +22,17 @@ actual fun MailSignInRoute(
     onClose: () -> Unit,
     onOpenExternal: (String) -> Unit,
     modifier: Modifier,
+    onChallengePassed: (() -> Unit)?,
 ) {
     DisposableEffect(session) { onDispose { session.sync() } }
+    val challenge = remember(session) { webViewPolicy(WebViewGoal.CHALLENGE, session, session.peek(), null) }
     WebViewScreen(
         url = SeekMailSite.LOGIN,
         title = stringResource(Res.string.mail_authorize),
         userAgent = userAgent,
         onClose = onClose,
+        onCheckGoal = if (onChallengePassed != null) challenge.onCheckGoal else null,
+        onGoalReached = onChallengePassed,
         onOpenExternal = onOpenExternal,
         isInScope = SeekMailSite::isAuthorizationUrl,
         sessionCapture = mailSessionCapture(onToken),

@@ -45,13 +45,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.mail.MailAuthMode
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.session.SessionRepository
-import io.github.nodyssey.ui.login.WebViewGoal
-import io.github.nodyssey.ui.login.WebViewRoute
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
@@ -92,7 +89,6 @@ import io.github.nodyssey.ui.resources.mail_switch_web_session
 import io.github.nodyssey.ui.resources.mail_title
 import io.github.nodyssey.ui.resources.mail_use_key
 import io.github.nodyssey.ui.resources.mail_verify_and_retry
-import io.github.nodyssey.ui.resources.mail_verify_challenge
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
@@ -130,18 +126,6 @@ fun MailInboxRoute(
             viewModel.dismissAllReadResult()
         }
     }
-    if (state.verifyingChallenge) {
-        WebViewRoute(
-            url = NodeSeekSite.BASE_URL,
-            title = stringResource(Res.string.mail_verify_challenge),
-            goal = WebViewGoal.CHALLENGE,
-            session = session,
-            userAgent = userAgent,
-            onOpenExternal = onOpenWebsite,
-            onClose = viewModel::retryAfterChallengeVerification,
-        )
-        return
-    }
     if (state.authorizing) {
         PlazaBackHandler { viewModel.cancelAuthorization() }
         MailSignInRoute(
@@ -150,6 +134,7 @@ fun MailInboxRoute(
             onToken = viewModel::completeAuthorization,
             onClose = viewModel::cancelAuthorization,
             onOpenExternal = onOpenWebsite,
+            onChallengePassed = if (state.verifyingChallenge) viewModel::retryAfterChallengeVerification else null,
         )
         return
     }
@@ -172,13 +157,7 @@ fun MailInboxRoute(
         onOpenWebsite = onOpenWebsite,
         onAuthorize = viewModel::authorize,
         onAuthorizeWebsite = viewModel::authorizeOnWebsite,
-        onVerifyChallenge = {
-            if (session.peek().hasClearance) {
-                viewModel.retryAfterChallengeVerification()
-            } else {
-                viewModel.openChallengeVerification()
-            }
-        },
+        onVerifyChallenge = viewModel::openChallengeVerification,
         onCancelAuthorization = viewModel::cancelAuthorization,
         snackbarHostState = snackbarHostState,
     )
