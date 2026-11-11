@@ -66,6 +66,7 @@ class MailInboxViewModel(
     private val state = MutableStateFlow(MailInboxUiState())
     private var generation = 0L
     private var loadJob: Job? = null
+    private var loadSerial = 0L
     private var defaultMailboxJob: Job? = null
     private var markAllReadJob: Job? = null
     private var authorizationGeneration: Long? = null
@@ -287,24 +288,22 @@ class MailInboxViewModel(
     fun refresh() {
         if (!state.value.connected) return
         loadJob?.cancel()
+        val serial = ++loadSerial
         val expected = generation
         state.update { it.copy(loading = true, loadingMore = false, error = null) }
         loadJob = viewModelScope.launch {
             runCatchingExceptCancellation {
                 val mailboxes = repository.mailboxes(expected)
-                val defaultMailboxId = repository.defaultMailboxId(expected)
                 val selected = state.value.selectedMailboxId?.takeIf { id -> mailboxes.any { it.id == id } }
-                    ?: defaultMailboxId?.takeIf { id -> mailboxes.any { it.id == id } }
-                    ?: mailboxes.firstOrNull()?.id
-                if (selected != defaultMailboxId) repository.setDefaultMailboxId(expected, selected)
+                if (selected != repository.defaultMailboxId(expected)) repository.setDefaultMailboxId(expected, selected)
                 currentCoroutineContext().ensureActive()
-                if (expected != generation) return@runCatchingExceptCancellation
+                if (expected != generation || serial != loadSerial) return@runCatchingExceptCancellation
                 state.update { it.copy(mailboxes = mailboxes, selectedMailboxId = selected) }
-                val page = selected?.let { repository.inbox(expected, it) }
+                val page = if (mailboxes.isEmpty()) null else repository.inbox(expected, selected)
                 val messages = page?.messages.orEmpty().distinctBy(MailMessage::id)
                 val previews = withContext(dispatchers.default) { messages.associate { mail -> mail.id to MailPreview.from(mail) } }
                 currentCoroutineContext().ensureActive()
-                if (expected == generation && state.value.selectedMailboxId == selected) {
+                if (expected == generation && serial == loadSerial && state.value.selectedMailboxId == selected) {
                     state.update {
                         it.copy(
                             mailboxes = mailboxes,
@@ -318,17 +317,25 @@ class MailInboxViewModel(
                     }
                 }
             }.onFailure { error ->
-                if (expected == generation) state.update { it.copy(loading = false, error = error.mailError()) }
+                if (expected == generation && serial == loadSerial) state.update { it.copy(loading = false, error = error.mailError()) }
             }
         }
     }
 
-    fun selectMailbox(id: Long) {
+    fun selectMailbox(id: Long?) {
         if (state.value.markingAllRead) return
-        if (id == state.value.selectedMailboxId || state.value.mailboxes.none { it.id == id }) return
+        if (id == state.value.selectedMailboxId || (id != null && state.value.mailboxes.none { it.id == id })) return
         loadJob?.cancel()
         state.update {
-            it.copy(selectedMailboxId = id, messages = emptyList(), previews = emptyMap(), nextOffset = null, loadingMore = false)
+            it.copy(
+                selectedMailboxId = id,
+                messages = emptyList(),
+                previews = emptyMap(),
+                nextOffset = null,
+                loadingMore = false,
+                allReadComplete = false,
+                markAllReadError = null,
+            )
         }
         val expected = generation
         defaultMailboxJob?.cancel()
@@ -349,7 +356,7 @@ class MailInboxViewModel(
 
     fun markAllRead() {
         val current = state.value
-        val mailboxId = current.selectedMailboxId ?: return
+        val mailboxId = current.selectedMailboxId
         if (!current.connected || current.markingAllRead || current.loading || current.loadingMore) return
         val expected = generation
         state.update { it.copy(markingAllRead = true, allReadComplete = false, markAllReadError = null) }
@@ -374,7 +381,8 @@ class MailInboxViewModel(
 
     private fun loadPage(append: Boolean) {
         val expected = generation
-        val mailboxId = state.value.selectedMailboxId ?: return
+        val mailboxId = state.value.selectedMailboxId
+        val serial = ++loadSerial
         val offset = if (append) state.value.nextOffset ?: return else 0
         state.update { it.copy(loading = !append, loadingMore = append, error = null) }
         loadJob = viewModelScope.launch {
@@ -383,7 +391,7 @@ class MailInboxViewModel(
                     val messages = ((if (append) state.value.messages else emptyList()) + page.messages).distinctBy(MailMessage::id)
                     val previews = withContext(dispatchers.default) { messages.associate { mail -> mail.id to MailPreview.from(mail) } }
                     currentCoroutineContext().ensureActive()
-                    if (expected == generation && state.value.selectedMailboxId == mailboxId) {
+                    if (expected == generation && serial == loadSerial && state.value.selectedMailboxId == mailboxId) {
                         state.update {
                             it.copy(
                                 messages = messages,
@@ -396,7 +404,7 @@ class MailInboxViewModel(
                         }
                     }
                 }.onFailure { error ->
-                    if (expected == generation && state.value.selectedMailboxId == mailboxId) {
+                    if (expected == generation && serial == loadSerial && state.value.selectedMailboxId == mailboxId) {
                         state.update {
                             it.copy(loading = false, loadingMore = false, error = error.mailError())
                         }

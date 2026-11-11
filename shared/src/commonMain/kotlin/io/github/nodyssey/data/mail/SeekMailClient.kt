@@ -28,10 +28,11 @@ internal class SeekMailClient(
         return if (key.isWebSession()) decode<WebMailboxes>(body).owned else decode<MailboxesEnvelope>(body).data
     }
 
-    suspend fun inbox(key: String, mailboxId: Long, offset: Int): MailPage {
-        require(mailboxId > 0 && offset >= 0)
+    suspend fun inbox(key: String, mailboxId: Long?, offset: Int): MailPage {
+        require((mailboxId == null || mailboxId > 0) && offset >= 0)
         // The deprecated /mailboxes/{id}/mails ignores its path id. Only mailbox_id isolates inboxes.
-        val body = request(key, "/mails?mailbox_id=$mailboxId&folder=inbox&limit=$PAGE_SIZE&offset=$offset")
+        val mailboxFilter = mailboxId?.let { "mailbox_id=$it&" }.orEmpty()
+        val body = request(key, "/mails?${mailboxFilter}folder=inbox&limit=$PAGE_SIZE&offset=$offset")
         val result = if (key.isWebSession()) {
             val web = decode<WebMails>(body)
             MailsEnvelope(web.mails, MailPagination(web.total, web.limit, web.offset))
@@ -41,7 +42,7 @@ internal class SeekMailClient(
         val paging = result.pagination
         // OpenAPI returns data: null for an empty inbox. A nonzero total must still have rows.
         val messages = result.data ?: if (paging.total == 0) emptyList() else throw MailException(MailError.INVALID_RESPONSE)
-        if (paging.offset != offset || paging.total < 0 || messages.any { it.mailboxId != mailboxId }) {
+        if (paging.offset != offset || paging.total < 0 || messages.any { it.mailboxId <= 0 || (mailboxId != null && it.mailboxId != mailboxId) }) {
             throw MailException(MailError.INVALID_RESPONSE)
         }
         val consumed = offset + messages.size

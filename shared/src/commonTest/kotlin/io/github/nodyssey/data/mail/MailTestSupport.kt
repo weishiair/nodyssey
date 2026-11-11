@@ -10,7 +10,7 @@ import io.github.plaza.core.net.httpResponse
 class MemoryMailCredentials(var key: String = "") : MailCredentialStore {
     var refuseSave = false
     var defaultMailboxId: Long? = null
-    val notificationCursors = mutableMapOf<Long, Long>()
+    val notificationCursors = mutableMapOf<Long?, Long>()
 
     override suspend fun read() = key
 
@@ -29,9 +29,9 @@ class MemoryMailCredentials(var key: String = "") : MailCredentialStore {
         defaultMailboxId = null
     }
 
-    override suspend fun readNotificationCursor(mailboxId: Long) = notificationCursors[mailboxId]
+    override suspend fun readNotificationCursor(mailboxId: Long?) = notificationCursors[mailboxId]
 
-    override suspend fun saveNotificationCursor(mailboxId: Long, messageId: Long) {
+    override suspend fun saveNotificationCursor(mailboxId: Long?, messageId: Long) {
         notificationCursors[mailboxId] = messageId
     }
 

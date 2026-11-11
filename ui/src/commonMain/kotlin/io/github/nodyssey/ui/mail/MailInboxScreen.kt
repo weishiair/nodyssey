@@ -57,19 +57,18 @@ import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.action_retry
+import io.github.nodyssey.ui.resources.mail_all_mailboxes
 import io.github.nodyssey.ui.resources.mail_api_key
 import io.github.nodyssey.ui.resources.mail_api_key_switch_hint
 import io.github.nodyssey.ui.resources.mail_api_key_switch_title
 import io.github.nodyssey.ui.resources.mail_authorize
 import io.github.nodyssey.ui.resources.mail_authorize_hint
 import io.github.nodyssey.ui.resources.mail_authorize_website
-import io.github.nodyssey.ui.resources.mail_choose_mailbox
 import io.github.nodyssey.ui.resources.mail_connect
 import io.github.nodyssey.ui.resources.mail_connect_hint
 import io.github.nodyssey.ui.resources.mail_connect_title
 import io.github.nodyssey.ui.resources.mail_connecting
 import io.github.nodyssey.ui.resources.mail_create_key
-import io.github.nodyssey.ui.resources.mail_default_mailbox
 import io.github.nodyssey.ui.resources.mail_disconnect
 import io.github.nodyssey.ui.resources.mail_disconnect_hint
 import io.github.nodyssey.ui.resources.mail_empty
@@ -195,7 +194,7 @@ fun MailInboxScreen(
     onConfirmDisconnect: () -> Unit,
     onDismissDisconnect: () -> Unit,
     onRefresh: () -> Unit,
-    onSelectMailbox: (Long) -> Unit,
+    onSelectMailbox: (Long?) -> Unit,
     onLoadMore: () -> Unit,
     onOpenMail: (MailMessage) -> Unit,
     onOpenWebsite: (String) -> Unit,
@@ -302,7 +301,7 @@ fun MailInboxScreen(
                                 GroupedListItem(
                                     headlineContent = {
                                         Text(
-                                            selectedMailbox?.address ?: stringResource(Res.string.mail_choose_mailbox),
+                                            selectedMailbox?.address ?: stringResource(Res.string.mail_all_mailboxes),
                                             style = MaterialTheme.typography.titleSmall,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
@@ -380,6 +379,17 @@ fun MailInboxScreen(
                                     },
                                 )
                                 DropdownMenu(expanded = choosingMailbox, onDismissRequest = { choosingMailbox = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(Res.string.mail_all_mailboxes)) },
+                                        enabled = !state.markingAllRead,
+                                        trailingIcon = {
+                                            if (state.selectedMailboxId == null) Icon(Icons.Default.Check, contentDescription = null)
+                                        },
+                                        onClick = {
+                                            choosingMailbox = false
+                                            onSelectMailbox(null)
+                                        },
+                                    )
                                     state.mailboxes.forEach { mailbox ->
                                         DropdownMenuItem(
                                             text = { Text(mailbox.address) },
@@ -388,7 +398,7 @@ fun MailInboxScreen(
                                                 if (mailbox.id == state.selectedMailboxId) {
                                                     Icon(
                                                         Icons.Default.Check,
-                                                        contentDescription = stringResource(Res.string.mail_default_mailbox),
+                                                        contentDescription = null,
                                                     )
                                                 }
                                             },
@@ -421,7 +431,7 @@ fun MailInboxScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             SectionLabel(stringResource(Res.string.mail_inbox), modifier = Modifier.weight(1f))
-                            if (state.selectedMailboxId != null) {
+                            if (state.mailboxes.isNotEmpty()) {
                                 TextButton(
                                     onClick = onMarkAllRead,
                                     enabled = !state.markingAllRead && !state.loading && !state.loadingMore && !state.connecting && state.messages.isNotEmpty(),
@@ -459,6 +469,8 @@ fun MailInboxScreen(
                             first = index == 0,
                             last = index == state.messages.lastIndex,
                             nowMillis = state.nowMillis,
+                            recipientAddress = mail.toAddress.takeIf(String::isNotBlank)
+                                ?: state.mailboxes.firstOrNull { it.id == mail.mailboxId }?.address.orEmpty(),
                             onOpen = { onOpenMail(mail) },
                             modifier = Modifier.padding(horizontal = LayerPageGutter),
                         )

@@ -677,7 +677,7 @@
     <string name="notify_quiet_hours_hint">23:00 – 07:00 · still fetched, never announced</string>
     <string name="notify_channels_section">Categories · these are the Android notification channels</string>
     <string name="notify_mail">New email</string>
-    <string name="notify_mail_hint">Checks the default inbox in the background at the interval above; foreground checks and in-app alerts remain automatic</string>
+    <string name="notify_mail_hint">Checks the selected mailboxes in the background at the interval above; foreground checks and in-app alerts remain automatic</string>
     <string name="notify_telegram_title">Want it instantly?</string>
     <string name="notify_telegram_body">Link Telegram and the site forwards unread messages as they arrive</string>
     <string name="notify_telegram_action">Link it</string>
@@ -1838,4 +1838,8 @@
     <string name="mail_open_inbox">Open inbox</string>
     <string name="mail_poll_api_hint">Checks about every 30 seconds in the foreground, or 15 seconds in the inbox</string>
     <string name="mail_poll_web_hint">Checks for new mail about every 60 seconds while the app is open</string>
+    <string name="mail_all_mailboxes">All mailboxes</string>
+    <string name="mail_read_status">Read</string>
+    <string name="mail_unread_status">Unread</string>
+    <string name="mail_recipient_address">To: %1$s</string>
 </resources>

@@ -671,7 +671,7 @@
     <string name="notify_quiet_hours_hint">23:00 – 07:00 · 時段內靜默收取，不發通知</string>
     <string name="notify_channels_section">通知類別 · 對應 Android 通知管道</string>
     <string name="notify_mail">新郵件</string>
-    <string name="notify_mail_hint">背景依上方頻率檢查預設信箱；前景自動快速檢查並顯示應用程式內提醒</string>
+    <string name="notify_mail_hint">背景依上方頻率檢查目前選擇的信箱範圍；前景自動快速檢查並顯示應用程式內提醒</string>
     <string name="notify_telegram_title">想要即時提醒？</string>
     <string name="notify_telegram_body">綁定 Telegram 後由站台即時轉發未讀訊息</string>
     <string name="notify_telegram_action">去綁定</string>
@@ -1830,4 +1830,8 @@
     <string name="mail_open_inbox">查看信箱</string>
     <string name="mail_poll_api_hint">前景約每 30 秒檢查；信箱頁約每 15 秒</string>
     <string name="mail_poll_web_hint">前景約每 60 秒檢查新郵件</string>
+    <string name="mail_all_mailboxes">全部信箱</string>
+    <string name="mail_read_status">已讀</string>
+    <string name="mail_unread_status">未讀</string>
+    <string name="mail_recipient_address">收件地址：%1$s</string>
 </resources>

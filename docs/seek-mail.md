@@ -6,7 +6,14 @@ an account, list owned mailboxes, switch inboxes, paginate, read a message, and
 mark it read or unread. Opening a message marks it read; a failed update rolls
 back in both the detail and the inbox.
 
-**Read all**, beside the inbox heading, marks the selected inbox across every
+The inbox opens on **All mailboxes**, combining inbox messages with server-side
+ordering and pagination. The selector can narrow the list to one mailbox and
+return to All mailboxes. Each message shows its recipient address and an explicit
+Read/Unread tag. When a list response omits the recipient address, the mailbox
+catalog supplies it. Reopening the inbox returns to All mailboxes rather than
+restoring an earlier single-mailbox filter.
+
+**Read all**, beside the inbox heading, marks the selected mailbox scope across every
 page. It captures existing message IDs, skips already-read mail, and sends
 sequential read updates in either connection mode. Mail arriving during the
 operation is excluded. Repeated taps are blocked while it runs; a permission,
@@ -61,7 +68,7 @@ The primary connection uses the website's session API at `https://seek.li/api`:
 | Action | Endpoint | Response |
 | --- | --- | --- |
 | Owned mailboxes | `GET /mailboxes` | `owned` array; shared mailboxes are excluded |
-| Inbox | `GET /mails?mailbox_id=…&folder=inbox&limit=20&offset=…` | `mails`, `total`, `limit`, `offset` |
+| Inbox | `GET /mails?folder=inbox&limit=20&offset=…` (add `mailbox_id` for one mailbox) | `mails`, `total`, `limit`, `offset` |
 | Message | `GET /mails/{id}` | Mail object directly |
 | Read state | `PUT /mails/{id}/read` with `{"read":true/false}` | Success status |
 
@@ -76,8 +83,10 @@ This website API is not a documented third-party contract and may change.
 The fallback uses the published specification at `https://seek.li/api/openapi.json`,
 version `1.0.0`, base URL `https://seek.li/openapi/v1`, with the same endpoint paths.
 It uses a cookie-free transport and the published `data`/`pagination` envelopes.
-The deprecated `/mailboxes/{id}/mails` ignores its path ID, so both connection modes
-use an explicit `mailbox_id` filter and reject mail from another mailbox.
+The deprecated `/mailboxes/{id}/mails` ignores its path ID. A single-mailbox view
+uses an explicit `mailbox_id` filter and rejects mail from another mailbox; the
+combined view omits that filter and retains each message's mailbox ID for detail
+navigation and read changes.
 
 The `seek-mail` preferences store contains one encrypted credential: a website
 token prefixed with `web:`, or a manually supplied API key. Android uses the
@@ -115,13 +124,14 @@ invalidates it. Unchanged pages do not reparse message previews. This reduces
 request count but does not establish a measured battery or data-usage figure.
 
 Foreground checks and the Android notification worker share a serialized,
-persisted per-inbox newest-ID cursor. The first successful check establishes a
+persisted per-scope newest-ID cursor, with a separate `all` cursor for the combined
+inbox. The first successful check establishes a
 baseline without announcing historical mail; an empty baseline still detects the
 first later message. Newly arrived mail already read on the website is silent.
 Credential replacement and default-inbox changes cannot accept a previous poll's
 cursor or snapshot. No email content is persisted by this monitor.
 
-The profile mail tile shows a dot when the current default inbox's fetched first
+The profile mail tile shows a dot when the currently selected scope's fetched first
 page contains unread mail, with optimistic read changes and rollback applied.
 This is a detected-unread indicator, not an unread total over every page. A global
 in-app snackbar announces new arrivals and opens the inbox; the inbox consumes the
@@ -134,7 +144,7 @@ changes remain authoritative until an inbox response acknowledges them, so a
 lagging response cannot immediately restore the unread dot. Later website read
 changes still synchronize after that acknowledgement. Failed writes roll back.
 
-Read all walks every page of the selected inbox and marks messages sequentially,
+Read all walks every page of the selected mailbox scope and marks messages sequentially,
 bounded by the newest ID seen when the operation starts so later arrivals stay
 unread. An error stops the batch while keeping successful writes. Replacing the
 account invalidates the operation. The disabled action shows a compact 16dp
@@ -210,3 +220,17 @@ app's other inline button indicators, with before/after Robolectric renders.
 The dev integration selects only the mail commits from those combined test
 snapshots. Invite-purchase changes stay on their own branch. The integration keeps
 dev's stable version, 1.3.9 (134), without importing a test-version bump.
+
+The 2026-11-11 all-mailboxes update passes 140 focused mail/profile tests,
+including Android host, desktop JVM and five mail renders. Android lint reports
+0 errors and 0 warnings; Debug assembly and the R8 Release bundle pass. The full
+run executes 2,642 tests with 215 skipped and the same 34 Windows failures as the
+existing baseline reports, compared by suite and test name. Formatting was
+rechecked after normalizing the edited test file. Release-script tests pass,
+resource bundles have no duplicate keys, and no Room schema changed.
+
+The combined-list request and read operations are covered with synthetic replies
+for both authentication modes. The official API document was blocked by its
+website security check during this change; a live authenticated combined inbox,
+device installation and Apple compilation remain unverified. There are no
+dependency or application-version changes.
