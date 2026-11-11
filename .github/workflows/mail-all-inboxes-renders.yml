@@ -1,0 +1,48 @@
+name: All mailboxes review renders
+
+on:
+  push:
+    branches: [docs/mail-all-inboxes-renders]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
+      - name: Render the all-mailboxes inbox
+        run: |
+          ./gradlew :ui:testAndroidHostTest -PrenderUi --tests '*MailScreenRenderTest'
+          mkdir -p review-renders/after
+          cp ui/build/outputs/renders/*.png review-renders/after/
+          git rev-parse HEAD > review-renders/after/source.txt
+      - name: Restore the dev baseline
+        run: git checkout --detach 2949b84107f95fa53bebbde87debbf1a4fcd82a1
+      - name: Render the previous single-mailbox inbox
+        run: |
+          ./gradlew :ui:testAndroidHostTest -PrenderUi --tests '*MailScreenRenderTest'
+          mkdir -p review-renders/before
+          cp ui/build/outputs/renders/*.png review-renders/before/
+          git rev-parse HEAD > review-renders/before/source.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mail-all-inboxes-before-after
+          path: review-renders/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Stop Gradle
+        if: always()
+        run: ./gradlew --stop
