@@ -1,6 +1,5 @@
 package io.github.nodyssey.data
 
-import androidx.paging.cachedIn
 import androidx.paging.testing.asSnapshot
 import io.github.nodyssey.data.local.FeedPositionEntity
 import io.github.nodyssey.data.local.FeedRemoteKeyEntity
@@ -9,6 +8,8 @@ import io.github.nodyssey.data.local.toEntity
 import io.github.nodyssey.model.FeedSort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.produceIn
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -67,14 +68,14 @@ class PinnedFeedTest {
     @Test
     fun `toggling updates an open feed and restores cached pins without fetching`() = runTest {
         givenFeed()
-        val feed = repository.feed(null, FeedSort.LAST_REPLY).cachedIn(backgroundScope)
-        assertEquals(listOf(1L, 3L, 4L), feed.asSnapshot().map { it.summary.postId })
+        val feed = repository.feed(null, FeedSort.LAST_REPLY).produceIn(backgroundScope)
+        assertEquals(listOf(1L, 3L, 4L), flowOf(feed.receive()).asSnapshot().map { it.summary.postId })
 
         showPinned.value = false
-        assertEquals(listOf(3L, 4L), feed.asSnapshot().map { it.summary.postId })
+        assertEquals(listOf(3L, 4L), flowOf(feed.receive()).asSnapshot().map { it.summary.postId })
 
         showPinned.value = true
-        assertEquals(listOf(1L, 3L, 4L), feed.asSnapshot().map { it.summary.postId })
+        assertEquals(listOf(1L, 3L, 4L), flowOf(feed.receive()).asSnapshot().map { it.summary.postId })
         assertEquals(emptyList<Pair<String?, Int>>(), remote.listRequests)
     }
 
