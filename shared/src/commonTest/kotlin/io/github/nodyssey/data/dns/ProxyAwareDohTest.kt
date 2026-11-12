@@ -26,31 +26,31 @@ class ProxyAwareDohTest {
     }
 
     @Test
-    fun `a VPN suspends native and system DNS without overwriting the saved choice`() = runTest {
+    fun `a system proxy suspends native and system DNS without overwriting the saved choice`() = runTest {
         val saved = DohConfig(includeIPv6 = false, servers = listOf(DohServer.preset(DohProvider.GOOGLE, checked = true)))
         val settings = Settings(saved)
-        val vpn = MutableStateFlow(false)
+        val systemProxy = MutableStateFlow(false)
         val applied = mutableListOf<DohConfig>()
-        val policy = ProxyAwareDoh(backgroundScope, settings, MutableStateFlow(ProxyConfig()), vpn, { vpn.value }, { applied += it })
+        val policy = ProxyAwareDoh(backgroundScope, settings, MutableStateFlow(ProxyConfig()), systemProxy, { systemProxy.value }, { applied += it })
         runCurrent()
         assertEquals(saved, applied.last())
 
-        // No native request: a browser opened after the tunnel connects must still lose app DoH.
-        vpn.value = true
+        // No native request: a browser opened after the proxy is enabled must still lose app DoH.
+        systemProxy.value = true
         runCurrent()
         assertFalse(applied.last().enabled)
         assertTrue(policy.pausedForProxy.value)
         assertEquals(saved, settings.config.value)
         assertEquals(0, settings.writes)
 
-        vpn.value = false
+        systemProxy.value = false
         runCurrent()
         assertEquals(saved, applied.last())
         assertFalse(policy.pausedForProxy.value)
     }
 
     @Test
-    fun `a request samples a new VPN before the monitor publishes it`() = runTest {
+    fun `a request samples a new system proxy before the monitor publishes it`() = runTest {
         val settings = Settings()
         val applied = mutableListOf<DohConfig>()
         var connected = false
@@ -62,7 +62,7 @@ class ProxyAwareDohTest {
         assertFalse(applied.last().enabled)
         assertTrue(settings.config.value.enabled)
 
-        // A queued settings notification must sample the same live VPN, not re-enable stale DNS.
+        // A queued settings notification must sample the same live proxy, not re-enable stale DNS.
         settings.config.value = settings.config.value.copy(includeIPv6 = false)
         runCurrent()
         assertFalse(applied.last().enabled)
@@ -89,13 +89,13 @@ class ProxyAwareDohTest {
     }
 
     @Test
-    fun `disconnecting a VPN keeps an explicitly disabled preference off`() = runTest {
+    fun `disabling a system proxy keeps an explicitly disabled preference off`() = runTest {
         val settings = Settings(DohConfig(enabled = false))
-        val vpn = MutableStateFlow(true)
+        val systemProxy = MutableStateFlow(true)
         val applied = mutableListOf<DohConfig>()
-        val policy = ProxyAwareDoh(backgroundScope, settings, MutableStateFlow(ProxyConfig()), vpn, { vpn.value }, { applied += it })
+        val policy = ProxyAwareDoh(backgroundScope, settings, MutableStateFlow(ProxyConfig()), systemProxy, { systemProxy.value }, { applied += it })
         runCurrent()
-        vpn.value = false
+        systemProxy.value = false
         runCurrent()
         assertFalse(policy.currentConfig().enabled)
         assertFalse(applied.last().enabled)

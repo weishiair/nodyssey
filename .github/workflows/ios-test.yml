@@ -219,7 +219,21 @@ jobs:
         if: runner.arch == 'X64'
         run: |
           echo '::notice::Intel fallback: macosArm64Test cannot execute on this host. Running shared JVM tests; the iOS arm64 targets are still compiled below.'
-          ./gradlew :shared:jvmTest --max-workers=2
+          ./gradlew :shared:jvmTest :shared:compileTestKotlinIosArm64 --max-workers=2
+      - name: Test CFNetwork proxy resolution on the Intel host
+        if: runner.arch == 'X64'
+        shell: bash
+        run: |
+          # Paging has no macosX64 artifact, so the whole shared module cannot run on Intel.
+          # This detector depends only on Apple frameworks: run its production source and tests
+          # with the pinned compiler already provisioned by the iOS test compilation above.
+          kotlin_version=$(sed -n 's/^kotlin = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          compiler="$HOME/.konan/kotlin-native-prebuilt-macos-x86_64-$kotlin_version/bin/kotlinc-native"
+          "$compiler" \
+            shared/src/appleMain/kotlin/io/github/plaza/core/net/AppleSystemProxy.kt \
+            shared/src/appleTest/kotlin/io/github/plaza/core/net/AppleSystemProxyTest.kt \
+            -target macos_x64 -generate-test-runner -o "$RUNNER_TEMP/apple-system-proxy-tests"
+          "$RUNNER_TEMP/apple-system-proxy-tests.kexe"
       - name: Compile the iOS shell without packaging
         if: inputs.checks_only == true
         run: ./gradlew :iosapp:compileKotlinIosArm64 :iosapp:compileKotlinIosSimulatorArm64 --max-workers=2

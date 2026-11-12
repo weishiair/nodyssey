@@ -13,62 +13,11 @@ package = io.github.plaza.core.net.dns
 language = Objective-C
 headers = Network/Network.h
 compilerOpts = -fno-objc-arc
-linkerOpts = -framework Network -framework CFNetwork
+linkerOpts = -framework Network
 
 ---
 
 #include <Network/Network.h>
-#include <CFNetwork/CFNetwork.h>
-#include <ifaddrs.h>
-#include <net/if.h>
-#include <string.h>
-#include <sys/socket.h>
-
-// CFNetwork resolves exclusions/PAC configuration for the actual forum URL. A PAC entry counts as
-// configured without executing arbitrary PAC JavaScript or making a network probe.
-static inline int plaza_network_proxy_active(const char *url) {
-	int active = 0;
-	CFDictionaryRef settings = CFNetworkCopySystemProxySettings();
-	CFURLRef target = url == NULL ? NULL : CFURLCreateWithBytes(kCFAllocatorDefault,
-	    (const UInt8 *)url, (CFIndex)strlen(url), kCFStringEncodingUTF8, NULL);
-	if (settings != NULL && target != NULL) {
-		CFArrayRef proxies = CFNetworkCopyProxiesForURL(target, settings);
-		if (proxies != NULL) {
-			for (CFIndex index = 0; index < CFArrayGetCount(proxies); index++) {
-				CFDictionaryRef proxy = (CFDictionaryRef)CFArrayGetValueAtIndex(proxies, index);
-				CFStringRef type = (CFStringRef)CFDictionaryGetValue(proxy, kCFProxyTypeKey);
-				if (type != NULL && !CFEqual(type, kCFProxyTypeNone)) {
-					active = 1;
-					break;
-				}
-			}
-			CFRelease(proxies);
-		}
-	}
-	if (target != NULL) CFRelease(target);
-	if (settings != NULL) CFRelease(settings);
-	if (active) return 1;
-
-	// No supported API exposes third-party VPN ownership. Use only UP/RUNNING tunnels with an IP
-	// address, not a stale interface name or the undocumented __SCOPED__ proxy dictionary.
-	struct ifaddrs *interfaces = NULL;
-	if (getifaddrs(&interfaces) != 0) return 0;
-	for (const struct ifaddrs *entry = interfaces; entry != NULL; entry = entry->ifa_next) {
-		if (entry->ifa_name == NULL || entry->ifa_addr == NULL ||
-		    (entry->ifa_flags & (IFF_UP | IFF_RUNNING)) != (IFF_UP | IFF_RUNNING)) continue;
-		int family = entry->ifa_addr->sa_family;
-		if (family != AF_INET && family != AF_INET6) continue;
-		const char *name = entry->ifa_name;
-		if (strncmp(name, "utun", 4) == 0 || strncmp(name, "ipsec", 5) == 0 ||
-		    strncmp(name, "ppp", 3) == 0) {
-			active = 1;
-			break;
-		}
-	}
-	freeifaddrs(interfaces);
-	return active;
-}
-
 // `-fno-objc-arc` above is what makes the `nw_release` calls here both legal and required: cinterop
 // compiles this stub without ARC, and the two `create` functions return a reference this owns.
 //

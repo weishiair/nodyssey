@@ -464,7 +464,7 @@
     <string name="doh_title">Encrypted DNS</string>
     <string name="doh_master_title">Use encrypted DNS</string>
     <string name="doh_master_hint">The app resolves hostnames over DoH; every other app on the phone carries on as before</string>
-    <string name="doh_paused_for_proxy">A proxy or VPN was detected. Encrypted DNS is paused and will return to your saved setting after disconnection.</string>
+    <string name="doh_paused_for_proxy">Encrypted DNS is paused while a proxy is active. Your saved setting will resume when the proxy is off.</string>
     <string name="doh_provider_title">Resolver</string>
     <string name="doh_provider_alidns">AliDNS</string>
     <string name="doh_provider_weishiair">Weishiair DoH (ECH)</string>

@@ -458,7 +458,7 @@
     <string name="doh_title">加密 DNS</string>
     <string name="doh_master_title">啟用加密 DNS</string>
     <string name="doh_master_hint">App 內的請求改用 DoH 解析網域；手機上的其它 App 照常</string>
-    <string name="doh_paused_for_proxy">偵測到代理或 VPN，加密 DNS 已暫停；中斷連線後恢復原設定。</string>
+    <string name="doh_paused_for_proxy">加密 DNS 因代理暫停；關閉代理後恢復原設定。</string>
     <string name="doh_provider_title">解析服務商</string>
     <string name="doh_provider_alidns">阿里 DNS</string>
     <string name="doh_provider_weishiair">Weishiair DoH（ECH）</string>
