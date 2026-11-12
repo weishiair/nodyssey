@@ -1,18 +1,33 @@
 package io.github.plaza.designsys.theme
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 
 /**
  * The three depths every screen is drawn at: the page, the cards on it, and what floats over both.
@@ -58,6 +73,13 @@ data class PlazaLayers(
     val shadows: Boolean,
     /** An outline for cards, where shadows cannot be drawn and tone cannot separate them (墨水屏). */
     val cardBorder: Color?,
+    /**
+     * 毛玻璃 — whether navigation bars and floating chrome controls wear a translucent liquid-glass
+     * gradient and a directional specular rim highlight. Reading cards and floors remain solid.
+     */
+    val frostedGlass: Boolean = false,
+    /** Active theme accent blended at low alpha into frosted glass surfaces and rims. */
+    val glassTint: Color = Color.Unspecified,
 )
 
 /**
@@ -82,8 +104,10 @@ fun plazaLayers(
     darkTheme: Boolean,
     einkMode: Boolean,
     pureWhite: Boolean = false,
-): PlazaLayers =
-    when {
+    frostedGlass: Boolean = false,
+): PlazaLayers {
+    val activeGlass = frostedGlass && !einkMode
+    return when {
         einkMode ->
             PlazaLayers(
                 page = scheme.surface,
@@ -93,6 +117,7 @@ fun plazaLayers(
                 divider = scheme.outlineVariant,
                 shadows = false,
                 cardBorder = scheme.outline,
+                frostedGlass = false,
             )
 
         pureWhite && darkTheme ->
@@ -104,6 +129,8 @@ fun plazaLayers(
                 divider = scheme.outlineVariant,
                 shadows = false,
                 cardBorder = null,
+                frostedGlass = activeGlass,
+                glassTint = scheme.primary,
             )
 
         darkTheme ->
@@ -117,6 +144,8 @@ fun plazaLayers(
                 divider = scheme.outlineVariant.copy(alpha = DIVIDER_ALPHA),
                 shadows = false,
                 cardBorder = null,
+                frostedGlass = activeGlass,
+                glassTint = scheme.primary,
             )
 
         pureWhite ->
@@ -128,6 +157,8 @@ fun plazaLayers(
                 divider = scheme.outlineVariant,
                 shadows = true,
                 cardBorder = null,
+                frostedGlass = activeGlass,
+                glassTint = scheme.primary,
             )
 
         else ->
@@ -139,8 +170,11 @@ fun plazaLayers(
                 divider = scheme.outlineVariant.copy(alpha = DIVIDER_ALPHA),
                 shadows = true,
                 cardBorder = null,
+                frostedGlass = activeGlass,
+                glassTint = scheme.primary,
             )
     }
+}
 
 private const val DIVIDER_ALPHA = 0.6f
 
@@ -187,3 +221,277 @@ fun Modifier.floatShadow(
             .dropShadow(shape, Shadow(radius = 4.dp, color = ShadowInk, offset = DpOffset(0.dp, 2.dp), alpha = 0.12f))
             .dropShadow(shape, Shadow(radius = 24.dp, color = ShadowInk, offset = DpOffset(0.dp, 10.dp), alpha = 0.16f))
     }
+
+/** Hairline width for frosted glass specular rims — crisp on high-DPI panels without looking boxy. */
+val GlassRimWidth = 0.75.dp
+
+/**
+ * Translucent diagonal fill for floating liquid-glass chrome (the floating bottom navigation pill,
+ * page jump keys, and lifted toolbars). Blends a subtle top specular mist and the active theme's
+ * [PlazaLayers.glassTint] so dark mode reads as refractive frosted glass rather than flat charcoal.
+ */
+fun PlazaLayers.glassChromeBrush(darkTheme: Boolean): Brush {
+    val accent = if (glassTint != Color.Unspecified) glassTint else raised
+    return if (darkTheme) {
+        val topCatch = lerp(raised, Color.White, 0.10f)
+        val midBody = lerp(card, accent, 0.08f)
+        val bottomCatch = lerp(raised, accent, 0.14f)
+        Brush.linearGradient(
+            listOf(
+                topCatch.copy(alpha = 0.80f),
+                midBody.copy(alpha = 0.66f),
+                bottomCatch.copy(alpha = 0.74f),
+            ),
+        )
+    } else {
+        val topCatch = lerp(raised, Color.White, 0.55f)
+        val midBody = lerp(page, accent, 0.06f)
+        val bottomCatch = lerp(raised, accent, 0.10f)
+        Brush.linearGradient(
+            listOf(
+                topCatch.copy(alpha = 0.86f),
+                midBody.copy(alpha = 0.72f),
+                bottomCatch.copy(alpha = 0.82f),
+            ),
+        )
+    }
+}
+
+/**
+ * Translucent vertical gradient for top app bars and headers when [PlazaLayers.frostedGlass] is on.
+ */
+fun PlazaLayers.glassHeaderBrush(
+    darkTheme: Boolean,
+    baseColor: Color = page,
+): Brush {
+    val accent = if (glassTint != Color.Unspecified) glassTint else raised
+    return if (darkTheme) {
+        val top = lerp(lerp(baseColor, raised, 0.35f), accent, 0.06f)
+        val bottom = lerp(baseColor, card, 0.20f)
+        Brush.verticalGradient(
+            listOf(
+                top.copy(alpha = 0.84f),
+                bottom.copy(alpha = 0.72f),
+            ),
+        )
+    } else {
+        val top = lerp(baseColor, Color.White, 0.50f)
+        val bottom = lerp(baseColor, Color.White, 0.30f)
+        Brush.verticalGradient(
+            listOf(
+                top.copy(alpha = 0.85f),
+                bottom.copy(alpha = 0.74f),
+            ),
+        )
+    }
+}
+
+/**
+ * Horizontal specular hairline for the bottom edge of a frosted glass top bar.
+ */
+fun PlazaLayers.glassHeaderDividerBrush(darkTheme: Boolean): Brush {
+    val accent = if (glassTint != Color.Unspecified) glassTint else Color.White
+    return Brush.horizontalGradient(
+        if (darkTheme) {
+            listOf(
+                Color.White.copy(alpha = 0.05f),
+                lerp(Color.White, accent, 0.25f).copy(alpha = 0.22f),
+                Color.White.copy(alpha = 0.05f),
+            )
+        } else {
+            listOf(
+                Color.White.copy(alpha = 0.20f),
+                Color.White.copy(alpha = 0.72f),
+                Color.White.copy(alpha = 0.20f),
+            )
+        },
+    )
+}
+
+/**
+ * Translucent vertical gradient for modal bottom sheets (such as the reply composer) under
+ * [PlazaLayers.frostedGlass].
+ */
+fun PlazaLayers.glassSheetBrush(darkTheme: Boolean): Brush {
+    val accent = if (glassTint != Color.Unspecified) glassTint else raised
+    return if (darkTheme) {
+        val top = lerp(lerp(raised, Color.White, 0.08f), accent, 0.10f)
+        Brush.verticalGradient(
+            listOf(
+                top.copy(alpha = 0.90f),
+                card.copy(alpha = 0.86f),
+            ),
+        )
+    } else {
+        val top = lerp(card, Color.White, 0.60f)
+        Brush.verticalGradient(
+            listOf(
+                top.copy(alpha = 0.92f),
+                card.copy(alpha = 0.88f),
+            ),
+        )
+    }
+}
+
+/**
+ * Three-stop diagonal specular rim highlight for liquid-glass chrome: bright at the top-left catch
+ * edge, softly tinted across the body, and a secondary reflection at the bottom-right corner.
+ */
+fun PlazaLayers.glassRimBrush(darkTheme: Boolean): Brush {
+    val accent = if (glassTint != Color.Unspecified) glassTint else Color.White
+    return Brush.linearGradient(
+        if (darkTheme) {
+            listOf(
+                Color.White.copy(alpha = 0.30f),
+                accent.copy(alpha = 0.10f),
+                Color.White.copy(alpha = 0.16f),
+            )
+        } else {
+            listOf(
+                Color.White.copy(alpha = 0.86f),
+                accent.copy(alpha = 0.20f),
+                Color.White.copy(alpha = 0.50f),
+            )
+        },
+    )
+}
+
+/**
+ * [GlassRimWidth] stroke for a control that wears a specular rim under [PlazaLayers.frostedGlass],
+ * or falls back to [cardBorderStroke] (the 墨水屏 outline, null elsewhere).
+ */
+fun PlazaLayers.glassRimBorderStroke(darkTheme: Boolean): BorderStroke? =
+    if (frostedGlass) BorderStroke(GlassRimWidth, glassRimBrush(darkTheme)) else cardBorderStroke
+
+/**
+ * [glassRimBorderStroke] as a [Modifier] for controls that take no `BorderStroke` parameter of
+ * their own.
+ */
+fun Modifier.glassRimBorder(
+    layers: PlazaLayers,
+    darkTheme: Boolean,
+    shape: Shape,
+): Modifier =
+    if (layers.frostedGlass) {
+        border(GlassRimWidth, layers.glassRimBrush(darkTheme), shape)
+    } else {
+        cardBorder(layers, shape)
+    }
+
+/**
+ * Ambient [Backdrop] supplied by the enclosing screen or navigation shell so floating chrome
+ * (bottom navigation capsule, thread top-bar pills, floating action buttons, and page jump rails)
+ * can sample, blur, and refract the scrolling content directly behind them.
+ */
+val LocalLiquidGlassBackdrop = compositionLocalOf<Backdrop?> { null }
+
+/**
+ * Remembers a [LayerBackdrop] cleared with [backgroundColor] when [PlazaLayers.frostedGlass] is
+ * enabled, or returns `null` when off so zero offscreen layer capture occurs in standard modes.
+ */
+@Composable
+fun rememberLiquidGlassBackdrop(
+    backgroundColor: Color = LocalPlazaLayers.current.page,
+): LayerBackdrop? {
+    if (!LocalPlazaLayers.current.frostedGlass) return null
+    return rememberLayerBackdrop {
+        drawRect(backgroundColor)
+        drawContent()
+    }
+}
+
+/**
+ * Attaches [backdrop] as a capture source when non-null (i.e. when [PlazaLayers.frostedGlass] is
+ * active); a no-op otherwise.
+ */
+fun Modifier.liquidGlassBackdropSource(backdrop: LayerBackdrop?): Modifier =
+    if (backdrop != null) this.layerBackdrop(backdrop) else this
+
+/**
+ * Full-width frosted matte header backdrop for top app bars (covering the status bar and toolbar
+ * strip) when [PlazaLayers.frostedGlass] is active. Blurs the scrolling content underneath with a
+ * soft Gaussian blur and overlays [glassHeaderBrush] without lens distortion or outer box shadows.
+ */
+fun Modifier.glassFrostedBar(
+    layers: PlazaLayers,
+    darkTheme: Boolean,
+    backdrop: Backdrop?,
+    baseColor: Color = layers.page,
+): Modifier {
+    if (!layers.frostedGlass) return this
+    val headerBrush = layers.glassHeaderBrush(darkTheme, baseColor)
+    return if (backdrop != null) {
+        this.drawBackdrop(
+            backdrop = backdrop,
+            shape = { RectangleShape },
+            effects = {
+                vibrancy()
+                blur(16.dp.toPx())
+            },
+            highlight = null,
+            shadow = null,
+            onDrawSurface = {
+                drawRect(headerBrush)
+            },
+        )
+    } else {
+        this.background(headerBrush)
+    }
+}
+
+/**
+ * Full floating liquid-glass chrome treatment:
+ * - When [backdrop] is provided and [PlazaLayers.frostedGlass] is active, uses Kyant's
+ *   `drawBackdrop` (`vibrancy` + Gaussian `blur` + SDF `lens` edge refraction with chromatic
+ *   aberration) and tints the glass surface with [surfaceTint].
+ * - When [backdrop] is null (e.g. static theme preview or fallback), uses a soft elevation shadow,
+ *   clipped translucent gradient fill, and [GlassRimWidth] directional specular rim highlight.
+ */
+fun Modifier.glassChromeSurface(
+    layers: PlazaLayers,
+    darkTheme: Boolean,
+    shape: Shape,
+    elevated: Boolean = true,
+    backdrop: Backdrop? = null,
+    surfaceTint: Color = Color.Unspecified,
+): Modifier {
+    if (!layers.frostedGlass) {
+        return this
+            .floatShadow(shape, enabled = elevated && layers.shadows)
+            .clip(shape)
+            .background(layers.raised, shape)
+            .cardBorder(layers, shape)
+    }
+    val resolvedTint =
+        if (surfaceTint != Color.Unspecified) {
+            surfaceTint
+        } else if (darkTheme) {
+            lerp(layers.raised, Color.Black, 0.10f).copy(alpha = 0.52f)
+        } else {
+            lerp(layers.card, Color.White, 0.45f).copy(alpha = 0.56f)
+        }
+    return if (backdrop != null) {
+        this.drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = {
+                vibrancy()
+                blur(8.dp.toPx())
+                lens(
+                    refractionHeight = 14.dp.toPx(),
+                    refractionAmount = 28.dp.toPx(),
+                    chromaticAberration = true,
+                )
+            },
+            onDrawSurface = {
+                drawRect(resolvedTint)
+            },
+        )
+    } else {
+        this
+            .floatShadow(shape, enabled = elevated && (layers.shadows || layers.frostedGlass))
+            .clip(shape)
+            .background(layers.glassChromeBrush(darkTheme), shape)
+            .border(GlassRimWidth, layers.glassRimBrush(darkTheme), shape)
+    }
+}

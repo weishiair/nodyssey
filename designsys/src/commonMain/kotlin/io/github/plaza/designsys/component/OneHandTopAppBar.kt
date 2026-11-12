@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.LocalOneHandMode
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
@@ -127,13 +128,14 @@ fun OneHandTopAppBar(
     // scrolls under it the bar lifts: a shadow where the layers can draw one, a step up in tone where
     // they cannot (dark, 墨水屏).
     val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
     val lifted = liftOnScroll && state.isContentOverlapped
     val containerColor by animateColorAsState(
         targetValue =
-        if (lifted && !layers.shadows) {
-            MaterialTheme.colorScheme.surfaceContainerHigh
-        } else {
-            layers.page
+        when {
+            lifted && layers.frostedGlass -> layers.raised.copy(alpha = if (darkTheme) 0.80f else 0.85f)
+            lifted && !layers.shadows -> MaterialTheme.colorScheme.surfaceContainerHigh
+            else -> layers.page
         },
         // The theme's effects spec, which is a snap under reduced motion and 墨水屏 — where every
         // frame of a colour fade is a panel refresh.
@@ -153,7 +155,9 @@ fun OneHandTopAppBar(
 
     Surface(
         color = containerColor,
-        modifier = modifier.cardShadow(RectangleShape, enabled = lifted && layers.shadows).fillMaxWidth(),
+        modifier = modifier
+            .cardShadow(RectangleShape, enabled = lifted && layers.shadows)
+            .fillMaxWidth(),
     ) {
         Column(Modifier.windowInsetsPadding(TopAppBarDefaults.windowInsets)) {
             Box(

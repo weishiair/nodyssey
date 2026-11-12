@@ -10,6 +10,8 @@
   answers to.
 -->
 <resources>
+    <string name="snackbar_dismiss">關閉提示</string>
+
     <string name="composer_format_bold">粗體</string>
     <string name="composer_format_italic">斜體</string>
     <string name="composer_format_strikethrough">刪除線</string>

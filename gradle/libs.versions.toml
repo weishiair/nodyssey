@@ -65,6 +65,9 @@ kotlinxDatetime = "0.8.0"
 # Google's material-color-utilities, ported to multiplatform Kotlin (MIT). Only the algorithm half —
 # no Compose dependency of its own, so it adds a seed-to-scheme function and nothing else.
 materialColorUtilities = "5.0.1"
+# Kyant's Compose Multiplatform Liquid Glass / backdrop engine (Apache-2.0). Real-time background
+# layer sampling, blur, vibrancy and SDF lens refraction for floating chrome when 毛玻璃质感 is on.
+backdrop = "2.0.1"
 androidxDatastore = "1.2.1"
 androidxWork = "2.12.0"
 # KSP dropped the `<kotlin>-<ksp>` coordinate scheme. KSP2 is versioned independently from Kotlin,
@@ -133,6 +136,7 @@ ksoup = { module = "com.fleeksoft.ksoup:ksoup", version.ref = "ksoup" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 material-color-utilities = { module = "com.materialkolor:material-color-utilities", version.ref = "materialColorUtilities" }
+backdrop = { module = "io.github.kyant0:backdrop", version.ref = "backdrop" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "androidxDatastore" }
 androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "androidxWork" }
 androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "androidxWork" }

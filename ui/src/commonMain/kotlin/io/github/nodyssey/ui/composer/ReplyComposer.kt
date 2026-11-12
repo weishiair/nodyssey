@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -106,9 +107,12 @@ import io.github.plaza.designsys.editor.MarkdownEditorState
 import io.github.plaza.designsys.editor.ToolbarCustomizeSheet
 import io.github.plaza.designsys.editor.rememberMarkdownEditorState
 import io.github.plaza.designsys.theme.CommentBody
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.glassRimBorderStroke
+import io.github.plaza.designsys.theme.glassSheetBrush
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -452,6 +456,8 @@ private fun ReplyEditorSheet(
             )
         }
     }
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
     if (asCard) {
         Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             // The keyboard pushes the card up rather than covering its bottom, where 发布's strip is.
@@ -461,10 +467,26 @@ private fun ReplyEditorSheet(
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.extraLarge,
-                    color = LocalPlazaLayers.current.card,
+                    color =
+                    if (layers.frostedGlass) {
+                        layers.card.copy(alpha = if (darkTheme) 0.88f else 0.92f)
+                    } else {
+                        layers.card
+                    },
+                    border = if (layers.frostedGlass) layers.glassRimBorderStroke(darkTheme) else null,
                     modifier = Modifier.widthIn(max = REPLY_CARD_MAX_WIDTH).fillMaxWidth(),
                 ) {
-                    editor(Modifier.padding(top = Spacing.xs))
+                    editor(
+                        Modifier
+                            .then(
+                                if (layers.frostedGlass) {
+                                    Modifier.background(layers.glassSheetBrush(darkTheme))
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .padding(top = Spacing.xs),
+                    )
                 }
             }
         }
@@ -479,10 +501,17 @@ private fun ReplyEditorSheet(
             ),
             // A sheet of paper, like the post editor's page (2c): the editor is one card lifted over the
             // thread, and only its bar and the emoji panel under it recede.
-            containerColor = LocalPlazaLayers.current.card,
+            containerColor =
+            if (layers.frostedGlass) {
+                layers.card.copy(alpha = if (darkTheme) 0.84f else 0.90f)
+            } else {
+                layers.card
+            },
             shape = PlazaSheetDefaults.shape,
             dragHandle = { PlazaSheetDefaults.DragHandle() },
         ) {
+            // Material clips the whole sheet, including its handle, to one outer shape. Painting
+            // another full-width background below the handle creates a second, square-edged panel.
             editor(Modifier.imePadding())
         }
     }
@@ -640,12 +669,27 @@ private fun PublishReplyButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
+    val scheme = MaterialTheme.colorScheme
     // Material's extra-small size step with its square shape: the Lean round's 32dp button, the
     // header's one filled thing without being the tallest.
     Button(
         onClick = onClick,
         enabled = enabled && !isPublishing,
         shape = ButtonDefaults.squareShape,
+        border = if (layers.frostedGlass) layers.glassRimBorderStroke(darkTheme) else null,
+        colors =
+        if (layers.frostedGlass) {
+            ButtonDefaults.buttonColors(
+                containerColor = scheme.primary.copy(alpha = 0.88f),
+                contentColor = scheme.onPrimary,
+                disabledContainerColor = layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.72f),
+                disabledContentColor = scheme.onSurfaceVariant,
+            )
+        } else {
+            ButtonDefaults.buttonColors()
+        },
         contentPadding = ButtonDefaults.ExtraSmallContentPadding,
         modifier = modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
     ) {

@@ -9,6 +9,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -32,11 +33,14 @@ import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import androidx.paging.cachedIn
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import io.github.nodyssey.data.Board
 import io.github.nodyssey.data.FeedPost
 import io.github.nodyssey.model.FeedSort
 import io.github.nodyssey.model.PostSummary
+import io.github.nodyssey.ui.navigation.FloatingGlassTestContent
+import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -594,6 +598,62 @@ class PostListScreenTest {
         composeRule.onNodeWithText("cached post").assertIsDisplayed()
         composeRule.onNodeWithText("网络开小差了").assertIsDisplayed()
         composeRule.onNodeWithText("重试").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a cached feed can retry a network failure above the floating navigation with a page bar`() {
+        retryCachedFeedWithFloatingNavigation(pageBarEnabled = true)
+    }
+
+    @Test
+    fun `a cached feed can retry a network failure above the floating navigation with a fab`() {
+        retryCachedFeedWithFloatingNavigation(pageBarEnabled = false)
+    }
+
+    private fun retryCachedFeedWithFloatingNavigation(pageBarEnabled: Boolean) {
+        var loads = 0
+        lateinit var items: LazyPagingItems<FeedPost>
+        val pager = Pager(PagingConfig(pageSize = 20, enablePlaceholders = false)) {
+            object : PagingSource<Int, FeedPost>() {
+                override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FeedPost> {
+                    loads++
+                    return if (loads == 2) {
+                        LoadResult.Error(SiteException(SiteError.Network))
+                    } else {
+                        LoadResult.Page(listOf(feedPost(1, "cached post", page = 1)), prevKey = null, nextKey = null)
+                    }
+                }
+
+                override fun getRefreshKey(state: PagingState<Int, FeedPost>): Int? = null
+            }
+        }
+        composeRule.setContent {
+            FloatingGlassTestContent(TopLevelDestination.HOME) {
+                val scope = rememberCoroutineScope()
+                val feed = remember { pager.flow.cachedIn(scope) }
+                items = feed.collectAsLazyPagingItems()
+                PostListScreen(
+                    state = PostListUiState(boards = boards, pageBarEnabled = pageBarEnabled, totalPages = 217),
+                    postsFor = { items },
+                    onPostClick = {},
+                    onBoardClick = {},
+                    onSortChange = {},
+                    onSignInClick = {},
+                    onRecoverInBrowser = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("cached post").assertIsDisplayed()
+        composeRule.runOnIdle { items.refresh() }
+        composeRule.waitForIdle()
+        assertEquals(2, loads)
+        composeRule.onNodeWithText("cached post").assertIsDisplayed()
+
+        composeRule.onNodeWithText("重试").performTouchInput { click() }
+        composeRule.waitForIdle()
+
+        assertEquals(3, loads)
+        composeRule.runOnIdle { assertTrue(items.loadState.refresh is LoadState.NotLoading) }
     }
 
     /**

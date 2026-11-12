@@ -5,13 +5,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import io.github.nodyssey.ui.navigation.FloatingGlassTestContent
+import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Assert.assertEquals
@@ -91,7 +95,7 @@ class ProfileScreenTest {
     fun `a wall refusing the sign in offers the verify button`() {
         var verified = false
         composeRule.setContent {
-            PlazaTheme {
+            FloatingGlassTestContent(TopLevelDestination.PROFILE) {
                 ProfileScreen(
                     state =
                     ProfileUiState(
@@ -112,9 +116,37 @@ class ProfileScreenTest {
         }
 
         composeRule.onNodeWithText("需要确认一下你不是机器人").assertIsDisplayed()
-        composeRule.onNodeWithText("去验证").performClick()
+        composeRule.onNodeWithText("去验证").performTouchInput { click() }
 
         assertTrue(verified)
+    }
+
+    @Test
+    fun `a network failure can retry attendance above the floating navigation`() {
+        var attendanceOpened = false
+        composeRule.setContent {
+            FloatingGlassTestContent(TopLevelDestination.PROFILE) {
+                ProfileScreen(
+                    state = ProfileUiState(
+                        isSignedIn = true,
+                        displayName = "nodyssey_dev",
+                        attendanceKnown = true,
+                        attendanceFailure = SiteError.Network,
+                    ),
+                    destinations = ProfileDestinations(),
+                    onSignIn = {},
+                    onRetry = {},
+                    onOpenWebsite = {},
+                    onVerify = {},
+                    onAttendance = { attendanceOpened = true },
+                    onAttendanceBoard = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("重试").performTouchInput { click() }
+
+        assertTrue(attendanceOpened)
     }
 
     /**

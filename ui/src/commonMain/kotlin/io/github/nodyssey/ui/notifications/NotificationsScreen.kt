@@ -72,6 +72,7 @@ import io.github.nodyssey.data.NotificationTab
 import io.github.nodyssey.data.UserSearchResult
 import io.github.nodyssey.ui.common.SignedOutState
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.rememberTabPagerState
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.common.withoutBottom
@@ -367,7 +368,7 @@ fun NotificationsScreen(
     ) { padding ->
         // Both lists run on under the bottom bar and take its height as content padding — see
         // [withoutBottom].
-        val bottomInset = padding.calculateBottomPadding()
+        val bottomInset = padding.bottomWithFloatingBar()
         Box(
             modifier = Modifier.padding(padding.withoutBottom()).fillMaxSize().readableWidth(),
         ) {

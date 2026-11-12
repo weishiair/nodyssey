@@ -1,6 +1,20 @@
 package io.github.nodyssey.ui.navigation
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -9,13 +23,20 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +48,10 @@ import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.tab_home
 import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.nodyssey.ui.resources.tab_profile
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
+import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -121,3 +146,117 @@ fun NodysseyNavigationItems(
 }
 
 private val NavigationIconSize = 20.dp
+
+/**
+ * Total vertical clearance reserved for [GlassBottomNavigationBar] so scrolling lists and bottom-corner
+ * FABs clear the floating capsule.
+ */
+internal val FloatingGlassBarClearance = 74.dp
+
+private val GlassBottomBarHeight = 58.dp
+private val GlassBottomBarShape = CircleShape
+private val GlassPillIndicatorShape = CircleShape
+
+/**
+ * Floating rounded-pill bottom navigation bar for 毛玻璃 (Option B).
+ *
+ * Uses Kyant's `drawBackdrop` against [LocalLiquidGlassBackdrop] so content scrolling behind the
+ * capsule is blurred and refracted at the edges in real time, with a clean borderless tonal pill
+ * highlighting the active tab (matching the iOS 26 Liquid Glass tab bar design).
+ */
+@Composable
+internal fun GlassBottomNavigationBar(
+    current: TopLevelDestination?,
+    onSelect: (TopLevelDestination) -> Unit,
+    modifier: Modifier = Modifier,
+    unreadCount: Int = 0,
+) {
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
+    val backdrop = LocalLiquidGlassBackdrop.current
+    val scheme = MaterialTheme.colorScheme
+
+    Row(
+        modifier = modifier
+            .padding(horizontal = 28.dp, vertical = 8.dp)
+            .widthIn(max = 336.dp)
+            .fillMaxWidth()
+            .height(GlassBottomBarHeight)
+            .glassChromeSurface(
+                layers = layers,
+                darkTheme = darkTheme,
+                shape = GlassBottomBarShape,
+                elevated = true,
+                backdrop = backdrop,
+            )
+            .padding(horizontal = 5.dp, vertical = 4.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TopLevelDestination.entries.forEach { destination ->
+            val selected = destination == current
+            val scale by animateFloatAsState(
+                targetValue = if (selected) 1.02f else 1f,
+                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                label = "glassNavTabScale",
+            )
+            val pillColor by animateColorAsState(
+                targetValue =
+                if (selected) {
+                    scheme.secondaryContainer.copy(alpha = if (darkTheme) 0.56f else 0.68f)
+                } else {
+                    Color.Transparent
+                },
+                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                label = "glassNavTabPill",
+            )
+            val contentColor by animateColorAsState(
+                targetValue = if (selected) scheme.primary else scheme.onSurface,
+                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                label = "glassNavTabContent",
+            )
+            val label = stringResource(destination.label)
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .clip(GlassPillIndicatorShape)
+                    .background(pillColor, GlassPillIndicatorShape)
+                    .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(destination) }),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                BadgedBox(
+                    badge = {
+                        if (destination == TopLevelDestination.NOTIFICATIONS && unreadCount > 0) {
+                            Badge { Text(unreadCount.coerceAtMost(99).toString()) }
+                        }
+                    },
+                ) {
+                    Icon(
+                        imageVector = if (selected) destination.selectedIcon else destination.icon,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier.size(NavigationIconSize),
+                    )
+                }
+                Text(
+                    text = label,
+                    color = contentColor,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    ),
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}

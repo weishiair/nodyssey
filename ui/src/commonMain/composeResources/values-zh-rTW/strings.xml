@@ -1837,4 +1837,6 @@
     <string name="mail_read_status">已讀</string>
     <string name="mail_unread_status">未讀</string>
     <string name="mail_recipient_address">收件地址：%1$s</string>
+    <string name="settings_frosted_glass">毛玻璃質感</string>
+    <string name="settings_frosted_glass_hint">懸浮膠囊底欄與頂欄半透明高光；貼文卡片保持純色以確保閱讀對比度</string>
 </resources>

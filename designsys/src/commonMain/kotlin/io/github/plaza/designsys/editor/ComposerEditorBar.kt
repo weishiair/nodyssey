@@ -34,7 +34,9 @@ import io.github.plaza.designsys.resources.composer_format_link
 import io.github.plaza.designsys.resources.composer_link_menu_image
 import io.github.plaza.designsys.resources.composer_link_menu_more
 import io.github.plaza.designsys.resources.composer_toolbar_customize
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.glassRimBorderStroke
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -131,11 +133,18 @@ private fun Strip(
     modifier: Modifier = Modifier,
 ) {
     val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
     val scroll = rememberScrollState()
     // Recessed rather than raised: the strip is part of the page the writer is typing on.
     Surface(
-        color = layers.inset,
+        color =
+        if (layers.frostedGlass) {
+            layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.74f)
+        } else {
+            layers.inset
+        },
         shape = LayerCardShape,
+        border = if (layers.frostedGlass) layers.glassRimBorderStroke(darkTheme) else null,
         modifier = modifier.fillMaxWidth().padding(BarMargin),
     ) {
         Row(

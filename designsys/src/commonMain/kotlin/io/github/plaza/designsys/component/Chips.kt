@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -138,6 +139,16 @@ enum class BadgeTone {
 @Composable
 fun BadgeChip(
     text: String,
+    tone: BadgeTone,
+    modifier: Modifier = Modifier,
+    containerBrush: Brush? = null,
+    contentColor: Color = Color.Unspecified,
+) = BadgeChip(AnnotatedString(text), tone, modifier, containerBrush, contentColor)
+
+/** A badge with separately styled facts, sharing the same shape and type as a plain badge. */
+@Composable
+fun BadgeChip(
+    text: AnnotatedString,
     tone: BadgeTone,
     modifier: Modifier = Modifier,
     containerBrush: Brush? = null,

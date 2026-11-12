@@ -38,7 +38,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxDefaults
 import androidx.compose.material3.SwipeToDismissBoxState
@@ -149,6 +148,7 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.groupSlice
@@ -317,7 +317,7 @@ fun StickerManageRoute(
                     delay(4_000)
                     notice = null
                 }
-                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md)) { Text(current.text) }
+                PlazaSnackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md)) { Text(current.text) }
             }
         }
     }

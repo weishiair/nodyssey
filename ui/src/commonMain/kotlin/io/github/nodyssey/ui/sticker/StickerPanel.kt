@@ -16,7 +16,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,6 +55,7 @@ import io.github.nodyssey.ui.resources.sticker_name_label
 import io.github.nodyssey.ui.resources.sticker_rename_title
 import io.github.nodyssey.ui.resources.sticker_undo
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.editor.EmojiEntry
 import io.github.plaza.designsys.editor.EmojiGroup
 import io.github.plaza.designsys.theme.Spacing
@@ -178,7 +178,7 @@ internal fun StickerPanelHost(
     Box {
         content(groups)
         notice?.let { current ->
-            Snackbar(
+            PlazaSnackbar(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md),
                 action = if (current.undoUrls.isEmpty()) {
                     null

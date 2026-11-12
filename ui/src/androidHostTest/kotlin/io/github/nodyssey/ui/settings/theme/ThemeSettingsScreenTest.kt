@@ -87,9 +87,13 @@ class ThemeSettingsScreenTest {
     private fun setScreen(
         settings: UserSettings = UserSettings(seedColor = SettingsRepository.DEFAULT_SEED_COLOR),
         onPaletteStyleChange: (PaletteStyle) -> Unit = {},
+        onFrostedGlassChange: (Boolean) -> Unit = {},
     ) {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(
+                einkMode = settings.einkMode,
+                frostedGlass = settings.frostedGlass,
+            ) {
                 ThemeSettingsScreen(
                     settings = settings,
                     onBack = {},
@@ -99,6 +103,7 @@ class ThemeSettingsScreenTest {
                     onPaletteStyleChange = onPaletteStyleChange,
                     onSaveTheme = { _, _ -> },
                     onDeleteTheme = {},
+                    onFrostedGlassChange = onFrostedGlassChange,
                 )
             }
         }

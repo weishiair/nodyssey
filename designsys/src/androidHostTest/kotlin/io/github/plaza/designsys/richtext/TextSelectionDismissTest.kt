@@ -29,7 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -41,12 +41,12 @@ import org.robolectric.annotation.GraphicsMode
  * it goes. What the platform toolbar would draw is whatever the data provider it was handed answers,
  * so that is what is read here, after the selection is gone.
  */
-@RunWith(RobolectricTestRunner::class)
+@RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 // API 27: from 28 on a selection drag shows the platform Magnifier, whose dismiss() throws under
 // Robolectric (no Surface behind its popup). The menu and the gestures under test are the same there.
 @Config(qualifiers = "w360dp-h800dp", sdk = [27])
-class TextSelectionDismissTest {
+class TextSelectionDismissTest(private val frostedGlass: Boolean) {
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -54,7 +54,7 @@ class TextSelectionDismissTest {
 
     private fun setContent() {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 CompositionLocalProvider(
                     LocalTextContextMenuToolbarProvider provides toolbar,
                     LocalTextContextMenuDropdownProvider provides RecordingToolbar(),
@@ -119,7 +119,11 @@ class TextSelectionDismissTest {
         }
     }
 
-    private companion object {
+    companion object {
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters(name = "glass={0}")
+        fun modes() = listOf(false, true)
+
         const val BODY = "手机号注册的，开始要验证真人了"
         const val ELSEWHERE = "elsewhere"
     }
