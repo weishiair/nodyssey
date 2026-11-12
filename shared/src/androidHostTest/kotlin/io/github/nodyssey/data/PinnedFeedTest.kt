@@ -6,11 +6,16 @@ import io.github.nodyssey.data.local.FeedRemoteKeyEntity
 import io.github.nodyssey.data.local.NodeSeekDatabase
 import io.github.nodyssey.data.local.toEntity
 import io.github.nodyssey.model.FeedSort
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.produceIn
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -19,8 +24,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class PinnedFeedTest {
+    // Room invalidation and Paging must share the scheduler, as in SearchFeedTest.
+    private val dispatcher = StandardTestDispatcher()
     private lateinit var database: NodeSeekDatabase
     private val remote = FakePostRemoteDataSource()
     private val clock = MutableClock()
@@ -30,7 +38,8 @@ class PinnedFeedTest {
 
     @Before
     fun setUp() {
-        database = inMemoryDatabase()
+        Dispatchers.setMain(dispatcher)
+        database = inMemoryDatabase(dispatcher)
         repository = OfflineFirstPostRepository(
             database = database,
             remote = remote,
@@ -41,7 +50,10 @@ class PinnedFeedTest {
     }
 
     @After
-    fun tearDown() = database.close()
+    fun tearDown() {
+        Dispatchers.resetMain()
+        database.close()
+    }
 
     private suspend fun givenFeed(slug: String? = null, sort: FeedSort = FeedSort.LAST_REPLY) {
         val feedKey = feedKeyFor(slug, sort)
