@@ -1,6 +1,7 @@
 package io.github.nodyssey.ui.account
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -31,7 +32,6 @@ import io.github.nodyssey.ui.resources.status_sign_in_title
 import io.github.nodyssey.ui.resources.status_unknown_title
 import io.github.nodyssey.ui.resources.status_unparsable_title
 import io.github.plaza.core.net.SiteError
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.TonalTagShape
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import org.jetbrains.compose.resources.StringResource
@@ -194,7 +194,7 @@ internal fun HighRiskDialog(
     onDismiss: () -> Unit,
     destructive: Boolean = false,
 ) {
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         // AlertDialog centres both icon and title on its own once an icon is present, which is the
         // layout the design shows; there is nothing to override here.

@@ -27,7 +27,6 @@ import io.github.nodyssey.ui.common.LocalReadMarkPaint
 import io.github.nodyssey.ui.common.ProvideUserNotes
 import io.github.nodyssey.ui.common.ReadMarkPaint
 import io.github.nodyssey.ui.common.SystemBarsMatchTheme
-import io.github.nodyssey.ui.common.appPresentationValues
 import io.github.nodyssey.ui.common.rememberBrowserLinks
 import io.github.nodyssey.ui.common.rememberReducedMotionEnabled
 import io.github.nodyssey.ui.compare.LocalReportCompareBasket
@@ -46,7 +45,6 @@ import io.github.nodyssey.ui.settings.theme.rememberActiveSeed
 import io.github.nodyssey.ui.settings.theme.toPlaza
 import io.github.nodyssey.ui.sticker.LocalStickerLibrary
 import io.github.plaza.designsys.component.LocalLinkPrefetcher
-import io.github.plaza.designsys.component.LocalPlatformPresentationValues
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.usesNativeChrome
 import io.github.plaza.designsys.richtext.DismissTextSelectionOnTap
@@ -252,7 +250,6 @@ internal fun NodysseyChrome(
             // post body does, and the card is what adds to it.
             val reportCompareBasket = rememberReportCompareBasket(container.reportCompareStore)
             CompositionLocalProvider(
-                LocalPlatformPresentationValues provides { appPresentationValues() },
                 LocalUriHandler provides browserLinks.uriHandler,
                 LocalLinkPrefetcher provides browserLinks.prefetcher,
                 LocalReportFormat provides settings.reportFormat,

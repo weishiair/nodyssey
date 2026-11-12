@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -91,7 +92,6 @@ import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberClipboardCopy
@@ -300,7 +300,7 @@ fun StickerGroupRoute(
         )
     }
     if (confirmingBroken) {
-        PlazaAlertDialog(
+        AlertDialog(
             onDismissRequest = { confirmingBroken = false },
             title = { Text(stringResource(Res.string.sticker_manage_remove_broken_confirm, current?.brokenCount ?: 0)) },
             text = { Text(stringResource(Res.string.sticker_manage_remove_broken_body)) },

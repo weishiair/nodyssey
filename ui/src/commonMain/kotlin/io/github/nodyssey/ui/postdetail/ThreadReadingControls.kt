@@ -52,10 +52,7 @@ import io.github.nodyssey.ui.resources.post_open_original
 import io.github.nodyssey.ui.resources.post_reading_original
 import io.github.nodyssey.ui.resources.post_reading_original_position
 import io.github.nodyssey.ui.resources.post_reply_action
-import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
-import io.github.plaza.designsys.component.platformActionButton
-import io.github.plaza.designsys.component.usesNativeChrome
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -82,17 +79,6 @@ internal fun ThreadReadingControls(
         stringResource(Res.string.post_reading_original_position)
     } else {
         stringResource(Res.string.post_floor_position, currentFloor)
-    }
-    if (usesNativeChrome) {
-        Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp).heightIn(min = 48.dp)) {
-            platformActionButton(
-                PlatformBarAction(if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}", accessibilityLabel = positionLabel, onClick = onJump),
-                Modifier.align(Alignment.Center).widthIn(min = 104.dp).heightIn(min = 48.dp),
-                showLabel = true,
-            )
-            platformActionButton(PlatformBarAction(stringResource(Res.string.post_reply_action), "arrowshape.turn.up.left", onClick = onReply), Modifier.align(Alignment.CenterEnd).size(48.dp), prominent = true)
-        }
-        return
     }
     Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp).heightIn(min = 48.dp)) {
         Box(

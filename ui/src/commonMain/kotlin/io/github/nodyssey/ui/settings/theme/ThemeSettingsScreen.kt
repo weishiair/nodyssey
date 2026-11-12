@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
@@ -84,7 +85,6 @@ import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.groupedRowTitleStyle
@@ -588,7 +588,7 @@ private fun RenameThemeDialog(
     onConfirm: (String) -> Unit,
 ) {
     var name by remember(theme) { mutableStateOf(theme.name) }
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.action_rename)) },
         text = {

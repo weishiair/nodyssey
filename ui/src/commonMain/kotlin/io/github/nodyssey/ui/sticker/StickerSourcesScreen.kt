@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -66,7 +67,6 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
@@ -177,7 +177,7 @@ fun StickerSourcesRoute(
     }
 
     confirming?.let { slug ->
-        PlazaAlertDialog(
+        AlertDialog(
             onDismissRequest = { confirming = null },
             title = { Text(stringResource(Res.string.sticker_manage_unsubscribe_confirm, slug)) },
             text = { Text(stringResource(Res.string.sticker_manage_unsubscribe_body)) },

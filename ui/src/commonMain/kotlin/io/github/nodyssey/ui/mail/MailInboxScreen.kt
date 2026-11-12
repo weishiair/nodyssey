@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -100,7 +101,6 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -551,7 +551,7 @@ fun MailInboxScreen(
         }
     }
     if (state.confirmingDisconnect) {
-        PlazaAlertDialog(
+        AlertDialog(
             onDismissRequest = onDismissDisconnect,
             title = { Text(stringResource(Res.string.mail_disconnect)) },
             text = { Text(stringResource(Res.string.mail_disconnect_hint)) },
@@ -560,8 +560,7 @@ fun MailInboxScreen(
         )
     }
     if (switchingToKey && state.connected) {
-        PlazaAlertDialog(
-            dismissEnabled = !state.connecting,
+        AlertDialog(
             onDismissRequest = {
                 if (!state.connecting) {
                     switchingToKey = false

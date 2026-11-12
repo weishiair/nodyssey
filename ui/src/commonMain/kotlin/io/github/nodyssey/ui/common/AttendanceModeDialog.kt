@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +25,6 @@ import io.github.nodyssey.ui.resources.assets_sign_in_fixed_label
 import io.github.nodyssey.ui.resources.assets_sign_in_fixed_value
 import io.github.nodyssey.ui.resources.assets_sign_in_random_label
 import io.github.nodyssey.ui.resources.assets_sign_in_random_value
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
 import org.jetbrains.compose.resources.stringResource
@@ -47,7 +47,7 @@ fun AttendanceModeDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         modifier = modifier,
         icon = { Icon(PlazaIcons.EventAvailable, contentDescription = null) },

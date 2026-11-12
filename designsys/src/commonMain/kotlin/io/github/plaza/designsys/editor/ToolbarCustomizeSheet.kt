@@ -19,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,7 +43,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import io.github.plaza.designsys.component.PlazaIcons
-import io.github.plaza.designsys.component.PlazaModalBottomSheet
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.resources.Res
@@ -76,7 +76,7 @@ fun ToolbarCustomizeSheet(
     onReset: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    PlazaModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = PlazaSheetDefaults.shape,
         dragHandle = { PlazaSheetDefaults.DragHandle() },

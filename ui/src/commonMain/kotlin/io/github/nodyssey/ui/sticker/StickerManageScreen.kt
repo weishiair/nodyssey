@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -149,7 +150,6 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.SectionNote
@@ -784,7 +784,7 @@ private fun CustomCdnDialog(
 ) {
     var value by rememberSaveable { mutableStateOf(initial) }
     val valid = value.trim().startsWith("https://") && value.trim().length > "https://".length
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.sticker_cdn_custom)) },
         text = {
@@ -904,7 +904,7 @@ private fun ImportDialog(
         if (picked != null) viewModel.importBackup(picked)
     }
     val done = outcome as? ImportOutcome.Done
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.sticker_backup_import_title)) },
         text = {

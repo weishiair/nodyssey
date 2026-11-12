@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,7 +77,6 @@ import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
@@ -232,7 +232,7 @@ fun AccountsScreen(
     }
     confirmation?.let { action ->
         val removesCurrent = action.remove && action.account?.uid == state.activeUid
-        PlazaAlertDialog(
+        AlertDialog(
             onDismissRequest = { confirmation = null },
             title = { Text(stringResource(if (action.remove) Res.string.accounts_remove else Res.string.accounts_switch)) },
             text = {

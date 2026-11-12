@@ -1,7 +1,8 @@
 # iOS 原生界面控件
 
-2026-11-12：将 Android 模拟玻璃覆盖的操作控件统一接入 UIKit。业务正文、列表、编辑字段、
-表情内容和表单继续由共享 Compose 渲染；仓储、ViewModel、导航键与设置存储没有新增副本。
+2026-11-12：iOS 使用 UIKit 的导航栏、搜索与导航菜单；复杂编辑器、表单和内容浮层保留共享
+Compose 实现。`1.3.11-ios-test.2` 真机反馈暴露了顶栏遮挡、页码换行、悬浮控件重叠及弹层留白，
+因此撤回按钮、工具条、sheet 和 dialog 的整批替换，按控件适配能力决定迁移范围。
 
 ## 迁移范围
 
@@ -11,31 +12,35 @@
 | 首页排序、站点、帖子操作、编辑器 APP 菜单 | `UIMenu`、`UIAction` |
 | 搜索页与收藏搜索 | `UISearchController`，输入和提交仍调用共享状态接口 |
 | 收藏与表情多选 | 同一原生导航栏切换操作集合；退出多选后恢复普通栏 |
-| 其余下拉选择与表情长按 | 系统 action sheet；iPad 配置 popover 锚点与关闭回调 |
-| 回复、跳页、资料、工具栏定制及确认表单 | `UISheetPresentationController` 管理展示、拖动与关闭，共享内容放在独立 Compose 控制器中 |
-| Markdown 格式操作 | 可横向滚动的原生 `UIToolbar`，保留链接的两种模板和自定义入口 |
-| 发帖、回复和阅读浮动操作 | 原生 `UIButton`；iOS 26 起使用 glass / prominent glass 配置 |
+| 简单下拉选择与表情长按 | 系统 action sheet；iPad 配置 popover 锚点与关闭回调 |
+| 回复、跳页、资料、工具栏定制及确认表单 | 共享 `ModalBottomSheet`、`AlertDialog`、`Dialog`，保留内容测量、键盘处理和关闭条件 |
+| Markdown 格式操作 | 共享编辑工具条，保留横向滚动、链接长按的两种模板、APP 菜单与自定义入口 |
+| 发帖、回复和阅读浮动操作 | 共享 FAB、页码与阅读控件，保留原有尺寸、展开收起及排布 |
 
 `PlatformTopAppBarHost` 由每个页面控制器持有，有序登记当前栏。回复预览临时覆盖帖子栏，
 底层帖子重组不会抢回导航栏，预览退出时恢复帖子操作。搜索、多选和预览模式禁止 UIKit
-直接弹出整页；使用栏上的关闭／返回操作退出该模式。发布期间返回按钮、返回手势与回复弹层拖动关闭均受保护。
+直接弹出整页；使用栏上的关闭／返回操作退出该模式。发布期间沿用页面及编辑器的返回、关闭保护。
 
 `NativeChromeViewController` 使用公开的 child-controller containment；iPad 左右栏各自持有
 导航控制器，在单双栏切换时继续使用原有页面及 ViewModel。两条嵌套导航栈释放页面时保留占位根，
 避免将正在显示的栈清空。
 
+发布原生顶栏的页面，将 Compose 子控制器顶边约束到 UIKit 的 `safeAreaLayoutGuide.topAnchor`，
+让分类栏和正文从导航栏下面开始；保留共享顶栏的页面仍从完整视图顶边布局。底边不裁切，
+继续由共享内容处理标签栏及键盘 inset。通过 Auto Layout 跟随旋转、搜索栏与 iPad 分栏的安全区变化。
+
 ## 系统版本与外观
 
-- iOS 26 及以上：沿用 UIKit 的系统导航栏、菜单和弹层材质；按钮的新 glass 配置与 badge API 均有系统版本保护。
-- iOS 16–25：同一套 UIKit 控件显示该系统支持的原生样式，按钮使用 gray / filled 配置，更新提示保留文字标记。
+- iOS 26 及以上：导航栏和原生菜单沿用系统材质，badge API 有系统版本保护。
+- iOS 16–25：导航栏和菜单显示该系统支持的原生样式，更新提示保留文字标记。
 - iOS 26 新增的 badge 类按名称动态解析，避免 Kotlin/Native 在旧系统启动时强链接该类；已有类上的新方法另以系统版本保护。
 - iOS 隐藏模拟玻璃和单手模式的设置入口，不改写用户已保存的偏好。Android 与桌面继续使用原有共享组件。
-- UIKit 导航栏沿用 `NativeShell` 对根控制器的 appearance 设置，跟随系统时保持 unspecified；弹层复制应用与主题 locals 并同步深浅色，保留自己的焦点、键盘、安全区和生命周期 owner。
+- UIKit 导航栏沿用 `NativeShell` 对根控制器的 appearance 设置，跟随系统时保持 unspecified；共享弹层沿用所在 composition 的主题与业务依赖。
 
-弹层通过 `PlatformPresentationLifecycle` 串行处理异步展示与关闭。展示动画中收到关闭请求时
+原生选择菜单通过 `PlatformPresentationLifecycle` 串行处理异步展示与关闭。展示动画中收到关闭请求时
 先等展示完成；系统完成关闭或菜单自动关闭后，移除 composition 不会再次调用 dismiss。
-连续打开其他弹层时等待当前 UIKit transition；从弹层内打开的表单由当前最上层控制器展示。
-根布局用 `safeDrawing` 避让键盘，关闭 Compose 额外的焦点整体位移，避免和编辑器 IME padding 互相追逐。
+呈现选择菜单前等待当前 UIKit transition。复杂共享弹层不再经过 UIKit sheet 适配器，
+避免把短表单强制扩为半屏或全屏，或给回复编辑器叠加新的安全区和键盘处理。
 
 ## 集中真机验收
 
@@ -65,7 +70,8 @@ Windows 可以编译共享 JVM 界面、Android 和不依赖 cinterop 的 `:desi
 ```
 
 完整模拟器和安装包流程见 [`ios-build.md`](ios-build.md)。需要远程验证时，可在迁移分支运行
-`ios-test.yml` 的 `platform=ios`、`checks_only=true`；当前改动尚未推送或触发该工作流。
+`ios-test.yml` 的 `platform=ios`、`checks_only=true`。整应用链接及原生运行验证需要 Mac；
+Windows 上的局部 UIKit API 编译不代表已经通过真机验收。
 
 ### Windows 回归快照（2026-11-12）
 
@@ -81,3 +87,14 @@ Room 报告数据库名称与 Windows 绝对路径不匹配，DataStore 报告�
 
 新增回归针对导航栏 owner 的替换／预览恢复，以及 UIKit 展示中关闭和系统关闭后的去重；
 不以外观、尺寸或控件文案作为断言。iPad 容器迁移的现有回归已按两个嵌套导航控制器更新。
+
+### 真机反馈后的收缩迁移验证（2026-11-12）
+
+撤回复杂控件适配并修正导航安全区后，再次执行 CI 的格式、全量 JVM／Robolectric／桌面测试、
+Android lint、Debug APK 与 R8 Release bundle 构建，以及 16 项发布脚本测试。
+格式、lint、构建与脚本测试通过；2,643 个回归用例中仍有相同的 34 项 Windows 存储失败、
+215 项按配置跳过，与上述基线逐项比对无新增失败。依赖锁、数据库 schema 与资源重名检查无变化。
+
+设计系统的 iOS Arm64 编译通过；本轮修改的导航容器、Auto Layout 安全区约束与保留的
+UIKit 菜单操作也通过固定 Kotlin/Native 2.4.20 工具链的局部 API 编译。完整 iOS 包由
+macOS 流程构建，截图对应的视觉结果、键盘与手势仍需在设备上确认。

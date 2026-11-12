@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,7 +24,6 @@ import io.github.nodyssey.ui.resources.network_check_copied
 import io.github.nodyssey.ui.resources.network_check_copy
 import io.github.nodyssey.ui.resources.sign_in_diagnostics
 import io.github.nodyssey.ui.resources.sign_in_diagnostics_privacy
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
@@ -38,7 +38,7 @@ internal fun SignInDiagnosticsAction(report: String?) {
     val copied = stringResource(Res.string.network_check_copied)
     TextButton(onClick = { expanded = true }) { Text(title) }
     if (expanded) {
-        PlazaAlertDialog(
+        AlertDialog(
             onDismissRequest = { expanded = false },
             title = { Text(title) },
             text = {

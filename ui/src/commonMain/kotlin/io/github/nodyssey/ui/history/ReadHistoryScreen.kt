@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -93,7 +94,6 @@ import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.StatusView
@@ -270,7 +270,7 @@ fun ReadHistoryScreen(
     }
 
     if (confirmClear) {
-        PlazaAlertDialog(
+        AlertDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text(stringResource(Res.string.history_clear_title)) },
             // Spelled out rather than a bare "确定吗": these rows are also the unread baselines, so
@@ -542,7 +542,7 @@ private fun HistoryLimitDialog(
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.history_limit_title)) },
         text = {

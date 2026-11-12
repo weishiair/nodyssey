@@ -9,9 +9,11 @@ import io.github.plaza.designsys.component.PlatformTopAppBar
 import io.github.plaza.designsys.component.PlatformTopAppBarHost
 import io.github.plaza.designsys.component.toUIKitBarButton
 import platform.Foundation.NSOperationQueue
+import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.UIAction
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
+import platform.UIKit.UIColor
 import platform.UIKit.UINavigationController
 import platform.UIKit.UISearchBar
 import platform.UIKit.UISearchBarDelegateProtocol
@@ -21,9 +23,10 @@ import platform.UIKit.UIViewController
 import platform.UIKit.addChildViewController
 import platform.UIKit.didMoveToParentViewController
 import platform.UIKit.navigationItem
+import platform.UIKit.systemBackgroundColor
 import platform.darwin.NSObject
 
-/** Owns the UIKit bar while its child owns the shared screen and its safe-area insets. */
+/** Owns the UIKit bar and starts the shared screen below it. */
 internal class NativeChromeViewController(
     private val makeContent: (NativeChromeViewController) -> UIViewController,
 ) : UIViewController(nibName = null, bundle = null) {
@@ -31,6 +34,8 @@ internal class NativeChromeViewController(
     var usesNativeBar by mutableStateOf(true)
         private set
     private val content by lazy { makeContent(this) }
+    private var contentSafeTop: NSLayoutConstraint? = null
+    private var contentEdgeTop: NSLayoutConstraint? = null
     private var needsSearchFocus = false
     private val searchDelegate = object : NSObject(), UISearchResultsUpdatingProtocol, UISearchBarDelegateProtocol {
         override fun updateSearchResultsForSearchController(searchController: UISearchController) {
@@ -57,10 +62,22 @@ internal class NativeChromeViewController(
     override fun viewDidLoad() {
         super.viewDidLoad()
         definesPresentationContext = true
+        view.backgroundColor = UIColor.systemBackgroundColor
         addChildViewController(content)
+        content.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(content.view)
+        contentSafeTop = content.view.topAnchor.constraintEqualToAnchor(view.safeAreaLayoutGuide.topAnchor)
+        contentEdgeTop = content.view.topAnchor.constraintEqualToAnchor(view.topAnchor)
+        NSLayoutConstraint.activateConstraints(
+            listOf(
+                content.view.leadingAnchor.constraintEqualToAnchor(view.leadingAnchor),
+                content.view.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor),
+                content.view.bottomAnchor.constraintEqualToAnchor(view.bottomAnchor),
+            ),
+        )
         content.didMoveToParentViewController(this)
         updateEligibility()
+        updateContentTop()
     }
 
     override fun viewWillAppear(animated: Boolean) {
@@ -74,14 +91,24 @@ internal class NativeChromeViewController(
         focusSearchIfNeeded()
     }
 
-    override fun viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        content.view.setFrame(view.bounds)
-    }
-
     fun updateEligibility() {
         // Both iPad panes own a navigation controller, as does each phone tab.
         usesNativeBar = parentViewController is UINavigationController
+        updateContentTop()
+    }
+
+    private fun updateContentTop() {
+        // Shared headers may use zero Scaffold insets because the header owns them. Once that
+        // header is a UINavigationBar, constrain the child below UIKit's safe area instead.
+        // Keep the full bottom edge: Compose still accounts for the tab bar and keyboard there.
+        val nativeHeader = usesNativeBar && barHost.current != null
+        if (nativeHeader) {
+            contentEdgeTop?.active = false
+            contentSafeTop?.active = true
+        } else {
+            contentSafeTop?.active = false
+            contentEdgeTop?.active = true
+        }
     }
 
     private fun updateBar(bar: PlatformTopAppBar?) {
@@ -107,6 +134,7 @@ internal class NativeChromeViewController(
             if (!hadSearch) needsSearchFocus = search.autoFocus
         }
         updateVisibility(animated = false)
+        updateContentTop()
         NSOperationQueue.mainQueue.addOperationWithBlock { focusSearchIfNeeded() }
     }
 

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CardDefaults
@@ -128,7 +129,6 @@ import io.github.nodyssey.ui.settings.rememberNotificationPermissionRequest
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
@@ -410,7 +410,7 @@ fun LotteryRoute(
         }
     }
     if (helpOpen) {
-        PlazaAlertDialog(
+        AlertDialog(
             onDismissRequest = { helpOpen = false },
             icon = { Icon(PlazaIcons.Alarm, null) },
             title = { Text(stringResource(Res.string.lottery_help)) },
@@ -645,7 +645,7 @@ private fun LotteryFeedback(viewModel: LotteryViewModel, onSignIn: () -> Unit, o
     SiteErrorSnackbar(error, snackbar, viewModel::clearError, onSignIn = onSignIn, onVerify = onVerify)
     SnackbarHost(snackbar)
     if (limit) {
-        PlazaAlertDialog(
+        AlertDialog(
             onDismissRequest = viewModel::clearLimit,
             text = { Text(stringResource(Res.string.lottery_limit)) },
             confirmButton = { TextButton(onClick = viewModel::clearLimit) { Text(stringResource(Res.string.lottery_ok)) } },

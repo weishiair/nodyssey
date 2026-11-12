@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -79,7 +80,6 @@ import io.github.nodyssey.ui.resources.action_cancel
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
@@ -288,7 +288,7 @@ private fun TwoFactorDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(PlazaIcons.Shield, contentDescription = null) },
         title = { Text(stringResource(Res.string.account_confirm_2fa_title)) },

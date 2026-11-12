@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -115,7 +116,6 @@ import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -975,9 +975,8 @@ private fun DraftRecoveryDialog(
     val imageCount = remember(draft.body) { countImages(draft.body) }
     val board = draft.boardTitle ?: stringResource(Res.string.composer_select_board)
     val title = draft.title.ifBlank { stringResource(Res.string.composer_title_hint) }
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = {},
-        dismissEnabled = false,
         icon = { Icon(PlazaIcons.Drafts, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(stringResource(Res.string.composer_restore_title)) },
         text = {

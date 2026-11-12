@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -77,7 +78,6 @@ import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
@@ -450,7 +450,7 @@ private fun OutcomeDialog(
     when (outcome) {
         is InviteOutcome.Bought -> {
             val code = outcome.code
-            PlazaAlertDialog(
+            AlertDialog(
                 onDismissRequest = onDismiss,
                 icon = { Icon(PlazaIcons.ConfirmationNumber, contentDescription = null) },
                 title = { Text(stringResource(Res.string.invite_bought_title)) },
@@ -498,7 +498,7 @@ private fun OutcomeDialog(
             )
         }
 
-        is InviteOutcome.Refused -> PlazaAlertDialog(
+        is InviteOutcome.Refused -> AlertDialog(
             onDismissRequest = onDismiss,
             icon = { Icon(Icons.Default.Warning, contentDescription = null) },
             title = { Text(outcome.error.shortMessage()) },
@@ -513,7 +513,7 @@ private fun OutcomeDialog(
             },
         )
 
-        is InviteOutcome.Unknown -> PlazaAlertDialog(
+        is InviteOutcome.Unknown -> AlertDialog(
             onDismissRequest = onDismiss,
             icon = { Icon(Icons.Default.Warning, contentDescription = null) },
             title = { Text(stringResource(Res.string.invite_purchase_unknown_title)) },

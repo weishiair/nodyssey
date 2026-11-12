@@ -65,6 +65,7 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
@@ -185,7 +186,6 @@ import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
-import io.github.plaza.designsys.component.PlazaModalBottomSheet
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.QuotePreview
 import io.github.plaza.designsys.component.UserAvatar
@@ -710,9 +710,8 @@ private fun MessageInfoSheet(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
     )
     val scope = rememberCoroutineScope()
-    PlazaModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        nativeExpandFully = true,
         sheetState = sheetState,
         containerColor = LocalPlazaLayers.current.card,
         shape = PlazaSheetDefaults.shape,
@@ -726,7 +725,7 @@ private fun MessageInfoSheet(
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = {
                     scope.launch {
-                        if (!io.github.plaza.designsys.component.usesNativeChrome) sheetState.hide()
+                        sheetState.hide()
                         onDismiss()
                     }
                 }) {

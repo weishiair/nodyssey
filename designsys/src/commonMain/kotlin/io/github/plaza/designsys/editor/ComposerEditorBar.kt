@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -27,12 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.component.LayerCardShape
-import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.fadingEndEdge
-import io.github.plaza.designsys.component.platformActionToolbar
-import io.github.plaza.designsys.component.usesNativeChrome
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.composer_format_link
 import io.github.plaza.designsys.resources.composer_link_menu_image
@@ -120,10 +116,6 @@ fun ComposerEditorBar(
             appMenu = appMenu,
             onCustomize = onCustomize,
             linkMenu = linkMenu,
-            linkActions = listOf(
-                PlatformBarAction(stringResource(Res.string.composer_format_link), "link", onClick = { insertTemplate { applyLinkTemplate() } }),
-                PlatformBarAction(stringResource(Res.string.composer_link_menu_image), "photo", onClick = { insertTemplate { applyImageLinkTemplate() } }),
-            ),
             modifier = barModifier,
         )
         if (editorState.emojiOpen) emojiPanel(editorState.emojiPanelScope(bodyState, inlinePictures))
@@ -138,23 +130,11 @@ private fun Strip(
     appMenu: (@Composable () -> Unit)?,
     onCustomize: (() -> Unit)?,
     linkMenu: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit,
-    linkActions: List<PlatformBarAction>,
     modifier: Modifier = Modifier,
 ) {
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current
     val scroll = rememberScrollState()
-    if (usesNativeChrome) {
-        Row(modifier.fillMaxWidth().padding(BarMargin), verticalAlignment = Alignment.CenterVertically) {
-            platformActionToolbar(
-                actions.map { action -> PlatformBarAction(stringResource(action.label), action.systemImage, selected = action in active, menu = if (action == EditorAction.LINK) linkActions else emptyList(), onClick = { onAction(action) }) } +
-                    listOfNotNull(onCustomize?.let { PlatformBarAction(stringResource(Res.string.composer_toolbar_customize), "wrench", onClick = it) }),
-                Modifier.weight(1f).height(48.dp),
-            )
-            appMenu?.invoke()
-        }
-        return
-    }
     // Recessed rather than raised: the strip is part of the page the writer is typing on.
     Surface(
         color =

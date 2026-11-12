@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -224,7 +225,6 @@ import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
 import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlatformTopAppBar
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.QuotePreview
@@ -3033,7 +3033,7 @@ private fun ReactionConfirmDialog(
     // Only claim it is free when the site told us so; an unread quota says nothing either way, and
     // "免费" that turns out to have cost a chicken leg is the worse of the two mistakes.
     val free = isChicken && freeChickenLegs != null && freeChickenLegs.remaining > 0
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
             Icon(

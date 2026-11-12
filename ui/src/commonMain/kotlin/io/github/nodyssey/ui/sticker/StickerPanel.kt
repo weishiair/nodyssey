@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,7 +56,6 @@ import io.github.nodyssey.ui.resources.sticker_name_label
 import io.github.nodyssey.ui.resources.sticker_rename_title
 import io.github.nodyssey.ui.resources.sticker_undo
 import io.github.plaza.designsys.component.PlatformBarAction
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.editor.EmojiEntry
 import io.github.plaza.designsys.editor.EmojiGroup
@@ -310,7 +310,7 @@ internal fun RenameStickerDialog(
     onConfirm: (String) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf(initial) }
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.sticker_rename_title)) },
         text = {

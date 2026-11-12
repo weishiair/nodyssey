@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_close
@@ -58,7 +59,6 @@ import io.github.nodyssey.ui.resources.report_zoom_in
 import io.github.nodyssey.ui.resources.report_zoom_out
 import io.github.nodyssey.ui.resources.report_zoom_percent
 import io.github.plaza.core.ansi.AnsiSpan
-import io.github.plaza.designsys.component.PlazaDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberTerminalText
@@ -78,7 +78,7 @@ fun ReportSourceDialog(
     onDismiss: () -> Unit,
     target: String? = null,
 ) {
-    PlazaDialog(
+    Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {

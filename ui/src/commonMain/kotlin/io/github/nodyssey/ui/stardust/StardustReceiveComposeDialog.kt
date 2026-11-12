@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -45,7 +46,6 @@ import io.github.nodyssey.ui.resources.stardust_compose_ref
 import io.github.nodyssey.ui.resources.stardust_compose_ref_hint
 import io.github.nodyssey.ui.resources.stardust_compose_ref_support
 import io.github.nodyssey.ui.resources.stardust_compose_title
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Sizes
@@ -85,7 +85,7 @@ fun StardustReceiveComposeDialog(
     val parsedRefId = refId.toPositiveLongOrNull()
     val canInsert = !needsSignIn && parsedAmount != null && parsedRefId != null
 
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(PlazaIcons.QrCode, contentDescription = null) },
         title = { Text(stringResource(Res.string.stardust_compose_title)) },

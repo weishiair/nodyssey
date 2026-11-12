@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -81,7 +82,6 @@ import io.github.nodyssey.ui.resources.action_cancel
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
-import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -439,7 +439,7 @@ private fun TelegramBindDialog(
     onDismiss: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    PlazaAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(PlazaIcons.OpenInNew, contentDescription = null) },
         title = { Text(stringResource(Res.string.account_telegram_dialog_title)) },
