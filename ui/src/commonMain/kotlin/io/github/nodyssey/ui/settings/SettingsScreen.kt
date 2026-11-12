@@ -56,6 +56,7 @@ import io.github.nodyssey.ui.common.rememberDisplayRefreshRates
 import io.github.nodyssey.ui.common.rememberFileSizeLabel
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
+import io.github.nodyssey.ui.resources.doh_paused_for_proxy
 import io.github.nodyssey.ui.resources.imagehost_connected
 import io.github.nodyssey.ui.resources.imagehost_not_connected
 import io.github.nodyssey.ui.resources.imagehost_title
@@ -679,7 +680,7 @@ fun SettingsScreen(
                 state.dohChain?.let { chain ->
                     GroupedRow(
                         title = stringResource(Res.string.settings_doh_entry),
-                        subtitle = dohSummary(chain),
+                        subtitle = if (state.dohPausedForProxy) stringResource(Res.string.doh_paused_for_proxy) else dohSummary(chain),
                         last = !state.hasNetworkCheck,
                         onClick = onOpenDoh,
                         icon = PlazaIcons.Dns,

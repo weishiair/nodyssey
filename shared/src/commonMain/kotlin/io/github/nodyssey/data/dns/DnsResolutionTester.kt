@@ -1,5 +1,8 @@
 package io.github.nodyssey.data.dns
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+
 /**
  * "测试解析" — one lookup of the forum's own hostname through whatever the app is currently resolving
  * with, so a saved server is verified by the same resolver every request will use rather than by a
@@ -38,6 +41,8 @@ class DohSupport(
     val settings: DohSettings,
     val tester: DnsResolutionTester,
     val capabilities: DohCapabilities,
+    /** Runtime suspension, separate from the saved preference so disconnecting restores it. */
+    val pausedForProxy: Flow<Boolean> = flowOf(false),
 )
 
 /**

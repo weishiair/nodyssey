@@ -11,6 +11,7 @@ data class SignInDiagnosticContext(
     val appVersion: AppVersion? = null,
     val doh: DohConfig? = null,
     val proxy: ProxyConfig? = null,
+    val dohPausedForProxy: Boolean? = null,
 )
 
 /**
@@ -54,6 +55,7 @@ fun signInDiagnosticReport(
             else -> "${proxy.type}; scope=${proxy.scope}"
         },
     )
-    appendLine("System VPN/proxy and actual resolver selection: not inspected")
+    appendLine("DoH paused for detected proxy/VPN: ${context.dohPausedForProxy?.toString() ?: "unavailable"}")
+    appendLine("Actual system routing and remote IP family: not verified")
     append(failure.asText())
 }
