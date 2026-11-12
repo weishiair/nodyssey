@@ -1058,6 +1058,10 @@
     <string name="space_message">私信</string>
     <string name="space_follow">关注</string>
     <string name="space_following">已关注</string>
+    <string name="space_copy_name">复制用户名</string>
+    <string name="space_copy_uid">复制 UID</string>
+    <string name="space_name_copied">用户名已复制</string>
+    <string name="space_uid_copied">UID 已复制</string>
     <string name="space_uid">UID %1$d</string>
     <string name="space_uid_bio">UID %1$d · %2$s</string>
     <string name="space_bio">Bio</string>

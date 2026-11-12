@@ -1,6 +1,7 @@
 package io.github.nodyssey.ui.space
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -100,6 +101,8 @@ import io.github.nodyssey.ui.resources.post_reply_count
 import io.github.nodyssey.ui.resources.post_view_count
 import io.github.nodyssey.ui.resources.profile_edit
 import io.github.nodyssey.ui.resources.space_comment_in
+import io.github.nodyssey.ui.resources.space_copy_name
+import io.github.nodyssey.ui.resources.space_copy_uid
 import io.github.nodyssey.ui.resources.space_empty_collections
 import io.github.nodyssey.ui.resources.space_empty_comments
 import io.github.nodyssey.ui.resources.space_empty_topics
@@ -109,6 +112,7 @@ import io.github.nodyssey.ui.resources.space_end_topics
 import io.github.nodyssey.ui.resources.space_follow
 import io.github.nodyssey.ui.resources.space_following
 import io.github.nodyssey.ui.resources.space_message
+import io.github.nodyssey.ui.resources.space_name_copied
 import io.github.nodyssey.ui.resources.space_readme
 import io.github.nodyssey.ui.resources.space_readme_collapse
 import io.github.nodyssey.ui.resources.space_readme_empty
@@ -122,6 +126,7 @@ import io.github.nodyssey.ui.resources.space_tab_comments
 import io.github.nodyssey.ui.resources.space_tab_general
 import io.github.nodyssey.ui.resources.space_tab_topics
 import io.github.nodyssey.ui.resources.space_uid
+import io.github.nodyssey.ui.resources.space_uid_copied
 import io.github.nodyssey.ui.resources.user_note_action
 import io.github.nodyssey.ui.richtext.PostRichContent
 import io.github.plaza.core.richtext.collapseMarkdown
@@ -139,6 +144,7 @@ import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Sizes
@@ -434,6 +440,13 @@ private fun SpaceHeader(
     onMessage: () -> Unit,
     onToggleFollow: () -> Unit,
 ) {
+    val copy = rememberClipboardCopy()
+    val copyNameLabel = stringResource(Res.string.space_copy_name)
+    val nameCopied = stringResource(Res.string.space_name_copied)
+    val copyUidLabel = stringResource(Res.string.space_copy_uid)
+    val uidCopied = stringResource(Res.string.space_uid_copied)
+    val copyName = { copy(copyNameLabel, state.name, nameCopied) }
+    val copyUid = { copy(copyUidLabel, state.uid.toString(), uidCopied) }
     LayerCard(
         shape = MaterialTheme.shapes.extraLarge,
         contentPadding = PaddingValues(18.dp),
@@ -451,7 +464,13 @@ private fun SpaceHeader(
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier =
+                        Modifier.weight(1f, fill = false).combinedClickable(
+                            onClickLabel = copyNameLabel,
+                            onClick = copyName,
+                            onLongClickLabel = copyNameLabel,
+                            onLongClick = copyName,
+                        ),
                     )
                     state.level?.let { level ->
                         TonalTag(
@@ -467,6 +486,13 @@ private fun SpaceHeader(
                     text = stringResource(Res.string.space_uid, state.uid),
                     style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR_FIGURES),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier =
+                    Modifier.combinedClickable(
+                        onClickLabel = copyUidLabel,
+                        onClick = copyUid,
+                        onLongClickLabel = copyUidLabel,
+                        onLongClick = copyUid,
+                    ),
                 )
                 if (state.badges.isNotEmpty()) {
                     RoleBadgeRow(state.badges)

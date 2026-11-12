@@ -891,6 +891,10 @@
     <string name="space_message">Message</string>
     <string name="space_follow">Follow</string>
     <string name="space_following">Following</string>
+    <string name="space_copy_name">Copy username</string>
+    <string name="space_copy_uid">Copy UID</string>
+    <string name="space_name_copied">Username copied</string>
+    <string name="space_uid_copied">UID copied</string>
     <string name="space_readme_empty">No readme found 🙄</string>
     <string name="space_readme_expand">Show all</string>
     <string name="space_readme_collapse">Collapse</string>
