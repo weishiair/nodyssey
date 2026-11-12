@@ -12,6 +12,7 @@ import io.github.nodyssey.data.dns.DohServerProblem
 import io.github.nodyssey.data.dns.DohSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -303,6 +304,61 @@ class DohSettingsViewModelTest {
 
         viewModel.toggleServer("CLOUDFLARE")
         assertNull(viewModel.uiState.value.testFailure)
+    }
+
+    @Test
+    fun `proxy suspension blocks the DNS probe and preserves the user's enabled preference`() = runTest(dispatcher) {
+        val paused = MutableStateFlow(true)
+        val viewModel = DohSettingsViewModel(
+            settings,
+            tester,
+            DohCapabilities(canChooseRecordTypes = true, canFallBackToSystem = false, triesServersInOrder = true),
+            pausedForProxy = paused,
+        )
+        advanceUntilIdle()
+
+        viewModel.test()
+        viewModel.setEnabled(false)
+        advanceUntilIdle()
+        assertEquals(0, tester.calls)
+        assertEquals(true, settings.saved.value.enabled)
+        assertEquals(true, viewModel.uiState.value.pausedForProxy)
+
+        paused.value = false
+        advanceUntilIdle()
+        viewModel.test()
+        advanceUntilIdle()
+        assertEquals(1, tester.calls)
+        assertEquals(false, viewModel.uiState.value.pausedForProxy)
+    }
+
+    @Test
+    fun `connecting a proxy cancels an in-flight DNS probe`() = runTest(dispatcher) {
+        val paused = MutableStateFlow(false)
+        var cancelled = false
+        val waitingTester = object : DnsResolutionTester {
+            override suspend fun resolve(): Result<DnsResolution> = try {
+                awaitCancellation()
+            } finally {
+                cancelled = true
+            }
+        }
+        val viewModel = DohSettingsViewModel(
+            settings,
+            waitingTester,
+            DohCapabilities(canChooseRecordTypes = true, canFallBackToSystem = false, triesServersInOrder = true),
+            pausedForProxy = paused,
+        )
+        advanceUntilIdle()
+        viewModel.test()
+        advanceUntilIdle()
+        assertEquals(true, viewModel.uiState.value.testing)
+
+        paused.value = true
+        advanceUntilIdle()
+        assertEquals(true, cancelled)
+        assertEquals(false, viewModel.uiState.value.testing)
+        assertNull(viewModel.uiState.value.resolution)
     }
 }
 

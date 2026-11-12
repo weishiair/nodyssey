@@ -96,7 +96,8 @@ class SettingsViewModel(
             proxy.config,
             doh?.settings?.config ?: flowOf(null),
             titleKeywords.blockRules,
-        ) { host, proxy, doh, blockKeywords ->
+            doh?.pausedForProxy ?: flowOf(false),
+        ) { host, proxy, doh, blockKeywords, dohPaused ->
             SettingsEntries(
                 imageHostProvider = host.provider,
                 imageHostConnected = host.isConfigured,
@@ -104,7 +105,8 @@ class SettingsViewModel(
                 // requests it is about go through one — an address switched on but left half-typed
                 // routes nothing, and reads as off.
                 proxy = proxy.takeIf { it.routes(ProxyClientKind.FORUM) }?.let { ProxyEndpoint(it.type, it.host, it.port) },
-                dohChain = doh?.let { if (it.resolvesOverHttps()) it.chain else emptyList() },
+                dohChain = doh?.let { if (it.resolvesOverHttps() && !dohPaused) it.chain else emptyList() },
+                dohPausedForProxy = dohPaused,
                 blockKeywordCount = blockKeywords.size,
             )
         }
@@ -126,6 +128,7 @@ class SettingsViewModel(
                 imageHostConnected = entries.imageHostConnected,
                 proxy = entries.proxy,
                 dohChain = entries.dohChain,
+                dohPausedForProxy = entries.dohPausedForProxy,
                 blockKeywordCount = entries.blockKeywordCount,
                 hasNetworkCheck = hasNetworkCheck,
                 // Read off the shared updater rather than checked here: the answer is already in
@@ -320,6 +323,7 @@ data class SettingsUiState(
      * is absent where the system has no such switch.
      */
     val dohChain: List<DohServer>? = null,
+    val dohPausedForProxy: Boolean = false,
     /**
      * Whether 网络自检 exists on this platform. A plain flag rather than a nullable state like
      * [dohChain], because there is nothing about it to report in a subtitle: the row either leads
@@ -338,5 +342,6 @@ private data class SettingsEntries(
     val imageHostConnected: Boolean,
     val proxy: ProxyEndpoint?,
     val dohChain: List<DohServer>?,
+    val dohPausedForProxy: Boolean,
     val blockKeywordCount: Int,
 )

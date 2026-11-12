@@ -435,6 +435,7 @@ class SignInViewModel(
                             SignInDiagnosticContext(
                                 doh = container.doh?.settings?.config?.first(),
                                 proxy = container.proxySettings.config.first(),
+                                dohPausedForProxy = container.doh?.pausedForProxy?.first(),
                             )
                         },
                         saveAccount = { container.accountRepository?.saveCurrentLogin() ?: true },

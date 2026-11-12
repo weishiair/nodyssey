@@ -24,9 +24,12 @@ import io.github.nodyssey.ui.account.AccountMessage
 import io.github.nodyssey.ui.account.toAccountMessage
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.doh_saved
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
@@ -52,6 +55,7 @@ class DohSettingsViewModel(
     private val settings: DohSettings,
     private val tester: DnsResolutionTester,
     capabilities: DohCapabilities,
+    pausedForProxy: Flow<Boolean> = flowOf(false),
 ) : ViewModel() {
     // Seeded in this platform's shape, so the frame before the stored list arrives does not show two
     // radio buttons on where only one server can be used.
@@ -65,8 +69,14 @@ class DohSettingsViewModel(
     val uiState: StateFlow<DohSettingsUiState> = _uiState.asStateFlow()
 
     private val ordered = capabilities.triesServersInOrder
+    private var probe: Job? = null
 
     init {
+        pausedForProxy
+            .onEach { paused ->
+                if (paused) probe?.cancel()
+                _uiState.update { it.copy(pausedForProxy = paused, testing = if (paused) false else it.testing, testFailure = null, resolution = null) }
+            }.launchIn(viewModelScope)
         settings.config
             .take(1)
             .onEach { config ->
@@ -83,6 +93,7 @@ class DohSettingsViewModel(
 
     /** The one control here that is not part of the draft — see the class KDoc. */
     fun setEnabled(value: Boolean) {
+        if (_uiState.value.pausedForProxy) return
         _uiState.update { it.copy(enabled = value, problem = null, testFailure = null, resolution = null) }
         viewModelScope.launch { settings.setEnabled(value) }
     }
@@ -205,8 +216,10 @@ class DohSettingsViewModel(
     }
 
     fun test() {
+        if (_uiState.value.pausedForProxy) return
         val config = validated() ?: return
-        viewModelScope.launch {
+        probe?.cancel()
+        probe = viewModelScope.launch {
             settings.save(config)
             _uiState.update { it.copy(testing = true, testFailure = null, resolution = null) }
             tester
@@ -253,7 +266,7 @@ class DohSettingsViewModel(
          */
         fun factory(doh: DohSupport): ViewModelProvider.Factory =
             viewModelFactory {
-                initializer { DohSettingsViewModel(doh.settings, doh.tester, doh.capabilities) }
+                initializer { DohSettingsViewModel(doh.settings, doh.tester, doh.capabilities, doh.pausedForProxy) }
             }
     }
 }
@@ -270,6 +283,7 @@ data class DohSettingsUiState(
         triesServersInOrder = true,
     ),
     val enabled: Boolean = false,
+    val pausedForProxy: Boolean = false,
     /** Every row, in order; the ticked ones first where [DohCapabilities.triesServersInOrder]. */
     val servers: List<DohServer> = DefaultDohServers,
     val includeIPv6: Boolean = true,
