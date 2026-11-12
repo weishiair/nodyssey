@@ -53,6 +53,8 @@ class AppDns(
     private val onResolverChanged: () -> Unit = {},
     /** Times [RECENT_FAILURE_MILLIS]. */
     private val clock: AppClock = AppClock.System,
+    /** Live proxy/VPN check, also covering the gap before a configuration emission is collected. */
+    private val proxyActive: () -> Boolean = { false },
 ) : Dns {
 
     private class Built(val spec: DohResolverSpec, val dns: Dns) {
@@ -93,6 +95,7 @@ class AppDns(
      * The minute runs from the answer, not from the start of the wait.
      */
     override fun lookup(hostname: String): List<InetAddress> {
+        if (proxyActive()) return system.lookup(hostname)
         val active = active ?: return system.lookup(hostname)
         if (!isResolvableName(hostname)) return system.lookup(hostname)
         val now = clock.nowMillis()
@@ -101,6 +104,7 @@ class AppDns(
         val failed = mutableListOf<Built>()
         var failure: UnknownHostException? = null
         for (server in order) {
+            if (proxyActive()) return system.lookup(hostname)
             try {
                 val answer = server.dns.lookup(hostname)
                 val answeredAt = clock.nowMillis()
@@ -113,7 +117,7 @@ class AppDns(
                 if (first == null) failure = e else first.addSuppressed(e)
             }
         }
-        if (!active.fallbackToSystem) throw failure ?: UnknownHostException(hostname)
+        if (!proxyActive() && !active.fallbackToSystem) throw failure ?: UnknownHostException(hostname)
         return system.lookup(hostname)
     }
 
@@ -122,6 +126,7 @@ class AppDns(
      * Delegating through lookup() strips those records and silently disables Android 17 ECH.
      */
     override fun newCall(request: Dns.Request): Dns.Call {
+        if (proxyActive()) return system.newCall(request)
         val active = active ?: return system.newCall(request)
         if (!isResolvableName(request.hostname)) return system.newCall(request)
         return AppDnsCall(scope, request) {
@@ -130,6 +135,8 @@ class AppDns(
             val failed = mutableListOf<Built>()
             var failure: IOException? = null
             for (server in order) {
+                // A call can wait before enqueue, or a proxy can connect while a server fails.
+                if (proxyActive()) return@AppDnsCall system.newCall(request).awaitRecords()
                 try {
                     // Keep records from one resolver together: a failed server's HTTPS records
                     // must not be combined with another server's IP addresses or ECH config.
@@ -144,7 +151,7 @@ class AppDns(
                     if (first == null) failure = e else first.addSuppressed(e)
                 }
             }
-            if (!active.fallbackToSystem) throw failure ?: UnknownHostException(request.hostname)
+            if (!proxyActive() && !active.fallbackToSystem) throw failure ?: UnknownHostException(request.hostname)
             system.newCall(request).awaitRecords()
         }
     }
