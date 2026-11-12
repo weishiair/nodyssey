@@ -255,7 +255,6 @@ import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.glassFrostedBar
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
-import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
@@ -777,7 +776,9 @@ fun PostDetailScreen(
                 )
             },
         ) { padding ->
-            val frostedTopBar = LocalPlazaLayers.current.let { it.backdropGlass || it.nativeGlass }
+            // UIKit cannot track a Compose list's scroll edge. Keep native chrome over an opaque
+            // header and lay the list below it rather than scrolling text through the title.
+            val frostedTopBar = LocalPlazaLayers.current.backdropGlass
             val topInset = if (frostedTopBar) padding.calculateTopPadding() else 0.dp
             Box(
                 Modifier
@@ -1166,7 +1167,7 @@ private fun DetailTopBar(
                 GlassAction(stringResource(Res.string.action_open_in_browser), onOpenInBrowser, symbol = "safari"),
                 GlassAction(stringResource(Res.string.action_more), {}, symbol = "ellipsis", menu = nativeMenu),
             ),
-            modifier = Modifier.fillMaxWidth().windowInsetsPadding(nativeInsets).height(TopBarHeight),
+            modifier = Modifier.fillMaxWidth().background(pageColor).windowInsetsPadding(nativeInsets).height(TopBarHeight),
         ) {
             Box(
                 Modifier

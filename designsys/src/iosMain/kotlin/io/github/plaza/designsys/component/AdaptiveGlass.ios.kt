@@ -20,12 +20,14 @@ import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeGlass
 import platform.UIKit.NSLayoutConstraint
+import platform.UIKit.NSLineBreakByTruncatingTail
 import platform.UIKit.UIAccessibilityAnnouncementNotification
 import platform.UIKit.UIAccessibilityPostNotification
 import platform.UIKit.UIAction
 import platform.UIKit.UIBarButtonItem
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
+import platform.UIKit.UIButtonConfigurationTitleAlignment
 import platform.UIKit.UIColor
 import platform.UIKit.UICornerConfiguration
 import platform.UIKit.UIFont
@@ -33,6 +35,7 @@ import platform.UIKit.UIFontMetrics
 import platform.UIKit.UIGlassEffect
 import platform.UIKit.UIGlassEffectStyle
 import platform.UIKit.UIImage
+import platform.UIKit.UIImageSymbolConfiguration
 import platform.UIKit.UILabel
 import platform.UIKit.UILayoutConstraintAxisHorizontal
 import platform.UIKit.UILayoutConstraintAxisVertical
@@ -94,16 +97,17 @@ actual fun AdaptiveGlassToolbar(
         return
     }
     val dark = LocalPlazaDarkTheme.current
-    val accent = MaterialTheme.colorScheme.primary
     val scale = LocalPlazaFontScale.current
     val host = remember(vertical) { NativeGlassToolbarHost(vertical) }
+    val foreground = MaterialTheme.colorScheme.onSurfaceVariant
+    val surface = LocalPlazaLayers.current.raised.copy(alpha = if (dark) 0.50f else 0.65f)
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
         factory = { host.view },
         modifier = modifier.remeasureRequester(remeasure),
         properties = NativeGlassInterop,
         update = {
-            host.update(actions, accent.toUIColor(), dark, scale)
+            host.update(actions, foreground.toUIColor(), surface.toUIColor(), dark, scale)
             remeasure.requestRemeasure()
         },
     )
@@ -128,6 +132,7 @@ actual fun AdaptiveGlassTopBar(
     val currentBack by rememberUpdatedState(back)
     val currentActions by rememberUpdatedState(actions)
     val currentTitleAction by rememberUpdatedState(titleAction)
+    val foreground = MaterialTheme.colorScheme.onSurface
     UIKitView(
         factory = {
             UINavigationBar().apply {
@@ -156,6 +161,8 @@ actual fun AdaptiveGlassTopBar(
                 item.titleView = UIButton.buttonWithConfiguration(
                     UIButtonConfiguration.plainButtonConfiguration().apply {
                         this.title = title
+                        baseForegroundColor = foreground.toUIColor()
+                        titleLineBreakMode = NSLineBreakByTruncatingTail
                         titleTextAttributesTransformer = { attributes ->
                             attributes.orEmpty() + (
                                 platform.UIKit.NSFontAttributeName to
@@ -164,7 +171,12 @@ actual fun AdaptiveGlassTopBar(
                         }
                     },
                     UIAction.actionWithHandler { currentTitleAction?.onClick?.invoke() },
-                ).apply { accessibilityLabel = titleAction.label }
+                ).apply {
+                    accessibilityLabel = titleAction.label
+                    titleLabel?.numberOfLines = 1
+                    titleLabel?.lineBreakMode = NSLineBreakByTruncatingTail
+                    setContentCompressionResistancePriority(UILayoutPriorityDefaultLow, forAxis = UILayoutConstraintAxisHorizontal)
+                }
             }
             bar.setItems(listOf(item), animated = false)
         },
@@ -222,6 +234,15 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
             title = action.title
             subtitle = action.subtitle
             image = action.symbol?.let { UIImage.systemImageNamed(it) }
+            // SF Symbols otherwise keep their large intrinsic size rather than following the text
+            // transformers below; this is especially visible in a narrow vertical page rail.
+            preferredSymbolConfigurationForImage = UIImageSymbolConfiguration.configurationWithPointSize(
+                (if (grouped) 17.0 else 20.0) * scale,
+                weight = platform.UIKit.UIImageSymbolWeightRegular,
+            )
+            titleLineBreakMode = NSLineBreakByTruncatingTail
+            subtitleLineBreakMode = NSLineBreakByTruncatingTail
+            titleAlignment = UIButtonConfigurationTitleAlignment.UIButtonConfigurationTitleAlignmentCenter
             imagePadding = 6.0
             showsActivityIndicator = action.loading
             subtitleTextAttributesTransformer = { attributes ->
@@ -248,6 +269,8 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
             )
         }
         view.showsMenuAsPrimaryAction = action.menu.isNotEmpty()
+        view.titleLabel?.numberOfLines = 1
+        view.subtitleLabel?.numberOfLines = 1
         view.invalidateIntrinsicContentSize()
     }
 }
@@ -273,8 +296,9 @@ private class NativeGlassToolbarHost(vertical: Boolean) {
         pin(stack, view.contentView, 4.0)
     }
 
-    fun update(actions: List<GlassAction>, accent: UIColor, dark: Boolean, scale: Float) {
+    fun update(actions: List<GlassAction>, foreground: UIColor, surface: UIColor, dark: Boolean, scale: Float) {
         view.overrideUserInterfaceStyle = interfaceStyle(dark)
+        view.effect = glassEffect(interactive = true, tint = surface)
         while (buttons.size > actions.size) {
             val button = buttons.removeAt(buttons.lastIndex).view
             stack.removeArrangedSubview(button)
@@ -287,7 +311,7 @@ private class NativeGlassToolbarHost(vertical: Boolean) {
                 it.view.heightAnchor.constraintGreaterThanOrEqualToConstant(44.0).active = true
                 it.view.widthAnchor.constraintGreaterThanOrEqualToConstant(44.0).active = true
             }
-            host.update(action, accent, dark, scale)
+            host.update(action, foreground, dark, scale)
         }
     }
 }
@@ -334,11 +358,13 @@ private class NativeGlassNoticeHost {
 }
 
 private fun glassView(interactive: Boolean = false): UIVisualEffectView =
-    UIVisualEffectView(
-        effect = UIGlassEffect.effectWithStyle(UIGlassEffectStyle.UIGlassEffectStyleRegular).apply {
-            this.interactive = interactive
-        },
-    )
+    UIVisualEffectView(effect = glassEffect(interactive))
+
+private fun glassEffect(interactive: Boolean, tint: UIColor? = null): UIGlassEffect =
+    UIGlassEffect.effectWithStyle(UIGlassEffectStyle.UIGlassEffectStyleRegular).apply {
+        this.interactive = interactive
+        tintColor = tint
+    }
 
 private fun pin(child: UIView, parent: UIView, inset: Double) {
     parent.addSubview(child)
