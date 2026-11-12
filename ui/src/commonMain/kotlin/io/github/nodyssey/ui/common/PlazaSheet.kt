@@ -27,6 +27,7 @@ import io.github.plaza.designsys.theme.GlassRimWidth
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassHeaderDividerBrush
 
 /**
@@ -62,7 +63,7 @@ internal fun PlazaSheet(
         sheetState = sheetState,
         shape = PlazaSheetDefaults.shape,
         containerColor =
-        if (layers.frostedGlass) {
+        if (layers.backdropGlass) {
             layers.page.copy(alpha = if (darkTheme) 0.88f else 0.92f)
         } else {
             layers.page
@@ -71,7 +72,7 @@ internal fun PlazaSheet(
         dragHandle?.let { handle ->
             {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (layers.frostedGlass) {
+                    if (layers.backdropGlass) {
                         Box(
                             Modifier
                                 .fillMaxWidth()

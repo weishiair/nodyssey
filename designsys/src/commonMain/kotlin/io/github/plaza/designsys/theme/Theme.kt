@@ -72,8 +72,8 @@ val LocalOneHandModeAvailable = staticCompositionLocalOf { true }
 val LocalEinkMode = staticCompositionLocalOf { false }
 
 /**
- * 毛玻璃质感 — whether navigation bars and floating chrome controls wear translucent liquid-glass
- * gradients and specular rim highlights. Automatically false when [LocalEinkMode] is active.
+ * 毛玻璃质感 — the shared subdued palette and floating glass controls. Android uses Compose
+ * backdrop rendering; iOS 26+ uses UIKit materials. Automatically false in [LocalEinkMode].
  */
 val LocalFrostedGlass = staticCompositionLocalOf { false }
 

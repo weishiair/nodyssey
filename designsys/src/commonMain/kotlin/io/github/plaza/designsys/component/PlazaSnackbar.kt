@@ -21,6 +21,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -32,6 +33,7 @@ import io.github.plaza.designsys.resources.snackbar_dismiss
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.stringResource
 
@@ -54,25 +56,48 @@ fun PlazaSnackbar(
         return
     }
     val actionLabel = snackbarData.visuals.actionLabel
-    PlazaSnackbar(
-        // Match Material's data overload, which supplies the host's outside margin itself.
-        modifier = modifier.padding(12.dp),
-        action = actionLabel?.let { label ->
-            {
-                FilledTonalButton(onClick = snackbarData::performAction) { Text(label) }
-            }
-        },
-        dismissAction = if (snackbarData.visuals.withDismissAction) {
-            {
-                IconButton(onClick = snackbarData::dismiss) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.snackbar_dismiss))
-                }
-            }
-        } else {
-            null
-        },
+    val dismissLabel = stringResource(Res.string.snackbar_dismiss)
+    AdaptiveGlassNotice(
+        message = snackbarData.visuals.message,
+        action = actionLabel?.let { GlassAction(it, snackbarData::performAction, title = it) },
+        dismissAction = if (snackbarData.visuals.withDismissAction) GlassAction(dismissLabel, snackbarData::dismiss, symbol = "xmark") else null,
+        modifier = modifier.padding(12.dp).widthIn(max = 600.dp).fillMaxWidth(),
     ) {
-        Text(snackbarData.visuals.message)
+        PlazaSnackbar(
+            modifier = modifier.padding(12.dp),
+            action = actionLabel?.let { label -> { FilledTonalButton(onClick = snackbarData::performAction) { Text(label) } } },
+            dismissAction = if (snackbarData.visuals.withDismissAction) {
+                { IconButton(onClick = snackbarData::dismiss) { Icon(Icons.Default.Close, contentDescription = dismissLabel) } }
+            } else {
+                null
+            },
+        ) { Text(snackbarData.visuals.message) }
+    }
+}
+
+/** Text notices, including undo, share native material without changing who owns their lifetime. */
+@Composable
+fun PlazaSnackbar(
+    message: String,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+    onDismiss: (() -> Unit)? = null,
+) {
+    val dismissLabel = stringResource(Res.string.snackbar_dismiss)
+    AdaptiveGlassNotice(
+        message = message,
+        action = actionLabel?.let { label -> onAction?.let { GlassAction(label, it, title = label) } },
+        dismissAction = onDismiss?.let { GlassAction(dismissLabel, it, symbol = "xmark") },
+        modifier = modifier.widthIn(max = 600.dp).fillMaxWidth(),
+    ) {
+        PlazaSnackbar(
+            modifier = modifier,
+            action = actionLabel?.let { label -> onAction?.let { { TextButton(onClick = it) { Text(label) } } } },
+            dismissAction = onDismiss?.let { dismiss ->
+                { IconButton(onClick = dismiss) { Icon(Icons.Default.Close, contentDescription = dismissLabel) } }
+            },
+        ) { Text(message) }
     }
 }
 
@@ -86,7 +111,7 @@ fun PlazaSnackbar(
     content: @Composable () -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
-    if (!layers.frostedGlass) {
+    if (!layers.backdropGlass) {
         Snackbar(modifier, action, dismissAction, actionOnNewLine, content = content)
         return
     }

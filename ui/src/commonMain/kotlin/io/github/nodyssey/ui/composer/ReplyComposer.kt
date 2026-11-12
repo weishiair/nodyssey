@@ -92,7 +92,9 @@ import io.github.nodyssey.ui.stardust.StardustReceiveComposeDialog
 import io.github.nodyssey.ui.vote.VoteComposeDialog
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
+import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.EditorTextField
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
@@ -111,6 +113,7 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassRimBorderStroke
 import io.github.plaza.designsys.theme.glassSheetBrush
 import io.github.plaza.designsys.theme.readableWidth
@@ -468,18 +471,18 @@ private fun ReplyEditorSheet(
                 Surface(
                     shape = MaterialTheme.shapes.extraLarge,
                     color =
-                    if (layers.frostedGlass) {
+                    if (layers.backdropGlass) {
                         layers.card.copy(alpha = if (darkTheme) 0.88f else 0.92f)
                     } else {
                         layers.card
                     },
-                    border = if (layers.frostedGlass) layers.glassRimBorderStroke(darkTheme) else null,
+                    border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
                     modifier = Modifier.widthIn(max = REPLY_CARD_MAX_WIDTH).fillMaxWidth(),
                 ) {
                     editor(
                         Modifier
                             .then(
-                                if (layers.frostedGlass) {
+                                if (layers.backdropGlass) {
                                     Modifier.background(layers.glassSheetBrush(darkTheme))
                                 } else {
                                     Modifier
@@ -502,7 +505,7 @@ private fun ReplyEditorSheet(
             // A sheet of paper, like the post editor's page (2c): the editor is one card lifted over the
             // thread, and only its bar and the emoji panel under it recede.
             containerColor =
-            if (layers.frostedGlass) {
+            if (layers.backdropGlass) {
                 layers.card.copy(alpha = if (darkTheme) 0.84f else 0.90f)
             } else {
                 layers.card
@@ -674,40 +677,54 @@ private fun PublishReplyButton(
     val scheme = MaterialTheme.colorScheme
     // Material's extra-small size step with its square shape: the Lean round's 32dp button, the
     // header's one filled thing without being the tallest.
-    Button(
-        onClick = onClick,
-        enabled = enabled && !isPublishing,
-        shape = ButtonDefaults.squareShape,
-        border = if (layers.frostedGlass) layers.glassRimBorderStroke(darkTheme) else null,
-        colors =
-        if (layers.frostedGlass) {
-            ButtonDefaults.buttonColors(
-                containerColor = scheme.primary.copy(alpha = 0.88f),
-                contentColor = scheme.onPrimary,
-                disabledContainerColor = layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.72f),
-                disabledContentColor = scheme.onSurfaceVariant,
-            )
-        } else {
-            ButtonDefaults.buttonColors()
-        },
-        contentPadding = ButtonDefaults.ExtraSmallContentPadding,
-        modifier = modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
+    val label = stringResource(if (isPublishing) Res.string.composer_publishing else Res.string.action_publish)
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = label,
+            title = label,
+            symbol = "paperplane",
+            onClick = onClick,
+            enabled = enabled,
+            loading = isPublishing,
+            prominent = true,
+        ),
+        modifier = modifier.heightIn(min = 44.dp),
     ) {
-        if (isPublishing) {
-            PlazaSpinner(
-                modifier = Modifier.describedAsLoading(),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onPrimary,
-                size = 14.dp,
+        Button(
+            onClick = onClick,
+            enabled = enabled && !isPublishing,
+            shape = ButtonDefaults.squareShape,
+            border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
+            colors =
+            if (layers.backdropGlass) {
+                ButtonDefaults.buttonColors(
+                    containerColor = scheme.primary.copy(alpha = 0.88f),
+                    contentColor = scheme.onPrimary,
+                    disabledContainerColor = layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.72f),
+                    disabledContentColor = scheme.onSurfaceVariant,
+                )
+            } else {
+                ButtonDefaults.buttonColors()
+            },
+            contentPadding = ButtonDefaults.ExtraSmallContentPadding,
+            modifier = modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
+        ) {
+            if (isPublishing) {
+                PlazaSpinner(
+                    modifier = Modifier.describedAsLoading(),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    size = 14.dp,
+                )
+            } else {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+            }
+            Text(
+                text = stringResource(if (isPublishing) Res.string.composer_publishing else Res.string.action_publish),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.padding(start = Spacing.xs),
             )
-        } else {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
         }
-        Text(
-            text = stringResource(if (isPublishing) Res.string.composer_publishing else Res.string.action_publish),
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.padding(start = Spacing.xs),
-        )
     }
 }
 

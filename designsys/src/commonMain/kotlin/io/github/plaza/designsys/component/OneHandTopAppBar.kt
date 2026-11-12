@@ -52,6 +52,7 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardShadow
 import kotlin.math.roundToInt
 
@@ -133,7 +134,7 @@ fun OneHandTopAppBar(
     val containerColor by animateColorAsState(
         targetValue =
         when {
-            lifted && layers.frostedGlass -> layers.raised.copy(alpha = if (darkTheme) 0.80f else 0.85f)
+            lifted && layers.backdropGlass -> layers.raised.copy(alpha = if (darkTheme) 0.80f else 0.85f)
             lifted && !layers.shadows -> MaterialTheme.colorScheme.surfaceContainerHigh
             else -> layers.page
         },

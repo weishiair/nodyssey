@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -218,8 +219,11 @@ import io.github.nodyssey.ui.sticker.rememberImageActionsState
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
+import io.github.plaza.designsys.component.AdaptiveGlassTopBar
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -246,10 +250,12 @@ import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.asSignature
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.glassFrostedBar
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
@@ -771,7 +777,7 @@ fun PostDetailScreen(
                 )
             },
         ) { padding ->
-            val frostedTopBar = LocalPlazaLayers.current.frostedGlass
+            val frostedTopBar = LocalPlazaLayers.current.let { it.backdropGlass || it.nativeGlass }
             val topInset = if (frostedTopBar) padding.calculateTopPadding() else 0.dp
             Box(
                 Modifier
@@ -1125,181 +1131,220 @@ private fun DetailTopBar(
             Color.White.copy(alpha = 0.72f)
         }
 
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .glassFrostedBar(
-                layers = layers,
-                darkTheme = darkTheme,
-                backdrop = backdrop,
-                baseColor = pageColor,
-            ),
-    ) {
-        ReadableTopBar { barInsets ->
-            TopAppBar(
-                windowInsets = barInsets,
-                title = {
-                    // Clickable only while the bar is actually showing the title: the collapsed bar is where
-                    // a reader deep in someone else's page 7 meets the title at all, and an invisible tap
-                    // target over an empty bar is worse than no affordance.
-                    val jump = onTitleClick?.takeIf { showTitle }
-                    Text(
-                        text = if (showTitle) title else "",
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier =
-                        if (jump != null) {
-                            Modifier.clickable(onClick = jump).semantics {
-                                contentDescription = openOriginalPostLabel
-                            }
-                        } else {
-                            Modifier
-                        },
-                    )
-                },
-                navigationIcon = {
-                    if (showBackButton) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier =
-                            if (layers.frostedGlass) {
-                                Modifier
-                                    .padding(start = 6.dp)
-                                    .size(40.dp)
-                                    .glassChromeSurface(
-                                        layers = layers,
-                                        darkTheme = darkTheme,
-                                        shape = CircleShape,
-                                        elevated = true,
-                                        backdrop = backdrop,
-                                        surfaceTint = buttonTint,
-                                    )
-                            } else {
-                                Modifier
-                            },
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.action_back),
-                                modifier = Modifier.size(TopBarIconSize),
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    Row(
-                        modifier =
-                        if (layers.frostedGlass) {
-                            Modifier
-                                .padding(end = 6.dp)
-                                .height(40.dp)
-                                .glassChromeSurface(
-                                    layers = layers,
-                                    darkTheme = darkTheme,
-                                    shape = CircleShape,
-                                    elevated = true,
-                                    backdrop = backdrop,
-                                    surfaceTint = buttonTint,
-                                )
-                                .padding(horizontal = 4.dp)
-                        } else {
-                            Modifier
-                        },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(
-                            onClick = onOpenInBrowser,
-                            modifier = if (layers.frostedGlass) Modifier.size(36.dp) else Modifier,
-                        ) {
-                            Icon(
-                                PlazaIcons.OpenInNew,
-                                contentDescription = stringResource(Res.string.action_open_in_browser),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(TopBarIconSize),
-                            )
-                        }
-                        Box {
-                            IconButton(
-                                onClick = { menuOpen = true },
-                                modifier = if (layers.frostedGlass) Modifier.size(36.dp) else Modifier,
-                            ) {
-                                Icon(
-                                    Icons.Default.MoreVert,
-                                    contentDescription = stringResource(Res.string.action_more),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(TopBarIconSize),
-                                )
-                            }
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                onOriginal?.let { jump ->
-                                    DropdownMenuItem(
-                                        text = { Text(openOriginalPostLabel) },
-                                        onClick = {
-                                            menuOpen = false
-                                            jump()
-                                        },
-                                    )
-                                }
-                                collected?.let { saved ->
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
-                                        enabled = !collectPending,
-                                        onClick = {
-                                            menuOpen = false
-                                            onCollect()
-                                        },
-                                    )
-                                }
-                                // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
-                                // not about to scroll back up to pull.
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.action_refresh)) },
-                                    onClick = {
-                                        menuOpen = false
-                                        onRefresh()
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.action_copy_link)) },
-                                    onClick = {
-                                        copy("post", postUrl, linkCopied)
-                                        menuOpen = false
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(shareLabel) },
-                                    onClick = {
-                                        menuOpen = false
-                                        shareText("$title\n$postUrl", shareLabel)
-                                    },
-                                )
-                                tracked?.let { on ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
-                                        },
-                                        onClick = {
-                                            menuOpen = false
-                                            onToggleTrack()
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                },
-                // Under frostedGlass, the outer Box draws a full-width frosted matte backdrop across the
-                // status bar and toolbar strip, while the left/right circular action buttons float on top.
-                colors =
-                TopAppBarDefaults.topAppBarColors(
-                    containerColor = if (layers.frostedGlass) Color.Transparent else pageColor,
-                    scrolledContainerColor = if (layers.frostedGlass) Color.Transparent else pageColor,
+    val nativeMenu = buildList {
+        onOriginal?.let { add(GlassMenuAction(openOriginalPostLabel, it, symbol = "arrow.up.to.line")) }
+        collected?.let { saved ->
+            add(
+                GlassMenuAction(
+                    label = stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action),
+                    onClick = onCollect,
+                    symbol = if (saved) "bookmark.fill" else "bookmark",
+                    enabled = !collectPending,
                 ),
-                // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
-                // has scrolled away, one line of it. The buttons keep their 48dp targets.
-                expandedHeight = TopBarHeight,
             )
+        }
+        add(GlassMenuAction(stringResource(Res.string.action_refresh), onRefresh, symbol = "arrow.clockwise"))
+        add(GlassMenuAction(stringResource(Res.string.action_copy_link), { copy("post", postUrl, linkCopied) }, symbol = "link"))
+        add(GlassMenuAction(shareLabel, { shareText("$title\n$postUrl", shareLabel) }, symbol = "square.and.arrow.up"))
+        tracked?.let { on ->
+            add(
+                GlassMenuAction(
+                    label = stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread),
+                    onClick = onToggleTrack,
+                    symbol = "bell",
+                    selected = on,
+                ),
+            )
+        }
+    }
+    ReadableTopBar { nativeInsets ->
+        AdaptiveGlassTopBar(
+            title = title.takeIf { showTitle }.orEmpty(),
+            titleAction = onTitleClick?.takeIf { showTitle }?.let { GlassAction(openOriginalPostLabel, it) },
+            back = if (showBackButton) GlassAction(stringResource(Res.string.action_back), onBack, symbol = "chevron.backward") else null,
+            actions = listOf(
+                GlassAction(stringResource(Res.string.action_open_in_browser), onOpenInBrowser, symbol = "safari"),
+                GlassAction(stringResource(Res.string.action_more), {}, symbol = "ellipsis", menu = nativeMenu),
+            ),
+            modifier = Modifier.fillMaxWidth().windowInsetsPadding(nativeInsets).height(TopBarHeight),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .glassFrostedBar(
+                        layers = layers,
+                        darkTheme = darkTheme,
+                        backdrop = backdrop,
+                        baseColor = pageColor,
+                    ),
+            ) {
+                ReadableTopBar { barInsets ->
+                    TopAppBar(
+                        windowInsets = barInsets,
+                        title = {
+                            // Clickable only while the bar is actually showing the title: the collapsed bar is where
+                            // a reader deep in someone else's page 7 meets the title at all, and an invisible tap
+                            // target over an empty bar is worse than no affordance.
+                            val jump = onTitleClick?.takeIf { showTitle }
+                            Text(
+                                text = if (showTitle) title else "",
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier =
+                                if (jump != null) {
+                                    Modifier.clickable(onClick = jump).semantics {
+                                        contentDescription = openOriginalPostLabel
+                                    }
+                                } else {
+                                    Modifier
+                                },
+                            )
+                        },
+                        navigationIcon = {
+                            if (showBackButton) {
+                                IconButton(
+                                    onClick = onBack,
+                                    modifier =
+                                    if (layers.backdropGlass) {
+                                        Modifier
+                                            .padding(start = 6.dp)
+                                            .size(40.dp)
+                                            .glassChromeSurface(
+                                                layers = layers,
+                                                darkTheme = darkTheme,
+                                                shape = CircleShape,
+                                                elevated = true,
+                                                backdrop = backdrop,
+                                                surfaceTint = buttonTint,
+                                            )
+                                    } else {
+                                        Modifier
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = stringResource(Res.string.action_back),
+                                        modifier = Modifier.size(TopBarIconSize),
+                                    )
+                                }
+                            }
+                        },
+                        actions = {
+                            Row(
+                                modifier =
+                                if (layers.backdropGlass) {
+                                    Modifier
+                                        .padding(end = 6.dp)
+                                        .height(40.dp)
+                                        .glassChromeSurface(
+                                            layers = layers,
+                                            darkTheme = darkTheme,
+                                            shape = CircleShape,
+                                            elevated = true,
+                                            backdrop = backdrop,
+                                            surfaceTint = buttonTint,
+                                        )
+                                        .padding(horizontal = 4.dp)
+                                } else {
+                                    Modifier
+                                },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                IconButton(
+                                    onClick = onOpenInBrowser,
+                                    modifier = if (layers.backdropGlass) Modifier.size(36.dp) else Modifier,
+                                ) {
+                                    Icon(
+                                        PlazaIcons.OpenInNew,
+                                        contentDescription = stringResource(Res.string.action_open_in_browser),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(TopBarIconSize),
+                                    )
+                                }
+                                Box {
+                                    IconButton(
+                                        onClick = { menuOpen = true },
+                                        modifier = if (layers.backdropGlass) Modifier.size(36.dp) else Modifier,
+                                    ) {
+                                        Icon(
+                                            Icons.Default.MoreVert,
+                                            contentDescription = stringResource(Res.string.action_more),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(TopBarIconSize),
+                                        )
+                                    }
+                                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                        onOriginal?.let { jump ->
+                                            DropdownMenuItem(
+                                                text = { Text(openOriginalPostLabel) },
+                                                onClick = {
+                                                    menuOpen = false
+                                                    jump()
+                                                },
+                                            )
+                                        }
+                                        collected?.let { saved ->
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
+                                                enabled = !collectPending,
+                                                onClick = {
+                                                    menuOpen = false
+                                                    onCollect()
+                                                },
+                                            )
+                                        }
+                                        // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
+                                        // not about to scroll back up to pull.
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(Res.string.action_refresh)) },
+                                            onClick = {
+                                                menuOpen = false
+                                                onRefresh()
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(Res.string.action_copy_link)) },
+                                            onClick = {
+                                                copy("post", postUrl, linkCopied)
+                                                menuOpen = false
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(shareLabel) },
+                                            onClick = {
+                                                menuOpen = false
+                                                shareText("$title\n$postUrl", shareLabel)
+                                            },
+                                        )
+                                        tracked?.let { on ->
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
+                                                },
+                                                onClick = {
+                                                    menuOpen = false
+                                                    onToggleTrack()
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        // Under frostedGlass, the outer Box draws a full-width frosted matte backdrop across the
+                        // status bar and toolbar strip, while the left/right circular action buttons float on top.
+                        colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
+                            scrolledContainerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
+                        ),
+                        // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
+                        // has scrolled away, one line of it. The buttons keep their 48dp targets.
+                        expandedHeight = TopBarHeight,
+                    )
+                }
+            }
         }
     }
 }

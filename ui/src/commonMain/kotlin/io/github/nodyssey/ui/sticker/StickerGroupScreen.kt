@@ -216,18 +216,14 @@ fun StickerGroupRoute(
                     notice = null
                 }
                 PlazaSnackbar(
+                    message = shown.text,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md),
-                    action = if (shown.undoUrls.isEmpty()) {
-                        null
-                    } else {
-                        {
-                            TextButton(onClick = {
-                                viewModel.undoAdd(shown.undoUrls)
-                                notice = null
-                            }) { Text(stringResource(Res.string.sticker_undo)) }
-                        }
+                    actionLabel = stringResource(Res.string.sticker_undo).takeIf { shown.undoUrls.isNotEmpty() },
+                    onAction = {
+                        viewModel.undoAdd(shown.undoUrls)
+                        notice = null
                     },
-                ) { Text(shown.text) }
+                )
             }
         }
     }

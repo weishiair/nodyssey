@@ -361,7 +361,7 @@ fun PlazaLayers.glassRimBrush(darkTheme: Boolean): Brush {
  * or falls back to [cardBorderStroke] (the 墨水屏 outline, null elsewhere).
  */
 fun PlazaLayers.glassRimBorderStroke(darkTheme: Boolean): BorderStroke? =
-    if (frostedGlass) BorderStroke(GlassRimWidth, glassRimBrush(darkTheme)) else cardBorderStroke
+    if (backdropGlass) BorderStroke(GlassRimWidth, glassRimBrush(darkTheme)) else cardBorderStroke
 
 /**
  * [glassRimBorderStroke] as a [Modifier] for controls that take no `BorderStroke` parameter of
@@ -372,7 +372,7 @@ fun Modifier.glassRimBorder(
     darkTheme: Boolean,
     shape: Shape,
 ): Modifier =
-    if (layers.frostedGlass) {
+    if (layers.backdropGlass) {
         border(GlassRimWidth, layers.glassRimBrush(darkTheme), shape)
     } else {
         cardBorder(layers, shape)
@@ -386,14 +386,14 @@ fun Modifier.glassRimBorder(
 val LocalLiquidGlassBackdrop = compositionLocalOf<Backdrop?> { null }
 
 /**
- * Remembers a [LayerBackdrop] cleared with [backgroundColor] when [PlazaLayers.frostedGlass] is
+ * Remembers a [LayerBackdrop] cleared with [backgroundColor] when [PlazaLayers.backdropGlass] is
  * enabled, or returns `null` when off so zero offscreen layer capture occurs in standard modes.
  */
 @Composable
 fun rememberLiquidGlassBackdrop(
     backgroundColor: Color = LocalPlazaLayers.current.page,
 ): LayerBackdrop? {
-    if (!LocalPlazaLayers.current.frostedGlass) return null
+    if (!LocalPlazaLayers.current.backdropGlass) return null
     return rememberLayerBackdrop {
         drawRect(backgroundColor)
         drawContent()
@@ -401,7 +401,7 @@ fun rememberLiquidGlassBackdrop(
 }
 
 /**
- * Attaches [backdrop] as a capture source when non-null (i.e. when [PlazaLayers.frostedGlass] is
+ * Attaches [backdrop] as a capture source when non-null (i.e. when [PlazaLayers.backdropGlass] is
  * active); a no-op otherwise.
  */
 fun Modifier.liquidGlassBackdropSource(backdrop: LayerBackdrop?): Modifier =
@@ -409,7 +409,7 @@ fun Modifier.liquidGlassBackdropSource(backdrop: LayerBackdrop?): Modifier =
 
 /**
  * Full-width frosted matte header backdrop for top app bars (covering the status bar and toolbar
- * strip) when [PlazaLayers.frostedGlass] is active. Blurs the scrolling content underneath with a
+ * strip) when [PlazaLayers.backdropGlass] is active. Blurs the scrolling content underneath with a
  * soft Gaussian blur and overlays [glassHeaderBrush] without lens distortion or outer box shadows.
  */
 fun Modifier.glassFrostedBar(
@@ -418,7 +418,7 @@ fun Modifier.glassFrostedBar(
     backdrop: Backdrop?,
     baseColor: Color = layers.page,
 ): Modifier {
-    if (!layers.frostedGlass) return this
+    if (!layers.backdropGlass) return this
     val headerBrush = layers.glassHeaderBrush(darkTheme, baseColor)
     return if (backdrop != null) {
         this.drawBackdrop(
@@ -441,7 +441,7 @@ fun Modifier.glassFrostedBar(
 
 /**
  * Full floating liquid-glass chrome treatment:
- * - When [backdrop] is provided and [PlazaLayers.frostedGlass] is active, uses Kyant's
+ * - When [backdrop] is provided and [PlazaLayers.backdropGlass] is active, uses Kyant's
  *   `drawBackdrop` (`vibrancy` + Gaussian `blur` + SDF `lens` edge refraction with chromatic
  *   aberration) and tints the glass surface with [surfaceTint].
  * - When [backdrop] is null (e.g. static theme preview or fallback), uses a soft elevation shadow,
@@ -455,7 +455,7 @@ fun Modifier.glassChromeSurface(
     backdrop: Backdrop? = null,
     surfaceTint: Color = Color.Unspecified,
 ): Modifier {
-    if (!layers.frostedGlass) {
+    if (!layers.backdropGlass) {
         return this
             .floatShadow(shape, enabled = elevated && layers.shadows)
             .clip(shape)
@@ -489,7 +489,7 @@ fun Modifier.glassChromeSurface(
         )
     } else {
         this
-            .floatShadow(shape, enabled = elevated && (layers.shadows || layers.frostedGlass))
+            .floatShadow(shape, enabled = elevated && (layers.shadows || layers.backdropGlass))
             .clip(shape)
             .background(layers.glassChromeBrush(darkTheme), shape)
             .border(GlassRimWidth, layers.glassRimBrush(darkTheme), shape)

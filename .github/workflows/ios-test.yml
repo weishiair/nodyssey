@@ -200,15 +200,17 @@ jobs:
       - name: Run common tests on Kotlin Native
         if: runner.arch == 'ARM64'
         run: ./gradlew :shared:macosArm64Test --max-workers=2
-      - name: Test iOS split navigation on the simulator
+      - name: Test native controls and iOS navigation on the simulator
         if: runner.arch == 'ARM64'
-        run: ./gradlew :ui:iosSimulatorArm64Test --max-workers=1
+        run: ./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test --max-workers=1
       - name: Upload iOS simulator test failures
         if: failure() && runner.arch == 'ARM64'
         uses: actions/upload-artifact@v7
         with:
           name: ios-simulator-test-results-${{ github.run_id }}
           path: |
+            designsys/build/test-results/iosSimulatorArm64Test/
+            designsys/build/reports/tests/iosSimulatorArm64Test/
             ui/build/test-results/iosSimulatorArm64Test/
             ui/build/reports/tests/iosSimulatorArm64Test/
           if-no-files-found: ignore

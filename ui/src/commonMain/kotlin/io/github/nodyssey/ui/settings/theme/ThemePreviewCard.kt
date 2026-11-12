@@ -42,6 +42,7 @@ import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.TonalTagShape
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.glassChromeSurface
@@ -143,7 +144,7 @@ internal fun ThemePreviewCard(modifier: Modifier = Modifier) {
                 }
             }
         }
-        if (layers.frostedGlass) {
+        if (layers.backdropGlass) {
             val isDark = scheme.surface.luminance() < 0.5f
             val pillShape = RoundedCornerShape(24.dp)
             Box(

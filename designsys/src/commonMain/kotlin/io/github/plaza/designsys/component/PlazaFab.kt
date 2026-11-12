@@ -1,5 +1,7 @@
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -17,6 +19,7 @@ import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.floatShadow
 import io.github.plaza.designsys.theme.glassChromeSurface
 
@@ -41,48 +44,60 @@ fun PlazaExtendedFab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     expanded: Boolean = true,
+    nativeSymbol: String? = null,
 ) {
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current
     val backdrop = LocalLiquidGlassBackdrop.current
     val primaryContainer = MaterialTheme.colorScheme.primaryContainer
     val container =
-        if (layers.frostedGlass) {
+        if (layers.backdropGlass) {
             Color.Transparent
         } else {
             primaryContainer
         }
-    ExtendedFloatingActionButton(
-        text = {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
-            )
-        },
-        icon = { Icon(icon, contentDescription = null) },
-        onClick = onClick,
-        expanded = expanded,
-        shape = ControlShape,
-        containerColor = container,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
-        modifier = modifier
-            .then(
-                if (layers.frostedGlass) {
-                    Modifier.glassChromeSurface(
-                        layers = layers,
-                        darkTheme = darkTheme,
-                        shape = ControlShape,
-                        elevated = true,
-                        backdrop = backdrop,
-                        surfaceTint = primaryContainer.copy(alpha = if (darkTheme) 0.54f else 0.62f),
-                    )
-                } else {
-                    Modifier.floatShadow(ControlShape, layers.shadows)
-                },
-            )
-            .semantics { contentDescription = text },
-    )
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = text,
+            title = text.takeIf { expanded },
+            symbol = nativeSymbol,
+            prominent = true,
+            onClick = onClick,
+        ),
+        modifier = modifier.heightIn(min = PlazaFabHeight).widthIn(min = PlazaFabHeight),
+    ) {
+        ExtendedFloatingActionButton(
+            text = {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
+                )
+            },
+            icon = { Icon(icon, contentDescription = null) },
+            onClick = onClick,
+            expanded = expanded,
+            shape = ControlShape,
+            containerColor = container,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+            modifier = modifier
+                .then(
+                    if (layers.backdropGlass) {
+                        Modifier.glassChromeSurface(
+                            layers = layers,
+                            darkTheme = darkTheme,
+                            shape = ControlShape,
+                            elevated = true,
+                            backdrop = backdrop,
+                            surfaceTint = primaryContainer.copy(alpha = if (darkTheme) 0.54f else 0.62f),
+                        )
+                    } else {
+                        Modifier.floatShadow(ControlShape, layers.shadows)
+                    },
+                )
+                .semantics { contentDescription = text },
+        )
+    }
 }
 
 /**

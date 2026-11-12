@@ -36,6 +36,7 @@ import io.github.plaza.designsys.resources.composer_link_menu_more
 import io.github.plaza.designsys.resources.composer_toolbar_customize
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassRimBorderStroke
 import org.jetbrains.compose.resources.stringResource
 
@@ -138,13 +139,13 @@ private fun Strip(
     // Recessed rather than raised: the strip is part of the page the writer is typing on.
     Surface(
         color =
-        if (layers.frostedGlass) {
+        if (layers.backdropGlass) {
             layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.74f)
         } else {
             layers.inset
         },
         shape = LayerCardShape,
-        border = if (layers.frostedGlass) layers.glassRimBorderStroke(darkTheme) else null,
+        border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
         modifier = modifier.fillMaxWidth().padding(BarMargin),
     ) {
         Row(

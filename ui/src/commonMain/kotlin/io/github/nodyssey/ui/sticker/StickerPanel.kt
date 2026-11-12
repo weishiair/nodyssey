@@ -179,18 +179,14 @@ internal fun StickerPanelHost(
         content(groups)
         notice?.let { current ->
             PlazaSnackbar(
+                message = current.text,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md),
-                action = if (current.undoUrls.isEmpty()) {
-                    null
-                } else {
-                    {
-                        TextButton(onClick = {
-                            scope.launch { library.remove(current.undoUrls) }
-                            notice = null
-                        }) { Text(stringResource(Res.string.sticker_undo)) }
-                    }
+                actionLabel = stringResource(Res.string.sticker_undo).takeIf { current.undoUrls.isNotEmpty() },
+                onAction = {
+                    scope.launch { library.remove(current.undoUrls) }
+                    notice = null
                 },
-            ) { Text(current.text) }
+            )
         }
     }
 

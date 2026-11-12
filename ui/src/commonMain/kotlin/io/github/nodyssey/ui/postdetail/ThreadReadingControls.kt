@@ -52,12 +52,15 @@ import io.github.nodyssey.ui.resources.post_open_original
 import io.github.nodyssey.ui.resources.post_reading_original
 import io.github.nodyssey.ui.resources.post_reading_original_position
 import io.github.nodyssey.ui.resources.post_reply_action
+import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.stringResource
 
@@ -84,77 +87,93 @@ internal fun ThreadReadingControls(
             Modifier.fillMaxWidth().padding(horizontal = 60.dp).align(Alignment.Center),
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
-                onClick = onJump,
-                modifier = Modifier
-                    .widthIn(min = 104.dp)
-                    .heightIn(min = 48.dp)
-                    .then(
-                        if (layers.frostedGlass) {
-                            Modifier.glassChromeSurface(
-                                layers = layers,
-                                darkTheme = darkTheme,
-                                shape = CircleShape,
-                                elevated = true,
-                                backdrop = backdrop,
-                            )
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .semantics { contentDescription = positionLabel },
-                shape = CircleShape,
-                color = if (layers.frostedGlass) Color.Transparent else layers.raised,
-                shadowElevation = if (einkMode || layers.frostedGlass) 0.dp else 2.dp,
+            val positionText = if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}"
+            AdaptiveGlassButton(
+                action = GlassAction(positionLabel, onJump, title = positionText),
+                modifier = Modifier.widthIn(min = 104.dp).heightIn(min = 48.dp),
             ) {
-                Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}",
-                        style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
-                        maxLines = 1,
-                    )
+                Surface(
+                    onClick = onJump,
+                    modifier = Modifier
+                        .widthIn(min = 104.dp)
+                        .heightIn(min = 48.dp)
+                        .then(
+                            if (layers.backdropGlass) {
+                                Modifier.glassChromeSurface(
+                                    layers = layers,
+                                    darkTheme = darkTheme,
+                                    shape = CircleShape,
+                                    elevated = true,
+                                    backdrop = backdrop,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .semantics { contentDescription = positionLabel },
+                    shape = CircleShape,
+                    color = if (layers.backdropGlass) Color.Transparent else layers.raised,
+                    shadowElevation = if (einkMode || layers.backdropGlass) 0.dp else 2.dp,
+                ) {
+                    Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}",
+                            style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
         val fabShape = RoundedCornerShape(16.dp)
-        FloatingActionButton(
-            onClick = onReply,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .size(48.dp)
-                .then(
-                    if (layers.frostedGlass) {
-                        Modifier.glassChromeSurface(
-                            layers = layers,
-                            darkTheme = darkTheme,
-                            shape = fabShape,
-                            elevated = true,
-                            backdrop = backdrop,
-                            surfaceTint =
-                            MaterialTheme.colorScheme.primaryContainer.copy(
-                                alpha = if (darkTheme) 0.54f else 0.62f,
-                            ),
-                        )
-                    } else {
-                        Modifier
-                    },
-                ),
-            shape = fabShape,
-            containerColor =
-            if (layers.frostedGlass) {
-                Color.Transparent
-            } else {
-                MaterialTheme.colorScheme.primaryContainer
-            },
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            elevation =
-            if (layers.frostedGlass) {
-                FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
-            } else {
-                FloatingActionButtonDefaults.elevation(defaultElevation = if (einkMode) 0.dp else 2.dp)
-            },
+        AdaptiveGlassButton(
+            action = GlassAction(
+                label = stringResource(Res.string.post_reply_action),
+                onClick = onReply,
+                symbol = "arrowshape.turn.up.left",
+                prominent = true,
+            ),
+            modifier = Modifier.align(Alignment.CenterEnd).size(48.dp),
         ) {
-            Icon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
+            FloatingActionButton(
+                onClick = onReply,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(48.dp)
+                    .then(
+                        if (layers.backdropGlass) {
+                            Modifier.glassChromeSurface(
+                                layers = layers,
+                                darkTheme = darkTheme,
+                                shape = fabShape,
+                                elevated = true,
+                                backdrop = backdrop,
+                                surfaceTint =
+                                MaterialTheme.colorScheme.primaryContainer.copy(
+                                    alpha = if (darkTheme) 0.54f else 0.62f,
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
+                shape = fabShape,
+                containerColor =
+                if (layers.backdropGlass) {
+                    Color.Transparent
+                } else {
+                    MaterialTheme.colorScheme.primaryContainer
+                },
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                elevation =
+                if (layers.backdropGlass) {
+                    FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
+                } else {
+                    FloatingActionButtonDefaults.elevation(defaultElevation = if (einkMode) 0.dp else 2.dp)
+                },
+            ) {
+                Icon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
+            }
         }
     }
 }
