@@ -33,7 +33,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.IOException
@@ -45,10 +45,10 @@ import java.io.IOException
  * link actually goes, and what an image that did not load leaves behind.
  */
 @OptIn(DelicateCoilApi::class)
-@RunWith(RobolectricTestRunner::class)
+@RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w360dp-h800dp")
-class RichContentTest {
+class RichContentTest(private val frostedGlass: Boolean) {
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -71,7 +71,7 @@ class RichContentTest {
     ) {
         imageLoader?.let(SingletonImageLoader::setUnsafe)
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 PostRichContent(nodes = nodes, onLinkClick = onLinkClick, onImageClick = {})
             }
         }
@@ -202,6 +202,11 @@ class RichContentTest {
                     throwable = ImagesDeferredException(),
                 )
             }
+    }
+    companion object {
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters(name = "glass={0}")
+        fun modes() = listOf(false, true)
     }
 }
 

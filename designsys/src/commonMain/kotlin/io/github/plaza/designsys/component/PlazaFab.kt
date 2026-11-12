@@ -7,14 +7,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.ControlShape
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.floatShadow
+import io.github.plaza.designsys.theme.glassChromeSurface
 
 /**
  * The app's one extended FAB: Material's, at Material's own size, in `primaryContainer` at a
@@ -38,6 +42,16 @@ fun PlazaExtendedFab(
     modifier: Modifier = Modifier,
     expanded: Boolean = true,
 ) {
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
+    val backdrop = LocalLiquidGlassBackdrop.current
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+    val container =
+        if (layers.frostedGlass) {
+            Color.Transparent
+        } else {
+            primaryContainer
+        }
     ExtendedFloatingActionButton(
         text = {
             Text(
@@ -49,11 +63,24 @@ fun PlazaExtendedFab(
         onClick = onClick,
         expanded = expanded,
         shape = ControlShape,
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        containerColor = container,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
         modifier = modifier
-            .floatShadow(ControlShape, LocalPlazaLayers.current.shadows)
+            .then(
+                if (layers.frostedGlass) {
+                    Modifier.glassChromeSurface(
+                        layers = layers,
+                        darkTheme = darkTheme,
+                        shape = ControlShape,
+                        elevated = true,
+                        backdrop = backdrop,
+                        surfaceTint = primaryContainer.copy(alpha = if (darkTheme) 0.54f else 0.62f),
+                    )
+                } else {
+                    Modifier.floatShadow(ControlShape, layers.shadows)
+                },
+            )
             .semantics { contentDescription = text },
     )
 }

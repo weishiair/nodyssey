@@ -1845,4 +1845,6 @@
     <string name="mail_read_status">Read</string>
     <string name="mail_unread_status">Unread</string>
     <string name="mail_recipient_address">To: %1$s</string>
+    <string name="settings_frosted_glass">Frosted glass chrome</string>
+    <string name="settings_frosted_glass_hint">Floating translucent bottom bar and specular rims; post cards stay solid for reading contrast</string>
 </resources>

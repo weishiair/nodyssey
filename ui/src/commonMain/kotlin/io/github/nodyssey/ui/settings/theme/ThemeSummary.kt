@@ -18,6 +18,7 @@ import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.settings_color_source_wallpaper
+import io.github.nodyssey.ui.resources.settings_frosted_glass
 import io.github.nodyssey.ui.resources.settings_palette_style_expressive
 import io.github.nodyssey.ui.resources.settings_palette_style_monochrome
 import io.github.nodyssey.ui.resources.settings_palette_style_neutral
@@ -52,8 +53,17 @@ fun themeSummary(settings: UserSettings): String {
                     ?.takeIf { it.isNotBlank() }
                     ?: Color(settings.seedColor).toHexString()
         }
-    if (activePreset(settings)?.hasFixedColors == true) return colour
-    return colour + " · " + stringResource(paletteStyleLabel(settings.paletteStyle))
+    val base =
+        if (activePreset(settings)?.hasFixedColors == true) {
+            colour
+        } else {
+            colour + " · " + stringResource(paletteStyleLabel(settings.paletteStyle))
+        }
+    return if (settings.frostedGlass && !settings.einkMode) {
+        base + " · " + stringResource(Res.string.settings_frosted_glass)
+    } else {
+        base
+    }
 }
 
 /** The five 色彩风格 in the order the picker offers them. */

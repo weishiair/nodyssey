@@ -53,7 +53,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,6 +61,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -87,6 +88,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -134,6 +136,7 @@ import io.github.nodyssey.ui.common.sharedThreadAuthor
 import io.github.nodyssey.ui.common.sharedThreadAvatar
 import io.github.nodyssey.ui.common.sharedThreadBoard
 import io.github.nodyssey.ui.common.sharedThreadTitle
+import io.github.nodyssey.ui.common.withoutTop
 import io.github.nodyssey.ui.compare.LocalReportOrigin
 import io.github.nodyssey.ui.compare.ReportOrigin
 import io.github.nodyssey.ui.compare.ReportOriginFloor
@@ -223,6 +226,7 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.QuotePreview
 import io.github.plaza.designsys.component.ReadableTopBar
@@ -231,7 +235,11 @@ import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberClipboardCopy
+import io.github.plaza.designsys.richtext.LocalRichTextAppearance
+import io.github.plaza.designsys.richtext.RichTextAppearance
 import io.github.plaza.designsys.theme.LocalEinkMode
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Sizes
@@ -239,7 +247,11 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.asSignature
 import io.github.plaza.designsys.theme.cardBorderStroke
+import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.glassFrostedBar
+import io.github.plaza.designsys.theme.liquidGlassBackdropSource
 import io.github.plaza.designsys.theme.readableWidth
+import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -435,6 +447,7 @@ fun PostDetailScreen(
     lotteryContent: @Composable () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
+    val pullToRefreshState = rememberPullToRefreshState()
     var isScrollbarDragging by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var confirmTarget by remember { mutableStateOf<ReactionConfirm?>(null) }
@@ -719,182 +732,206 @@ fun PostDetailScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = threadPageColor(state.postReplyStyle),
-        snackbarHost = {
-            SnackbarHost(
-                snackbarHostState,
-                Modifier.padding(
-                    bottom = if (state.hasContent && !replyOpen) {
-                        80.dp
-                    } else {
-                        0.dp
-                    },
-                ),
-            )
-        },
-        topBar = {
-            DetailTopBar(
-                title = state.title,
-                showTitle = showCollapsedTitle,
-                onTitleClick = openOriginalPost,
-                postUrl = postUrl,
-                onBack = onBack,
-                onOpenInBrowser = { onOpenBrowser(postUrl) },
-                onRefresh = { onRefreshPage(visiblePage) },
-                showBackButton = showBackButton,
-                tracked = state.tracked,
-                onToggleTrack = onToggleTrack,
-                onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
-                collected = state.collected,
-                collectPending = state.collectPending,
-                onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
-                pageColor = threadPageColor(state.postReplyStyle),
-            )
-        },
-    ) { padding ->
-        Box(
-            Modifier.padding(padding).fillMaxSize(),
-        ) {
-            // First in the Box, though it is never drawn: see [FloorShareCapture].
-            val sharing = shareImageOf
-            if (sharing != null && shareImage != null) {
-                val generating = stringResource(Res.string.post_share_image_generating)
-                val failed = stringResource(Res.string.post_share_image_failed)
-                val shareLabel = stringResource(Res.string.post_share_image)
-                LaunchedEffect(sharing) { snackbarHostState.showSnackbar(generating, duration = SnackbarDuration.Indefinite) }
-                FloorShareCapture(
-                    content = sharing,
-                    threadTitle = state.title,
-                    postUrl = postUrl,
-                    onCaptured = { image ->
-                        scope.launch {
-                            shareImageOf = null
-                            snackbarHostState.currentSnackbarData?.dismiss()
-                            val shared = image != null && shareImage(image, shareLabel)
-                            if (!shared) snackbarHostState.showSnackbar(failed)
-                        }
-                    },
+    val pageColor = threadPageColor(state.postReplyStyle)
+    val threadBackdrop = rememberLiquidGlassBackdrop(pageColor)
+
+    CompositionLocalProvider(LocalLiquidGlassBackdrop provides threadBackdrop) {
+        Scaffold(
+            modifier = modifier,
+            containerColor = pageColor,
+            snackbarHost = {
+                PlazaSnackbarHost(
+                    snackbarHostState,
+                    Modifier.padding(
+                        bottom = if (state.hasContent && !replyOpen) {
+                            80.dp
+                        } else {
+                            0.dp
+                        },
+                    ),
                 )
-            }
-            val error = state.error
-            when {
-                /*
-                 * Only where nothing told us anything about this thread — a notification, a deep
-                 * link, a cold start into a restored destination.
-                 *
-                 * A thread opened from a list does *not* come through here, even while it is still
-                 * loading. It goes straight to [ThreadList], which draws what the list already knew
-                 * and grey bars for the rest. Sending it here instead would put the loading state
-                 * and the thread in two different subtrees, and swapping one for the other disposes
-                 * the four shared elements mid-landing and flies them again.
-                 */
-                !state.hasContent && state.isLoading && state.preview == null ->
-                    UnopenedThreadSkeleton()
-
-                !state.hasContent && error != null ->
-                    SiteErrorState(
-                        error = error,
-                        onRetry = onRetry,
-                        // A locked thread is fixed by signing in, not by loading it again in a
-                        // browser; a challenge is fixed on this thread's own URL. Both are named
-                        // rather than folded into [onOpenBrowser] by a `when` here — picking the
-                        // recovery per error is SiteErrorState's job, and the copy of that decision
-                        // this used to hold is exactly the copy that goes stale.
-                        onOpenBrowser = { onOpenBrowser(postUrl) },
-                        onVerify = onVerify,
-                        onSignIn = onSignIn,
-                        // 等级不足 has no action that clears it, so the way out is the only button —
-                        // and this screen, unlike a tab root, always has somewhere to go back to.
-                        onBack = onBack.takeIf { showBackButton },
+            },
+            topBar = {
+                DetailTopBar(
+                    title = state.title,
+                    showTitle = showCollapsedTitle,
+                    onTitleClick = openOriginalPost,
+                    postUrl = postUrl,
+                    onBack = onBack,
+                    onOpenInBrowser = { onOpenBrowser(postUrl) },
+                    onRefresh = { onRefreshPage(visiblePage) },
+                    showBackButton = showBackButton,
+                    tracked = state.tracked,
+                    onToggleTrack = onToggleTrack,
+                    onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
+                    collected = state.collected,
+                    collectPending = state.collectPending,
+                    onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
+                    pageColor = pageColor,
+                )
+            },
+        ) { padding ->
+            val frostedTopBar = LocalPlazaLayers.current.frostedGlass
+            val topInset = if (frostedTopBar) padding.calculateTopPadding() else 0.dp
+            Box(
+                Modifier
+                    .padding(if (frostedTopBar) padding.withoutTop() else padding)
+                    .fillMaxSize(),
+            ) {
+                // First in the Box, though it is never drawn: see [FloorShareCapture].
+                val sharing = shareImageOf
+                if (sharing != null && shareImage != null) {
+                    val generating = stringResource(Res.string.post_share_image_generating)
+                    val failed = stringResource(Res.string.post_share_image_failed)
+                    val shareLabel = stringResource(Res.string.post_share_image)
+                    LaunchedEffect(sharing) { snackbarHostState.showSnackbar(generating, duration = SnackbarDuration.Indefinite) }
+                    FloorShareCapture(
+                        content = sharing,
+                        threadTitle = state.title,
+                        postUrl = postUrl,
+                        onCaptured = { image ->
+                            scope.launch {
+                                shareImageOf = null
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                val shared = image != null && shareImage(image, shareLabel)
+                                if (!shared) snackbarHostState.showSnackbar(failed)
+                            }
+                        },
                     )
+                }
+                val error = state.error
+                when {
+                    /*
+                     * Only where nothing told us anything about this thread — a notification, a deep
+                     * link, a cold start into a restored destination.
+                     *
+                     * A thread opened from a list does *not* come through here, even while it is still
+                     * loading. It goes straight to [ThreadList], which draws what the list already knew
+                     * and grey bars for the rest. Sending it here instead would put the loading state
+                     * and the thread in two different subtrees, and swapping one for the other disposes
+                     * the four shared elements mid-landing and flies them again.
+                     */
+                    !state.hasContent && state.isLoading && state.preview == null ->
+                        Box(Modifier.padding(top = topInset)) {
+                            UnopenedThreadSkeleton()
+                        }
 
-                else ->
-                    PullToRefreshBox(
-                        isRefreshing = state.isRefreshing || state.isPrepending,
-                        onRefresh = { if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh() },
-                    ) {
-                        // The same gesture at the foot of a thread the site has no more pages of:
-                        // where auto-append stops, dragging on re-reads the last page and brings in
-                        // the floors posted since. Disabled while a next page exists, because there
-                        // the drag already means "load it".
-                        BottomPullToRefreshBox(
-                            isRefreshing = state.isRefreshingTail,
-                            onRefresh = onRefreshTail,
-                            enabled = state.hasContent && !state.hasNextPage && !state.isAppending && !state.isPrepending,
-                            indicatorBottomPadding = 80.dp,
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            // Which thread a report on these floors came from, for 测评对比's basket;
-                            // each floor adds its own number on top. See [LocalReportOrigin].
-                            CompositionLocalProvider(
-                                LocalReportOrigin provides ReportOrigin(state.postId, state.title),
-                                // 1a: a long press on a picture in any floor opens the sheet above.
-                                LocalImageActions provides imageActions.open,
-                            ) {
-                                ThreadList(
-                                    state = state,
-                                    listState = listState,
-                                    onOpenOriginalPost = openOriginalPost,
-                                    onLoadPrevious = ::loadPrevious,
-                                    onToggleOnlyAuthor = onToggleOnlyAuthor,
-                                    onRetryAuthor = onRetry,
-                                    highlightedFloor = highlightedFloor,
-                                    onOpenBrowser = onLinkClick,
-                                    onImageClick = onImageClick,
-                                    onJumpToFloor = ::jumpToFloor,
-                                    onReact = reactTo,
-                                    onOpenFloorActions = { floorActions = it },
-                                    onReplyToFloor = onReply,
-                                    onQuoteFloor = onQuote,
-                                    onEditFloor = { target ->
-                                        // Same gate as everything else that writes: an expired session is
-                                        // discovered before the editor opens, not after a save is refused.
-                                        if (state.isSignedIn) onEdit(target) else onSignIn()
-                                    },
-                                    onAuthorClick = onAuthorClick,
-                                    // Same gate as the editor and the marks: the account has to exist before
-                                    // the action, not after a rejection that also spent the tap.
-                                    onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
-                                    voteContent = voteContent,
-                                    stardustContent = stardustContent,
-                                    onTitleBottom = { collapsedTitleThreshold = it },
-                                    lotteryContent = lotteryContent,
+                    !state.hasContent && error != null ->
+                        Box(Modifier.padding(top = topInset)) {
+                            SiteErrorState(
+                                error = error,
+                                onRetry = onRetry,
+                                // A locked thread is fixed by signing in, not by loading it again in a
+                                // browser; a challenge is fixed on this thread's own URL. Both are named
+                                // rather than folded into [onOpenBrowser] by a `when` here — picking the
+                                // recovery per error is SiteErrorState's job, and the copy of that decision
+                                // this used to hold is exactly the copy that goes stale.
+                                onOpenBrowser = { onOpenBrowser(postUrl) },
+                                onVerify = onVerify,
+                                onSignIn = onSignIn,
+                                // 等级不足 has no action that clears it, so the way out is the only button —
+                                // and this screen, unlike a tab root, always has somewhere to go back to.
+                                onBack = onBack.takeIf { showBackButton },
+                            )
+                        }
+
+                    else ->
+                        PullToRefreshBox(
+                            isRefreshing = state.isRefreshing || state.isPrepending,
+                            onRefresh = { if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh() },
+                            modifier = Modifier.liquidGlassBackdropSource(threadBackdrop),
+                            state = pullToRefreshState,
+                            indicator = {
+                                PullToRefreshDefaults.Indicator(
+                                    state = pullToRefreshState,
+                                    isRefreshing = state.isRefreshing || state.isPrepending,
+                                    modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
                                 )
+                            },
+                        ) {
+                            // The same gesture at the foot of a thread the site has no more pages of:
+                            // where auto-append stops, dragging on re-reads the last page and brings in
+                            // the floors posted since. Disabled while a next page exists, because there
+                            // the drag already means "load it".
+                            BottomPullToRefreshBox(
+                                isRefreshing = state.isRefreshingTail,
+                                onRefresh = onRefreshTail,
+                                enabled = state.hasContent && !state.hasNextPage && !state.isAppending && !state.isPrepending,
+                                indicatorBottomPadding = 80.dp,
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                // Which thread a report on these floors came from, for 测评对比's basket;
+                                // each floor adds its own number on top. See [LocalReportOrigin].
+                                CompositionLocalProvider(
+                                    LocalReportOrigin provides ReportOrigin(state.postId, state.title),
+                                    // 1a: a long press on a picture in any floor opens the sheet above.
+                                    LocalImageActions provides imageActions.open,
+                                ) {
+                                    ThreadList(
+                                        state = state,
+                                        listState = listState,
+                                        onOpenOriginalPost = openOriginalPost,
+                                        onLoadPrevious = ::loadPrevious,
+                                        onToggleOnlyAuthor = onToggleOnlyAuthor,
+                                        onRetryAuthor = onRetry,
+                                        highlightedFloor = highlightedFloor,
+                                        onOpenBrowser = onLinkClick,
+                                        onImageClick = onImageClick,
+                                        onJumpToFloor = ::jumpToFloor,
+                                        onReact = reactTo,
+                                        onOpenFloorActions = { floorActions = it },
+                                        onReplyToFloor = onReply,
+                                        onQuoteFloor = onQuote,
+                                        onEditFloor = { target ->
+                                            // Same gate as everything else that writes: an expired session is
+                                            // discovered before the editor opens, not after a save is refused.
+                                            if (state.isSignedIn) onEdit(target) else onSignIn()
+                                        },
+                                        onAuthorClick = onAuthorClick,
+                                        // Same gate as the editor and the marks: the account has to exist before
+                                        // the action, not after a rejection that also spent the tap.
+                                        onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
+                                        voteContent = voteContent,
+                                        stardustContent = stardustContent,
+                                        onTitleBottom = { collapsedTitleThreshold = it },
+                                        lotteryContent = lotteryContent,
+                                        topInset = topInset,
+                                    )
+                                }
                             }
                         }
-                    }
-            }
+                }
 
-            if (state.hasContent && state.comments.isNotEmpty()) {
-                LoadedReadingScrollbar(
-                    listState = listState,
-                    itemKeys = readingItemKeys,
-                    currentFloor = displayedFloor,
-                    onDraggingChanged = { isScrollbarDragging = it },
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                )
-            }
+                if (state.hasContent && state.comments.isNotEmpty()) {
+                    LoadedReadingScrollbar(
+                        listState = listState,
+                        itemKeys = readingItemKeys,
+                        currentFloor = displayedFloor,
+                        onDraggingChanged = { isScrollbarDragging = it },
+                        // The list scrolls behind the glass header; this touch target starts below it.
+                        modifier = Modifier.align(Alignment.CenterEnd).padding(top = topInset),
+                    )
+                }
 
-            if (state.hasContent && !replyOpen) {
-                ThreadReadingControls(
-                    currentFloor = displayedFloor,
-                    lastFloor = lastFloor,
-                    onJump = { showPageSheet = true },
-                    onReply = { onReply(null) },
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
-            }
+                if (state.hasContent && !replyOpen) {
+                    ThreadReadingControls(
+                        currentFloor = displayedFloor,
+                        lastFloor = lastFloor,
+                        onJump = { showPageSheet = true },
+                        onReply = { onReply(null) },
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
 
-            // A jump replaces the whole list, so the append spinner at its foot would be pointing at
-            // content that is on its way out. This says "a different page is coming" where the reader
-            // is already looking — and it is the only feedback between the tap and the new page.
-            // A pull-to-refresh is the one load excused: its own indicator is already saying it.
-            if (state.isLoading && !state.isRefreshing && state.hasContent) {
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).describedAsLoading(),
-                )
+                // A jump replaces the whole list, so the append spinner at its foot would be pointing at
+                // content that is on its way out. This says "a different page is coming" where the reader
+                // is already looking — and it is the only feedback between the tap and the new page.
+                // A pull-to-refresh is the one load excused: its own indicator is already saying it.
+                if (state.isLoading && !state.isRefreshing && state.hasContent) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(top = topInset).describedAsLoading(),
+                    )
+                }
             }
         }
     }
@@ -1077,125 +1114,193 @@ private fun DetailTopBar(
     val openOriginalPostLabel = stringResource(Res.string.post_open_original)
     val linkCopied = stringResource(Res.string.post_link_copied)
     val shareLabel = stringResource(Res.string.action_share)
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
+    val backdrop = LocalLiquidGlassBackdrop.current
 
-    ReadableTopBar { barInsets ->
-        TopAppBar(
-            windowInsets = barInsets,
-            title = {
-                // Clickable only while the bar is actually showing the title: the collapsed bar is where
-                // a reader deep in someone else's page 7 meets the title at all, and an invisible tap
-                // target over an empty bar is worse than no affordance.
-                val jump = onTitleClick?.takeIf { showTitle }
-                Text(
-                    text = if (showTitle) title else "",
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = if (jump != null) {
-                        Modifier.clickable(onClick = jump).semantics {
-                            contentDescription = openOriginalPostLabel
-                        }
-                    } else {
-                        Modifier
-                    },
-                )
-            },
-            navigationIcon = {
-                if (showBackButton) {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                            modifier = Modifier.size(TopBarIconSize),
-                        )
-                    }
-                }
-            },
-            actions = {
-                IconButton(onClick = onOpenInBrowser) {
-                    Icon(
-                        PlazaIcons.OpenInNew,
-                        contentDescription = stringResource(Res.string.action_open_in_browser),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(TopBarIconSize),
-                    )
-                }
-                Box {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = stringResource(Res.string.action_more),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(TopBarIconSize),
-                        )
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        onOriginal?.let { jump ->
-                            DropdownMenuItem(
-                                text = { Text(openOriginalPostLabel) },
-                                onClick = {
-                                    menuOpen = false
-                                    jump()
-                                },
-                            )
-                        }
-                        collected?.let { saved ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
-                                enabled = !collectPending,
-                                onClick = {
-                                    menuOpen = false
-                                    onCollect()
-                                },
-                            )
-                        }
-                        // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
-                        // not about to scroll back up to pull.
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.action_refresh)) },
-                            onClick = {
-                                menuOpen = false
-                                onRefresh()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.action_copy_link)) },
-                            onClick = {
-                                copy("post", postUrl, linkCopied)
-                                menuOpen = false
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(shareLabel) },
-                            onClick = {
-                                menuOpen = false
-                                shareText("$title\n$postUrl", shareLabel)
-                            },
-                        )
-                        tracked?.let { on ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
-                                },
-                                onClick = {
-                                    menuOpen = false
-                                    onToggleTrack()
-                                },
-                            )
-                        }
-                    }
-                }
-            },
-            // The controls and the reading column share one paper surface.
-            colors =
-            TopAppBarDefaults.topAppBarColors(
-                containerColor = pageColor,
-                scrolledContainerColor = pageColor,
+    val buttonTint =
+        if (darkTheme) {
+            layers.raised.copy(alpha = 0.68f)
+        } else {
+            Color.White.copy(alpha = 0.72f)
+        }
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassFrostedBar(
+                layers = layers,
+                darkTheme = darkTheme,
+                backdrop = backdrop,
+                baseColor = pageColor,
             ),
-            // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
-            // has scrolled away, one line of it. The buttons keep their 48dp targets.
-            expandedHeight = TopBarHeight,
-        )
+    ) {
+        ReadableTopBar { barInsets ->
+            TopAppBar(
+                windowInsets = barInsets,
+                title = {
+                    // Clickable only while the bar is actually showing the title: the collapsed bar is where
+                    // a reader deep in someone else's page 7 meets the title at all, and an invisible tap
+                    // target over an empty bar is worse than no affordance.
+                    val jump = onTitleClick?.takeIf { showTitle }
+                    Text(
+                        text = if (showTitle) title else "",
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier =
+                        if (jump != null) {
+                            Modifier.clickable(onClick = jump).semantics {
+                                contentDescription = openOriginalPostLabel
+                            }
+                        } else {
+                            Modifier
+                        },
+                    )
+                },
+                navigationIcon = {
+                    if (showBackButton) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier =
+                            if (layers.frostedGlass) {
+                                Modifier
+                                    .padding(start = 6.dp)
+                                    .size(40.dp)
+                                    .glassChromeSurface(
+                                        layers = layers,
+                                        darkTheme = darkTheme,
+                                        shape = CircleShape,
+                                        elevated = true,
+                                        backdrop = backdrop,
+                                        surfaceTint = buttonTint,
+                                    )
+                            } else {
+                                Modifier
+                            },
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(Res.string.action_back),
+                                modifier = Modifier.size(TopBarIconSize),
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    Row(
+                        modifier =
+                        if (layers.frostedGlass) {
+                            Modifier
+                                .padding(end = 6.dp)
+                                .height(40.dp)
+                                .glassChromeSurface(
+                                    layers = layers,
+                                    darkTheme = darkTheme,
+                                    shape = CircleShape,
+                                    elevated = true,
+                                    backdrop = backdrop,
+                                    surfaceTint = buttonTint,
+                                )
+                                .padding(horizontal = 4.dp)
+                        } else {
+                            Modifier
+                        },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(
+                            onClick = onOpenInBrowser,
+                            modifier = if (layers.frostedGlass) Modifier.size(36.dp) else Modifier,
+                        ) {
+                            Icon(
+                                PlazaIcons.OpenInNew,
+                                contentDescription = stringResource(Res.string.action_open_in_browser),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(TopBarIconSize),
+                            )
+                        }
+                        Box {
+                            IconButton(
+                                onClick = { menuOpen = true },
+                                modifier = if (layers.frostedGlass) Modifier.size(36.dp) else Modifier,
+                            ) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = stringResource(Res.string.action_more),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(TopBarIconSize),
+                                )
+                            }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                onOriginal?.let { jump ->
+                                    DropdownMenuItem(
+                                        text = { Text(openOriginalPostLabel) },
+                                        onClick = {
+                                            menuOpen = false
+                                            jump()
+                                        },
+                                    )
+                                }
+                                collected?.let { saved ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
+                                        enabled = !collectPending,
+                                        onClick = {
+                                            menuOpen = false
+                                            onCollect()
+                                        },
+                                    )
+                                }
+                                // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
+                                // not about to scroll back up to pull.
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.action_refresh)) },
+                                    onClick = {
+                                        menuOpen = false
+                                        onRefresh()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.action_copy_link)) },
+                                    onClick = {
+                                        copy("post", postUrl, linkCopied)
+                                        menuOpen = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(shareLabel) },
+                                    onClick = {
+                                        menuOpen = false
+                                        shareText("$title\n$postUrl", shareLabel)
+                                    },
+                                )
+                                tracked?.let { on ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            onToggleTrack()
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                // Under frostedGlass, the outer Box draws a full-width frosted matte backdrop across the
+                // status bar and toolbar strip, while the left/right circular action buttons float on top.
+                colors =
+                TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (layers.frostedGlass) Color.Transparent else pageColor,
+                    scrolledContainerColor = if (layers.frostedGlass) Color.Transparent else pageColor,
+                ),
+                // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
+                // has scrolled away, one line of it. The buttons keep their 48dp targets.
+                expandedHeight = TopBarHeight,
+            )
+        }
     }
 }
 
@@ -1239,6 +1344,7 @@ private fun ThreadList(
     onTitleBottom: (Int) -> Unit,
     lotteryContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    topInset: Dp = 0.dp,
 ) {
     val original = state.postReplyStyle == PostReplyStyle.ORIGINAL
     LazyColumn(
@@ -1249,9 +1355,9 @@ private fun ThreadList(
         contentPadding =
         if (original) {
             // The official page's own 8dp gutter; each floor adds its 10dp inset inside it.
-            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.xs, bottom = 96.dp)
+            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = topInset + Spacing.xs, bottom = 96.dp)
         } else {
-            PaddingValues(top = Spacing.sm, bottom = 96.dp)
+            PaddingValues(top = topInset + Spacing.sm, bottom = 96.dp)
         },
         modifier = modifier
             .fillMaxHeight()
@@ -2473,20 +2579,30 @@ private fun UserSignature(
 ) {
     if (nodes.isEmpty()) return
 
+    val layers = LocalPlazaLayers.current
+    val scheme = MaterialTheme.colorScheme
+    val appearance = if (layers.frostedGlass) {
+        RichTextAppearance(
+            linkColor = lerp(scheme.onSurfaceVariant, scheme.primary, 0.45f),
+            strongFontWeight = FontWeight.Medium,
+        )
+    } else {
+        LocalRichTextAppearance.current
+    }
     Column(modifier) {
         HorizontalDivider(
-            color = LocalPlazaLayers.current.divider,
+            color = layers.divider.let { if (layers.frostedGlass) it.copy(alpha = it.alpha * 0.5f) else it },
             modifier = Modifier.padding(bottom = Spacing.sm),
         )
-        PostRichContent(
-            nodes = nodes,
-            onLinkClick = onOpenBrowser,
-            onImageClick = onImageClick,
-            onQuoteRefClick = { onJumpToFloor(it.floor) },
-            textStyle = bodyStyle.asSignature().copy(
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
-        )
+        CompositionLocalProvider(LocalRichTextAppearance provides appearance) {
+            PostRichContent(
+                nodes = nodes,
+                onLinkClick = onOpenBrowser,
+                onImageClick = onImageClick,
+                onQuoteRefClick = { onJumpToFloor(it.floor) },
+                textStyle = bodyStyle.asSignature().copy(color = scheme.onSurfaceVariant),
+            )
+        }
     }
 }
 

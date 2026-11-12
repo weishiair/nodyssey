@@ -48,6 +48,15 @@ class AuthorAccountBadgeRenderTest {
     fun `rank colours in neutral dark`() = capture(darkTheme = true, pureWhite = true)
 
     @Test
+    fun `rank colours in pure white`() = capture(darkTheme = false, pureWhite = true)
+
+    @Test
+    fun `rank colours in glass light`() = capture(darkTheme = false, pureWhite = true, glass = true)
+
+    @Test
+    fun `rank colours in glass dark`() = capture(darkTheme = true, pureWhite = true, glass = true)
+
+    @Test
     fun `account facts reveal after lookup`() {
         composeRule.mainClock.autoAdvance = false
         var info by mutableStateOf<ReplyAuthorInfo?>(null)
@@ -75,9 +84,9 @@ class AuthorAccountBadgeRenderTest {
         composeRule.onRoot().captureRender("author-account-reveal-finished")
     }
 
-    private fun capture(darkTheme: Boolean, pureWhite: Boolean = false) {
+    private fun capture(darkTheme: Boolean, pureWhite: Boolean = false, glass: Boolean = false) {
         composeRule.setContent {
-            PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite) {
+            PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite, frostedGlass = glass) {
                 Surface(Modifier.fillMaxSize()) {
                     Column(
                         Modifier.padding(24.dp),
@@ -104,6 +113,6 @@ class AuthorAccountBadgeRenderTest {
                 }
             }
         }
-        composeRule.onRoot().captureRender("author-account-badges-${if (darkTheme) "dark" else "light"}${if (pureWhite) "-neutral" else ""}")
+        composeRule.onRoot().captureRender("author-account-badges-${if (darkTheme) "dark" else "light"}${if (pureWhite) "-neutral" else ""}${if (glass) "-glass" else ""}")
     }
 }

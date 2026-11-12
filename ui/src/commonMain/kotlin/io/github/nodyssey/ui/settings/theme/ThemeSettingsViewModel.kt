@@ -89,6 +89,10 @@ class ThemeSettingsViewModel(
         viewModelScope.launch { settings.setPaletteStyle(value) }
     }
 
+    fun setFrostedGlass(value: Boolean) {
+        viewModelScope.launch { settings.setFrostedGlass(value) }
+    }
+
     /** 保存为我的主题, and the rename that reuses it — see `SettingsRepository.saveTheme`. */
     fun saveTheme(name: String, argb: Int) {
         viewModelScope.launch { settings.saveTheme(name, argb) }

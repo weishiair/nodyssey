@@ -224,6 +224,7 @@ internal fun NodysseyChrome(
             // both want the same snapped motion scheme.
             reducedMotion = rememberReducedMotionEnabled() || settings.einkMode,
             einkMode = settings.einkMode,
+            frostedGlass = settings.frostedGlass,
         ) {
             // Inside the theme on purpose: the system bar icons follow the answer PlazaTheme was just
             // given, not the OS's night mode — the same rule the Custom Tab colours already follow.

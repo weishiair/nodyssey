@@ -11,11 +11,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.post_author_age_days
 import io.github.plaza.designsys.component.BadgeChip
 import io.github.plaza.designsys.component.BadgeTone
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
+import io.github.plaza.designsys.theme.LocalPlazaLayers
 import org.jetbrains.compose.resources.stringResource
 
 /** Account facts only: the colour identifies the rank, rather than judging the registration age. */
@@ -23,6 +29,8 @@ import org.jetbrains.compose.resources.stringResource
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 internal fun AuthorAccountBadge(level: Int?, days: Int?) {
     val darkTheme = LocalPlazaDarkTheme.current
+    val glass = LocalPlazaLayers.current.frostedGlass
+    val scheme = MaterialTheme.colorScheme
     val parts = buildList {
         if (level != null) add("Lv $level")
         if (days != null) add(stringResource(Res.string.post_author_age_days, days))
@@ -47,12 +55,47 @@ internal fun AuthorAccountBadge(level: Int?, days: Int?) {
         exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
         label = "author-account-info",
     ) {
-        BadgeChip(
-            text = parts.joinToString(" | "),
-            tone = BadgeTone.Neutral,
-            containerBrush = if (darkTheme) palette?.darkBrush else palette?.brush,
-            contentColor = (if (darkTheme) palette?.darkContent else palette?.content) ?: Color.Unspecified,
-        )
+        if (glass) {
+            val rankColor = palette?.let {
+                if (darkTheme) it.darkContent else lerp(scheme.onSurface, it.hue, 0.45f)
+            } ?: scheme.onSurfaceVariant
+            BadgeChip(
+                text = buildAnnotatedString {
+                    if (level != null) {
+                        withStyle(SpanStyle(color = rankColor, fontWeight = FontWeight.Medium)) {
+                            append(parts.first())
+                        }
+                    }
+                    if (level != null && days != null) {
+                        withStyle(SpanStyle(color = scheme.onSurfaceVariant.copy(alpha = 0.6f))) {
+                            append(" · ")
+                        }
+                    }
+                    if (days != null) {
+                        withStyle(SpanStyle(color = scheme.onSurfaceVariant, fontWeight = FontWeight.Normal)) {
+                            append(parts.last())
+                        }
+                    }
+                },
+                tone = BadgeTone.Neutral,
+                containerBrush = palette?.let {
+                    Brush.linearGradient(
+                        listOf(
+                            lerp(scheme.surfaceContainerLow, it.hue, if (darkTheme) 0.12f else 0.08f),
+                            lerp(scheme.surfaceContainerLow, it.hue, if (darkTheme) 0.06f else 0.03f),
+                        ),
+                    )
+                } ?: Brush.linearGradient(listOf(scheme.surfaceContainerLow, scheme.surfaceContainerLow)),
+                contentColor = scheme.onSurfaceVariant,
+            )
+        } else {
+            BadgeChip(
+                text = parts.joinToString(" | "),
+                tone = BadgeTone.Neutral,
+                containerBrush = if (darkTheme) palette?.darkBrush else palette?.brush,
+                contentColor = (if (darkTheme) palette?.darkContent else palette?.content) ?: Color.Unspecified,
+            )
+        }
     }
 }
 
@@ -80,4 +123,5 @@ private enum class AccountBadgePalette(
 
     val brush: Brush = Brush.linearGradient(listOf(start, end))
     val darkBrush: Brush = Brush.linearGradient(listOf(darkStart, darkEnd))
+    val hue: Color = lerp(start, end, 0.5f)
 }

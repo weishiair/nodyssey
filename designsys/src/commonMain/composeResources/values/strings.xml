@@ -6,6 +6,9 @@
   travel with the toolbar. Anything naming a site, a board or a currency stays in the app module.
 -->
 <resources>
+    <!-- Closes the current transient notice. -->
+    <string name="snackbar_dismiss">关闭提示</string>
+
     <!-- Toolbar keys. Content descriptions, so they read as the action the key performs. -->
     <string name="composer_format_bold">加粗</string>
     <string name="composer_format_italic">斜体</string>

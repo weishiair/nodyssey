@@ -1,10 +1,13 @@
 package io.github.nodyssey.ui.common
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -20,8 +23,11 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import io.github.plaza.designsys.component.PlazaSheetDefaults
+import io.github.plaza.designsys.theme.GlassRimWidth
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.glassHeaderDividerBrush
 
 /**
  * The app's bottom sheet: Material's [ModalBottomSheet] on the page colour, with one header.
@@ -48,13 +54,35 @@ internal fun PlazaSheet(
     dragHandle: @Composable (() -> Unit)? = { PlazaSheetDefaults.DragHandle() },
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
         sheetState = sheetState,
         shape = PlazaSheetDefaults.shape,
-        containerColor = LocalPlazaLayers.current.page,
-        dragHandle = dragHandle,
+        containerColor =
+        if (layers.frostedGlass) {
+            layers.page.copy(alpha = if (darkTheme) 0.88f else 0.92f)
+        } else {
+            layers.page
+        },
+        dragHandle =
+        dragHandle?.let { handle ->
+            {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (layers.frostedGlass) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(GlassRimWidth)
+                                .background(layers.glassHeaderDividerBrush(darkTheme)),
+                        )
+                    }
+                    handle()
+                }
+            }
+        },
     ) {
         if (title != null) {
             Row(

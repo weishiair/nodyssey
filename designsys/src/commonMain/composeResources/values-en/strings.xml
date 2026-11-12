@@ -7,6 +7,8 @@
   `\'` would reach the screen with its backslash still attached. Apostrophes are written plainly.
 -->
 <resources>
+    <string name="snackbar_dismiss">Dismiss notification</string>
+
     <string name="composer_format_bold">Bold</string>
     <string name="composer_format_italic">Italic</string>
     <string name="composer_format_strikethrough">Strikethrough</string>

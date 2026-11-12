@@ -39,7 +39,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -128,6 +127,7 @@ import io.github.nodyssey.ui.settings.rememberNotificationPermissionRequest
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
@@ -589,7 +589,7 @@ private fun LotteryFeedback(viewModel: LotteryViewModel, onSignIn: () -> Unit, o
     val limit by viewModel.limitReached.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     SiteErrorSnackbar(error, snackbar, viewModel::clearError, onSignIn = onSignIn, onVerify = onVerify)
-    SnackbarHost(snackbar)
+    PlazaSnackbarHost(snackbar)
     if (limit) {
         AlertDialog(
             onDismissRequest = viewModel::clearLimit,
