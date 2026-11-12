@@ -31,6 +31,7 @@ import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.runCatchingExceptCancellation
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -381,6 +382,7 @@ class OfflineFirstPostRepository(
      */
     private val collectedMeta: CollectedPostMetaStore? = null,
     private val historyAccounts: ReadingHistoryAccounts = ReadingHistoryAccounts(database),
+    private val showHomePinnedPosts: Flow<Boolean> = flowOf(true),
 ) : PostRepository {
     override fun feed(
         categorySlug: String?,
@@ -388,7 +390,7 @@ class OfflineFirstPostRepository(
         startPage: Int,
     ): Flow<PagingData<FeedPost>> {
         val feedKey = feedKeyFor(categorySlug, sort)
-        return pagedFeed(feedKey, startPage) { page -> remote.loadList(categorySlug, page, sort) }
+        return pagedFeed(feedKey, startPage, showHomePinnedPosts) { page -> remote.loadList(categorySlug, page, sort) }
     }
 
     override fun feedTotalPages(
@@ -410,9 +412,10 @@ class OfflineFirstPostRepository(
         // The same reveal the pager was built under; counting under the other one is off by however
         // many blocked posts sit above the page.
         val includeBlocked = showBlockedContent.first()
+        val includePinned = showHomePinnedPosts.first()
         val dao = database.feedDao()
-        val sortIndex = dao.firstSortIndexOnPage(feedKey, page, includeBlocked) ?: return null
-        return dao.countRowsBefore(feedKey, sortIndex, includeBlocked)
+        val sortIndex = dao.firstSortIndexOnPage(feedKey, page, includeBlocked, includePinned) ?: return null
+        return dao.countRowsBefore(feedKey, sortIndex, includeBlocked, includePinned)
     }
 
     override fun searchFeed(
@@ -448,22 +451,24 @@ class OfflineFirstPostRepository(
     private fun pagedFeed(
         feedKey: String,
         startPage: Int = FeedRemoteMediator.FIRST_PAGE,
+        showPinnedPosts: Flow<Boolean> = flowOf(true),
         loadPage: suspend (page: Int) -> PostListPage,
     ): Flow<PagingData<FeedPost>> =
-        showBlockedContent.distinctUntilChanged().flatMapLatest { includeBlocked ->
-            Pager(
-                config = FEED_PAGING_CONFIG,
-                remoteMediator =
-                FeedRemoteMediator(
-                    feedKey = feedKey,
-                    database = database,
-                    clock = clock,
-                    startPage = startPage,
-                    loadPage = loadPage,
-                ),
-                pagingSourceFactory = { database.feedDao().pagingSource(feedKey, includeBlocked) },
-            ).flow
-        }.map { pagingData -> pagingData.map(FeedPostRow::toFeedPost) }
+        combine(showBlockedContent, showPinnedPosts) { blocked, pinned -> blocked to pinned }
+            .distinctUntilChanged().flatMapLatest { (includeBlocked, includePinned) ->
+                Pager(
+                    config = FEED_PAGING_CONFIG,
+                    remoteMediator =
+                    FeedRemoteMediator(
+                        feedKey = feedKey,
+                        database = database,
+                        clock = clock,
+                        startPage = startPage,
+                        loadPage = loadPage,
+                    ),
+                    pagingSourceFactory = { database.feedDao().pagingSource(feedKey, includeBlocked, includePinned) },
+                ).flow
+            }.map { pagingData -> pagingData.map(FeedPostRow::toFeedPost) }
 
     override fun search(query: String): Flow<List<FeedPost>> {
         val escaped = query.trim().escapeLikePattern()

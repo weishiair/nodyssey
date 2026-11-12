@@ -119,6 +119,7 @@ class SettingsRepository(
                     ?.let { runCatching { FeedSort.valueOf(it) }.getOrNull() }
                     ?: FeedSort.LAST_REPLY,
                 homePageBar = preferences[KEY_HOME_PAGE_BAR] ?: true,
+                showHomePinnedPosts = preferences[KEY_SHOW_HOME_PINNED_POSTS] ?: true,
                 clipboardPostPrompt = preferences[KEY_CLIPBOARD_POST_PROMPT] ?: true,
                 holidayTheme = preferences[KEY_HOLIDAY_THEME] ?: false,
                 searchHistory = decodeSearchHistory(preferences),
@@ -314,6 +315,8 @@ class SettingsRepository(
 
     /** 首页翻页栏; see [UserSettings.homePageBar] for what it adds. */
     suspend fun setHomePageBar(enabled: Boolean) = edit { it[KEY_HOME_PAGE_BAR] = enabled }
+
+    suspend fun setShowHomePinnedPosts(enabled: Boolean) = edit { it[KEY_SHOW_HOME_PINNED_POSTS] = enabled }
 
     /** 识别剪贴板中的帖子; see [UserSettings.clipboardPostPrompt]. */
     suspend fun setClipboardPostPrompt(enabled: Boolean) = edit { it[KEY_CLIPBOARD_POST_PROMPT] = enabled }
@@ -761,6 +764,7 @@ class SettingsRepository(
         private val KEY_MESSAGE_TOOLBAR = stringPreferencesKey("message_toolbar_actions")
         private val KEY_FEED_SORT = stringPreferencesKey("feed_sort")
         private val KEY_HOME_PAGE_BAR = booleanPreferencesKey("home_page_bar")
+        private val KEY_SHOW_HOME_PINNED_POSTS = booleanPreferencesKey("show_home_pinned_posts")
         private val KEY_CLIPBOARD_POST_PROMPT = booleanPreferencesKey("clipboard_post_prompt")
         private val KEY_LAST_CLIPBOARD_POST_LINK = stringPreferencesKey("last_clipboard_post_link")
         private val KEY_ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
@@ -996,6 +1000,8 @@ data class UserSettings(
      * only adds a way to arrive somewhere, which is the same pairing the comment thread uses.
      */
     val homePageBar: Boolean = true,
+    /** Whether the home feeds, including their board tabs, show pinned threads. Search is unaffected. */
+    val showHomePinnedPosts: Boolean = true,
     /**
      * 识别剪贴板中的帖子 (Android): on coming back to the app, offer to open a thread whose link is
      * on the clipboard. On by default — the prompt is a snackbar that asks once per link and goes

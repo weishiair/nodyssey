@@ -128,6 +128,8 @@ import io.github.nodyssey.ui.resources.settings_search_history_limit_count
 import io.github.nodyssey.ui.resources.settings_search_history_limit_hint
 import io.github.nodyssey.ui.resources.settings_show_author_account_info
 import io.github.nodyssey.ui.resources.settings_show_author_account_info_hint
+import io.github.nodyssey.ui.resources.settings_show_home_pinned_posts
+import io.github.nodyssey.ui.resources.settings_show_home_pinned_posts_hint
 import io.github.nodyssey.ui.resources.settings_sticker_preview_caption
 import io.github.nodyssey.ui.resources.settings_sticker_size
 import io.github.nodyssey.ui.resources.settings_sticker_uniform
@@ -228,6 +230,7 @@ fun SettingsRoute(
         onImagesOnWifiOnlyChange = viewModel::setImagesOnWifiOnly,
         onReportFormatChange = viewModel::setReportFormat,
         onHomePageBarChange = viewModel::setHomePageBar,
+        onShowHomePinnedPostsChange = viewModel::setShowHomePinnedPosts,
         onClipboardPostPromptChange = viewModel::setClipboardPostPrompt.takeIf { clipboardPostPromptSupported },
         onUpdateCheckOnLaunchChange = viewModel::setUpdateCheckOnLaunch,
         onUpdateDevChannelChange = viewModel::setUpdateDevChannel,
@@ -267,6 +270,7 @@ fun SettingsScreen(
     onUpdateDevChannelChange: (Boolean) -> Unit,
     onClearCache: () -> Unit,
     modifier: Modifier = Modifier,
+    onShowHomePinnedPostsChange: (Boolean) -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onOpenProxy: () -> Unit = {},
     onOpenDoh: () -> Unit = {},
@@ -550,6 +554,14 @@ fun SettingsScreen(
                     checked = state.settings.homePageBar,
                     onCheckedChange = onHomePageBarChange,
                     trailing = { GroupedListItemSwitch(checked = state.settings.homePageBar) },
+                )
+                GroupedRow(
+                    icon = PlazaIcons.PushPin,
+                    title = stringResource(Res.string.settings_show_home_pinned_posts),
+                    subtitle = stringResource(Res.string.settings_show_home_pinned_posts_hint),
+                    checked = state.settings.showHomePinnedPosts,
+                    onCheckedChange = onShowHomePinnedPostsChange,
+                    trailing = { GroupedListItemSwitch(checked = state.settings.showHomePinnedPosts) },
                 )
                 SettingsBlock(
                     title = stringResource(Res.string.settings_post_reply_style),

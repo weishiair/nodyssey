@@ -602,6 +602,7 @@ class DefaultAppContainer(
             offlineLibrary as? OfflineThreadReader,
             collectedPostMetaStore,
             historyAccounts = historyAccounts,
+            showHomePinnedPosts = settingsRepository.settings.map { it.showHomePinnedPosts }.distinctUntilChanged(),
         )
     }
 

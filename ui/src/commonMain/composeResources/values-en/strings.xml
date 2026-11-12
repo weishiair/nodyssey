@@ -412,6 +412,8 @@
     <string name="settings_report_format_source">Terminal</string>
     <string name="settings_home_page_bar">Page bar on home</string>
     <string name="settings_home_page_bar_hint">Shows the page number at the bottom right of home</string>
+    <string name="settings_show_home_pinned_posts">Show pinned posts on home</string>
+    <string name="settings_show_home_pinned_posts_hint">Turn off to hide pinned posts in all home tabs. Search is unaffected.</string>
     <string name="settings_clipboard_post">Detect copied post links</string>
     <string name="settings_clipboard_post_hint">Offer to open a copied post link when you come back</string>
     <string name="clipboard_post_prompt">Open the post on your clipboard?</string>
