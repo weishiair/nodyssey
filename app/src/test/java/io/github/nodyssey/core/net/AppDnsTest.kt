@@ -58,6 +58,7 @@ class AppDnsTest {
         configs: MutableStateFlow<DohConfig>,
         resolver: Dns = doh,
         byUrl: Map<String, Dns> = emptyMap(),
+        proxyActive: () -> Boolean = { false },
     ) = AppDns(
         scope = backgroundScope,
         config = configs,
@@ -68,6 +69,7 @@ class AppDnsTest {
         system = system,
         onResolverChanged = { evictions++ },
         clock = { now },
+        proxyActive = proxyActive,
     ).also { runCurrent() }
 
     @Test
@@ -86,6 +88,50 @@ class AppDnsTest {
         assertEquals(DOH_ANSWER, dns.lookup("www.nodeseek.com"))
         assertEquals(listOf("www.nodeseek.com"), doh.asked)
         assertEquals(emptyList<String>(), system.asked)
+    }
+
+    @Test
+    fun `a proxy immediately bypasses DoH and disconnecting restores the saved resolver`() = runTest {
+        var connected = false
+        val configs = MutableStateFlow(ON)
+        val dns = appDns(configs, proxyActive = { connected })
+        assertEquals(DOH_ANSWER, dns.lookup("www.nodeseek.com"))
+
+        // No coroutine turn: a lookup must not wait for the monitor/config collector.
+        connected = true
+        assertEquals(SYSTEM_ANSWER, dns.lookup("www.nodeseek.com"))
+        assertEquals(1, doh.asked.size)
+
+        connected = false
+        assertEquals(DOH_ANSWER, dns.lookup("www.nodeseek.com"))
+        assertEquals(2, doh.asked.size)
+    }
+
+    @Test
+    fun `a proxy connecting after a failed lookup skips the remaining DoH servers`() = runTest {
+        var connected = false
+        val first = Dns {
+            connected = true
+            throw UnknownHostException(it)
+        }
+        val dns = appDns(MutableStateFlow(TWO), byUrl = mapOf(DohProvider.ALIDNS.url to first), proxyActive = { connected })
+
+        assertEquals(SYSTEM_ANSWER, dns.lookup("www.nodeseek.com"))
+        assertEquals(emptyList<String>(), doh.asked)
+        assertEquals(listOf("www.nodeseek.com"), system.asked)
+    }
+
+    @Test
+    fun `a proxy connecting during the last DoH failure overrides strict fallback`() = runTest {
+        var connected = false
+        val resolver = Dns {
+            connected = true
+            throw UnknownHostException(it)
+        }
+        val dns = appDns(MutableStateFlow(ON), resolver = resolver, proxyActive = { connected })
+
+        assertEquals(SYSTEM_ANSWER, dns.lookup("www.nodeseek.com"))
+        assertEquals(listOf("www.nodeseek.com"), system.asked)
     }
 
     /**
