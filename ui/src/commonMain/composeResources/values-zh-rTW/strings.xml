@@ -406,6 +406,8 @@
     <string name="settings_report_format_source">終端原貌</string>
     <string name="settings_home_page_bar">首頁翻頁列</string>
     <string name="settings_home_page_bar_hint">在首頁右下角顯示頁碼</string>
+    <string name="settings_show_home_pinned_posts">顯示首頁置頂帖</string>
+    <string name="settings_show_home_pinned_posts_hint">關閉後隱藏首頁各版塊的置頂文章，不影響搜尋</string>
     <string name="settings_clipboard_post">識別剪貼簿中的帖子</string>
     <string name="settings_clipboard_post_hint">回到 App 時詢問是否開啟複製的帖子連結</string>
     <string name="clipboard_post_prompt">開啟剪貼簿裡的帖子？</string>

@@ -510,6 +510,8 @@
     <string name="settings_report_format_source">终端原貌</string>
     <string name="settings_home_page_bar">首页翻页栏</string>
     <string name="settings_home_page_bar_hint">在首页右下角显示页码</string>
+    <string name="settings_show_home_pinned_posts">显示首页置顶帖</string>
+    <string name="settings_show_home_pinned_posts_hint">关闭后隐藏首页各版块的置顶帖子，不影响搜索</string>
     <!-- 设置 › 内容：回到 App 时若剪贴板里是帖子链接，弹一条可点「打开」的提示（仅 Android，iOS 每次读剪贴板都会弹系统授权框） -->
     <string name="settings_clipboard_post">识别剪贴板中的帖子</string>
     <string name="settings_clipboard_post_hint">回到 App 时询问是否打开复制的帖子链接</string>

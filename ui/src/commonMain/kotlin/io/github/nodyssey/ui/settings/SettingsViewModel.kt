@@ -231,6 +231,10 @@ class SettingsViewModel(
         viewModelScope.launch { settings.setHomePageBar(value) }
     }
 
+    fun setShowHomePinnedPosts(value: Boolean) {
+        viewModelScope.launch { settings.setShowHomePinnedPosts(value) }
+    }
+
     fun setClipboardPostPrompt(value: Boolean) {
         viewModelScope.launch { settings.setClipboardPostPrompt(value) }
     }
