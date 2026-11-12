@@ -87,8 +87,10 @@ import io.github.nodyssey.ui.resources.page_jump_title
 import io.github.nodyssey.ui.resources.page_jump_to
 import io.github.nodyssey.ui.resources.page_jump_unit_floor
 import io.github.nodyssey.ui.resources.page_jump_unit_page
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
+import io.github.plaza.designsys.component.platformActionButton
 import io.github.plaza.designsys.theme.ControlShape
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
@@ -155,6 +157,7 @@ fun PageJumpRail(
         PageKey(
             onClick = onPageClick,
             contentDescription = stringResource(Res.string.page_jump_page_of, page, totalPages),
+            nativeTitle = "$page/$totalPages",
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -185,6 +188,7 @@ fun PageJumpRail(
                     onClick = onPrevious,
                     enabled = previousEnabled,
                     contentDescription = stringResource(previousLabel),
+                    nativeSymbol = "chevron.up",
                 ) {
                     Icon(previousIcon, contentDescription = null)
                 }
@@ -192,6 +196,7 @@ fun PageJumpRail(
                     onClick = onNext,
                     enabled = page < totalPages,
                     contentDescription = stringResource(Res.string.page_jump_next),
+                    nativeSymbol = "chevron.down",
                 ) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
                 }
@@ -235,8 +240,11 @@ private fun PageKey(
     onClick: () -> Unit,
     contentDescription: String,
     enabled: Boolean = true,
+    nativeTitle: String? = null,
+    nativeSymbol: String? = null,
     content: @Composable () -> Unit,
 ) {
+    if (platformActionButton(PlatformBarAction(nativeTitle ?: contentDescription, nativeSymbol, enabled = enabled, accessibilityLabel = contentDescription, onClick = onClick), Modifier.size(Sizes.minTouchTarget), showLabel = nativeTitle != null)) return
     val eink = LocalEinkMode.current
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current

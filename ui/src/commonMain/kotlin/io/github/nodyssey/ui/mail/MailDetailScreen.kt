@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.isSafeMailLink
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
@@ -58,6 +59,7 @@ import io.github.nodyssey.ui.resources.mail_to
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
@@ -112,11 +114,21 @@ fun MailDetailScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.mail_detail),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
                     }
                 },
+                platformActions = listOfNotNull(
+                    state.message?.let { mail ->
+                        PlatformBarAction(
+                            label = stringResource(if (mail.isRead) Res.string.mail_mark_unread else Res.string.mail_mark_read),
+                            enabled = !state.updatingRead,
+                            onClick = onToggleRead,
+                        )
+                    },
+                ),
                 actions = {
                     state.message?.let { mail ->
                         TextButton(onClick = onToggleRead, enabled = !state.updatingRead) {

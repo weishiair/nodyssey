@@ -62,7 +62,9 @@ import io.github.nodyssey.data.OfflineState
 import io.github.nodyssey.data.OfflineUsage
 import io.github.nodyssey.ui.account.formatBytes
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.common.shortMessage
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.common.snackbarDuration
@@ -101,10 +103,13 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandAppBarState
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlatformBarSearch
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.StatusView
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -301,6 +306,7 @@ fun BookmarksScreen(
                 PlazaExtendedFab(
                     text = stringResource(Res.string.bookmarks_download_all, state.pendingDownloadCount),
                     icon = PlazaIcons.DownloadForOffline,
+                    nativeSymbol = "arrow.down.circle",
                     onClick = onDownloadPending,
                 )
             }
@@ -484,6 +490,15 @@ private fun BookmarksTopBar(
             }
         }
     if (state.isSearching) {
+        if (nativeTopBar(
+                title = stringResource(Res.string.bookmarks_title),
+                navigation = PlatformBarAction(stringResource(Res.string.action_close), "xmark", onClick = { onSearching(false) }),
+                search = PlatformBarSearch(state.query.orEmpty(), stringResource(Res.string.bookmarks_search_hint), onQuery),
+                allowsNavigationPop = false,
+            )
+        ) {
+            return
+        }
         // A plain bar for as long as the box is open: [OneHandTopAppBar] takes a title string rather
         // than a slot, and a search field belongs in a bar that is not also a pull target.
         TopAppBar(
@@ -511,6 +526,13 @@ private fun BookmarksTopBar(
             },
         ).joinToString(SUBTITLE_SEPARATOR).ifEmpty { null },
         navigationIcon = back,
+        navigationAction = backBarAction(onBack),
+        platformActions = buildList {
+            add(PlatformBarAction(stringResource(Res.string.bookmarks_search), "magnifyingglass", onClick = { onSearching(true) }))
+            add(PlatformBarAction(stringResource(Res.string.action_sort), "arrow.up.arrow.down", menu = BookmarkSort.entries.map { order -> PlatformBarAction(stringResource(order.labelRes), selected = order == state.sort, onClick = { onSort(order) }) }))
+            if (state.entries.isNotEmpty()) add(PlatformBarAction(stringResource(Res.string.bookmarks_select_action), "checklist", onClick = onEnterSelection))
+            if (state.offlineAvailable) add(PlatformBarAction(stringResource(Res.string.offline_manage), "icloud.and.arrow.down", onClick = onManage))
+        },
         actions = {
             IconButton(onClick = { onSearching(true) }) {
                 Icon(
@@ -605,16 +627,32 @@ private fun SortMenu(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            BookmarkSort.entries.forEach { sort ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(sort.labelRes)) },
-                    leadingIcon = { RadioButton(selected = sort == current, onClick = null) },
-                    onClick = {
-                        expanded = false
-                        onSort(sort)
-                    },
-                )
+        if (!platformChoiceMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                actions = buildList {
+                    BookmarkSort.entries.forEach { sort ->
+                        add(
+                            PlatformBarAction(label = stringResource(sort.labelRes), onClick = {
+                                expanded = false
+                                onSort(sort)
+                            }, selected = sort == current),
+                        )
+                    }
+                },
+            )
+        ) {
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                BookmarkSort.entries.forEach { sort ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(sort.labelRes)) },
+                        leadingIcon = { RadioButton(selected = sort == current, onClick = null) },
+                        onClick = {
+                            expanded = false
+                            onSort(sort)
+                        },
+                    )
+                }
             }
         }
     }
@@ -628,6 +666,15 @@ private fun SelectionTopBar(
     onClose: () -> Unit,
     onSelectAll: () -> Unit,
 ) {
+    if (nativeTopBar(
+            title = stringResource(Res.string.bookmarks_selected, count),
+            allowsNavigationPop = false,
+            navigation = PlatformBarAction(stringResource(Res.string.bookmarks_exit_selection), "xmark", onClick = onClose),
+            actions = listOf(PlatformBarAction(stringResource(if (allSelected) Res.string.bookmarks_select_none else Res.string.bookmarks_select_all), onClick = onSelectAll)),
+        )
+    ) {
+        return
+    }
     TopAppBar(
         title = {
             Text(

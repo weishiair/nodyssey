@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,6 +67,7 @@ import io.github.plaza.designsys.component.ChoiceRow
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerCard
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -122,7 +122,7 @@ internal fun OfflineManageSheet(
     }
 
     if (confirmingClear) {
-        AlertDialog(
+        PlazaAlertDialog(
             onDismissRequest = { confirmingClear = false },
             title = { Text(stringResource(Res.string.offline_clear_title)) },
             // Spelled out because the word 清空 sits on a screen called 收藏, and the one thing a reader
@@ -338,7 +338,7 @@ private fun RetentionDialog(
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.offline_retention)) },
         text = {

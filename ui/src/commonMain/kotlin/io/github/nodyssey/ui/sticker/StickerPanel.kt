@@ -11,7 +11,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +54,8 @@ import io.github.nodyssey.ui.resources.sticker_mine_empty
 import io.github.nodyssey.ui.resources.sticker_name_label
 import io.github.nodyssey.ui.resources.sticker_rename_title
 import io.github.nodyssey.ui.resources.sticker_undo
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.editor.EmojiEntry
 import io.github.plaza.designsys.editor.EmojiGroup
@@ -145,6 +146,15 @@ internal fun StickerPanelHost(
             }
         },
         emptyText = mineEmpty,
+        entryActions = { entry ->
+            (entry as? EmojiEntry.Sticker)?.let { sticker ->
+                listOf(
+                    PlatformBarAction(stringResource(Res.string.sticker_menu_move_top), "arrow.up.to.line", onClick = { scope.launch { library.moveToTop(listOf(sticker.url)) } }),
+                    PlatformBarAction(stringResource(Res.string.action_rename), "pencil", onClick = { renaming = MySticker(sticker.url, sticker.name) }),
+                    PlatformBarAction(stringResource(Res.string.action_delete), "trash", destructive = true, onClick = { scope.launch { library.remove(listOf(sticker.url)) } }),
+                )
+            }.orEmpty()
+        },
     )
     val saveToMine: @Composable ColumnScope.(EmojiEntry, () -> Unit) -> Unit = { entry, dismiss ->
         val sticker = entry as? EmojiEntry.Sticker
@@ -162,6 +172,18 @@ internal fun StickerPanelHost(
             )
         }
     }
+    val saveActions: @Composable (EmojiEntry) -> List<PlatformBarAction> = { entry ->
+        (entry as? EmojiEntry.Sticker)?.let { sticker ->
+            listOf(
+                PlatformBarAction(stringResource(Res.string.sticker_menu_save_to_mine), "heart", onClick = {
+                    scope.launch {
+                        val added = library.add(listOf(MySticker(sticker.url, sticker.name)))
+                        if (added.isNotEmpty()) notice = StickerNotice(addedText, added)
+                    }
+                }),
+            )
+        }.orEmpty()
+    }
     // The default order until the stored one is read — a frame at most. Not an empty list: the panel
     // picks the tab it opens on from the groups it is first handed, and with none it would open on
     // an empty 最近使用 for a new reader rather than on the site's stickers.
@@ -170,7 +192,7 @@ internal fun StickerPanelHost(
         .map { item ->
             when (item) {
                 is StickerGroupItem.Mine -> mineGroup
-                is StickerGroupItem.Folder -> folderGroup(item, cdn, saveToMine)
+                is StickerGroupItem.Folder -> folderGroup(item, cdn, saveToMine, saveActions)
                 is StickerGroupItem.Site -> item.group
             }
         }
@@ -211,6 +233,7 @@ private fun folderGroup(
     item: StickerGroupItem.Folder,
     cdn: StickerCdnSettings,
     saveToMine: @Composable ColumnScope.(EmojiEntry, () -> Unit) -> Unit,
+    saveActions: @Composable (EmojiEntry) -> List<PlatformBarAction>,
 ): EmojiGroup {
     val folder = item.folder
     return key(item.key) {
@@ -221,6 +244,7 @@ private fun folderGroup(
             entries = remember(folder, cdn) { folderEntries(folder, cdn) },
             key = item.key,
             entryMenu = saveToMine,
+            entryActions = saveActions,
         )
     }
 }
@@ -286,7 +310,7 @@ internal fun RenameStickerDialog(
     onConfirm: (String) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf(initial) }
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.sticker_rename_title)) },
         text = {

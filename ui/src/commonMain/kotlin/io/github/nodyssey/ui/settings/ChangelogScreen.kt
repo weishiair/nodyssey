@@ -31,6 +31,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.about_changelog
@@ -49,6 +50,7 @@ import io.github.plaza.core.update.ReleaseNote
 import io.github.plaza.core.update.UpdateFailure
 import io.github.plaza.core.update.releaseNotesText
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
@@ -103,11 +105,15 @@ fun ChangelogScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.about_changelog),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
                     }
                 },
+                platformActions = listOf(
+                    PlatformBarAction(stringResource(Res.string.changelog_refresh), "arrow.clockwise", enabled = !state.loading, onClick = onRefresh),
+                ),
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !state.loading) {
                         Icon(Icons.Default.Refresh, stringResource(Res.string.changelog_refresh))

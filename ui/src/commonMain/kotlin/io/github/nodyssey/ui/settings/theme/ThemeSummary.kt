@@ -25,6 +25,7 @@ import io.github.nodyssey.ui.resources.settings_palette_style_neutral
 import io.github.nodyssey.ui.resources.settings_palette_style_soft
 import io.github.nodyssey.ui.resources.settings_palette_style_vibrant
 import io.github.nodyssey.ui.settings.DISABLED_ALPHA
+import io.github.plaza.designsys.component.usesNativeChrome
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -59,7 +60,7 @@ fun themeSummary(settings: UserSettings): String {
         } else {
             colour + " · " + stringResource(paletteStyleLabel(settings.paletteStyle))
         }
-    return if (settings.frostedGlass && !settings.einkMode) {
+    return if (settings.frostedGlass && !settings.einkMode && !usesNativeChrome) {
         base + " · " + stringResource(Res.string.settings_frosted_glass)
     } else {
         base

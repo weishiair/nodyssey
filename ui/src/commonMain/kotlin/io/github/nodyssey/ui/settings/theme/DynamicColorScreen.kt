@@ -36,6 +36,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.settings.UserSettings
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
@@ -122,6 +123,7 @@ fun DynamicColorScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.settings_dynamic_color),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

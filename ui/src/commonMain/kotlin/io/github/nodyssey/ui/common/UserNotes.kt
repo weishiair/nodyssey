@@ -1,7 +1,6 @@
 package io.github.nodyssey.ui.common
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -27,6 +26,7 @@ import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.user_note_dialog_hint
 import io.github.nodyssey.ui.resources.user_note_dialog_title
 import io.github.nodyssey.ui.resources.user_note_save
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.TonalTag
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -114,11 +114,11 @@ private fun UserNoteDialog(
 ) {
     var text by rememberSaveable { mutableStateOf(initial) }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.user_note_dialog_title, name)) },
         text = {
+            LaunchedEffect(Unit) { focus.requestFocus() }
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it.take(UserNoteStore.MAX_NOTE_LENGTH) },

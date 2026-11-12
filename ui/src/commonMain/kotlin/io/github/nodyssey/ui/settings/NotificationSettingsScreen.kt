@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.keywords_alert_title
@@ -158,6 +159,7 @@ fun NotificationSettingsScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.notify_settings_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

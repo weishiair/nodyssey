@@ -23,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ThumbUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -63,6 +62,7 @@ import io.github.nodyssey.ui.common.NoLedgerEntriesState
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.SpendConfirmDialog
 import io.github.nodyssey.ui.common.SpendDetail
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.common.snackbarDuration
 import io.github.nodyssey.ui.postlist.toSiteError
@@ -112,6 +112,7 @@ import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTag
@@ -240,6 +241,7 @@ fun StardustScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.stardust_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -258,6 +260,7 @@ fun StardustScreen(
                 PlazaExtendedFab(
                     text = stringResource(Res.string.transfer_action),
                     icon = Icons.AutoMirrored.Filled.Send,
+                    nativeSymbol = "paperplane",
                     onClick = onOpenTransfer,
                 )
             }
@@ -545,7 +548,7 @@ private fun TransferDialog(
     onDismiss: () -> Unit,
     onRequestConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.transfer_title)) },
         text = {

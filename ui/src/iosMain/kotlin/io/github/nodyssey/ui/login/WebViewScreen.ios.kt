@@ -36,13 +36,16 @@ import androidx.compose.ui.viewinterop.UIKitView
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.ui.common.describedAsLoading
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_open_in_external_browser
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.webview_load_failed
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.core.net.WebKitCookieBridge
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaBackHandler
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCSignatureOverride
@@ -262,7 +265,19 @@ internal fun WebViewScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = {
+        topBar = bar@{
+            if (nativeTopBar(
+                    title = title,
+                    allowsNavigationPop = popup == null && !canGoBack,
+                    navigation = PlatformBarAction(stringResource(Res.string.action_close), "xmark", onClick = onClose),
+                    actions = buildList {
+                        if (popup != null || canGoBack) add(PlatformBarAction(stringResource(Res.string.action_back), "chevron.backward", onClick = { if (popup != null) popup = null else webView.goBack() }))
+                        if (canLeaveToBrowser) add(PlatformBarAction(stringResource(Res.string.action_open_in_external_browser), "arrow.up.right.square", onClick = { openExternal(currentUrl) }))
+                    },
+                )
+            ) {
+                return@bar
+            }
             TopAppBar(
                 title = {
                     Text(

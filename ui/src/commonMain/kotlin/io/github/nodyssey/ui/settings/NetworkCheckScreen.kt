@@ -49,6 +49,7 @@ import io.github.nodyssey.data.diagnostics.formatRate
 import io.github.nodyssey.data.proxy.ProxyConnectionFailure
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.ui.common.MediumButton
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.network_check_app_none
@@ -136,6 +137,7 @@ import io.github.plaza.designsys.component.IconBadge
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerDivider
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
@@ -193,6 +195,7 @@ fun NetworkCheckScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.network_check_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -201,6 +204,9 @@ fun NetworkCheckScreen(
                         )
                     }
                 },
+                platformActions = listOf(
+                    PlatformBarAction(copyLabel, "doc.on.doc", enabled = !state.running, onClick = { copy(copyLabel, sections.asShareText(), copied) }),
+                ),
                 actions = {
                     IconButton(
                         onClick = { copy(copyLabel, sections.asShareText(), copied) },

@@ -65,7 +65,6 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
@@ -116,6 +115,7 @@ import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.PickedImage
 import io.github.nodyssey.data.contentPreview
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.common.shortMessage
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.common.webViewUrl
@@ -182,11 +182,14 @@ import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaModalBottomSheet
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.QuotePreview
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.editor.EditorAction
 import io.github.plaza.designsys.editor.InlinePictures
@@ -543,107 +546,118 @@ private fun ThreadTopBar(
     val layers = LocalPlazaLayers.current
     val page = layers.page
     val statusBars = WindowInsets.statusBars
-    Box(
-        Modifier
-            .fillMaxWidth()
-            // The thread scrolls up under this card and on past it, and nothing else stands between
-            // the oldest messages and the status bar's clock and icons: the page's colour does.
-            .drawBehind { drawRect(page, size = Size(size.width, statusBars.getTop(this).toFloat())) }
-            // Top and sides, as a TopAppBar's own insets are: in landscape the navigation bar can be
-            // at the side, and the card's ⋮ would sit under it.
-            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-            .padding(horizontal = THREAD_GUTTER, vertical = 4.dp),
+    if (!nativeTopBar(
+            title = state.userName.ifBlank { stringResource(Res.string.message_thread_title_unknown) },
+            onBack = onBack.takeIf { showBackButton },
+            subtitle = stringResource(Res.string.message_thread_subtitle, state.uid),
+            actions = listOf(
+                PlatformBarAction(stringResource(Res.string.message_thread_profile), "person.crop.circle", onClick = { profileOpen = true }),
+                PlatformBarAction(stringResource(Res.string.action_open_in_browser), "arrow.up.right.square", onClick = onOpenBrowser),
+            ),
+        )
     ) {
-        Surface(
-            shape = LayerCardShape,
-            color = layers.raised,
-            border = layers.cardBorderStroke,
-            modifier = Modifier.fillMaxWidth().cardShadow(LayerCardShape, layers.shadows),
+        Box(
+            Modifier
+                .fillMaxWidth()
+                // The thread scrolls up under this card and on past it, and nothing else stands between
+                // the oldest messages and the status bar's clock and icons: the page's colour does.
+                .drawBehind { drawRect(page, size = Size(size.width, statusBars.getTop(this).toFloat())) }
+                // Top and sides, as a TopAppBar's own insets are: in landscape the navigation bar can be
+                // at the side, and the card's ⋮ would sit under it.
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(horizontal = THREAD_GUTTER, vertical = 4.dp),
         ) {
-            TopAppBar(
-                windowInsets = WindowInsets(0),
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = layers.raised),
-                navigationIcon = {
-                    if (showBackButton) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.action_back),
-                            )
+            Surface(
+                shape = LayerCardShape,
+                color = layers.raised,
+                border = layers.cardBorderStroke,
+                modifier = Modifier.fillMaxWidth().cardShadow(LayerCardShape, layers.shadows),
+            ) {
+                TopAppBar(
+                    windowInsets = WindowInsets(0),
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = layers.raised),
+                    navigationIcon = {
+                        if (showBackButton) {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(Res.string.action_back),
+                                )
+                            }
                         }
-                    }
-                },
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        // The name and avatar share one profile target. The UID and route to the
-                        // peer's space live in that sheet rather than crowding this app bar.
-                        modifier =
-                        Modifier
-                            .clip(MaterialTheme.shapes.medium)
-                            .clickable(
-                                onClickLabel = stringResource(Res.string.message_thread_profile),
-                            ) { profileOpen = true }
-                            .padding(horizontal = Spacing.xs, vertical = Spacing.xs),
-                    ) {
-                        UserAvatar(url = state.avatarUrl, name = state.userName, size = 40.dp)
-                        Column {
-                            Text(
-                                // Blank until the thread loads when it was opened by a link, which
-                                // names a uid and nothing else; every other way in knows the name.
-                                if (state.userName.isBlank()) {
-                                    stringResource(Res.string.message_thread_title_unknown)
-                                } else {
-                                    state.userName
-                                },
-                                style = MaterialTheme.typography.titleMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                            ) {
-                                if (state.level == null && state.joinedDays == null) {
-                                    Text(
-                                        text = stringResource(Res.string.message_thread_subtitle, state.uid),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                    )
-                                }
-                                state.level?.let { level ->
-                                    if (level in 0..1) {
-                                        BadgeChip(text = "Lv.$level", tone = BadgeTone.Warning)
+                    },
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                            // The name and avatar share one profile target. The UID and route to the
+                            // peer's space live in that sheet rather than crowding this app bar.
+                            modifier =
+                            Modifier
+                                .clip(MaterialTheme.shapes.medium)
+                                .clickable(
+                                    onClickLabel = stringResource(Res.string.message_thread_profile),
+                                ) { profileOpen = true }
+                                .padding(horizontal = Spacing.xs, vertical = Spacing.xs),
+                        ) {
+                            UserAvatar(url = state.avatarUrl, name = state.userName, size = 40.dp)
+                            Column {
+                                Text(
+                                    // Blank until the thread loads when it was opened by a link, which
+                                    // names a uid and nothing else; every other way in knows the name.
+                                    if (state.userName.isBlank()) {
+                                        stringResource(Res.string.message_thread_title_unknown)
                                     } else {
+                                        state.userName
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                                ) {
+                                    if (state.level == null && state.joinedDays == null) {
                                         Text(
-                                            text = "Lv.$level",
+                                            text = stringResource(Res.string.message_thread_subtitle, state.uid),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
                                         )
                                     }
-                                }
-                                state.joinedDays?.let { days ->
-                                    val joinedLabel = stringResource(Res.string.messages_thread_joined_days, days)
-                                    if (days in 0..<100) {
-                                        BadgeChip(text = joinedLabel, tone = BadgeTone.Warning)
-                                    } else {
-                                        Text(
-                                            text = if (state.level == null) joinedLabel else "· $joinedLabel",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                        )
+                                    state.level?.let { level ->
+                                        if (level in 0..1) {
+                                            BadgeChip(text = "Lv.$level", tone = BadgeTone.Warning)
+                                        } else {
+                                            Text(
+                                                text = "Lv.$level",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                            )
+                                        }
+                                    }
+                                    state.joinedDays?.let { days ->
+                                        val joinedLabel = stringResource(Res.string.messages_thread_joined_days, days)
+                                        if (days in 0..<100) {
+                                            BadgeChip(text = joinedLabel, tone = BadgeTone.Warning)
+                                        } else {
+                                            Text(
+                                                text = if (state.level == null) joinedLabel else "· $joinedLabel",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                },
-                actions = { ThreadMenu(onOpenBrowser = onOpenBrowser) },
-            )
+                    },
+                    actions = { ThreadMenu(onOpenBrowser = onOpenBrowser) },
+                )
+            }
         }
     }
     if (profileOpen) {
@@ -696,8 +710,9 @@ private fun MessageInfoSheet(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
     )
     val scope = rememberCoroutineScope()
-    ModalBottomSheet(
+    PlazaModalBottomSheet(
         onDismissRequest = onDismiss,
+        nativeExpandFully = true,
         sheetState = sheetState,
         containerColor = LocalPlazaLayers.current.card,
         shape = PlazaSheetDefaults.shape,
@@ -711,7 +726,7 @@ private fun MessageInfoSheet(
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = {
                     scope.launch {
-                        sheetState.hide()
+                        if (!io.github.plaza.designsys.component.usesNativeChrome) sheetState.hide()
                         onDismiss()
                     }
                 }) {
@@ -981,41 +996,69 @@ private fun BubbleMenu(
     val copy = rememberClipboardCopy()
     val copied = stringResource(Res.string.message_copied)
     val layers = LocalPlazaLayers.current
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.largeIncreased,
-        containerColor = layers.raised,
-        // Paper draws no shadow; the outline is what separates the card from the thread there.
-        shadowElevation = if (layers.shadows) 8.dp else 0.dp,
-        border = layers.cardBorderStroke,
-        modifier = Modifier.widthIn(min = MENU_MIN_WIDTH),
+    if (!platformChoiceMenu(
+            expanded = expanded,
+            onDismissRequest = onDismiss,
+            actions = buildList {
+                add(
+                    PlatformBarAction(label = stringResource(Res.string.action_copy), onClick = {
+                        copy("message", content, copied)
+                        onDismiss()
+                    }),
+                )
+                add(
+                    PlatformBarAction(label = stringResource(Res.string.message_quote_action), onClick = {
+                        onDismiss()
+                        onQuote()
+                    }),
+                )
+                onDiscard?.let { discard ->
+                    add(
+                        PlatformBarAction(label = stringResource(Res.string.message_discard_failed), onClick = {
+                            onDismiss()
+                            discard()
+                        }, destructive = true),
+                    )
+                }
+            },
+        )
     ) {
-        BubbleMenuItem(
-            icon = PlazaIcons.ContentCopy,
-            label = stringResource(Res.string.action_copy),
-            onClick = {
-                copy("message", content, copied)
-                onDismiss()
-            },
-        )
-        BubbleMenuItem(
-            icon = PlazaIcons.FormatQuote,
-            label = stringResource(Res.string.message_quote_action),
-            onClick = {
-                onDismiss()
-                onQuote()
-            },
-        )
-        onDiscard?.let { discard ->
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = onDismiss,
+            shape = MaterialTheme.shapes.largeIncreased,
+            containerColor = layers.raised,
+            // Paper draws no shadow; the outline is what separates the card from the thread there.
+            shadowElevation = if (layers.shadows) 8.dp else 0.dp,
+            border = layers.cardBorderStroke,
+            modifier = Modifier.widthIn(min = MENU_MIN_WIDTH),
+        ) {
             BubbleMenuItem(
-                icon = Icons.Default.Close,
-                label = stringResource(Res.string.message_discard_failed),
+                icon = PlazaIcons.ContentCopy,
+                label = stringResource(Res.string.action_copy),
                 onClick = {
+                    copy("message", content, copied)
                     onDismiss()
-                    discard()
                 },
             )
+            BubbleMenuItem(
+                icon = PlazaIcons.FormatQuote,
+                label = stringResource(Res.string.message_quote_action),
+                onClick = {
+                    onDismiss()
+                    onQuote()
+                },
+            )
+            onDiscard?.let { discard ->
+                BubbleMenuItem(
+                    icon = Icons.Default.Close,
+                    label = stringResource(Res.string.message_discard_failed),
+                    onClick = {
+                        onDismiss()
+                        discard()
+                    },
+                )
+            }
         }
     }
 }
@@ -1529,21 +1572,35 @@ private fun ThreadMenu(onOpenBrowser: () -> Unit) {
         IconButton(onClick = { expanded = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
         }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            shape = MaterialTheme.shapes.largeIncreased,
-            containerColor = layers.raised,
-            shadowElevation = if (layers.shadows) 8.dp else 0.dp,
-            border = layers.cardBorderStroke,
-        ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.action_open_in_browser)) },
-                onClick = {
-                    expanded = false
-                    onOpenBrowser()
+        if (!platformChoiceMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                actions = buildList {
+                    add(
+                        PlatformBarAction(label = stringResource(Res.string.action_open_in_browser), onClick = {
+                            expanded = false
+                            onOpenBrowser()
+                        }),
+                    )
                 },
             )
+        ) {
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                shape = MaterialTheme.shapes.largeIncreased,
+                containerColor = layers.raised,
+                shadowElevation = if (layers.shadows) 8.dp else 0.dp,
+                border = layers.cardBorderStroke,
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.action_open_in_browser)) },
+                    onClick = {
+                        expanded = false
+                        onOpenBrowser()
+                    },
+                )
+            }
         }
     }
 }

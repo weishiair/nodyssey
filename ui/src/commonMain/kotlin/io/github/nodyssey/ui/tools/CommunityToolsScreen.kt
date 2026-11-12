@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.tooling.preview.Preview
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.about_community_hint
 import io.github.nodyssey.ui.resources.about_community_title
@@ -85,6 +86,7 @@ fun CommunityToolsScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.tools_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.ReadHistoryEntry
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.ui.common.BoardTag
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
@@ -92,11 +92,14 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.StatusView
 import io.github.plaza.designsys.component.ThreadRowTitle
 import io.github.plaza.designsys.component.groupSlice
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -189,6 +192,7 @@ fun ReadHistoryScreen(
                         limitLabel(state.limit),
                     )
                 },
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -197,6 +201,18 @@ fun ReadHistoryScreen(
                         )
                     }
                 },
+                platformActions = listOf(
+                    PlatformBarAction(
+                        label = stringResource(Res.string.action_more),
+                        systemImage = "ellipsis",
+                        menu = buildList {
+                            add(PlatformBarAction(stringResource(Res.string.history_limit_title), "clock", onClick = { pickingLimit = true }))
+                            if (state.entries.isNotEmpty()) {
+                                add(PlatformBarAction(stringResource(Res.string.history_clear_all), "trash", destructive = true, onClick = { confirmClear = true }))
+                            }
+                        },
+                    ),
+                ),
                 actions = {
                     HistoryMenu(
                         limit = state.limit,
@@ -254,7 +270,7 @@ fun ReadHistoryScreen(
     }
 
     if (confirmClear) {
-        AlertDialog(
+        PlazaAlertDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text(stringResource(Res.string.history_clear_title)) },
             // Spelled out rather than a bare "确定吗": these rows are also the unread baselines, so
@@ -304,42 +320,64 @@ private fun HistoryMenu(
         IconButton(onClick = { expanded = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.history_limit_title)) },
-                leadingIcon = { Icon(PlazaIcons.History, contentDescription = null) },
-                trailingIcon = {
-                    Text(
-                        text = limitLabel(limit),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (!platformChoiceMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                actions = buildList {
+                    add(
+                        PlatformBarAction(label = stringResource(Res.string.history_limit_title), onClick = {
+                            expanded = false
+                            onPickLimit()
+                        }),
                     )
-                },
-                onClick = {
-                    expanded = false
-                    onPickLimit()
+                    if (canClear) {
+                        add(
+                            PlatformBarAction(label = stringResource(Res.string.history_clear_all), onClick = {
+                                expanded = false
+                                onClearAll()
+                            }),
+                        )
+                    }
                 },
             )
-            if (canClear) {
+        ) {
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 DropdownMenuItem(
-                    text = {
+                    text = { Text(stringResource(Res.string.history_limit_title)) },
+                    leadingIcon = { Icon(PlazaIcons.History, contentDescription = null) },
+                    trailingIcon = {
                         Text(
-                            stringResource(Res.string.history_clear_all),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
+                            text = limitLabel(limit),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
                     onClick = {
                         expanded = false
-                        onClearAll()
+                        onPickLimit()
                     },
                 )
+                if (canClear) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(Res.string.history_clear_all),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        onClick = {
+                            expanded = false
+                            onClearAll()
+                        },
+                    )
+                }
             }
         }
     }
@@ -504,7 +542,7 @@ private fun HistoryLimitDialog(
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.history_limit_title)) },
         text = {

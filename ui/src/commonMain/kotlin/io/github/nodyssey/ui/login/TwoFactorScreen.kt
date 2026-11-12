@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.nodyssey.ui.common.MediumButton
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.sign_in_2fa_body
@@ -94,7 +95,8 @@ fun TwoFactorScreen(
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
+        topBar = bar@{
+            if (nativeTopBar("", onBack)) return@bar
             TopAppBar(
                 // The title is the page's own 32sp headline (9c), not the bar's.
                 title = {},

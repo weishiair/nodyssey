@@ -61,6 +61,7 @@ import io.github.nodyssey.ui.account.AccountSaveFailureScreen
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.accounts_add
@@ -94,6 +95,7 @@ import io.github.plaza.core.net.UserAgent
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -326,7 +328,8 @@ fun SignInScreen(
         modifier = modifier,
         containerColor = LocalPlazaLayers.current.page,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
+        topBar = bar@{
+            if (nativeTopBar(stringResource(if (addingAccount) Res.string.accounts_add else Res.string.sign_in_title, siteName), navigation = PlatformBarAction(stringResource(Res.string.action_close), "xmark", onClick = onClose))) return@bar
             TopAppBar(
                 title = { Text(stringResource(if (addingAccount) Res.string.accounts_add else Res.string.sign_in_title, siteName)) },
                 navigationIcon = {

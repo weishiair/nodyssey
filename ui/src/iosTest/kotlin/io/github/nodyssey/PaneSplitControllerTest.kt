@@ -28,8 +28,9 @@ class PaneSplitControllerTest {
 
         split.showList(list)
 
-        assertEquals(split, list.parentViewController)
-        assertEquals(split.view, list.view.superview)
+        val listNavigation = list.parentViewController as UINavigationController
+        assertEquals(listOf(list), listNavigation.viewControllers)
+        assertEquals(split, listNavigation.parentViewController)
     }
 
     @Test
@@ -61,6 +62,7 @@ class PaneSplitControllerTest {
 
         assertNull(list.parentViewController)
         assertNull(detail.parentViewController)
+        assertNull(list.view.superview)
         assertEquals(placeholder, split.details.viewControllers.single())
         outer.setViewControllers(listOf(list), animated = false)
         assertEquals(outer, list.parentViewController)
@@ -79,7 +81,7 @@ class PaneSplitControllerTest {
         outer.setViewControllers(listOf(split), animated = false)
         split.showList(list)
         split.details.setViewControllers(listOf(detail), animated = false)
-        assertEquals(split, list.parentViewController)
+        assertEquals(split, list.parentViewController?.parentViewController)
         assertEquals(split.details, detail.parentViewController)
 
         split.releasePages()

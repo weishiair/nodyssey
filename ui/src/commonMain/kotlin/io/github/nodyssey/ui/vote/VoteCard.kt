@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -86,10 +85,13 @@ import io.github.nodyssey.ui.resources.vote_voter_uid
 import io.github.nodyssey.ui.resources.vote_voters_collapse
 import io.github.nodyssey.ui.resources.vote_voters_expand
 import io.github.nodyssey.ui.resources.vote_voters_more
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SkeletonBar
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.richtext.VoteCardSurface
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -373,33 +375,65 @@ private fun VoteManageMenu(
         IconButton(onClick = { open = true }, enabled = !state.manageInFlight) {
             Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.vote_manage))
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            if (state.canLock) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.vote_lock)) },
-                    onClick = {
-                        open = false
-                        onLock()
-                    },
-                )
-            }
-            if (state.canUnlock) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.vote_unlock)) },
-                    onClick = {
-                        open = false
-                        onUnlock()
-                    },
-                )
-            }
-            if (state.canDelete) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.vote_delete)) },
-                    onClick = {
-                        open = false
-                        onDelete()
-                    },
-                )
+        if (!platformChoiceMenu(
+                expanded = open,
+                onDismissRequest = { open = false },
+                actions = buildList {
+                    if (state.canLock) {
+                        add(
+                            PlatformBarAction(label = stringResource(Res.string.vote_lock), onClick = {
+                                open = false
+                                onLock()
+                            }),
+                        )
+                    }
+                    if (state.canUnlock) {
+                        add(
+                            PlatformBarAction(label = stringResource(Res.string.vote_unlock), onClick = {
+                                open = false
+                                onUnlock()
+                            }),
+                        )
+                    }
+                    if (state.canDelete) {
+                        add(
+                            PlatformBarAction(label = stringResource(Res.string.vote_delete), onClick = {
+                                open = false
+                                onDelete()
+                            }),
+                        )
+                    }
+                },
+            )
+        ) {
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                if (state.canLock) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.vote_lock)) },
+                        onClick = {
+                            open = false
+                            onLock()
+                        },
+                    )
+                }
+                if (state.canUnlock) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.vote_unlock)) },
+                        onClick = {
+                            open = false
+                            onUnlock()
+                        },
+                    )
+                }
+                if (state.canDelete) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.vote_delete)) },
+                        onClick = {
+                            open = false
+                            onDelete()
+                        },
+                    )
+                }
             }
         }
     }
@@ -763,7 +797,7 @@ private fun VoteConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(title)) },
         text = { Text(stringResource(body)) },

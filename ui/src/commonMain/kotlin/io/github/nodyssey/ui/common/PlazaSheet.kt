@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
@@ -22,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import io.github.plaza.designsys.component.PlazaModalBottomSheet
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.theme.GlassRimWidth
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -30,7 +30,7 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.glassHeaderDividerBrush
 
 /**
- * The app's bottom sheet: Material's [ModalBottomSheet] on the page colour, with one header.
+ * The app's bottom sheet: UIKit presentation on iOS, Material presentation elsewhere, with one header.
  *
  * The page colour so that what a sheet holds — cards, tiles, grouped rows — reads as cards on a page,
  * the same layering as the screen under the scrim. The corners and the drag handle are
@@ -56,7 +56,7 @@ internal fun PlazaSheet(
 ) {
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current
-    ModalBottomSheet(
+    PlazaModalBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
         sheetState = sheetState,

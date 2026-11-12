@@ -38,8 +38,10 @@ import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerPageGutter
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.groupedRowTitleStyle
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.theme.Spacing
 
 /**
@@ -147,19 +149,35 @@ internal fun <T> SettingsMenuRow(
         trailing = {
             Box {
                 Icon(menuIcon, contentDescription = null)
-                DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
-                    choices.forEachIndexed { index, (choice, label) ->
-                        SelectableMenuItem(
-                            selected = choice == selected,
-                            index = index,
-                            count = choices.size,
-                            text = { Text(label) },
-                            enabled = isChoiceEnabled(choice),
-                            onClick = {
-                                expanded = false
-                                onSelect(choice)
-                            },
-                        )
+                if (!platformChoiceMenu(
+                        expanded = expanded && enabled,
+                        onDismissRequest = { expanded = false },
+                        actions = buildList {
+                            choices.forEachIndexed { index, (choice, label) ->
+                                add(
+                                    PlatformBarAction(label = label, onClick = {
+                                        expanded = false
+                                        onSelect(choice)
+                                    }, enabled = isChoiceEnabled(choice), selected = choice == selected),
+                                )
+                            }
+                        },
+                    )
+                ) {
+                    DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+                        choices.forEachIndexed { index, (choice, label) ->
+                            SelectableMenuItem(
+                                selected = choice == selected,
+                                index = index,
+                                count = choices.size,
+                                text = { Text(label) },
+                                enabled = isChoiceEnabled(choice),
+                                onClick = {
+                                    expanded = false
+                                    onSelect(choice)
+                                },
+                            )
+                        }
                     }
                 }
             }

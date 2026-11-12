@@ -28,6 +28,7 @@ import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.FollowUser
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.TabPager
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.rememberTabPagerState
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -110,6 +111,7 @@ fun FollowScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.follow_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

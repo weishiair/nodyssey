@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -43,6 +42,7 @@ import io.github.nodyssey.data.InviteCurrency
 import io.github.nodyssey.data.InvitePrice
 import io.github.nodyssey.data.InvitePricing
 import io.github.nodyssey.ui.common.MediumButton
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.shortMessage
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.resources.Res
@@ -77,6 +77,7 @@ import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
@@ -144,6 +145,7 @@ fun InviteScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.invite_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -448,7 +450,7 @@ private fun OutcomeDialog(
     when (outcome) {
         is InviteOutcome.Bought -> {
             val code = outcome.code
-            AlertDialog(
+            PlazaAlertDialog(
                 onDismissRequest = onDismiss,
                 icon = { Icon(PlazaIcons.ConfirmationNumber, contentDescription = null) },
                 title = { Text(stringResource(Res.string.invite_bought_title)) },
@@ -496,7 +498,7 @@ private fun OutcomeDialog(
             )
         }
 
-        is InviteOutcome.Refused -> AlertDialog(
+        is InviteOutcome.Refused -> PlazaAlertDialog(
             onDismissRequest = onDismiss,
             icon = { Icon(Icons.Default.Warning, contentDescription = null) },
             title = { Text(outcome.error.shortMessage()) },
@@ -511,7 +513,7 @@ private fun OutcomeDialog(
             },
         )
 
-        is InviteOutcome.Unknown -> AlertDialog(
+        is InviteOutcome.Unknown -> PlazaAlertDialog(
             onDismissRequest = onDismiss,
             icon = { Icon(Icons.Default.Warning, contentDescription = null) },
             title = { Text(stringResource(Res.string.invite_purchase_unknown_title)) },

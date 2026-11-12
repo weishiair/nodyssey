@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.rememberGroupedNumber
 import io.github.nodyssey.ui.common.siteName
@@ -121,6 +122,7 @@ fun AboutCommunityScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.about_community_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

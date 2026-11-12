@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CardDefaults
@@ -67,6 +66,7 @@ import io.github.nodyssey.data.lottery.LotteryFailureSource
 import io.github.nodyssey.data.lottery.LotteryOutcome
 import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.lottery_active
@@ -127,9 +127,12 @@ import io.github.nodyssey.ui.resources.lottery_won
 import io.github.nodyssey.ui.settings.rememberNotificationPermissionRequest
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -212,11 +215,28 @@ fun LotteryRoute(
             OneHandTopAppBar(
                 title = stringResource(Res.string.lottery_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
                     }
                 },
+                platformActions = listOf(
+                    PlatformBarAction(
+                        label = stringResource(Res.string.lottery_mark_all_read),
+                        enabled = unreadCount > 0 && "readAll" !in pending,
+                        onClick = viewModel::markAllResultsRead,
+                    ),
+                    PlatformBarAction(stringResource(Res.string.lottery_refresh), "arrow.clockwise", enabled = pending.isEmpty(), onClick = viewModel::refresh),
+                    PlatformBarAction(
+                        label = stringResource(Res.string.lottery_menu),
+                        systemImage = "ellipsis",
+                        menu = listOf(
+                            PlatformBarAction(stringResource(Res.string.lottery_create), "plus", onClick = onCreate),
+                            PlatformBarAction(stringResource(Res.string.lottery_help), "info.circle", onClick = { helpOpen = true }),
+                        ),
+                    ),
+                ),
                 actions = {
                     TextButton(onClick = viewModel::markAllResultsRead, enabled = unreadCount > 0 && "readAll" !in pending) {
                         Text(stringResource(Res.string.lottery_mark_all_read))
@@ -232,23 +252,43 @@ fun LotteryRoute(
                         IconButton(onClick = { menuOpen = true }) {
                             Icon(Icons.Default.MoreVert, stringResource(Res.string.lottery_menu))
                         }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.lottery_create)) },
-                                leadingIcon = { Icon(Icons.Default.Add, null) },
-                                onClick = {
-                                    menuOpen = false
-                                    onCreate()
+                        if (!platformChoiceMenu(
+                                expanded = menuOpen,
+                                onDismissRequest = { menuOpen = false },
+                                actions = buildList {
+                                    add(
+                                        PlatformBarAction(label = stringResource(Res.string.lottery_create), onClick = {
+                                            menuOpen = false
+                                            onCreate()
+                                        }),
+                                    )
+                                    add(
+                                        PlatformBarAction(label = stringResource(Res.string.lottery_help), onClick = {
+                                            menuOpen = false
+                                            helpOpen = true
+                                        }),
+                                    )
                                 },
                             )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.lottery_help)) },
-                                leadingIcon = { Icon(Icons.Default.Info, null) },
-                                onClick = {
-                                    menuOpen = false
-                                    helpOpen = true
-                                },
-                            )
+                        ) {
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.lottery_create)) },
+                                    leadingIcon = { Icon(Icons.Default.Add, null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        onCreate()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.lottery_help)) },
+                                    leadingIcon = { Icon(Icons.Default.Info, null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        helpOpen = true
+                                    },
+                                )
+                            }
                         }
                     }
                 },
@@ -370,7 +410,7 @@ fun LotteryRoute(
         }
     }
     if (helpOpen) {
-        AlertDialog(
+        PlazaAlertDialog(
             onDismissRequest = { helpOpen = false },
             icon = { Icon(PlazaIcons.Alarm, null) },
             title = { Text(stringResource(Res.string.lottery_help)) },
@@ -439,14 +479,28 @@ internal fun LotteryCard(
                         IconButton(onClick = { menuOpen = true }, enabled = !busy) {
                             Icon(Icons.Default.MoreVert, stringResource(Res.string.lottery_menu))
                         }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.lottery_remove)) },
-                                onClick = {
-                                    menuOpen = false
-                                    onRemove()
+                        if (!platformChoiceMenu(
+                                expanded = menuOpen,
+                                onDismissRequest = { menuOpen = false },
+                                actions = buildList {
+                                    add(
+                                        PlatformBarAction(label = stringResource(Res.string.lottery_remove), onClick = {
+                                            menuOpen = false
+                                            onRemove()
+                                        }),
+                                    )
                                 },
                             )
+                        ) {
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.lottery_remove)) },
+                                    onClick = {
+                                        menuOpen = false
+                                        onRemove()
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -591,7 +645,7 @@ private fun LotteryFeedback(viewModel: LotteryViewModel, onSignIn: () -> Unit, o
     SiteErrorSnackbar(error, snackbar, viewModel::clearError, onSignIn = onSignIn, onVerify = onVerify)
     SnackbarHost(snackbar)
     if (limit) {
-        AlertDialog(
+        PlazaAlertDialog(
             onDismissRequest = viewModel::clearLimit,
             text = { Text(stringResource(Res.string.lottery_limit)) },
             confirmButton = { TextButton(onClick = viewModel::clearLimit) { Text(stringResource(Res.string.lottery_ok)) } },

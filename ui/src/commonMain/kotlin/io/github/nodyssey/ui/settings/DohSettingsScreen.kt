@@ -73,6 +73,7 @@ import io.github.nodyssey.data.dns.DohServerProblem
 import io.github.nodyssey.ui.account.AccountMessageSnackbar
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_delete
@@ -223,6 +224,7 @@ fun DohSettingsScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.doh_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

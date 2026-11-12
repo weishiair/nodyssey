@@ -107,6 +107,7 @@ import io.github.nodyssey.ui.common.SortMenuItem
 import io.github.nodyssey.ui.common.TabPager
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.labelRes
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.common.rememberTabPagerState
 import io.github.nodyssey.ui.common.searchOrigin
 import io.github.nodyssey.ui.common.webViewUrl
@@ -146,6 +147,8 @@ import io.github.plaza.designsys.component.LayerDivider
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PillTabRow
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlatformBarSearch
 import io.github.plaza.designsys.component.PlazaChipDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -153,6 +156,7 @@ import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.UnderlineTabRow
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -443,6 +447,15 @@ private fun SearchInputRow(
     val focusManager = LocalFocusManager.current
     val layers = LocalPlazaLayers.current
     val searchLabel = stringResource(Res.string.action_search)
+    if (nativeTopBar(
+            title = "",
+            onBack = onBack,
+            search = PlatformBarSearch(queryState.text.toString(), placeholder, { queryState.edit { replace(0, length, it) } }, onSearch, autoFocus),
+            actions = onOpenOptions?.let { listOf(PlatformBarAction(stringResource(Res.string.search_advanced), "slider.horizontal.3", selected = optionsActive, onClick = it)) }.orEmpty(),
+        )
+    ) {
+        return
+    }
 
     Row(
         modifier =
@@ -698,17 +711,29 @@ private fun ResultScopeRow(
                     modifier = Modifier.size(18.dp),
                 )
             }
-            DropdownMenu(
-                expanded = showSortMenu,
-                onDismissRequest = { showSortMenu = false },
-                modifier = Modifier.widthIn(min = 180.dp),
-                shape = MaterialTheme.shapes.large,
-                containerColor = layers.raised,
+            if (!platformChoiceMenu(
+                    showSortMenu,
+                    { showSortMenu = false },
+                    FeedSortOrder.map { order ->
+                        PlatformBarAction(stringResource(order.labelRes()), selected = order == state.sort, onClick = {
+                            showSortMenu = false
+                            onSortChange(order)
+                        })
+                    },
+                )
             ) {
-                FeedSortOrder.forEach { sort ->
-                    SortMenuItem(sort, state.sort) {
-                        showSortMenu = false
-                        onSortChange(it)
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { showSortMenu = false },
+                    modifier = Modifier.widthIn(min = 180.dp),
+                    shape = MaterialTheme.shapes.large,
+                    containerColor = layers.raised,
+                ) {
+                    FeedSortOrder.forEach { sort ->
+                        SortMenuItem(sort, state.sort) {
+                            showSortMenu = false
+                            onSortChange(it)
+                        }
                     }
                 }
             }

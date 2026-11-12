@@ -83,6 +83,7 @@ import io.github.nodyssey.data.sticker.folderName
 import io.github.nodyssey.ui.account.formatBytes
 import io.github.nodyssey.ui.account.messageRes
 import io.github.nodyssey.ui.account.nameRes
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.rememberNewClipboardText
 import io.github.nodyssey.ui.composer.MAX_IMAGES_PER_PICK
 import io.github.nodyssey.ui.composer.rememberImagePicker
@@ -232,6 +233,7 @@ fun StickerAddRoute(
             OneHandTopAppBar(
                 title = stringResource(Res.string.sticker_add),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))

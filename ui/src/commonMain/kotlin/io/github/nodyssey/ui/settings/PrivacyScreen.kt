@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.model.TermsBlock
 import io.github.nodyssey.model.TermsDocument
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -58,6 +59,7 @@ import io.github.nodyssey.ui.resources.privacy_open_web_fallback
 import io.github.nodyssey.ui.resources.privacy_source
 import io.github.nodyssey.ui.resources.privacy_title
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
@@ -105,6 +107,7 @@ fun PrivacyScreen(
                 OneHandTopAppBar(
                     title = stringResource(Res.string.privacy_title),
                     state = appBarState,
+                    navigationAction = backBarAction(onBack),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -113,6 +116,9 @@ fun PrivacyScreen(
                             )
                         }
                     },
+                    platformActions = listOf(
+                        PlatformBarAction(stringResource(Res.string.privacy_open_original), "arrow.up.right.square", onClick = onOpenOriginal),
+                    ),
                     actions = {
                         IconButton(onClick = onOpenOriginal) {
                             Icon(

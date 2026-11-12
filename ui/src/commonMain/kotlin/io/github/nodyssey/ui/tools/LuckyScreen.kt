@@ -55,6 +55,7 @@ import io.github.nodyssey.core.LuckyDraw
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
@@ -155,6 +156,7 @@ fun LuckyScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.lucky_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

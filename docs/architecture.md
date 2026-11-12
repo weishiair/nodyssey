@@ -11,6 +11,11 @@ WorkerFactory 构造注入）、CI 门禁（含 R8 minified 冒烟与依赖锁�
 
 功能是否真的可用以 [`implementation-status.md`](implementation-status.md) 为准；设计画板完成度不作为实现证据。
 
+2026-11-12 iOS 控件边界：`:designsys` 定义操作语义与平台展示入口，`:ui` 提供站点操作和应用 locals，
+iOS actual 及页面控制器管理 UIKit 导航、菜单、工具栏与 modal。共享正文和业务状态保留；独立 modal
+只传应用与主题 locals，不能复制呈现页的焦点、键盘或生命周期 owner。详见
+[`ios-native-chrome.md`](ios-native-chrome.md)。
+
 ---
 
 ## 1. 核心约定（不可协商的四条）

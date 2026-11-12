@@ -110,6 +110,7 @@ import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.collectPagesAtRest
 import io.github.nodyssey.ui.common.compactCount
+import io.github.nodyssey.ui.common.labelRes
 import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.readMarkCardColor
 import io.github.nodyssey.ui.common.readMarkTitleColor
@@ -148,12 +149,15 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaStat
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlatformTopAppBar
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaFabHeight
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SkeletonBar
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.publishPlatformTopAppBar
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -945,6 +949,48 @@ private fun HomeHeader(
     onAccountClick: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
+    val activeSite = ActiveSite.current
+    val switchSite = rememberSiteSwitch()
+    if (publishPlatformTopAppBar(
+            PlatformTopAppBar(
+                title = activeSite.displayName,
+                subtitle = null,
+                navigation = PlatformBarAction(
+                    label = stringResource(Res.string.action_switch_site),
+                    systemImage = "globe",
+                    menu = Site.entries.map { site ->
+                        val nextLaunch = if (site != activeSite && !siteSwitchRestartsApp) {
+                            " · ${stringResource(Res.string.site_switch_next_launch)}"
+                        } else {
+                            ""
+                        }
+                        PlatformBarAction(
+                            label = "${site.displayName}$nextLaunch",
+                            selected = site == activeSite,
+                            onClick = { switchSite(site) },
+                        )
+                    } + PlatformBarAction(stringResource(Res.string.site_switch_separate_sessions), enabled = false),
+                ),
+                actions = listOf(
+                    PlatformBarAction(stringResource(Res.string.home_search_hint), "magnifyingglass", onClick = onSearch),
+                    PlatformBarAction(
+                        label = stringResource(Res.string.action_sort),
+                        systemImage = "arrow.up.arrow.down",
+                        menu = FeedSortOrder.map { order ->
+                            PlatformBarAction(stringResource(order.labelRes()), selected = order == sort, onClick = { onSortChange(order) })
+                        },
+                    ),
+                    PlatformBarAction(stringResource(Res.string.tab_profile), "person.crop.circle", onClick = onAccountClick),
+                ),
+            ),
+        )
+    ) {
+        // There is no Compose header to collapse. Leaving the default limit in place would let
+        // its nested-scroll connection consume a reader's drag before the list can move.
+        scrollBehavior.state.heightOffsetLimit = 0f
+        scrollBehavior.state.heightOffset = 0f
+        return
+    }
     CollapsingHeader(
         scrollBehavior = scrollBehavior,
         modifier = Modifier.windowInsetsPadding(TopAppBarDefaults.windowInsets),

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +23,7 @@ import io.github.nodyssey.ui.resources.update_reminder_size
 import io.github.nodyssey.ui.resources.update_reminder_title
 import io.github.plaza.core.update.AppRelease
 import io.github.plaza.core.update.releaseNotesText
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -47,7 +47,7 @@ fun UpdateReminderDialog(
     onPostpone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onPostpone,
         modifier = modifier,
         icon = {

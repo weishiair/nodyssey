@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
@@ -54,6 +53,7 @@ import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SavedTheme
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.longPressToEdit
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -83,9 +83,12 @@ import io.github.plaza.designsys.component.ChoiceSegments
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.groupedRowTitleStyle
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -160,6 +163,7 @@ fun ThemeSettingsScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.settings_theme),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -224,11 +228,13 @@ fun ThemeSettingsScreen(
                     onSelect = onPaletteStyleChange,
                     enabled = activePreset(settings)?.hasFixedColors != true,
                 )
-                FrostedGlassRow(
-                    checked = settings.frostedGlass,
-                    enabled = !settings.einkMode,
-                    onCheckedChange = onFrostedGlassChange,
-                )
+                if (!io.github.plaza.designsys.component.usesNativeChrome) {
+                    FrostedGlassRow(
+                        checked = settings.frostedGlass,
+                        enabled = !settings.einkMode,
+                        onCheckedChange = onFrostedGlassChange,
+                    )
+                }
             }
 
             SectionLabel(stringResource(Res.string.settings_theme_preview))
@@ -471,24 +477,44 @@ private fun MyThemesBlock(
                         border = BorderStroke(1.dp, if (isSelected) scheme.secondaryContainer else scheme.outline),
                         modifier = Modifier.height(ChipHeight).longPressToEdit { menuFor = theme },
                     )
-                    DropdownMenu(
-                        expanded = menuFor == theme,
-                        onDismissRequest = { menuFor = null },
+                    if (!platformChoiceMenu(
+                            expanded = menuFor == theme,
+                            onDismissRequest = { menuFor = null },
+                            actions = buildList {
+                                add(
+                                    PlatformBarAction(label = stringResource(Res.string.action_rename), onClick = {
+                                        menuFor = null
+                                        onRename(theme)
+                                    }),
+                                )
+                                add(
+                                    PlatformBarAction(label = stringResource(Res.string.action_delete), onClick = {
+                                        menuFor = null
+                                        onDelete(theme.color)
+                                    }, destructive = true),
+                                )
+                            },
+                        )
                     ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.action_rename)) },
-                            onClick = {
-                                menuFor = null
-                                onRename(theme)
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.action_delete)) },
-                            onClick = {
-                                menuFor = null
-                                onDelete(theme.color)
-                            },
-                        )
+                        DropdownMenu(
+                            expanded = menuFor == theme,
+                            onDismissRequest = { menuFor = null },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.action_rename)) },
+                                onClick = {
+                                    menuFor = null
+                                    onRename(theme)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.action_delete)) },
+                                onClick = {
+                                    menuFor = null
+                                    onDelete(theme.color)
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -562,7 +588,7 @@ private fun RenameThemeDialog(
     onConfirm: (String) -> Unit,
 ) {
     var name by remember(theme) { mutableStateOf(theme.name) }
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.action_rename)) },
         text = {

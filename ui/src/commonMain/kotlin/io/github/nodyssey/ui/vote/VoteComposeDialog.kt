@@ -16,7 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +51,7 @@ import io.github.nodyssey.ui.resources.vote_compose_public_body
 import io.github.nodyssey.ui.resources.vote_compose_question
 import io.github.nodyssey.ui.resources.vote_compose_remove_option
 import io.github.nodyssey.ui.resources.vote_compose_title
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -97,8 +97,9 @@ fun VoteComposeDialog(
     val filled = options.map(String::trim).filter(String::isNotEmpty)
     val canCreate = title.isNotBlank() && filled.size >= MIN_OPTIONS && state !is VoteCreationState.InFlight
 
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = { if (state !is VoteCreationState.InFlight) onDismiss() },
+        dismissEnabled = state !is VoteCreationState.InFlight,
         icon = { Icon(PlazaIcons.Poll, contentDescription = null) },
         title = { Text(stringResource(Res.string.vote_compose_title)) },
         text = {
@@ -223,7 +224,7 @@ fun VoteComposeDialog(
     )
 
     if (confirming) {
-        AlertDialog(
+        PlazaAlertDialog(
             onDismissRequest = { confirming = false },
             title = { Text(stringResource(Res.string.vote_compose_confirm_title)) },
             text = { Text(stringResource(Res.string.vote_compose_confirm_body)) },

@@ -36,6 +36,7 @@ import io.github.nodyssey.core.report.QualityReport
 import io.github.nodyssey.core.report.ReportComparison
 import io.github.nodyssey.data.settings.ReportCompareEntry
 import io.github.nodyssey.data.settings.ReportCompareStore
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.report_compare_basket
@@ -107,6 +108,7 @@ fun ReportCompareScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.report_compare_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))

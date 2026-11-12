@@ -61,6 +61,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.composer.EditorActions
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.account_action_save
@@ -83,12 +84,14 @@ import io.github.plaza.designsys.component.AvatarShape
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.editor.EditorToolbar
 import io.github.plaza.designsys.editor.applyMarkdown
@@ -184,6 +187,7 @@ fun ProfileFieldsScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.account_profile_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -192,6 +196,16 @@ fun ProfileFieldsScreen(
                         )
                     }
                 },
+                platformActions = listOf(
+                    PlatformBarAction(
+                        label = stringResource(Res.string.account_action_save),
+                        enabled = state.canSave,
+                        onClick = {
+                            finishEditing()
+                            onSave()
+                        },
+                    ),
+                ),
                 actions = {
                     // 3b's filled pill: saving is this page's one commit, and it waits up here while
                     // the fields below are edited.
@@ -380,23 +394,43 @@ private fun AvatarEditor(
                             )
                         }
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.account_avatar_take_photo)) },
-                            leadingIcon = { Icon(PlazaIcons.PhotoCamera, contentDescription = null) },
-                            onClick = {
-                                menuOpen = false
-                                picker.takePhoto()
+                    if (!platformChoiceMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false },
+                            actions = buildList {
+                                add(
+                                    PlatformBarAction(label = stringResource(Res.string.account_avatar_take_photo), onClick = {
+                                        menuOpen = false
+                                        picker.takePhoto()
+                                    }),
+                                )
+                                add(
+                                    PlatformBarAction(label = stringResource(Res.string.account_avatar_pick), onClick = {
+                                        menuOpen = false
+                                        picker.pickImage()
+                                    }),
+                                )
                             },
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.account_avatar_pick)) },
-                            leadingIcon = { Icon(PlazaIcons.Image, contentDescription = null) },
-                            onClick = {
-                                menuOpen = false
-                                picker.pickImage()
-                            },
-                        )
+                    ) {
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.account_avatar_take_photo)) },
+                                leadingIcon = { Icon(PlazaIcons.PhotoCamera, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    picker.takePhoto()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.account_avatar_pick)) },
+                                leadingIcon = { Icon(PlazaIcons.Image, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    picker.pickImage()
+                                },
+                            )
+                        }
                     }
                 }
             }

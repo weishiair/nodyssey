@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,6 +19,7 @@ import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.post_copy_title_all
 import io.github.nodyssey.ui.resources.post_select_title
 import io.github.nodyssey.ui.resources.post_select_title_hint
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 
@@ -29,7 +29,7 @@ internal fun PostTitleDialog(
     onDismiss: () -> Unit,
     onCopyAll: () -> Unit,
 ) {
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.post_select_title)) },
         text = {

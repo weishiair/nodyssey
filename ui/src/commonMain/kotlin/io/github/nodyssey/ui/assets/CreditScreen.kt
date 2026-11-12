@@ -39,6 +39,7 @@ import io.github.nodyssey.data.CreditEntry
 import io.github.nodyssey.ui.common.LevelProgressLine
 import io.github.nodyssey.ui.common.NoLedgerEntriesState
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.postlist.toSiteError
 import io.github.nodyssey.ui.resources.Res
@@ -120,6 +121,7 @@ fun CreditScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.credit_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

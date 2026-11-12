@@ -5,20 +5,20 @@ import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectMake
 import platform.UIKit.UIColor
 import platform.UIKit.UINavigationController
+import platform.UIKit.UINavigationControllerDelegateProtocol
 import platform.UIKit.UIView
 import platform.UIKit.UIViewController
 import platform.UIKit.addChildViewController
 import platform.UIKit.didMoveToParentViewController
-import platform.UIKit.removeFromParentViewController
 import platform.UIKit.separatorColor
-import platform.UIKit.willMoveToParentViewController
+import platform.darwin.NSObject
 
 /**
  * A list and its details side by side: the iPad's answer to `ListDetailSceneStrategy`.
  *
- * The list is one page, held as a child; the details are a [UINavigationController] of their own, so
- * opening one thread from another pushes it in the right half and a swipe there pops it, the way
- * Mail and Notes behave. The shell owns both — this only lays them out.
+ * Each pane has a [UINavigationController], so both get a native bar. The list holds one page;
+ * opening one thread from another pushes it in the right half and a swipe there pops it.
+ * The shell owns both — this only lays them out.
  *
  * A fixed-width list rather than a share of the window: it is a column of titles, and past the
  * width of a phone it gains nothing but white space, which the thread beside it could use instead.
@@ -33,11 +33,20 @@ internal class PaneSplitController(
     }
 
     private val divider = UIView()
+    private val listPlaceholder = UIViewController(nibName = null, bundle = null)
+    private val listNavigation = UINavigationController(rootViewController = listPlaceholder)
+    private val listDelegate = object : NSObject(), UINavigationControllerDelegateProtocol {
+        override fun navigationController(navigationController: UINavigationController, willShowViewController: UIViewController, animated: Boolean) {
+            navigationController.updateChromeFor(willShowViewController, animated)
+        }
+    }
     private var list: UIViewController? = null
 
     override fun viewDidLoad() {
         super.viewDidLoad()
         adopt(details)
+        listNavigation.delegate = listDelegate
+        adopt(listNavigation)
         divider.backgroundColor = UIColor.separatorColor
         view.addSubview(divider)
     }
@@ -45,13 +54,14 @@ internal class PaneSplitController(
     /** Puts [controller] in the left half, or empties it so the page can be shown somewhere else. */
     fun showList(controller: UIViewController?) {
         if (list == controller) return
-        list?.let {
-            it.willMoveToParentViewController(null)
-            it.view.removeFromSuperview()
-            it.removeFromParentViewController()
-        }
+        val outgoing = list
+        listNavigation.setViewControllers(listOf(listPlaceholder), animated = false)
+        outgoing?.view?.removeFromSuperview()
         list = controller
-        if (controller != null) adopt(controller)
+        if (controller != null) {
+            controller.view.removeFromSuperview()
+            listNavigation.setViewControllers(listOf(controller), animated = false)
+        }
         view.setNeedsLayout()
     }
 
@@ -84,7 +94,7 @@ internal class PaneSplitController(
         val hairline = 1.0 / scale
         view.bounds.useContents {
             val height = size.height
-            list?.view?.setFrame(CGRectMake(0.0, 0.0, LIST_PANE_WIDTH, height))
+            listNavigation.view.setFrame(CGRectMake(0.0, 0.0, LIST_PANE_WIDTH, height))
             divider.setFrame(CGRectMake(LIST_PANE_WIDTH, 0.0, hairline, height))
             details.view.setFrame(CGRectMake(LIST_PANE_WIDTH + hairline, 0.0, size.width - LIST_PANE_WIDTH - hairline, height))
         }

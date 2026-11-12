@@ -30,6 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.settings.OPTIONAL_HOME_BOARD_SLUGS
 import io.github.nodyssey.ui.common.BoardTag
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.account_board_life
 import io.github.nodyssey.ui.resources.account_board_photo
@@ -113,6 +114,7 @@ fun PreferencesScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.account_preferences_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

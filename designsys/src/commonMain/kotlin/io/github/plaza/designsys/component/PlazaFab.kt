@@ -1,5 +1,7 @@
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -42,7 +44,9 @@ fun PlazaExtendedFab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     expanded: Boolean = true,
+    nativeSymbol: String = "square.and.pencil",
 ) {
+    if (platformActionButton(PlatformBarAction(text, nativeSymbol, onClick = onClick), modifier.height(56.dp).width(if (expanded) 132.dp else 56.dp), showLabel = expanded, prominent = true)) return
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current
     val backdrop = LocalLiquidGlassBackdrop.current

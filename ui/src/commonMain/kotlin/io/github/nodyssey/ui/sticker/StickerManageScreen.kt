@@ -22,7 +22,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -83,6 +82,7 @@ import io.github.nodyssey.data.sticker.StickerCdn
 import io.github.nodyssey.data.sticker.StickerCdnSettings
 import io.github.nodyssey.ui.account.nameRes
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.rememberTextFilePicker
 import io.github.nodyssey.ui.common.rememberTextFileSaver
 import io.github.nodyssey.ui.resources.Res
@@ -148,11 +148,14 @@ import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.groupSlice
 import io.github.plaza.designsys.component.groupedRowTitleStyle
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -208,9 +211,15 @@ fun StickerManageRoute(
             OneHandTopAppBar(
                 title = stringResource(Res.string.sticker_manage_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
+                    }
+                },
+                platformActions = buildList {
+                    if (navigation != null) {
+                        add(PlatformBarAction(stringResource(Res.string.sticker_manage_add), "plus", onClick = { navigation.openAdd(StickerAddTab.LINK, null) }))
                     }
                 },
                 actions = {
@@ -775,7 +784,7 @@ private fun CustomCdnDialog(
 ) {
     var value by rememberSaveable { mutableStateOf(initial) }
     val valid = value.trim().startsWith("https://") && value.trim().length > "https://".length
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.sticker_cdn_custom)) },
         text = {
@@ -818,24 +827,46 @@ private fun ExportTile(
             icon = { Icon(Icons.Default.Share, contentDescription = null) },
             onClick = { if (onSaveFile == null) onCopy() else menu = true },
         )
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.sticker_backup_copy)) },
-                leadingIcon = { Icon(PlazaIcons.ContentCopy, contentDescription = null) },
-                onClick = {
-                    menu = false
-                    onCopy()
+        if (!platformChoiceMenu(
+                expanded = menu,
+                onDismissRequest = { menu = false },
+                actions = buildList {
+                    add(
+                        PlatformBarAction(label = stringResource(Res.string.sticker_backup_copy), onClick = {
+                            menu = false
+                            onCopy()
+                        }),
+                    )
+                    if (onSaveFile != null) {
+                        add(
+                            PlatformBarAction(label = stringResource(Res.string.sticker_backup_save_file), onClick = {
+                                menu = false
+                                onSaveFile()
+                            }),
+                        )
+                    }
                 },
             )
-            if (onSaveFile != null) {
+        ) {
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.sticker_backup_save_file)) },
-                    leadingIcon = { Icon(PlazaIcons.Download, contentDescription = null) },
+                    text = { Text(stringResource(Res.string.sticker_backup_copy)) },
+                    leadingIcon = { Icon(PlazaIcons.ContentCopy, contentDescription = null) },
                     onClick = {
                         menu = false
-                        onSaveFile()
+                        onCopy()
                     },
                 )
+                if (onSaveFile != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.sticker_backup_save_file)) },
+                        leadingIcon = { Icon(PlazaIcons.Download, contentDescription = null) },
+                        onClick = {
+                            menu = false
+                            onSaveFile()
+                        },
+                    )
+                }
             }
         }
     }
@@ -873,7 +904,7 @@ private fun ImportDialog(
         if (picked != null) viewModel.importBackup(picked)
     }
     val done = outcome as? ImportOutcome.Done
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.sticker_backup_import_title)) },
         text = {

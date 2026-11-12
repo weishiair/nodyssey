@@ -46,7 +46,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.composer_emoji_backspace
 import io.github.plaza.designsys.resources.composer_emoji_recent
@@ -92,6 +94,7 @@ data class EmojiGroup(
     val entryMenu: (@Composable ColumnScope.(entry: EmojiEntry, dismiss: () -> Unit) -> Unit)? = null,
     /** What an empty group says instead of the panel's shared `emptyGroupText`. */
     val emptyText: String? = null,
+    val entryActions: (@Composable (EmojiEntry) -> List<PlatformBarAction>)? = null,
 )
 
 /**
@@ -249,6 +252,7 @@ fun EmojiPanel(
                             bottomClearance = cell + CELL_GAP,
                             leadingCell = leadingCell,
                             entryMenu = selectedGroup?.entryMenu,
+                            entryActions = selectedGroup?.entryActions,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -337,6 +341,7 @@ private fun EmojiGrid(
     bottomClearance: Dp,
     leadingCell: (@Composable (Modifier) -> Unit)?,
     entryMenu: (@Composable ColumnScope.(EmojiEntry, () -> Unit) -> Unit)?,
+    entryActions: (@Composable (EmojiEntry) -> List<PlatformBarAction>)?,
     modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
@@ -350,7 +355,7 @@ private fun EmojiGrid(
             item(key = LEADING_KEY) { leadingCell(Modifier.aspectRatio(1f)) }
         }
         items(entries, key = { it.insertion }) { entry ->
-            EmojiCell(entry = entry, onClick = { onSelect(entry) }, stickerImage = stickerImage, menu = entryMenu)
+            EmojiCell(entry = entry, onClick = { onSelect(entry) }, stickerImage = stickerImage, menu = entryMenu, nativeActions = entryActions)
         }
     }
 }
@@ -361,6 +366,7 @@ private fun EmojiCell(
     onClick: () -> Unit,
     stickerImage: @Composable (EmojiEntry.Sticker, String?, Modifier) -> Unit,
     menu: (@Composable ColumnScope.(EmojiEntry, () -> Unit) -> Unit)?,
+    nativeActions: (@Composable (EmojiEntry) -> List<PlatformBarAction>)?,
     modifier: Modifier = Modifier,
 ) {
     val description = when (entry) {
@@ -388,8 +394,10 @@ private fun EmojiCell(
             is EmojiEntry.Sticker -> stickerImage(entry, null, Modifier.size(STICKER_SIZE))
         }
         if (menu != null) {
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                menu(entry) { menuOpen = false }
+            if (!platformChoiceMenu(menuOpen, { menuOpen = false }, nativeActions?.invoke(entry).orEmpty())) {
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    menu(entry) { menuOpen = false }
+                }
             }
         }
     }

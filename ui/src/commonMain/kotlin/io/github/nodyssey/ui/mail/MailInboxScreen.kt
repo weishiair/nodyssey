@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -50,6 +49,7 @@ import io.github.nodyssey.data.mail.MailAuthMode
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.session.SessionRepository
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.login.WebViewGoal
 import io.github.nodyssey.ui.login.WebViewRoute
 import io.github.nodyssey.ui.resources.Res
@@ -99,11 +99,14 @@ import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -228,10 +231,17 @@ fun MailInboxScreen(
         topBar = {
             OneHandTopAppBar(
                 title = stringResource(Res.string.mail_title),
+                allowsNavigationPop = !state.connecting,
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
+                    }
+                },
+                platformActions = buildList {
+                    if (state.connected) {
+                        add(PlatformBarAction(stringResource(Res.string.action_refresh), "arrow.clockwise", enabled = !state.loading, onClick = onRefresh))
                     }
                 },
                 actions = {
@@ -338,65 +348,110 @@ fun MailInboxScreen(
                                                         contentDescription = stringResource(Res.string.mail_options),
                                                     )
                                                 }
-                                                DropdownMenu(
-                                                    expanded = showingMailboxActions,
-                                                    onDismissRequest = { showingMailboxActions = false },
+                                                if (!platformChoiceMenu(
+                                                        expanded = showingMailboxActions,
+                                                        onDismissRequest = { showingMailboxActions = false },
+                                                        actions = buildList {
+                                                            if (state.authMode == MailAuthMode.API_KEY) {
+                                                                add(
+                                                                    PlatformBarAction(label = stringResource(Res.string.mail_switch_web_session), onClick = {
+                                                                        showingMailboxActions = false
+                                                                        onAuthorize()
+                                                                    }, enabled = !state.connecting),
+                                                                )
+                                                            }
+                                                            add(
+                                                                PlatformBarAction(label = stringResource(if (state.authMode == MailAuthMode.API_KEY) Res.string.mail_replace_key else Res.string.mail_use_key), onClick = {
+                                                                    showingMailboxActions = false
+                                                                    keySwitchGeneration = state.generation
+                                                                    switchingToKey = true
+                                                                }),
+                                                            )
+                                                            add(
+                                                                PlatformBarAction(label = stringResource(Res.string.mail_disconnect), onClick = {
+                                                                    showingMailboxActions = false
+                                                                    onDisconnect()
+                                                                }),
+                                                            )
+                                                        },
+                                                    )
                                                 ) {
-                                                    if (state.authMode == MailAuthMode.API_KEY) {
+                                                    DropdownMenu(
+                                                        expanded = showingMailboxActions,
+                                                        onDismissRequest = { showingMailboxActions = false },
+                                                    ) {
+                                                        if (state.authMode == MailAuthMode.API_KEY) {
+                                                            DropdownMenuItem(
+                                                                text = { Text(stringResource(Res.string.mail_switch_web_session)) },
+                                                                enabled = !state.connecting,
+                                                                onClick = {
+                                                                    showingMailboxActions = false
+                                                                    onAuthorize()
+                                                                },
+                                                            )
+                                                        }
                                                         DropdownMenuItem(
-                                                            text = { Text(stringResource(Res.string.mail_switch_web_session)) },
-                                                            enabled = !state.connecting,
+                                                            text = {
+                                                                Text(stringResource(if (state.authMode == MailAuthMode.API_KEY) Res.string.mail_replace_key else Res.string.mail_use_key))
+                                                            },
                                                             onClick = {
                                                                 showingMailboxActions = false
-                                                                onAuthorize()
+                                                                keySwitchGeneration = state.generation
+                                                                switchingToKey = true
+                                                            },
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = {
+                                                                Text(
+                                                                    stringResource(Res.string.mail_disconnect),
+                                                                    color = MaterialTheme.colorScheme.error,
+                                                                )
+                                                            },
+                                                            onClick = {
+                                                                showingMailboxActions = false
+                                                                onDisconnect()
                                                             },
                                                         )
                                                     }
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Text(stringResource(if (state.authMode == MailAuthMode.API_KEY) Res.string.mail_replace_key else Res.string.mail_use_key))
-                                                        },
-                                                        onClick = {
-                                                            showingMailboxActions = false
-                                                            keySwitchGeneration = state.generation
-                                                            switchingToKey = true
-                                                        },
-                                                    )
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Text(
-                                                                stringResource(Res.string.mail_disconnect),
-                                                                color = MaterialTheme.colorScheme.error,
-                                                            )
-                                                        },
-                                                        onClick = {
-                                                            showingMailboxActions = false
-                                                            onDisconnect()
-                                                        },
-                                                    )
                                                 }
                                             }
                                         }
                                     },
                                 )
-                                DropdownMenu(expanded = choosingMailbox, onDismissRequest = { choosingMailbox = false }) {
-                                    state.mailboxes.forEach { mailbox ->
-                                        DropdownMenuItem(
-                                            text = { Text(mailbox.address) },
-                                            enabled = !state.markingAllRead,
-                                            trailingIcon = {
-                                                if (mailbox.id == state.selectedMailboxId) {
-                                                    Icon(
-                                                        Icons.Default.Check,
-                                                        contentDescription = stringResource(Res.string.mail_default_mailbox),
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                choosingMailbox = false
-                                                onSelectMailbox(mailbox.id)
-                                            },
-                                        )
+                                if (!platformChoiceMenu(
+                                        expanded = choosingMailbox,
+                                        onDismissRequest = { choosingMailbox = false },
+                                        actions = buildList {
+                                            state.mailboxes.forEach { mailbox ->
+                                                add(
+                                                    PlatformBarAction(label = mailbox.address, onClick = {
+                                                        choosingMailbox = false
+                                                        onSelectMailbox(mailbox.id)
+                                                    }, enabled = !state.markingAllRead),
+                                                )
+                                            }
+                                        },
+                                    )
+                                ) {
+                                    DropdownMenu(expanded = choosingMailbox, onDismissRequest = { choosingMailbox = false }) {
+                                        state.mailboxes.forEach { mailbox ->
+                                            DropdownMenuItem(
+                                                text = { Text(mailbox.address) },
+                                                enabled = !state.markingAllRead,
+                                                trailingIcon = {
+                                                    if (mailbox.id == state.selectedMailboxId) {
+                                                        Icon(
+                                                            Icons.Default.Check,
+                                                            contentDescription = stringResource(Res.string.mail_default_mailbox),
+                                                        )
+                                                    }
+                                                },
+                                                onClick = {
+                                                    choosingMailbox = false
+                                                    onSelectMailbox(mailbox.id)
+                                                },
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -496,7 +551,7 @@ fun MailInboxScreen(
         }
     }
     if (state.confirmingDisconnect) {
-        AlertDialog(
+        PlazaAlertDialog(
             onDismissRequest = onDismissDisconnect,
             title = { Text(stringResource(Res.string.mail_disconnect)) },
             text = { Text(stringResource(Res.string.mail_disconnect_hint)) },
@@ -505,7 +560,8 @@ fun MailInboxScreen(
         )
     }
     if (switchingToKey && state.connected) {
-        AlertDialog(
+        PlazaAlertDialog(
+            dismissEnabled = !state.connecting,
             onDismissRequest = {
                 if (!state.connecting) {
                     switchingToKey = false

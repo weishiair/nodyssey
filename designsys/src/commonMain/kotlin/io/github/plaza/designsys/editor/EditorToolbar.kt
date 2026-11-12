@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -33,7 +34,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.platformActionToolbar
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.composer_format_bold
 import io.github.plaza.designsys.resources.composer_format_code
@@ -64,6 +67,7 @@ fun EditorToolbar(
     onAction: (EditorAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (platformActionToolbar(actions.map { PlatformBarAction(stringResource(it.label), it.systemImage, onClick = { onAction(it) }) }, modifier.fillMaxWidth().height(48.dp))) return
     Surface(color = MaterialTheme.colorScheme.surface, modifier = modifier) {
         Box {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -222,4 +226,20 @@ val EditorAction.label: StringResource
         EditorAction.IMAGE -> Res.string.composer_format_image
         EditorAction.HOSTED_IMAGE -> Res.string.composer_format_hosted_image
         EditorAction.EMOJI -> Res.string.composer_format_emoji
+    }
+
+internal val EditorAction.systemImage: String
+    get() = when (this) {
+        EditorAction.BOLD -> "bold"
+        EditorAction.ITALIC -> "italic"
+        EditorAction.STRIKETHROUGH -> "strikethrough"
+        EditorAction.HEADING -> "textformat.size"
+        EditorAction.CODE -> "chevron.left.forwardslash.chevron.right"
+        EditorAction.QUOTE -> "text.quote"
+        EditorAction.LIST -> "list.bullet"
+        EditorAction.LINK -> "link"
+        EditorAction.MENTION -> "at"
+        EditorAction.IMAGE -> "photo"
+        EditorAction.HOSTED_IMAGE -> "icloud"
+        EditorAction.EMOJI -> "face.smiling"
     }

@@ -47,6 +47,7 @@ import io.github.nodyssey.model.PostSummary
 import io.github.nodyssey.ui.common.PageJumpRail
 import io.github.nodyssey.ui.common.PageJumpSheet
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.postlist.PostRow
@@ -197,6 +198,7 @@ fun AwardScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.award_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

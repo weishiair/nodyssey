@@ -145,16 +145,20 @@ import io.github.nodyssey.ui.resources.profile_tile_theme
 import io.github.nodyssey.ui.resources.profile_tile_topics
 import io.github.nodyssey.ui.resources.profile_tools
 import io.github.nodyssey.ui.resources.settings_title
+import io.github.nodyssey.ui.resources.tab_profile
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlatformTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.publishPlatformTopAppBar
 import io.github.plaza.designsys.theme.ControlShape
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -295,7 +299,18 @@ fun ProfileScreen(
         // account card with no title over it — the tab bar already says 我的 — and the signed-out
         // screen, which used to carry 设置 as a row because it had no bar, now reaches it the same way
         // the signed-in one does.
-        topBar = {
+        topBar = profileBar@{
+            if (publishPlatformTopAppBar(
+                    PlatformTopAppBar(
+                        title = stringResource(Res.string.tab_profile),
+                        subtitle = null,
+                        navigation = null,
+                        actions = listOf(PlatformBarAction(stringResource(Res.string.settings_title), "gearshape", badge = hasAppUpdate, onClick = destinations.settings)),
+                    ),
+                )
+            ) {
+                return@profileBar
+            }
             // Over the content's own column — one 640dp column, or the two-column page's 1040 — so the gear
             // sits above the edge of what it belongs to rather than in the window's corner.
             BoxWithConstraints {

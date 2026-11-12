@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -25,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.spend_got_it
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -79,8 +79,9 @@ fun SpendConfirmDialog(
     header: (@Composable () -> Unit)? = null,
 ) {
     val card = LocalPlazaLayers.current.card
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = { if (!isSending) onDismiss() },
+        dismissEnabled = !isSending,
         modifier = modifier,
         icon = icon?.let { { Icon(it, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
         title = { Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)) },

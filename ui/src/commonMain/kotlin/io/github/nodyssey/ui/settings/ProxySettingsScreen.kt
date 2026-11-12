@@ -35,6 +35,7 @@ import io.github.nodyssey.data.proxy.ProxyConnectionFailure
 import io.github.nodyssey.data.proxy.ProxyScope
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.ui.account.AccountMessageSnackbar
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.proxy_advanced_hint
@@ -142,6 +143,7 @@ fun ProxySettingsScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.proxy_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

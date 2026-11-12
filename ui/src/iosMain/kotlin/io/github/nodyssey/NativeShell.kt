@@ -46,10 +46,12 @@ import io.github.nodyssey.ui.resources.app_name
 import io.github.nodyssey.ui.settings.rememberAppLinkHandlingEnabled
 import io.github.nodyssey.ui.settings.rememberAppLinkSettingsLauncher
 import io.github.plaza.core.runCatchingExceptCancellation
+import io.github.plaza.designsys.component.LocalPlatformTopAppBarHost
 import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -250,8 +252,8 @@ private class NativeShell(
     private val navigationControllers: Map<TopLevelDestination, UINavigationController> =
         TopLevelDestination.entries.associateWith { destination ->
             UINavigationController().apply {
-                // Every screen still draws its own app bar, back arrow included; the system one
-                // would be a second bar above it.
+                // A page enables the system bar after publishing all of its operations. Pages
+                // still using a Compose toolbar keep the system one hidden.
                 setNavigationBarHidden(true, animated = false)
                 tabBarItem =
                     UITabBarItem(
@@ -421,7 +423,7 @@ private class NativeShell(
         val stack = stacks.getValue(destination)
         val entry = providers.getValue(destination)(key)
         val owner = PageOwner()
-        val controller =
+        val controller = NativeChromeViewController { chrome ->
             ComposeUIViewController(
                 configure = {
                     // On the pages that lift themselves over the keyboard, Compose must not lift
@@ -436,6 +438,7 @@ private class NativeShell(
                             // view model lives exactly as long as its entry is on the stack — see
                             // [flushReleases] — and not as long as UIKit keeps the controller around.
                             LocalViewModelStoreOwner provides owner,
+                            LocalPlatformTopAppBarHost provides chrome.barHost.takeIf { chrome.usesNativeBar },
                             // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
                             LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
                             // 测评对比 from any report card's 对比 (n), onto this page's tab.
@@ -446,6 +449,7 @@ private class NativeShell(
                     }
                 }
             }
+        }
         return Page(key, controller, owner)
     }
 
@@ -766,6 +770,15 @@ private class NativeShell(
         private val destination: TopLevelDestination,
     ) : NSObject(),
         UINavigationControllerDelegateProtocol {
+        @ObjCSignatureOverride
+        override fun navigationController(
+            navigationController: UINavigationController,
+            willShowViewController: UIViewController,
+            animated: Boolean,
+        ) {
+            navigationController.updateChromeFor(willShowViewController, animated)
+        }
+
         /*
          * Called when a transition has finished, whichever side started it. After a pop UIKit made —
          * a swipe, the tab bar's pop-to-root — the controller holds fewer screens than the mirror,
@@ -773,6 +786,7 @@ private class NativeShell(
          * already agree and nothing is written. A swipe that was let go of halfway lands here too,
          * with nothing popped.
          */
+        @ObjCSignatureOverride
         override fun navigationController(
             navigationController: UINavigationController,
             didShowViewController: UIViewController,
@@ -791,11 +805,21 @@ private class NativeShell(
         private val split: Split,
     ) : NSObject(),
         UINavigationControllerDelegateProtocol {
+        @ObjCSignatureOverride
+        override fun navigationController(
+            navigationController: UINavigationController,
+            willShowViewController: UIViewController,
+            animated: Boolean,
+        ) {
+            navigationController.updateChromeFor(willShowViewController, animated)
+        }
+
         /*
          * [NavigationDelegate] for the right half of a pair: a swipe there pops a detail, and the back
          * stack loses that one. Only the pair on top of its tab can be swiped, so the entries it
          * stands for are the last ones on the stack.
          */
+        @ObjCSignatureOverride
         override fun navigationController(
             navigationController: UINavigationController,
             didShowViewController: UIViewController,
@@ -826,6 +850,7 @@ private class NativeShell(
             // Over the right half of a pair, a swipe belongs to its details while they have one to
             // go back to; the pair itself goes only once they do not.
             val split = splits.getValue(destination).values.firstOrNull { it.controller == navigationController.topViewController }
+            if (split != null && (!split.list.controller.canPopNativePage() || !split.details.topViewController.canPopNativePage())) return false
             if (split != null &&
                 split.details.viewControllers.size > 1 &&
                 gestureRecognizer.locationInView(split.details.view).useContents { x >= 0.0 }
@@ -833,6 +858,7 @@ private class NativeShell(
                 return false
             }
             return navigationController.viewControllers.size > 1 &&
+                navigationController.topViewController.canPopNativePage() &&
                 navigationController.transitionCoordinator == null
         }
     }
@@ -843,7 +869,7 @@ private class NativeShell(
     ) : NSObject(),
         UIGestureRecognizerDelegateProtocol {
         override fun gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): Boolean =
-            details.viewControllers.size > 1 && details.transitionCoordinator == null
+            details.viewControllers.size > 1 && details.topViewController.canPopNativePage() && details.transitionCoordinator == null
     }
 }
 
@@ -887,15 +913,11 @@ private fun DeviceLocals(
     content: @Composable () -> Unit,
 ) {
     Box(modifier) {
-        if (isPad) {
-            CompositionLocalProvider(
-                LocalOneHandMode provides false,
-                LocalOneHandModeAvailable provides false,
-                content = content,
-            )
-        } else {
-            content()
-        }
+        CompositionLocalProvider(
+            LocalOneHandMode provides false,
+            LocalOneHandModeAvailable provides false,
+            content = content,
+        )
     }
 }
 
@@ -959,4 +981,9 @@ private object SafariUriHandler : UriHandler {
         val url = NSURL.URLWithString(uri) ?: throw IllegalArgumentException("Not a URL: $uri")
         UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any>(), completionHandler = null)
     }
+}
+
+private fun UIViewController?.canPopNativePage(): Boolean {
+    val bar = (this as? NativeChromeViewController)?.barHost?.current ?: return true
+    return bar.allowsNavigationPop && bar.navigation?.enabled != false
 }

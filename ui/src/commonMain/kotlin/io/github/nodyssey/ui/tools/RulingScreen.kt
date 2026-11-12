@@ -53,6 +53,7 @@ import io.github.nodyssey.ui.common.JumpDestination
 import io.github.nodyssey.ui.common.PageJumpRail
 import io.github.nodyssey.ui.common.PageJumpSheet
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -94,6 +95,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
@@ -250,6 +252,7 @@ fun RulingScreen(
                 // centred title — instead of two values chosen here, and it follows the title
                 // through the fold without this screen knowing how far along that fold is.
                 subtitle = stringResource(Res.string.ruling_subtitle),
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -258,6 +261,9 @@ fun RulingScreen(
                         )
                     }
                 },
+                platformActions = listOf(
+                    PlatformBarAction(stringResource(Res.string.action_open_in_browser), "arrow.up.right.square", onClick = { onOpenBrowser(visiblePage) }),
+                ),
                 actions = {
                     IconButton(onClick = { onOpenBrowser(visiblePage) }) {
                         Icon(

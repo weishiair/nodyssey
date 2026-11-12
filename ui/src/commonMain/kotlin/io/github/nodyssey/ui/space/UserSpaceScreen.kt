@@ -83,6 +83,7 @@ import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.compactCount
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.lockBadgeDescription
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.rememberTabPagerState
 import io.github.nodyssey.ui.common.sharedThreadAuthor
@@ -133,12 +134,14 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaStat
 import io.github.plaza.designsys.component.PillTabRow
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Sizes
@@ -236,7 +239,23 @@ fun UserSpaceScreen(
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
+        topBar = bar@{
+            val notes = LocalUserNotes.current
+            if (nativeTopBar(
+                    title = state.name,
+                    onBack = onBack,
+                    actions = buildList {
+                        if (state.isSelf) {
+                            add(PlatformBarAction(stringResource(Res.string.profile_edit), "pencil", onClick = onEditProfile))
+                        } else if (state.hasProfile) {
+                            add(PlatformBarAction(stringResource(Res.string.user_note_action), "person.text.rectangle", onClick = { notes.edit(state.uid, state.name) }))
+                        }
+                        add(PlatformBarAction(stringResource(Res.string.action_open_in_browser), "arrow.up.right.square", onClick = { onOpenBrowser(spaceUrl) }))
+                    },
+                )
+            ) {
+                return@bar
+            }
             ReadableTopBar { barInsets ->
                 TopAppBar(
                     windowInsets = barInsets,
@@ -380,14 +399,28 @@ private fun SpaceOverflowMenu(onOpenBrowser: () -> Unit) {
                 modifier = Modifier.size(20.dp),
             )
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.action_open_in_browser)) },
-                onClick = {
-                    open = false
-                    onOpenBrowser()
+        if (!platformChoiceMenu(
+                expanded = open,
+                onDismissRequest = { open = false },
+                actions = buildList {
+                    add(
+                        PlatformBarAction(label = stringResource(Res.string.action_open_in_browser), onClick = {
+                            open = false
+                            onOpenBrowser()
+                        }),
+                    )
                 },
             )
+        ) {
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.action_open_in_browser)) },
+                    onClick = {
+                        open = false
+                        onOpenBrowser()
+                    },
+                )
+            }
         }
     }
 }

@@ -100,6 +100,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.StatusAction
@@ -325,11 +326,14 @@ fun NotificationsScreen(
                     state = appBarState,
                     liftOnScroll = false,
                     blankAccessory =
-                    if (showOneHandTip) {
+                    if (showOneHandTip && !io.github.plaza.designsys.component.usesNativeChrome) {
                         { OneHandTip(onOpenSettings = onOpenSettings, onDismiss = onDismissOneHandTip) }
                     } else {
                         null
                     },
+                    platformActions = listOf(
+                        PlatformBarAction(stringResource(Res.string.notifications_mark_all_read), "checkmark", enabled = state.hasUnread, onClick = onMarkAllRead),
+                    ),
                     actions = {
                         TextButton(onClick = onMarkAllRead, enabled = state.hasUnread) {
                             Icon(

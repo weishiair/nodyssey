@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import io.github.nodyssey.data.session.SignInRefusal
 import io.github.nodyssey.ui.common.MediumButton
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.sign_in_email_body
@@ -42,6 +43,7 @@ import io.github.nodyssey.ui.resources.sign_in_submit
 import io.github.nodyssey.ui.resources.sign_in_use_email
 import io.github.nodyssey.ui.resources.sign_in_use_web
 import io.github.plaza.designsys.component.InlineBanner
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.paddingWithKeyboard
@@ -66,7 +68,8 @@ internal fun EmailSignInScreen(
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
+        topBar = bar@{
+            if (nativeTopBar("", navigation = PlatformBarAction(stringResource(Res.string.action_back), "chevron.backward", enabled = !state.isSubmitting, onClick = onBack))) return@bar
             TopAppBar(title = {}, navigationIcon = {
                 IconButton(onClick = onBack, enabled = !state.isSubmitting) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))

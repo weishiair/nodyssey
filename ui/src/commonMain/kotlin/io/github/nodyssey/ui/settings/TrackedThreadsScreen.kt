@@ -36,6 +36,7 @@ import io.github.nodyssey.data.TrackedThread
 import io.github.nodyssey.data.TrackedThreadStore
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.common.BoardTag
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.post_reply_count
@@ -90,6 +91,7 @@ fun TrackedThreadsRoute(
             OneHandTopAppBar(
                 title = stringResource(Res.string.tracked_threads_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))

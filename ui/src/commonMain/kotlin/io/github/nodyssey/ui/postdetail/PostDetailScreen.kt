@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.ThumbUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -127,6 +126,7 @@ import io.github.nodyssey.ui.common.RoleBadgeRow
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.UserNoteTag
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.rememberShareText
@@ -222,6 +222,9 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlatformTopAppBar
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.QuotePreview
@@ -230,6 +233,8 @@ import io.github.plaza.designsys.component.SkeletonBar
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.platformChoiceMenu
+import io.github.plaza.designsys.component.publishPlatformTopAppBar
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
@@ -1102,6 +1107,52 @@ private fun DetailTopBar(
     val darkTheme = LocalPlazaDarkTheme.current
     val backdrop = LocalLiquidGlassBackdrop.current
 
+    if (publishPlatformTopAppBar(
+            PlatformTopAppBar(
+                title = if (showTitle) title else "",
+                subtitle = null,
+                navigation = if (showBackButton) backBarAction(onBack) else null,
+                titleAction = onTitleClick,
+                actions = listOf(
+                    PlatformBarAction(stringResource(Res.string.action_open_in_browser), "arrow.up.right.square", onClick = onOpenInBrowser),
+                    PlatformBarAction(
+                        label = stringResource(Res.string.action_more),
+                        systemImage = "ellipsis",
+                        menu = buildList {
+                            onOriginal?.let { jump ->
+                                add(PlatformBarAction(openOriginalPostLabel, "arrow.up.to.line", onClick = jump))
+                            }
+                            collected?.let { saved ->
+                                add(
+                                    PlatformBarAction(
+                                        label = stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action),
+                                        systemImage = if (saved) "bookmark.fill" else "bookmark",
+                                        enabled = !collectPending,
+                                        onClick = onCollect,
+                                    ),
+                                )
+                            }
+                            add(PlatformBarAction(stringResource(Res.string.action_refresh), "arrow.clockwise", onClick = onRefresh))
+                            add(PlatformBarAction(stringResource(Res.string.action_copy_link), "link", onClick = { copy("post", postUrl, linkCopied) }))
+                            add(PlatformBarAction(shareLabel, "square.and.arrow.up", onClick = { shareText("$title\n$postUrl", shareLabel) }))
+                            tracked?.let { tracking ->
+                                add(
+                                    PlatformBarAction(
+                                        label = stringResource(if (tracking) Res.string.post_untrack_thread else Res.string.post_track_thread),
+                                        systemImage = if (tracking) "bell.slash" else "bell",
+                                        onClick = onToggleTrack,
+                                    ),
+                                )
+                            }
+                        },
+                    ),
+                ),
+            ),
+        )
+    ) {
+        return
+    }
+
     val buttonTint =
         if (darkTheme) {
             layers.raised.copy(alpha = 0.68f)
@@ -1215,59 +1266,111 @@ private fun DetailTopBar(
                                     modifier = Modifier.size(TopBarIconSize),
                                 )
                             }
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                onOriginal?.let { jump ->
-                                    DropdownMenuItem(
-                                        text = { Text(openOriginalPostLabel) },
-                                        onClick = {
-                                            menuOpen = false
-                                            jump()
-                                        },
-                                    )
-                                }
-                                collected?.let { saved ->
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
-                                        enabled = !collectPending,
-                                        onClick = {
-                                            menuOpen = false
-                                            onCollect()
-                                        },
-                                    )
-                                }
-                                // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
-                                // not about to scroll back up to pull.
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.action_refresh)) },
-                                    onClick = {
-                                        menuOpen = false
-                                        onRefresh()
+                            if (!platformChoiceMenu(
+                                    expanded = menuOpen,
+                                    onDismissRequest = { menuOpen = false },
+                                    actions = buildList {
+                                        onOriginal?.let { jump ->
+                                            add(
+                                                PlatformBarAction(label = openOriginalPostLabel, onClick = {
+                                                    menuOpen = false
+                                                    jump()
+                                                }),
+                                            )
+                                        }
+                                        collected?.let { saved ->
+                                            add(
+                                                PlatformBarAction(label = stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action), onClick = {
+                                                    menuOpen = false
+                                                    onCollect()
+                                                }, enabled = !collectPending),
+                                            )
+                                        }
+                                        // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
+                                        // not about to scroll back up to pull.
+                                        add(
+                                            PlatformBarAction(label = stringResource(Res.string.action_refresh), onClick = {
+                                                menuOpen = false
+                                                onRefresh()
+                                            }),
+                                        )
+                                        add(
+                                            PlatformBarAction(label = stringResource(Res.string.action_copy_link), onClick = {
+                                                copy("post", postUrl, linkCopied)
+                                                menuOpen = false
+                                            }),
+                                        )
+                                        add(
+                                            PlatformBarAction(label = shareLabel, onClick = {
+                                                menuOpen = false
+                                                shareText("$title\n$postUrl", shareLabel)
+                                            }),
+                                        )
+                                        tracked?.let { on ->
+                                            add(
+                                                PlatformBarAction(label = stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread), onClick = {
+                                                    menuOpen = false
+                                                    onToggleTrack()
+                                                }),
+                                            )
+                                        }
                                     },
                                 )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.action_copy_link)) },
-                                    onClick = {
-                                        copy("post", postUrl, linkCopied)
-                                        menuOpen = false
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(shareLabel) },
-                                    onClick = {
-                                        menuOpen = false
-                                        shareText("$title\n$postUrl", shareLabel)
-                                    },
-                                )
-                                tracked?.let { on ->
+                            ) {
+                                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                    onOriginal?.let { jump ->
+                                        DropdownMenuItem(
+                                            text = { Text(openOriginalPostLabel) },
+                                            onClick = {
+                                                menuOpen = false
+                                                jump()
+                                            },
+                                        )
+                                    }
+                                    collected?.let { saved ->
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
+                                            enabled = !collectPending,
+                                            onClick = {
+                                                menuOpen = false
+                                                onCollect()
+                                            },
+                                        )
+                                    }
+                                    // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
+                                    // not about to scroll back up to pull.
                                     DropdownMenuItem(
-                                        text = {
-                                            Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
-                                        },
+                                        text = { Text(stringResource(Res.string.action_refresh)) },
                                         onClick = {
                                             menuOpen = false
-                                            onToggleTrack()
+                                            onRefresh()
                                         },
                                     )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(Res.string.action_copy_link)) },
+                                        onClick = {
+                                            copy("post", postUrl, linkCopied)
+                                            menuOpen = false
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(shareLabel) },
+                                        onClick = {
+                                            menuOpen = false
+                                            shareText("$title\n$postUrl", shareLabel)
+                                        },
+                                    )
+                                    tracked?.let { on ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
+                                            },
+                                            onClick = {
+                                                menuOpen = false
+                                                onToggleTrack()
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1327,8 +1430,8 @@ private fun ThreadList(
     /** Where the title ends inside the opening item, in px — see its use in [PostDetailScreen]. */
     onTitleBottom: (Int) -> Unit,
     lotteryContent: @Composable () -> Unit,
-    topInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
+    topInset: Dp = 0.dp,
 ) {
     val original = state.postReplyStyle == PostReplyStyle.ORIGINAL
     LazyColumn(
@@ -2930,7 +3033,7 @@ private fun ReactionConfirmDialog(
     // Only claim it is free when the site told us so; an unread quota says nothing either way, and
     // "免费" that turns out to have cost a chicken leg is the worse of the two mistakes.
     val free = isChicken && freeChickenLegs != null && freeChickenLegs.remaining > 0
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = onDismiss,
         icon = {
             Icon(

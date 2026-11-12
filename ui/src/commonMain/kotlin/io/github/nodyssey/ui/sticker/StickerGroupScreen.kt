@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
@@ -90,7 +90,10 @@ import io.github.nodyssey.ui.resources.sticker_undo
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
@@ -148,6 +151,33 @@ fun StickerGroupRoute(
                     else -> ""
                 },
                 state = appBarState,
+                allowsNavigationPop = !selecting,
+                navigationAction = if (selecting) PlatformBarAction(stringResource(Res.string.action_cancel), "xmark", onClick = viewModel::clearSelection) else backBarAction(onBack),
+                platformActions = buildList {
+                    when {
+                        selecting && mine -> {
+                            add(PlatformBarAction(stringResource(Res.string.sticker_menu_move_top), "arrow.up.to.line", enabled = selection.isNotEmpty(), onClick = viewModel::moveSelectedToTop))
+                            add(PlatformBarAction(stringResource(Res.string.action_delete), "trash", enabled = selection.isNotEmpty(), destructive = true, onClick = viewModel::deleteSelected))
+                        }
+
+                        selecting -> add(PlatformBarAction(stringResource(Res.string.sticker_menu_save_to_mine), "heart", enabled = selection.isNotEmpty(), onClick = { viewModel.saveSelectedToMine { added = it } }))
+
+                        item != null -> {
+                            if (current.cells.any { it.url != null }) add(PlatformBarAction(stringResource(Res.string.sticker_group_select), "checklist", onClick = viewModel::startSelecting))
+                            add(
+                                PlatformBarAction(
+                                    stringResource(Res.string.action_more),
+                                    "ellipsis",
+                                    menu = buildList {
+                                        add(PlatformBarAction(stringResource(if (item.hidden) Res.string.sticker_manage_show else Res.string.sticker_manage_hide), if (item.hidden) "eye" else "eye.slash", onClick = { viewModel.setHidden(!item.hidden) }))
+                                        if (item is StickerGroupItem.Mine) add(PlatformBarAction(stringResource(Res.string.sticker_manage_export), "link", enabled = item.count > 0, onClick = { copy("stickers", viewModel.exportLinks(), exported) }))
+                                        if (item is StickerGroupItem.Folder) add(PlatformBarAction(stringResource(Res.string.sticker_manage_open_repo), "chevron.left.forwardslash.chevron.right", onClick = { onOpenUrl("https://github.com/${item.subscription.slug}") }))
+                                    },
+                                ),
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     if (selecting) {
                         IconButton(onClick = viewModel::clearSelection) {
@@ -270,7 +300,7 @@ fun StickerGroupRoute(
         )
     }
     if (confirmingBroken) {
-        AlertDialog(
+        PlazaAlertDialog(
             onDismissRequest = { confirmingBroken = false },
             title = { Text(stringResource(Res.string.sticker_manage_remove_broken_confirm, current?.brokenCount ?: 0)) },
             text = { Text(stringResource(Res.string.sticker_manage_remove_broken_body)) },
@@ -297,35 +327,65 @@ private fun GroupMenu(
         IconButton(onClick = { open = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(if (item.hidden) Res.string.sticker_manage_show else Res.string.sticker_manage_hide)) },
-                leadingIcon = { Icon(if (item.hidden) PlazaIcons.Visibility else PlazaIcons.VisibilityOff, contentDescription = null) },
-                onClick = {
-                    open = false
-                    onToggleHidden()
+        if (!platformChoiceMenu(
+                expanded = open,
+                onDismissRequest = { open = false },
+                actions = buildList {
+                    add(
+                        PlatformBarAction(label = stringResource(if (item.hidden) Res.string.sticker_manage_show else Res.string.sticker_manage_hide), onClick = {
+                            open = false
+                            onToggleHidden()
+                        }),
+                    )
+                    if (item is StickerGroupItem.Mine) {
+                        add(
+                            PlatformBarAction(label = stringResource(Res.string.sticker_manage_export), onClick = {
+                                open = false
+                                onExport()
+                            }, enabled = item.count > 0),
+                        )
+                    }
+                    onOpenRepo?.let { openRepo ->
+                        add(
+                            PlatformBarAction(label = stringResource(Res.string.sticker_manage_open_repo), onClick = {
+                                open = false
+                                openRepo()
+                            }),
+                        )
+                    }
                 },
             )
-            if (item is StickerGroupItem.Mine) {
+        ) {
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.sticker_manage_export)) },
-                    leadingIcon = { Icon(PlazaIcons.Link, contentDescription = null) },
-                    enabled = item.count > 0,
+                    text = { Text(stringResource(if (item.hidden) Res.string.sticker_manage_show else Res.string.sticker_manage_hide)) },
+                    leadingIcon = { Icon(if (item.hidden) PlazaIcons.Visibility else PlazaIcons.VisibilityOff, contentDescription = null) },
                     onClick = {
                         open = false
-                        onExport()
+                        onToggleHidden()
                     },
                 )
-            }
-            onOpenRepo?.let { openRepo ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.sticker_manage_open_repo)) },
-                    leadingIcon = { Icon(PlazaIcons.Code, contentDescription = null) },
-                    onClick = {
-                        open = false
-                        openRepo()
-                    },
-                )
+                if (item is StickerGroupItem.Mine) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.sticker_manage_export)) },
+                        leadingIcon = { Icon(PlazaIcons.Link, contentDescription = null) },
+                        enabled = item.count > 0,
+                        onClick = {
+                            open = false
+                            onExport()
+                        },
+                    )
+                }
+                onOpenRepo?.let { openRepo ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.sticker_manage_open_repo)) },
+                        leadingIcon = { Icon(PlazaIcons.Code, contentDescription = null) },
+                        onClick = {
+                            open = false
+                            openRepo()
+                        },
+                    )
+                }
             }
         }
     }

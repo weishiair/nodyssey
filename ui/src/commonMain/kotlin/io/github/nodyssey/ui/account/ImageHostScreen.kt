@@ -65,6 +65,7 @@ import io.github.nodyssey.data.imagehost.ImageHostError
 import io.github.nodyssey.data.imagehost.ImageHostProvider
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -157,6 +158,7 @@ import io.github.nodyssey.ui.settings.SettingsTextField
 import io.github.plaza.designsys.component.ImageFallback
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
@@ -264,12 +266,18 @@ fun ImageHostScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.imagehost_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.action_back),
                         )
+                    }
+                },
+                platformActions = buildList {
+                    if (state.connected && state.provider.browsable) {
+                        add(PlatformBarAction(stringResource(Res.string.action_refresh), "arrow.clockwise", onClick = onRefresh))
                     }
                 },
                 actions = {

@@ -6,6 +6,12 @@
 App 的总体真实状态以 [`implementation-status.md`](implementation-status.md) 为准；
 本文记录已完成核对的画板与代码入口，防止实现脱离设计稿。
 
+## iOS 原生操作控件（2026-11-12）
+
+iOS 的导航栏、搜索、菜单、弹层、格式工具栏和浮动阅读操作改由 UIKit 绘制；共享画板仍决定业务内容，
+Android 保持原有组件。iOS 不提供模拟玻璃与单手模式开关。原生 modal 中的正文、表单和确认内容仍是 Compose，
+不是逐字段改写为 UIKit；详细范围与设备验收见 [`ios-native-chrome.md`](ios-native-chrome.md)。
+
 ## 测评终端原貌（2026-10-28）
 
 - `ui/richtext/ReportSourceDialog.kt`：原始终端报告采用紧凑行距、独立标题与目标地址；顶部提供复制和全屏入口，底部提供适应宽度、字号百分比、放大与缩小。

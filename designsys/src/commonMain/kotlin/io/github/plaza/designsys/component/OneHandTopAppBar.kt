@@ -119,8 +119,22 @@ fun OneHandTopAppBar(
      * Measured no taller than the fully open blank, so content that might not fit has to scroll.
      */
     blankAccessory: (@Composable () -> Unit)? = null,
-    actions: @Composable RowScope.() -> Unit = {},
+    /** Semantic counterparts for hosts which own a native navigation bar. */
+    navigationAction: PlatformBarAction? = null,
+    platformActions: List<PlatformBarAction>? = null,
+    allowsNavigationPop: Boolean = true,
+    actions: (@Composable RowScope.() -> Unit)? = null,
 ) {
+    // Opt in only when every control has a native counterpart. An accessory can contain actions
+    // of its own, so keep that entire bar until the accessory has also been migrated.
+    if (blankAccessory == null &&
+        (navigationIcon == null || navigationAction != null) &&
+        (actions == null || platformActions != null) &&
+        publishPlatformTopAppBar(PlatformTopAppBar(title, subtitle, navigationAction, platformActions.orEmpty(), allowsNavigationPop = allowsNavigationPop))
+    ) {
+        state.maxHeightPx = 0f
+        return
+    }
     val density = LocalDensity.current
     state.maxHeightPx = with(density) { expandedBlank.toPx() }
 
@@ -272,7 +286,7 @@ fun OneHandTopAppBar(
                         )
                     }
                 }
-                actions()
+                actions?.invoke(this)
             }
         }
     }

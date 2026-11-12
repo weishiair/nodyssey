@@ -42,6 +42,7 @@ import io.github.nodyssey.ui.common.GrowthProgressBar
 import io.github.nodyssey.ui.common.LevelProgressLine
 import io.github.nodyssey.ui.common.NodeSeekIcons
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.resources.Res
@@ -140,6 +141,7 @@ fun AssetsScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.assets_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

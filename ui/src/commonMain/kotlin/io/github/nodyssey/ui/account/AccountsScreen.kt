@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +40,7 @@ import io.github.nodyssey.data.session.AccountsState
 import io.github.nodyssey.data.session.SavedAccount
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.accounts_add
 import io.github.nodyssey.ui.resources.accounts_cancel_add
@@ -76,6 +76,7 @@ import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
@@ -143,7 +144,8 @@ fun AccountsScreen(
     }
     Scaffold(
         containerColor = LocalPlazaLayers.current.page,
-        topBar = {
+        topBar = bar@{
+            if (nativeTopBar(stringResource(Res.string.accounts_title), onBack)) return@bar
             TopAppBar(
                 title = { Text(stringResource(Res.string.accounts_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back)) } },
@@ -230,7 +232,7 @@ fun AccountsScreen(
     }
     confirmation?.let { action ->
         val removesCurrent = action.remove && action.account?.uid == state.activeUid
-        AlertDialog(
+        PlazaAlertDialog(
             onDismissRequest = { confirmation = null },
             title = { Text(stringResource(if (action.remove) Res.string.accounts_remove else Res.string.accounts_switch)) },
             text = {

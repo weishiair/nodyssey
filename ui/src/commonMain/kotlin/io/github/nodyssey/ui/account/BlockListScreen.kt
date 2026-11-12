@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.TitleBlockRule
 import io.github.nodyssey.data.account.BlockedUser
 import io.github.nodyssey.ui.common.TabPager
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.rememberTabPagerState
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.account_block_add_action
@@ -192,6 +193,7 @@ fun BlockListScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.block_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

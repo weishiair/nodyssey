@@ -19,7 +19,10 @@ import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.composer_app_menu
 import io.github.nodyssey.ui.resources.composer_insert_stardust
 import io.github.nodyssey.ui.resources.composer_insert_vote
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.platformActionButton
+import io.github.plaza.designsys.component.platformChoiceMenu
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -36,6 +39,20 @@ fun ComposerAppMenu(
 ) {
     var open by remember { mutableStateOf(false) }
 
+    if (platformActionButton(
+            PlatformBarAction(
+                stringResource(Res.string.composer_app_menu),
+                "square.grid.2x2",
+                menu = listOf(
+                    PlatformBarAction(stringResource(Res.string.composer_insert_vote), "chart.bar", onClick = onInsertVote),
+                    PlatformBarAction(stringResource(Res.string.composer_insert_stardust), "qrcode", onClick = onInsertStardust),
+                ),
+            ),
+            modifier.size(KEY_SIZE),
+        )
+    ) {
+        return
+    }
     Box(modifier) {
         IconButton(onClick = { open = true }, modifier = Modifier.size(KEY_SIZE), shape = MaterialTheme.shapes.medium) {
             Icon(
@@ -44,23 +61,43 @@ fun ComposerAppMenu(
                 modifier = Modifier.size(KEY_SIZE / 2),
             )
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.composer_insert_vote)) },
-                leadingIcon = { Icon(PlazaIcons.Poll, contentDescription = null) },
-                onClick = {
-                    open = false
-                    onInsertVote()
+        if (!platformChoiceMenu(
+                expanded = open,
+                onDismissRequest = { open = false },
+                actions = buildList {
+                    add(
+                        PlatformBarAction(label = stringResource(Res.string.composer_insert_vote), onClick = {
+                            open = false
+                            onInsertVote()
+                        }),
+                    )
+                    add(
+                        PlatformBarAction(label = stringResource(Res.string.composer_insert_stardust), onClick = {
+                            open = false
+                            onInsertStardust()
+                        }),
+                    )
                 },
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.composer_insert_stardust)) },
-                leadingIcon = { Icon(PlazaIcons.QrCode, contentDescription = null) },
-                onClick = {
-                    open = false
-                    onInsertStardust()
-                },
-            )
+        ) {
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.composer_insert_vote)) },
+                    leadingIcon = { Icon(PlazaIcons.Poll, contentDescription = null) },
+                    onClick = {
+                        open = false
+                        onInsertVote()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.composer_insert_stardust)) },
+                    leadingIcon = { Icon(PlazaIcons.QrCode, contentDescription = null) },
+                    onClick = {
+                        open = false
+                        onInsertStardust()
+                    },
+                )
+            }
         }
     }
 }

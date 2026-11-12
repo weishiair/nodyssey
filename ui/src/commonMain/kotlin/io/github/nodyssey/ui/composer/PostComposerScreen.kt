@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -74,6 +73,7 @@ import io.github.nodyssey.data.composer.PostPermission
 import io.github.nodyssey.data.composer.UploadFailure
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.describedAsLoading
+import io.github.nodyssey.ui.common.nativeTopBar
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_cancel
@@ -114,11 +114,14 @@ import io.github.nodyssey.ui.vote.VoteComposeDialog
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.component.EditorTextField
+import io.github.plaza.designsys.component.PlatformBarAction
+import io.github.plaza.designsys.component.PlazaAlertDialog
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.editor.ComposerEditorBar
 import io.github.plaza.designsys.editor.EditorAction
 import io.github.plaza.designsys.editor.InlinePictures
@@ -397,6 +400,30 @@ private fun ComposerTopBar(
     onViewModeChange: (ComposerViewMode) -> Unit,
     onPublish: () -> Unit,
 ) {
+    if (nativeTopBar(
+            title = draftStatus.orEmpty(),
+            allowsNavigationPop = viewMode != ComposerViewMode.PREVIEW,
+            navigation = PlatformBarAction(stringResource(Res.string.action_cancel), "xmark", enabled = !isPublishing, onClick = onClose),
+            actions = listOf(
+                PlatformBarAction(stringResource(ComposerViewMode.COMPARE.labelRes), "rectangle.split.2x1", selected = viewMode == ComposerViewMode.COMPARE, onClick = { onViewModeChange(if (viewMode == ComposerViewMode.COMPARE) ComposerViewMode.CONTENT else ComposerViewMode.COMPARE) }),
+                PlatformBarAction(stringResource(ComposerViewMode.PREVIEW.labelRes), "eye", selected = viewMode == ComposerViewMode.PREVIEW, onClick = { onViewModeChange(if (viewMode == ComposerViewMode.PREVIEW) ComposerViewMode.CONTENT else ComposerViewMode.PREVIEW) }),
+                PlatformBarAction(
+                    stringResource(
+                        if (isPublishing) {
+                            if (isEditing) Res.string.composer_saving else Res.string.composer_publishing
+                        } else {
+                            if (isEditing) Res.string.action_save else Res.string.action_publish
+                        },
+                    ),
+                    "paperplane",
+                    enabled = canPublish && !isPublishing,
+                    onClick = onPublish,
+                ),
+            ),
+        )
+    ) {
+        return
+    }
     ReadableTopBar { barInsets ->
         TopAppBar(
             windowInsets = barInsets,
@@ -789,15 +816,31 @@ private fun ComposerOptions(
                     error = boardMissing,
                     onClick = { boardMenuOpen = true },
                 )
-                DropdownMenu(expanded = boardMenuOpen, onDismissRequest = { boardMenuOpen = false }) {
-                    state.boards.forEach { board ->
-                        DropdownMenuItem(
-                            text = { Text(board.title) },
-                            onClick = {
-                                onBoardSelect(board)
-                                boardMenuOpen = false
-                            },
-                        )
+                if (!platformChoiceMenu(
+                        expanded = boardMenuOpen,
+                        onDismissRequest = { boardMenuOpen = false },
+                        actions = buildList {
+                            state.boards.forEach { board ->
+                                add(
+                                    PlatformBarAction(label = board.title, onClick = {
+                                        onBoardSelect(board)
+                                        boardMenuOpen = false
+                                    }),
+                                )
+                            }
+                        },
+                    )
+                ) {
+                    DropdownMenu(expanded = boardMenuOpen, onDismissRequest = { boardMenuOpen = false }) {
+                        state.boards.forEach { board ->
+                            DropdownMenuItem(
+                                text = { Text(board.title) },
+                                onClick = {
+                                    onBoardSelect(board)
+                                    boardMenuOpen = false
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -810,15 +853,31 @@ private fun ComposerOptions(
                 leading = if (state.permission == PostPermission.PUBLIC) PlazaIcons.Public else Icons.Default.Lock,
                 onClick = { permissionMenuOpen = true },
             )
-            DropdownMenu(expanded = permissionMenuOpen, onDismissRequest = { permissionMenuOpen = false }) {
-                state.permissionOptions.forEach { permission ->
-                    DropdownMenuItem(
-                        text = { Text(permissionLabel(permission)) },
-                        onClick = {
-                            onPermissionSelect(permission)
-                            permissionMenuOpen = false
-                        },
-                    )
+            if (!platformChoiceMenu(
+                    expanded = permissionMenuOpen,
+                    onDismissRequest = { permissionMenuOpen = false },
+                    actions = buildList {
+                        state.permissionOptions.forEach { permission ->
+                            add(
+                                PlatformBarAction(label = permissionLabel(permission), onClick = {
+                                    onPermissionSelect(permission)
+                                    permissionMenuOpen = false
+                                }),
+                            )
+                        }
+                    },
+                )
+            ) {
+                DropdownMenu(expanded = permissionMenuOpen, onDismissRequest = { permissionMenuOpen = false }) {
+                    state.permissionOptions.forEach { permission ->
+                        DropdownMenuItem(
+                            text = { Text(permissionLabel(permission)) },
+                            onClick = {
+                                onPermissionSelect(permission)
+                                permissionMenuOpen = false
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -916,8 +975,9 @@ private fun DraftRecoveryDialog(
     val imageCount = remember(draft.body) { countImages(draft.body) }
     val board = draft.boardTitle ?: stringResource(Res.string.composer_select_board)
     val title = draft.title.ifBlank { stringResource(Res.string.composer_title_hint) }
-    AlertDialog(
+    PlazaAlertDialog(
         onDismissRequest = {},
+        dismissEnabled = false,
         icon = { Icon(PlazaIcons.Drafts, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(stringResource(Res.string.composer_restore_title)) },
         text = {

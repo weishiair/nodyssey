@@ -50,6 +50,7 @@ import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.model.PostSummary
 import io.github.nodyssey.ui.account.shortNameRes
 import io.github.nodyssey.ui.common.UpdateDot
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.rememberDisplayRefreshRates
@@ -312,6 +313,7 @@ fun SettingsScreen(
             OneHandTopAppBar(
                 title = stringResource(Res.string.settings_title),
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

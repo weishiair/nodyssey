@@ -42,6 +42,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.backBarAction
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -55,10 +56,12 @@ import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlatformBarAction
 import io.github.plaza.designsys.component.PlazaChipDefaults
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.StatusAction
 import io.github.plaza.designsys.component.StatusView
+import io.github.plaza.designsys.component.platformChoiceMenu
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
@@ -103,6 +106,7 @@ internal fun <T : Any> MyContentScreen(
             OneHandTopAppBar(
                 title = title,
                 state = appBarState,
+                navigationAction = backBarAction(onBack),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -230,15 +234,31 @@ private fun MenuChip(
                 )
             },
         )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEachIndexed { index, option ->
-                DropdownMenuItem(
-                    text = { Text(option) },
-                    onClick = {
-                        expanded = false
-                        onSelected(index)
-                    },
-                )
+        if (!platformChoiceMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                actions = buildList {
+                    options.forEachIndexed { index, option ->
+                        add(
+                            PlatformBarAction(label = option, onClick = {
+                                expanded = false
+                                onSelected(index)
+                            }),
+                        )
+                    }
+                },
+            )
+        ) {
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEachIndexed { index, option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            expanded = false
+                            onSelected(index)
+                        },
+                    )
+                }
             }
         }
     }
