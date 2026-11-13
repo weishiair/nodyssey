@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -47,12 +48,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.cardShadow
+import io.github.plaza.designsys.theme.glassFrostedBar
 import kotlin.math.roundToInt
 
 /**
@@ -133,8 +136,7 @@ fun OneHandTopAppBar(
     val containerColor by animateColorAsState(
         targetValue =
         when {
-            lifted && layers.frostedGlass -> layers.raised.copy(alpha = if (darkTheme) 0.80f else 0.85f)
-            lifted && !layers.shadows -> MaterialTheme.colorScheme.surfaceContainerHigh
+            lifted && !layers.shadows && !layers.frostedGlass -> MaterialTheme.colorScheme.surfaceContainerHigh
             else -> layers.page
         },
         // The theme's effects spec, which is a snap under reduced motion and 墨水屏 — where every
@@ -154,9 +156,12 @@ fun OneHandTopAppBar(
     val expandedTitleIsLive = !hasAccessory && blankIsOpen
 
     Surface(
-        color = containerColor,
+        color = if (layers.frostedGlass) Color.Transparent else containerColor,
         modifier = modifier
-            .cardShadow(RectangleShape, enabled = lifted && layers.shadows)
+            .cardShadow(RectangleShape, enabled = lifted && layers.shadows && !layers.frostedGlass)
+            // Most callers inset their content below this bar, so they need the opaque fallback,
+            // not a new capture of an empty strip. Overlapping callers can supply their own source.
+            .glassFrostedBar(layers, darkTheme, LocalLiquidGlassBackdrop.current)
             .fillMaxWidth(),
     ) {
         Column(Modifier.windowInsetsPadding(TopAppBarDefaults.windowInsets)) {

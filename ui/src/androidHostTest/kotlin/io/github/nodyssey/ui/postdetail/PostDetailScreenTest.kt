@@ -155,13 +155,41 @@ class PostDetailScreenTest(private val frostedGlass: Boolean) {
             onJumpToFloor = { requested += it },
             onReadingPositionChange = { page, floor -> position = page to floor },
         )
-        composeRule.onNodeWithContentDescription("正在读第 121 楼，点击跳楼").performClick()
+        composeRule.onNodeWithContentDescription("点击跳楼", substring = true).performClick()
         composeRule.onNode(hasSetTextAction()).performTextReplacement("127")
         composeRule.onNodeWithText("前往").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("floor 127").assertIsDisplayed()
         assertEquals(13 to "#127", position)
         assertEquals(emptyList<String>(), requested)
+    }
+
+    /** 到最新 must wait for the requested page and land at its foot, not its first floor. */
+    @Test
+    fun `latest waits for the last page before scrolling to its final floor`() {
+        var state by mutableStateOf(jumpedState())
+        val requests = mutableListOf<Int>()
+        composeRule.setContent {
+            PlazaTheme(frostedGlass = frostedGlass) {
+                PostDetailScreen(
+                    state = state,
+                    postUrl = "https://www.nodeseek.com/post-1-13",
+                    onBack = {},
+                    onOpenBrowser = {},
+                    onImageClick = {},
+                    onRetry = {},
+                    onLoadMore = {},
+                    onLoadPage = { requests += it },
+                    onVerify = {},
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("点击跳楼", substring = true).performClick()
+        composeRule.onNodeWithText("到最新").performClick()
+        assertEquals(listOf(40), requests)
+        state = jumpedState(floors = (391..400).toList(), page = 40).copy(hasNextPage = false)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("floor 400").assertIsDisplayed()
     }
 
     @Test

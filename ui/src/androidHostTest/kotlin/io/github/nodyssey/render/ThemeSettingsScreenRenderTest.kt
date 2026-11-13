@@ -39,7 +39,12 @@ class ThemeSettingsScreenRenderTest {
         settings: UserSettings = UserSettings(savedThemes = SAVED),
     ) {
         val preset = activePreset(settings)
-        PlazaTheme(darkTheme = darkTheme, pureWhite = preset?.pureWhite == true, characterPalette = preset?.palette) {
+        PlazaTheme(
+            darkTheme = darkTheme,
+            pureWhite = preset?.pureWhite == true,
+            characterPalette = preset?.palette,
+            frostedGlass = settings.frostedGlass,
+        ) {
             ThemeSettingsScreen(
                 settings = settings,
                 onBack = {},
@@ -65,6 +70,27 @@ class ThemeSettingsScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("theme-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1500dp")
+    fun `glass navigation preview in light`() {
+        composeRule.setContent { Screen(darkTheme = false, settings = UserSettings(frostedGlass = true)) }
+        composeRule.onRoot().captureRender("theme-glass-light")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1500dp")
+    fun `glass navigation preview in dark`() {
+        composeRule.setContent { Screen(darkTheme = true, settings = UserSettings(frostedGlass = true)) }
+        composeRule.onRoot().captureRender("theme-glass-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1500dp", sdk = [30])
+    fun `glass navigation preview on Android 11`() {
+        composeRule.setContent { Screen(darkTheme = false, settings = UserSettings(frostedGlass = true)) }
+        composeRule.onRoot().captureRender("theme-glass-android11")
     }
 
     @Test

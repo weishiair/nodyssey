@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.snackbar_dismiss
+import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -101,10 +102,10 @@ fun PlazaSnackbar(
             darkTheme = LocalPlazaDarkTheme.current,
             shape = shape,
             backdrop = LocalLiquidGlassBackdrop.current,
-            surfaceTint = Color.Transparent,
+            style = GlassSurfaceStyle.Notice,
         ),
         shape = shape,
-        color = layers.raised.copy(alpha = 0.88f),
+        color = Color.Transparent,
         contentColor = scheme.onSurface,
     ) {
         ProvideTextStyle(MaterialTheme.typography.bodyMedium) {

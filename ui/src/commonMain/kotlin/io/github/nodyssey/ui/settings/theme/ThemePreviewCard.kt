@@ -1,28 +1,26 @@
 package io.github.nodyssey.ui.settings.theme
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -30,8 +28,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.nodyssey.ui.navigation.GlassBottomNavigationBar
+import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.settings_frosted_glass
 import io.github.nodyssey.ui.resources.settings_theme_preview_accent
 import io.github.nodyssey.ui.resources.settings_theme_preview_meta
 import io.github.nodyssey.ui.resources.settings_theme_preview_primary
@@ -40,11 +39,13 @@ import io.github.nodyssey.ui.resources.settings_theme_preview_tag
 import io.github.nodyssey.ui.resources.settings_theme_preview_title
 import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.TonalTagShape
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
-import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -144,48 +145,23 @@ internal fun ThemePreviewCard(modifier: Modifier = Modifier) {
             }
         }
         if (layers.frostedGlass) {
-            val isDark = scheme.surface.luminance() < 0.5f
-            val pillShape = RoundedCornerShape(24.dp)
-            Box(
-                modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .glassChromeSurface(
-                        layers = layers,
-                        darkTheme = isDark,
-                        shape = pillShape,
-                        elevated = true,
-                    ).padding(horizontal = 14.dp, vertical = 8.dp),
-            ) {
+            val backdrop = rememberLiquidGlassBackdrop()
+            Box(Modifier.fillMaxWidth().height(90.dp)) {
+                // The real navigation capsule samples these palette surfaces, using this device's
+                // blur/refraction support. The old independent gradient could not preview that.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.matchParentSize().liquidGlassBackdropSource(backdrop).padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
-                    Text(
-                        stringResource(Res.string.settings_frosted_glass),
-                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
-                        color = scheme.primary,
-                        modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        scheme.primary.copy(alpha = if (isDark) 0.30f else 0.18f),
-                                        scheme.primaryContainer.copy(alpha = if (isDark) 0.22f else 0.32f),
-                                    ),
-                                ),
-                            ).border(
-                                1.dp,
-                                scheme.primary.copy(alpha = if (isDark) 0.45f else 0.30f),
-                                RoundedCornerShape(16.dp),
-                            ).padding(horizontal = 12.dp, vertical = 4.dp),
-                    )
-                    Text(
-                        stringResource(Res.string.settings_theme_preview_meta),
-                        style = TextStyle(fontSize = 11.sp),
-                        color = scheme.onSurfaceVariant,
+                    listOf(scheme.primaryContainer, layers.card, scheme.tertiaryContainer).forEach { color ->
+                        Box(Modifier.weight(1f).fillMaxHeight().background(color, shape))
+                    }
+                }
+                CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+                    GlassBottomNavigationBar(
+                        current = TopLevelDestination.HOME,
+                        onSelect = {},
+                        modifier = Modifier.align(Alignment.Center),
                     )
                 }
             }
