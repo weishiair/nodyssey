@@ -414,6 +414,16 @@ class PostDetailScreenRenderTest {
     @Test
     fun `the page jump in dark`() = pageJump(darkTheme = true)
 
+    @Test
+    fun `the glass page jump in light`() = pageJump(darkTheme = false, frostedGlass = true)
+
+    @Test
+    fun `the glass page jump in dark`() = pageJump(darkTheme = true, frostedGlass = true)
+
+    @Test
+    @Config(qualifiers = "w320dp-h640dp")
+    fun `the glass page jump on a narrow screen`() = pageJump(darkTheme = false, frostedGlass = true, fontScale = 1.3f)
+
     private fun floorPanel(darkTheme: Boolean) {
         composeRule.setContent { Screen(darkTheme = darkTheme) }
         // Open through its semantics action so this capture does not depend on scroll placement.
@@ -423,12 +433,12 @@ class PostDetailScreenRenderTest {
         captureWindows("post-detail-actions-${if (darkTheme) "dark" else "light"}")
     }
 
-    private fun pageJump(darkTheme: Boolean) {
-        composeRule.setContent { Screen(darkTheme = darkTheme) }
+    private fun pageJump(darkTheme: Boolean, frostedGlass: Boolean = false, fontScale: Float = 1f) {
+        composeRule.setContent { Screen(darkTheme = darkTheme, frostedGlass = frostedGlass, fontScale = fontScale) }
         composeRule.onNodeWithContentDescription("正在读主帖，点击跳楼").performClick()
         composeRule.waitForIdle()
 
-        captureWindows("post-detail-jump-${if (darkTheme) "dark" else "light"}")
+        captureWindows("post-detail-jump-${if (frostedGlass) "glass-" else ""}${if (darkTheme) "dark" else "light"}${if (fontScale > 1f) "-large-text" else ""}")
     }
 
     /**

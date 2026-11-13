@@ -75,7 +75,7 @@ fun PlazaExtendedFab(
                         shape = ControlShape,
                         elevated = true,
                         backdrop = backdrop,
-                        surfaceTint = primaryContainer.copy(alpha = if (darkTheme) 0.54f else 0.62f),
+                        surfaceTint = primaryContainer.copy(alpha = if (darkTheme) 0.44f else 0.42f),
                     )
                 } else {
                     Modifier.floatShadow(ControlShape, layers.shadows)

@@ -1,13 +1,23 @@
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.theme.GlassRimWidth
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
+import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.glassHeaderDividerBrush
 
 /**
  * What every `ModalBottomSheet` in the app is given in place of Material's defaults: a 20dp top
@@ -33,19 +43,29 @@ object PlazaSheetDefaults {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun DragHandle() {
-        BottomSheetDefaults.DragHandle(
-            height = HandleHeight,
-            modifier =
-            Modifier.layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                val padding = (placeable.height - HandleHeight.roundToPx()) / 2
-                val top = HandleTop.roundToPx().coerceAtMost(padding)
-                val bottom = HandleBottom.roundToPx().coerceAtMost(padding)
-                layout(placeable.width, placeable.height - (padding - top) - (padding - bottom)) {
-                    placeable.place(0, top - padding)
-                }
-            },
-        )
+        val layers = LocalPlazaLayers.current
+        val darkTheme = LocalPlazaDarkTheme.current
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (layers.frostedGlass) {
+                Box(
+                    Modifier.fillMaxWidth().height(GlassRimWidth)
+                        .background(layers.glassHeaderDividerBrush(darkTheme)),
+                )
+            }
+            BottomSheetDefaults.DragHandle(
+                height = HandleHeight,
+                modifier =
+                Modifier.layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    val padding = (placeable.height - HandleHeight.roundToPx()) / 2
+                    val top = HandleTop.roundToPx().coerceAtMost(padding)
+                    val bottom = HandleBottom.roundToPx().coerceAtMost(padding)
+                    layout(placeable.width, placeable.height - (padding - top) - (padding - bottom)) {
+                        placeable.place(0, top - padding)
+                    }
+                },
+            )
+        }
     }
 
     private val HandleHeight = 4.dp

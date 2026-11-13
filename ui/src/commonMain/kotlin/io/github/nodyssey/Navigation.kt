@@ -1,12 +1,8 @@
 package io.github.nodyssey
 
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -17,6 +13,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -32,6 +29,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSuiteScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -68,6 +66,7 @@ import io.github.nodyssey.data.session.AccountRepository
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
+import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.ThreadSharedTransition
@@ -108,7 +107,7 @@ import io.github.nodyssey.ui.sticker.LocalStickerNavigation
 import io.github.nodyssey.ui.sticker.StickerNavigation
 import io.github.nodyssey.ui.sticker.StickerNotices
 import io.github.plaza.core.runCatchingExceptCancellation
-import io.github.plaza.designsys.component.PlazaSnackbarHost
+import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -636,7 +635,16 @@ fun MainNavigation(
         ),
         state = navigationSuiteState,
     ) {
-        val navBackdrop = rememberLiquidGlassBackdrop(layers.page)
+        val glassBarVisibility = remember { MutableTransitionState(useFloatingGlassBar && showNavigationSuite) }
+        glassBarVisibility.targetState = useFloatingGlassBar && showNavigationSuite
+        var composedNotices by remember { mutableIntStateOf(0) }
+        // Keep capture through both exit animations. SnackbarHost may draw an outgoing notice
+        // after currentSnackbarData clears, or overlap it with the next notice in the queue.
+        val navBackdrop = rememberLiquidGlassBackdrop(
+            layers.page,
+            enabled = glassBarVisibility.currentState || glassBarVisibility.targetState || !glassBarVisibility.isIdle ||
+                clipboardSnackbar.currentSnackbarData != null || composedNotices > 0,
+        )
         Box(Modifier.fillMaxSize()) {
             SharedTransitionLayout(
                 Modifier
@@ -702,14 +710,8 @@ fun MainNavigation(
                 }
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
-                AnimatedVisibility(
-                    visible = useFloatingGlassBar && showNavigationSuite,
-                    enter =
-                    slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } +
-                        fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
-                    exit =
-                    slideOutVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } +
-                        fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                FloatingBottomBarVisibility(
+                    visibleState = glassBarVisibility,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
@@ -722,13 +724,19 @@ fun MainNavigation(
                 }
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
-                PlazaSnackbarHost(
+                SnackbarHost(
                     hostState = clipboardSnackbar,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                         .padding(bottom = if (useFloatingGlassBar && showNavigationSuite) FloatingGlassBarClearance else 0.dp),
-                )
+                ) { data ->
+                    DisposableEffect(data) {
+                        composedNotices++
+                        onDispose { composedNotices-- }
+                    }
+                    PlazaSnackbar(data)
+                }
             }
         }
     }
