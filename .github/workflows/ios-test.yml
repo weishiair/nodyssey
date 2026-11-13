@@ -71,11 +71,17 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      BUILD_VERSION: 1.3.4-test.10
-      BUILD_CODE: '88'
     steps:
       - uses: actions/checkout@v7
+      - name: Read the package version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
+          code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(ios-)?test\.[0-9]+)?$ ]]
+          [[ "$code" =~ ^[1-9][0-9]*$ ]]
+          echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
+          echo "BUILD_CODE=$code" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -112,7 +118,7 @@ jobs:
           grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$output/apk-signature.txt"
           grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' "$output/apk-signature.txt"
           "$tools/zipalign" -c -P 16 -v 4 "$apk" > "$output/apk-zipalign.txt"
-          name="nodyssey-$BUILD_VERSION.apk"
+          name="nodyssey-v$BUILD_VERSION.apk"
           cp "$apk" "$output/$name"
           cp app/build/outputs/mapping/release/mapping.txt "$output/mapping-$BUILD_VERSION.txt"
           git rev-parse HEAD > "$output/source-commit.txt"
@@ -189,7 +195,7 @@ jobs:
         run: |
           version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
           code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-ios-test\.[0-9]+)?$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(ios-)?test\.[0-9]+)?$ ]]
           [[ "$code" =~ ^[1-9][0-9]*$ ]]
           if [[ "$version" != *-ios-test.* ]]; then
             test "$(uname -m)" = arm64
