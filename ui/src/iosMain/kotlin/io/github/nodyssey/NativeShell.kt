@@ -2,14 +2,27 @@ package io.github.nodyssey
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.uikit.OnFocusBehavior
@@ -26,7 +39,10 @@ import io.github.nodyssey.data.settings.ThemeMode
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
+import io.github.nodyssey.ui.common.ClipboardPost
+import io.github.nodyssey.ui.common.IosClipboardPostReader
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
+import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
 import io.github.nodyssey.ui.composer.PendingComposerShare
 import io.github.nodyssey.ui.navigation.PaneGroup
@@ -43,6 +59,8 @@ import io.github.nodyssey.ui.resources.about_privacy
 import io.github.nodyssey.ui.resources.about_rss
 import io.github.nodyssey.ui.resources.about_site
 import io.github.nodyssey.ui.resources.app_name
+import io.github.nodyssey.ui.resources.clipboard_post_open
+import io.github.nodyssey.ui.resources.clipboard_post_prompt
 import io.github.nodyssey.ui.settings.rememberAppLinkHandlingEnabled
 import io.github.nodyssey.ui.settings.rememberAppLinkSettingsLauncher
 import io.github.plaza.core.runCatchingExceptCancellation
@@ -51,6 +69,7 @@ import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -61,6 +80,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSSelectorFromString
@@ -282,7 +302,7 @@ private class NativeShell(
             notificationsScrollToTopRequests = { notificationsScrollToTopRequests },
             isListDetailExpanded = { listDetailExpanded },
             onTabBarHiddenByScroll = {},
-            selectTab = { root.selectedIndex = it.ordinal.toULong() },
+            selectTab = ::selectTab,
             scope = scope,
             pendingComposerShare = pendingComposerShare,
             pendingAttendance = pendingAttendance,
@@ -328,6 +348,9 @@ private class NativeShell(
     private val navigationDelegates = TopLevelDestination.entries.associateWith { NavigationDelegate(it) }
     private val popGestureDelegates = TopLevelDestination.entries.associateWith { PopGestureDelegate(it) }
     private var foregroundObserver: Any? = null
+    private var clipboardCheckJob: Job? = null
+    private var clipboardOffer by mutableStateOf<ClipboardPost?>(null)
+    private var activePage by mutableStateOf<Page?>(null)
     private var closed = false
 
     suspend fun awaitTransitions() {
@@ -371,7 +394,7 @@ private class NativeShell(
         scope.launch {
             IosLotteryNavigation.requests.collect { request ->
                 if (request != null) {
-                    root.selectedIndex = TopLevelDestination.HOME.ordinal.toULong()
+                    selectTab(TopLevelDestination.HOME)
                     stacks.getValue(TopLevelDestination.HOME).add(PostDetailKey(request.postId))
                     IosLotteryNavigation.handled(request)
                 }
@@ -406,8 +429,10 @@ private class NativeShell(
         observeSettings()
         observeNotifications()
         container.accountRepository?.state?.value?.let { accounts ->
-            if (accounts.adding || accounts.revision > 0) root.selectedIndex = TopLevelDestination.PROFILE.ordinal.toULong()
+            if (accounts.adding || accounts.revision > 0) selectTab(TopLevelDestination.PROFILE)
         }
+        refreshActivePage()
+        checkClipboardPost()
     }
 
     /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
@@ -421,6 +446,7 @@ private class NativeShell(
         val stack = stacks.getValue(destination)
         val entry = providers.getValue(destination)(key)
         val owner = PageOwner()
+        lateinit var page: Page
         val controller =
             ComposeUIViewController(
                 configure = {
@@ -441,12 +467,20 @@ private class NativeShell(
                             // 测评对比 from any report card's 对比 (n), onto this page's tab.
                             LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
                         ) {
-                            entry.Content()
+                            Box(Modifier.fillMaxSize()) {
+                                entry.Content()
+                                ClipboardPostSnackbarOverlay(
+                                    active = activePage == page,
+                                    offer = clipboardOffer,
+                                    onHandled = ::handleClipboardOffer,
+                                )
+                            }
                         }
                     }
                 }
             }
-        return Page(key, controller, owner)
+        page = Page(key, controller, owner)
+        return page
     }
 
     /**
@@ -521,6 +555,7 @@ private class NativeShell(
             syncing = false
         }
         updateTabBar()
+        refreshActivePage()
         if (!onScreen || (navigationController.transitionCoordinator == null && splits.values.all { it.details.transitionCoordinator == null })) flushReleases()
     }
 
@@ -565,6 +600,7 @@ private class NativeShell(
         val views = mirror.views.toSet()
         splits.keys.filter { it !in views }.forEach { splits.remove(it)?.empty() }
         updateTabBar()
+        refreshActivePage()
         if (destination == TopLevelDestination.PROFILE && stack.lastOrNull() == AccountsKey) {
             container.accountRepository?.cancelIfAbandoned()
         }
@@ -710,6 +746,7 @@ private class NativeShell(
         val controller = onboarding ?: return
         onboarding = null
         controller.dismissViewControllerAnimated(true, completion = null)
+        checkClipboardPost()
     }
 
     private fun observeNotifications() {
@@ -729,7 +766,49 @@ private class NativeShell(
             name = UIApplicationDidBecomeActiveNotification,
             `object` = null,
             queue = NSOperationQueue.mainQueue,
-        ) { _ -> notificationsViewModel.refreshIfStale() }
+        ) { _ ->
+            notificationsViewModel.refreshIfStale()
+            checkClipboardPost()
+        }
+    }
+
+    private fun selectTab(destination: TopLevelDestination) {
+        root.selectedIndex = destination.ordinal.toULong()
+        refreshActivePage()
+    }
+
+    private fun refreshActivePage() {
+        val destination = TopLevelDestination.entries.getOrNull(root.selectedIndex.toInt()) ?: return
+        activePage = mirrors.getValue(destination).views.lastOrNull()
+    }
+
+    private fun checkClipboardPost() {
+        if (clipboardCheckJob?.isActive == true) return
+        clipboardCheckJob =
+            scope.launch {
+                while (root.view.window == null) delay(16)
+                val latest = container.settingsRepository.settings.first()
+                // Not over the first-run guide, which is drawn above all of this and would hide the prompt.
+                if (!latest.clipboardPostPrompt || !latest.onboardingSeen || onboarding != null) return@launch
+                val text = IosClipboardPostReader.readNewUrlText() ?: return@launch
+                val post = clipboardPostToOffer(text, container.settingsRepository.lastClipboardPostLink())
+                    ?: return@launch
+                container.settingsRepository.setLastClipboardPostLink(post.url)
+                clipboardOffer = post
+            }
+    }
+
+    private fun handleClipboardOffer(
+        offer: ClipboardPost,
+        open: Boolean,
+    ) {
+        if (clipboardOffer != offer) return
+        clipboardOffer = null
+        if (open) {
+            val destination = TopLevelDestination.entries.getOrNull(root.selectedIndex.toInt())
+                ?: TopLevelDestination.HOME
+            stacks.getValue(destination).add(PostDetailKey(offer.postId, page = offer.page))
+        }
     }
 
     private fun destinationOf(controller: UIViewController?): TopLevelDestination? =
@@ -759,6 +838,13 @@ private class NativeShell(
             }
             scope.launch { updateTabBar() }
             return true
+        }
+
+        override fun tabBarController(
+            tabBarController: UITabBarController,
+            didSelectViewController: UIViewController,
+        ) {
+            refreshActivePage()
         }
     }
 
@@ -959,4 +1045,32 @@ private object SafariUriHandler : UriHandler {
         val url = NSURL.URLWithString(uri) ?: throw IllegalArgumentException("Not a URL: $uri")
         UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any>(), completionHandler = null)
     }
+}
+
+@Composable
+private fun BoxScope.ClipboardPostSnackbarOverlay(
+    active: Boolean,
+    offer: ClipboardPost?,
+    onHandled: (ClipboardPost, open: Boolean) -> Unit,
+) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val clipboardPrompt = stringResource(Res.string.clipboard_post_prompt)
+    val clipboardOpen = stringResource(Res.string.clipboard_post_open)
+    LaunchedEffect(active, offer) {
+        if (!active || offer == null) return@LaunchedEffect
+        val result =
+            snackbarHostState.showSnackbar(
+                message = clipboardPrompt,
+                actionLabel = clipboardOpen,
+                withDismissAction = true,
+                duration = SnackbarDuration.Long,
+            )
+        onHandled(offer, result == SnackbarResult.ActionPerformed)
+    }
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+    )
 }

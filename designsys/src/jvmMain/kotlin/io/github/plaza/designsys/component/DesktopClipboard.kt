@@ -22,3 +22,5 @@ internal actual fun rememberPlainTextClip(): (label: String, text: String) -> Cl
  */
 @Composable
 internal actual fun rememberCopyConfirmation(): (confirmation: String) -> Unit = remember { {} }
+
+internal actual fun onOwnClipboardWrite() = Unit

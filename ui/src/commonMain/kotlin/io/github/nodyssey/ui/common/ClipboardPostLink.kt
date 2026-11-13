@@ -6,9 +6,9 @@ import io.github.nodyssey.core.NodeSeekSite
 /**
  * Whether 识别剪贴板中的帖子 exists on this platform — and so whether 设置 shows its switch.
  *
- * Android only. iOS asks the reader for permission on every programmatic paste, so a check run each
- * time the app comes forward would be a system dialog each time the app comes forward; the desktop
- * build has nowhere it would be worth the read.
+ * Android and iOS. On iOS, `NativeShell` checks `changeCount` and `detectPatterns` for a probable
+ * web URL before reading `UIPasteboard`, so plain text and own copies never trigger iOS 16's paste
+ * permission prompt. The desktop build has nowhere it would be worth the read.
  */
 internal expect val clipboardPostPromptSupported: Boolean
 
@@ -16,9 +16,10 @@ internal expect val clipboardPostPromptSupported: Boolean
  * Reads the clipboard's text, but only when it holds something this reader has not looked at yet.
  *
  * Null when there is nothing new: the same clip as last time, a clip this app wrote itself, or one
- * that is not text. Called when the window gains focus, which on Android 10+ is the only time an
- * app other than the keyboard is allowed to read the clipboard at all. A no-op where
- * [clipboardPostPromptSupported] is false.
+ * that is not text. Called on Android when the window gains focus, which on Android 10+ is the only
+ * time an app other than the keyboard is allowed to read the clipboard at all. Returns null on
+ * platforms that either do not support clipboard prompting or perform an async pattern-gated read in
+ * their platform shell instead (see `IosClipboardPostReader`).
  */
 @Composable
 internal expect fun rememberNewClipboardText(): () -> String?

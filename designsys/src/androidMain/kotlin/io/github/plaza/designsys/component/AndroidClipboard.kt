@@ -51,3 +51,5 @@ internal actual fun rememberCopyConfirmation(): (confirmation: String) -> Unit {
         }
     }
 }
+
+internal actual fun onOwnClipboardWrite() = Unit

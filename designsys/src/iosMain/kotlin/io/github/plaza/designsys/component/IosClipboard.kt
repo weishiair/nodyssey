@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.platform.ClipEntry
+import platform.UIKit.UIPasteboard
 
 /**
  * The iOS answer to [rememberPlainTextClip]: Compose's own plain-text entry.
@@ -28,3 +29,17 @@ internal actual fun rememberPlainTextClip(): (label: String, text: String) -> Cl
  */
 @Composable
 internal actual fun rememberCopyConfirmation(): (confirmation: String) -> Unit = remember { {} }
+
+private var lastOwnPasteboardChangeCount: Long? = null
+
+internal actual fun onOwnClipboardWrite() {
+    lastOwnPasteboardChangeCount = UIPasteboard.generalPasteboard.changeCount
+}
+
+/**
+ * Whether [changeCount] matches the last write made through [rememberSilentClipboardCopy] on this
+ * process — the iOS counterpart of Android's [OWN_CLIP_EXTRA] check, without reading the
+ * pasteboard contents.
+ */
+fun isOwnIosClipboardChange(changeCount: Long): Boolean =
+    lastOwnPasteboardChangeCount == changeCount

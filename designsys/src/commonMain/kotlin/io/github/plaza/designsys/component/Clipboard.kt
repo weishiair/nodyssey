@@ -55,7 +55,10 @@ fun rememberSilentClipboardCopy(): suspend (label: String, text: String) -> Unit
     val clipboard = LocalClipboard.current
     val plainText: (String, String) -> ClipEntry = rememberPlainTextClip()
     return remember(clipboard, plainText) {
-        { label, text -> clipboard.setClipEntry(plainText(label, text)) }
+        { label, text ->
+            clipboard.setClipEntry(plainText(label, text))
+            onOwnClipboardWrite()
+        }
     }
 }
 
@@ -77,3 +80,9 @@ internal expect fun rememberPlainTextClip(): (label: String, text: String) -> Cl
  */
 @Composable
 internal expect fun rememberCopyConfirmation(): (confirmation: String) -> Unit
+
+/**
+ * Records that this app just wrote the clipboard, on platforms whose pasteboard does not carry
+ * per-item metadata distinguishing own copies from other apps' (see `IosClipboard`).
+ */
+internal expect fun onOwnClipboardWrite()
