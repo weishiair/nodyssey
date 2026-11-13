@@ -1,8 +1,10 @@
 package io.github.nodyssey.ui.postdetail
 
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -28,6 +30,7 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,7 +41,12 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.nodyssey.ui.common.FloatingBottomBarBandHeight
+import io.github.nodyssey.ui.common.FloatingBottomBarBottomGap
+import io.github.nodyssey.ui.common.FloatingBottomBarTopGap
+import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
 import io.github.nodyssey.ui.common.PlazaSheet
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.page_jump_go
@@ -64,9 +72,32 @@ import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.stringResource
 
-/** The position and reply share a fixed row; scrolling never moves either control. */
+/** Keep the original reading row; glass enters as a whole, like the bottom navigation. */
 @Composable
 internal fun ThreadReadingControls(
+    currentFloor: Int,
+    lastFloor: Int?,
+    onJump: () -> Unit,
+    onReply: () -> Unit,
+    modifier: Modifier = Modifier,
+    visible: Boolean = true,
+    bottomInset: Dp = 0.dp,
+) {
+    if (LocalPlazaLayers.current.frostedGlass) {
+        val visibility = remember { MutableTransitionState(false) }
+        visibility.targetState = visible
+        FloatingBottomBarVisibility(visibleState = visibility, modifier = modifier) {
+            // Include the safe area in the sliding content so the row starts below the screen,
+            // not partly visible in the home-indicator area before its entrance.
+            ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, Modifier.padding(bottom = bottomInset))
+        }
+    } else if (visible) {
+        ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, modifier.padding(bottom = bottomInset))
+    }
+}
+
+@Composable
+private fun ThreadReadingControlsRow(
     currentFloor: Int,
     lastFloor: Int?,
     onJump: () -> Unit,
@@ -82,7 +113,14 @@ internal fun ThreadReadingControls(
     } else {
         stringResource(Res.string.post_floor_position, currentFloor)
     }
-    Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp).heightIn(min = 48.dp)) {
+    Box(
+        modifier.fillMaxWidth().padding(
+            start = 12.dp,
+            end = 12.dp,
+            top = if (layers.frostedGlass) FloatingBottomBarTopGap else 10.dp,
+            bottom = if (layers.frostedGlass) FloatingBottomBarBottomGap else 10.dp,
+        ).heightIn(min = if (layers.frostedGlass) FloatingBottomBarBandHeight else 48.dp),
+    ) {
         Box(
             Modifier.fillMaxWidth().padding(horizontal = 60.dp).align(Alignment.Center),
             contentAlignment = Alignment.Center,
@@ -150,7 +188,7 @@ internal fun ThreadReadingControls(
                                 backdrop = backdrop,
                                 surfaceTint =
                                 MaterialTheme.colorScheme.primaryContainer.copy(
-                                    alpha = if (darkTheme) 0.54f else 0.62f,
+                                    alpha = if (darkTheme) 0.44f else 0.42f,
                                 ),
                             )
                         } else {
@@ -202,8 +240,8 @@ internal fun ThreadFloorJumpSheet(
         ),
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 24.dp).semantics { paneTitle = title },
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 16.dp).semantics { paneTitle = title },
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -223,17 +261,21 @@ internal fun ThreadFloorJumpSheet(
                     Text(stringResource(Res.string.page_jump_go))
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilledTonalButton(onClick = onOriginal, modifier = Modifier.weight(1f)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                TextButton(onClick = onOriginal) {
                     Text(stringResource(Res.string.post_open_original))
                 }
-                FilledTonalButton(onClick = onLatest, modifier = Modifier.weight(1f)) {
+                TextButton(onClick = onLatest) {
                     Text(stringResource(Res.string.page_jump_latest))
                 }
-            }
-            if (onResume != null) {
-                TextButton(onClick = onResume, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                    Text(stringResource(Res.string.page_jump_resume_title))
+                if (onResume != null) {
+                    TextButton(onClick = onResume) {
+                        Text(stringResource(Res.string.page_jump_resume_title))
+                    }
                 }
             }
         }

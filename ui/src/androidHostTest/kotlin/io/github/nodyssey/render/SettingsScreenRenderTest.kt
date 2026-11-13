@@ -36,8 +36,8 @@ class SettingsScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean, pureWhite: Boolean = false, attendanceEnabled: Boolean = false) {
-        PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite) {
+    private fun Screen(darkTheme: Boolean, pureWhite: Boolean = false, attendanceEnabled: Boolean = false, frostedGlass: Boolean = false) {
+        PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite, frostedGlass = frostedGlass) {
             SettingsScreen(
                 state = STATE.copy(settings = STATE.settings.copy(presetId = if (pureWhite) "pure_white" else "graphite")),
                 appLinkHandlingEnabled = true,
@@ -90,6 +90,20 @@ class SettingsScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true, pureWhite = true) }
 
         composeRule.onRoot().captureRender("settings-neutral-dark")
+    }
+
+    @Test
+    fun `the glass settings header after scrolling in light`() {
+        composeRule.setContent { Screen(darkTheme = false, pureWhite = true, frostedGlass = true) }
+        composeRule.onNodeWithText("图床").performScrollTo()
+        composeRule.onRoot().captureRender("settings-glass-header-light")
+    }
+
+    @Test
+    fun `the glass settings header after scrolling in dark`() {
+        composeRule.setContent { Screen(darkTheme = true, pureWhite = true, frostedGlass = true) }
+        composeRule.onNodeWithText("图床").performScrollTo()
+        composeRule.onRoot().captureRender("settings-glass-header-dark")
     }
 
     @OptIn(ExperimentalRoborazziApi::class)

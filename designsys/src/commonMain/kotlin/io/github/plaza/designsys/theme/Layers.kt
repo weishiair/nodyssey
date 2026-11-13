@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.unit.DpOffset
@@ -28,6 +29,9 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.isRenderEffectSupported
+import com.kyant.backdrop.isRuntimeShaderSupported
 
 /**
  * The three depths every screen is drawn at: the page, the cards on it, and what floats over both.
@@ -226,35 +230,17 @@ fun Modifier.floatShadow(
 val GlassRimWidth = 0.75.dp
 
 /**
- * Translucent diagonal fill for floating liquid-glass chrome (the floating bottom navigation pill,
- * page jump keys, and lifted toolbars). Blends a subtle top specular mist and the active theme's
- * [PlazaLayers.glassTint] so dark mode reads as refractive frosted glass rather than flat charcoal.
+ * Static glass uses the same tint as live glass, over the theme's raised surface. It stays opaque
+ * without blur, so text and pictures behind a control cannot compete with its label.
  */
-fun PlazaLayers.glassChromeBrush(darkTheme: Boolean): Brush {
-    val accent = if (glassTint != Color.Unspecified) glassTint else raised
-    return if (darkTheme) {
-        val topCatch = lerp(raised, Color.White, 0.10f)
-        val midBody = lerp(card, accent, 0.08f)
-        val bottomCatch = lerp(raised, accent, 0.14f)
-        Brush.linearGradient(
-            listOf(
-                topCatch.copy(alpha = 0.80f),
-                midBody.copy(alpha = 0.66f),
-                bottomCatch.copy(alpha = 0.74f),
-            ),
-        )
-    } else {
-        val topCatch = lerp(raised, Color.White, 0.55f)
-        val midBody = lerp(page, accent, 0.06f)
-        val bottomCatch = lerp(raised, accent, 0.10f)
-        Brush.linearGradient(
-            listOf(
-                topCatch.copy(alpha = 0.86f),
-                midBody.copy(alpha = 0.72f),
-                bottomCatch.copy(alpha = 0.82f),
-            ),
-        )
-    }
+fun PlazaLayers.glassChromeBrush(
+    darkTheme: Boolean,
+    surfaceTint: Color = glassSurfaceTint(darkTheme, GlassSurfaceStyle.Control),
+): Brush {
+    val body = surfaceTint.compositeOver(raised.copy(alpha = 1f))
+    return Brush.linearGradient(
+        listOf(lerp(body, Color.White, if (darkTheme) 0.035f else 0.06f), body),
+    )
 }
 
 /**
@@ -309,8 +295,8 @@ fun PlazaLayers.glassHeaderDividerBrush(darkTheme: Boolean): Brush {
 }
 
 /**
- * Translucent vertical gradient for modal bottom sheets (such as the reply composer) under
- * [PlazaLayers.frostedGlass].
+ * A subtle, opaque sheen for editing panels. Only floating chrome samples the page underneath;
+ * text entry keeps a stable background even over pictures or a moving list.
  */
 fun PlazaLayers.glassSheetBrush(darkTheme: Boolean): Brush {
     val accent = if (glassTint != Color.Unspecified) glassTint else raised
@@ -318,16 +304,16 @@ fun PlazaLayers.glassSheetBrush(darkTheme: Boolean): Brush {
         val top = lerp(lerp(raised, Color.White, 0.08f), accent, 0.10f)
         Brush.verticalGradient(
             listOf(
-                top.copy(alpha = 0.90f),
-                card.copy(alpha = 0.86f),
+                top,
+                card,
             ),
         )
     } else {
         val top = lerp(card, Color.White, 0.60f)
         Brush.verticalGradient(
             listOf(
-                top.copy(alpha = 0.92f),
-                card.copy(alpha = 0.88f),
+                top,
+                card,
             ),
         )
     }
@@ -337,20 +323,20 @@ fun PlazaLayers.glassSheetBrush(darkTheme: Boolean): Brush {
  * Three-stop diagonal specular rim highlight for liquid-glass chrome: bright at the top-left catch
  * edge, softly tinted across the body, and a secondary reflection at the bottom-right corner.
  */
-fun PlazaLayers.glassRimBrush(darkTheme: Boolean): Brush {
+fun PlazaLayers.glassRimBrush(darkTheme: Boolean, strength: Float = 1f): Brush {
     val accent = if (glassTint != Color.Unspecified) glassTint else Color.White
     return Brush.linearGradient(
         if (darkTheme) {
             listOf(
-                Color.White.copy(alpha = 0.30f),
-                accent.copy(alpha = 0.10f),
-                Color.White.copy(alpha = 0.16f),
+                Color.White.copy(alpha = 0.30f * strength),
+                accent.copy(alpha = 0.10f * strength),
+                Color.White.copy(alpha = 0.16f * strength),
             )
         } else {
             listOf(
-                Color.White.copy(alpha = 0.86f),
-                accent.copy(alpha = 0.20f),
-                Color.White.copy(alpha = 0.50f),
+                Color.White.copy(alpha = 0.86f * strength),
+                accent.copy(alpha = 0.20f * strength),
+                Color.White.copy(alpha = 0.50f * strength),
             )
         },
     )
@@ -386,14 +372,16 @@ fun Modifier.glassRimBorder(
 val LocalLiquidGlassBackdrop = compositionLocalOf<Backdrop?> { null }
 
 /**
- * Remembers a [LayerBackdrop] cleared with [backgroundColor] when [PlazaLayers.backdropGlass] is
- * enabled, or returns `null` when off so zero offscreen layer capture occurs in standard modes.
+ * Capture only while a consumer needs it and the platform can blur it. Backdrop's capability API
+ * keeps Android version checks out of common code; Android before 12 uses the static material.
+ * Keep [enabled] true through a consumer's exit animation, until it has stopped drawing.
  */
 @Composable
 fun rememberLiquidGlassBackdrop(
     backgroundColor: Color = LocalPlazaLayers.current.page,
+    enabled: Boolean = true,
 ): LayerBackdrop? {
-    if (!LocalPlazaLayers.current.backdropGlass) return null
+    if (!LocalPlazaLayers.current.backdropGlass || !enabled || !isRenderEffectSupported()) return null
     return rememberLayerBackdrop {
         drawRect(backgroundColor)
         drawContent()
@@ -420,7 +408,7 @@ fun Modifier.glassFrostedBar(
 ): Modifier {
     if (!layers.backdropGlass) return this
     val headerBrush = layers.glassHeaderBrush(darkTheme, baseColor)
-    return if (backdrop != null) {
+    return if (backdrop != null && isRenderEffectSupported()) {
         this.drawBackdrop(
             backdrop = backdrop,
             shape = { RectangleShape },
@@ -435,17 +423,35 @@ fun Modifier.glassFrostedBar(
             },
         )
     } else {
-        this.background(headerBrush)
+        this.background(baseColor).background(headerBrush)
     }
 }
 
+/** Navigation carries the lens effect; small controls are quieter and notices favour readable text. */
+enum class GlassSurfaceStyle {
+    Navigation,
+    Control,
+    Notice,
+}
+
+private fun PlazaLayers.glassSurfaceTint(darkTheme: Boolean, style: GlassSurfaceStyle): Color {
+    val alpha = when (style) {
+        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.40f else 0.38f
+        GlassSurfaceStyle.Control -> if (darkTheme) 0.44f else 0.40f
+        GlassSurfaceStyle.Notice -> if (darkTheme) 0.90f else 0.92f
+    }
+    val color = when {
+        style == GlassSurfaceStyle.Notice -> raised
+        darkTheme -> lerp(raised, Color.Black, 0.10f)
+        else -> lerp(card, Color.White, 0.45f)
+    }
+    return color.copy(alpha = alpha)
+}
+
 /**
- * Full floating liquid-glass chrome treatment:
- * - When [backdrop] is provided and [PlazaLayers.backdropGlass] is active, uses Kyant's
- *   `drawBackdrop` (`vibrancy` + Gaussian `blur` + SDF `lens` edge refraction with chromatic
- *   aberration) and tints the glass surface with [surfaceTint].
- * - When [backdrop] is null (e.g. static theme preview or fallback), uses a soft elevation shadow,
- *   clipped translucent gradient fill, and [GlassRimWidth] directional specular rim highlight.
+ * The same tint and elevation contract in live and static glass. Blur is available on Android 12;
+ * lens effects need Android 13. Unsupported platforms and absent sources use an opaque material.
+ * [surfaceTint] overrides the style's fill; [elevated] controls the shadow in both paths.
  */
 fun Modifier.glassChromeSurface(
     layers: PlazaLayers,
@@ -454,6 +460,7 @@ fun Modifier.glassChromeSurface(
     elevated: Boolean = true,
     backdrop: Backdrop? = null,
     surfaceTint: Color = Color.Unspecified,
+    style: GlassSurfaceStyle = GlassSurfaceStyle.Control,
 ): Modifier {
     if (!layers.backdropGlass) {
         return this
@@ -465,33 +472,59 @@ fun Modifier.glassChromeSurface(
     val resolvedTint =
         if (surfaceTint != Color.Unspecified) {
             surfaceTint
-        } else if (darkTheme) {
-            lerp(layers.raised, Color.Black, 0.10f).copy(alpha = 0.52f)
         } else {
-            lerp(layers.card, Color.White, 0.45f).copy(alpha = 0.56f)
+            layers.glassSurfaceTint(darkTheme, style)
         }
-    return if (backdrop != null) {
-        this.drawBackdrop(
+    val rimStrength = when (style) {
+        GlassSurfaceStyle.Navigation -> 0.75f
+        GlassSurfaceStyle.Control -> 0.60f
+        GlassSurfaceStyle.Notice -> 0.18f
+    }
+    val surface = if (elevated) {
+        dropShadow(
+            shape,
+            Shadow(
+                radius = if (style == GlassSurfaceStyle.Navigation) 18.dp else 12.dp,
+                color = ShadowInk,
+                offset = DpOffset(0.dp, 3.dp),
+                alpha = if (darkTheme) 0.06f else 0.10f,
+            ),
+        )
+    } else {
+        this
+    }
+    return if (backdrop != null && isRenderEffectSupported()) {
+        surface.drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
             effects = {
                 vibrancy()
-                blur(8.dp.toPx())
-                lens(
-                    refractionHeight = 14.dp.toPx(),
-                    refractionAmount = 28.dp.toPx(),
-                    chromaticAberration = true,
+                blur(
+                    when (style) {
+                        GlassSurfaceStyle.Navigation -> 8.dp
+                        GlassSurfaceStyle.Control -> 6.dp
+                        GlassSurfaceStyle.Notice -> 14.dp
+                    }.toPx(),
                 )
+                if (isRuntimeShaderSupported() && style != GlassSurfaceStyle.Notice) {
+                    val navigation = style == GlassSurfaceStyle.Navigation
+                    lens(
+                        refractionHeight = (if (navigation) 12.dp else 6.dp).toPx(),
+                        refractionAmount = (if (navigation) 20.dp else 12.dp).toPx(),
+                        chromaticAberration = navigation,
+                    )
+                }
             },
+            highlight = { Highlight(alpha = rimStrength) },
+            shadow = null,
             onDrawSurface = {
                 drawRect(resolvedTint)
             },
         )
     } else {
-        this
-            .floatShadow(shape, enabled = elevated && (layers.shadows || layers.backdropGlass))
+        surface
             .clip(shape)
-            .background(layers.glassChromeBrush(darkTheme), shape)
-            .border(GlassRimWidth, layers.glassRimBrush(darkTheme), shape)
+            .background(layers.glassChromeBrush(darkTheme, resolvedTint), shape)
+            .border(GlassRimWidth, layers.glassRimBrush(darkTheme, rimStrength), shape)
     }
 }

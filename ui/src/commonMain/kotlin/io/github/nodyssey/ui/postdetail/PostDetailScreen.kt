@@ -61,6 +61,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.WavyProgressIndicatorDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -926,15 +927,15 @@ fun PostDetailScreen(
                     )
                 }
 
-                if (state.hasContent && !replyOpen) {
-                    ThreadReadingControls(
-                        currentFloor = displayedFloor,
-                        lastFloor = lastFloor,
-                        onJump = { showPageSheet = true },
-                        onReply = { onReply(null) },
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset),
-                    )
-                }
+                ThreadReadingControls(
+                    currentFloor = displayedFloor,
+                    lastFloor = lastFloor,
+                    onJump = { showPageSheet = true },
+                    onReply = { onReply(null) },
+                    visible = state.hasContent && !replyOpen,
+                    bottomInset = bottomInset,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
 
                 // A jump replaces the whole list, so the append spinner at its foot would be pointing at
                 // content that is on its way out. This says "a different page is coming" where the reader
@@ -1133,9 +1134,9 @@ private fun DetailTopBar(
 
     val buttonTint =
         if (darkTheme) {
-            layers.raised.copy(alpha = 0.68f)
+            layers.raised.copy(alpha = 0.44f)
         } else {
-            Color.White.copy(alpha = 0.72f)
+            Color.White.copy(alpha = 0.40f)
         }
 
     val nativeMenu = buildList {
@@ -1216,6 +1217,7 @@ private fun DetailTopBar(
                                     if (layers.backdropGlass) {
                                         Modifier
                                             .padding(start = 6.dp)
+                                            .minimumInteractiveComponentSize()
                                             .size(40.dp)
                                             .glassChromeSurface(
                                                 layers = layers,
@@ -1238,102 +1240,106 @@ private fun DetailTopBar(
                             }
                         },
                         actions = {
-                            Row(
+                            Box(
                                 modifier =
                                 if (layers.backdropGlass) {
+                                    Modifier.padding(end = 6.dp)
+                                } else {
                                     Modifier
-                                        .padding(end = 6.dp)
-                                        .height(40.dp)
-                                        .glassChromeSurface(
+                                },
+                            ) {
+                                if (layers.backdropGlass) {
+                                    // Paint a 40dp capsule behind separate 48dp Material buttons. The
+                                    // smaller visual no longer constrains or overlaps their touch slots.
+                                    Box(
+                                        Modifier.matchParentSize().padding(vertical = 4.dp).glassChromeSurface(
                                             layers = layers,
                                             darkTheme = darkTheme,
                                             shape = CircleShape,
                                             elevated = true,
                                             backdrop = backdrop,
                                             surfaceTint = buttonTint,
-                                        )
-                                        .padding(horizontal = 4.dp)
-                                } else {
-                                    Modifier
-                                },
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                IconButton(
-                                    onClick = onOpenInBrowser,
-                                    modifier = if (layers.backdropGlass) Modifier.size(36.dp) else Modifier,
-                                ) {
-                                    Icon(
-                                        PlazaIcons.OpenInNew,
-                                        contentDescription = stringResource(Res.string.action_open_in_browser),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(TopBarIconSize),
+                                        ),
                                     )
                                 }
-                                Box {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     IconButton(
-                                        onClick = { menuOpen = true },
-                                        modifier = if (layers.backdropGlass) Modifier.size(36.dp) else Modifier,
+                                        onClick = onOpenInBrowser,
+                                        modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
                                     ) {
                                         Icon(
-                                            Icons.Default.MoreVert,
-                                            contentDescription = stringResource(Res.string.action_more),
+                                            PlazaIcons.OpenInNew,
+                                            contentDescription = stringResource(Res.string.action_open_in_browser),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(TopBarIconSize),
                                         )
                                     }
-                                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                        onOriginal?.let { jump ->
-                                            DropdownMenuItem(
-                                                text = { Text(openOriginalPostLabel) },
-                                                onClick = {
-                                                    menuOpen = false
-                                                    jump()
-                                                },
+                                    Box {
+                                        IconButton(
+                                            onClick = { menuOpen = true },
+                                            modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
+                                        ) {
+                                            Icon(
+                                                Icons.Default.MoreVert,
+                                                contentDescription = stringResource(Res.string.action_more),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(TopBarIconSize),
                                             )
                                         }
-                                        collected?.let { saved ->
+                                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                            onOriginal?.let { jump ->
+                                                DropdownMenuItem(
+                                                    text = { Text(openOriginalPostLabel) },
+                                                    onClick = {
+                                                        menuOpen = false
+                                                        jump()
+                                                    },
+                                                )
+                                            }
+                                            collected?.let { saved ->
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
+                                                    enabled = !collectPending,
+                                                    onClick = {
+                                                        menuOpen = false
+                                                        onCollect()
+                                                    },
+                                                )
+                                            }
+                                            // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
+                                            // not about to scroll back up to pull.
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
-                                                enabled = !collectPending,
+                                                text = { Text(stringResource(Res.string.action_refresh)) },
                                                 onClick = {
                                                     menuOpen = false
-                                                    onCollect()
+                                                    onRefresh()
                                                 },
                                             )
-                                        }
-                                        // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
-                                        // not about to scroll back up to pull.
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(Res.string.action_refresh)) },
-                                            onClick = {
-                                                menuOpen = false
-                                                onRefresh()
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(Res.string.action_copy_link)) },
-                                            onClick = {
-                                                copy("post", postUrl, linkCopied)
-                                                menuOpen = false
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(shareLabel) },
-                                            onClick = {
-                                                menuOpen = false
-                                                shareText("$title\n$postUrl", shareLabel)
-                                            },
-                                        )
-                                        tracked?.let { on ->
                                             DropdownMenuItem(
-                                                text = {
-                                                    Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
+                                                text = { Text(stringResource(Res.string.action_copy_link)) },
+                                                onClick = {
+                                                    copy("post", postUrl, linkCopied)
+                                                    menuOpen = false
                                                 },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(shareLabel) },
                                                 onClick = {
                                                     menuOpen = false
-                                                    onToggleTrack()
+                                                    shareText("$title\n$postUrl", shareLabel)
                                                 },
                                             )
+                                            tracked?.let { on ->
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
+                                                    },
+                                                    onClick = {
+                                                        menuOpen = false
+                                                        onToggleTrack()
+                                                    },
+                                                )
+                                            }
                                         }
                                     }
                                 }

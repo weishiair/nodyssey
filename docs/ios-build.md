@@ -44,6 +44,16 @@ Xcode 26.3，默认仍为 16.4，因此该包在 iOS 27 上仍采用旧设计。
 设置中的「毛玻璃质感」继续控制两端的浅色徽章、账号等级色和柔化签名；iOS 不另存一份主题。
 Android 的背景采样、模糊和折射只在 Compose 渲染器启用，iOS 不再运行这套离屏捕获。
 
+材质与布局分开判断：`backdropGlass` 控制 Compose 采样、折射、描边和浮动导航，
+`nativeGlass` 选择 UIKit 控件；`frostedGlass` 仍用于共用的主题配色、控件排列和间距。
+两端帖子底部操作行共用 58dp 高度带、上方 8dp / 下方 16dp 留白和整排从底部浮入的节奏，
+不改变楼层定位与回复按钮的横排结构。iOS 主标签栏本身继续由 UIKit 测量和过渡。
+当前 Compose 的 UIKit interop 不传递父图层透明度，因此原生按钮只同步位移，
+不叠加 Compose 淡入淡出；Android 保留位移与淡入淡出。
+
+帖子列表绘制到 Home indicator 区域，安全区只计入悬浮操作行和列表尾部留白。
+操作行的安全区留白包含在动画内容内，避免刚入场时按钮先露在屏幕底边。
+
 iOS 26+ 的发帖、私信、下载、转账、楼层定位、回复和发布按钮使用 UIKit 的
 `glassButtonConfiguration` / `prominentGlassButtonConfiguration`。翻页栏和消息提示使用
 `UIGlassEffect`；帖子顶栏使用 `UINavigationBar`，更多操作使用原生 `UIMenu`，包括收藏待处理时禁用

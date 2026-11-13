@@ -475,12 +475,7 @@ private fun ReplyEditorSheet(
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.extraLarge,
-                    color =
-                    if (layers.backdropGlass) {
-                        layers.card.copy(alpha = if (darkTheme) 0.88f else 0.92f)
-                    } else {
-                        layers.card
-                    },
+                    color = layers.card,
                     border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
                     modifier = Modifier.widthIn(max = REPLY_CARD_MAX_WIDTH).fillMaxWidth(),
                 ) {
@@ -509,12 +504,7 @@ private fun ReplyEditorSheet(
             ),
             // A sheet of paper, like the post editor's page (2c): the editor is one card lifted over the
             // thread, and only its bar and the emoji panel under it recede.
-            containerColor =
-            if (layers.backdropGlass) {
-                layers.card.copy(alpha = if (darkTheme) 0.84f else 0.90f)
-            } else {
-                layers.card
-            },
+            containerColor = layers.card,
             shape = PlazaSheetDefaults.shape,
             dragHandle = { PlazaSheetDefaults.DragHandle() },
         ) {

@@ -44,10 +44,14 @@ import androidx.navigation3.runtime.NavKey
 import io.github.nodyssey.NotificationsKey
 import io.github.nodyssey.PostListKey
 import io.github.nodyssey.ProfileKey
+import io.github.nodyssey.ui.common.FloatingBottomBarBandHeight
+import io.github.nodyssey.ui.common.FloatingBottomBarBottomGap
+import io.github.nodyssey.ui.common.FloatingBottomBarTopGap
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.tab_home
 import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.nodyssey.ui.resources.tab_profile
+import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -147,15 +151,11 @@ fun NodysseyNavigationItems(
 
 private val NavigationIconSize = 20.dp
 
-/**
- * Total vertical clearance reserved for [GlassBottomNavigationBar] so scrolling lists and bottom-corner
- * FABs clear the floating capsule.
- */
-internal val FloatingGlassBarClearance = 74.dp
-
-private val GlassBottomBarHeight = 58.dp
 private val GlassBottomBarShape = CircleShape
 private val GlassPillIndicatorShape = CircleShape
+
+/** Clearance for both the capsule and its gaps; keeps FABs and notices above the raised bar. */
+internal val FloatingGlassBarClearance = FloatingBottomBarBandHeight + FloatingBottomBarTopGap + FloatingBottomBarBottomGap
 
 /**
  * Floating rounded-pill bottom navigation bar for 毛玻璃 (Option B).
@@ -178,16 +178,17 @@ internal fun GlassBottomNavigationBar(
 
     Row(
         modifier = modifier
-            .padding(horizontal = 28.dp, vertical = 8.dp)
+            .padding(start = 28.dp, end = 28.dp, top = FloatingBottomBarTopGap, bottom = FloatingBottomBarBottomGap)
             .widthIn(max = 336.dp)
             .fillMaxWidth()
-            .height(GlassBottomBarHeight)
+            .height(FloatingBottomBarBandHeight)
             .glassChromeSurface(
                 layers = layers,
                 darkTheme = darkTheme,
                 shape = GlassBottomBarShape,
                 elevated = true,
                 backdrop = backdrop,
+                style = GlassSurfaceStyle.Navigation,
             )
             .padding(horizontal = 5.dp, vertical = 4.dp)
             .selectableGroup(),
