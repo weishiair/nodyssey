@@ -24,8 +24,17 @@ kotlin {
     // compiler that refuses `java.text.BreakIterator` in a source set claiming to be neutral, and one
     // arch is enough for that. D3b adds the simulator: it is where the shell actually runs, and every
     // module under it has to publish a variant for the arch the shell links against.
-    iosArm64()
-    iosSimulatorArm64()
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        // Like :ui's simulator tests, these binaries link pinned Compose libraries that embed
+        // their producer's Xcode path. Use the selected Xcode's Swift compatibility libraries
+        // until the dependency's linker options become relocatable.
+        providers.environmentVariable("DEVELOPER_DIR").orNull?.let { developerDir ->
+            val platform = if (target.name == "iosArm64") "iphoneos" else "iphonesimulator"
+            target.binaries.configureEach {
+                linkerOpts("-L$developerDir/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$platform")
+            }
+        }
+    }
 
     // `java.net.SocketTimeoutException` and `java.text.BreakIterator` are not the Android part of
     // Android — they are the JVM part, and both targets answer for them identically. Without a
