@@ -543,6 +543,21 @@ jobs:
       - name: Test native controls and iOS navigation on the ARM simulator
         run: ./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test --max-workers=1
 
+      - name: Preserve Native regression reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-native-reports-${{ github.run_id }}
+          path: |
+            shared/build/test-results/macosArm64Test/
+            shared/build/reports/tests/macosArm64Test/
+            designsys/build/test-results/iosSimulatorArm64Test/
+            designsys/build/reports/tests/iosSimulatorArm64Test/
+            ui/build/test-results/iosSimulatorArm64Test/
+            ui/build/reports/tests/iosSimulatorArm64Test/
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Release the test daemon before optimized linking
         run: ./gradlew --stop
 
