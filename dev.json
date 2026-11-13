@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "channel": "dev",
-  "versionName": "1.3.10",
-  "tag": "v1.3.10",
-  "publishedOn": "2026-11-10",
-  "notes": "本次更新重点修复 iOS 无法正常登录的问题，新增 NodeSeek 邮箱，并支持使用星辰购买邀请码。\n\n### 修复与改进\n\n- 修复 iOS 登录状态保存、恢复异常导致无法正常登录的问题，完善旧版异常账号数据的恢复流程。\n- 新增 NodeSeek 邮箱，可在「我的 → NodeSeek 邮箱」进入，支持多邮箱切换、阅读邮件、已读／未读标记和全部已读。\n- 支持邮件验证码识别与一键复制，新增未读提示及前台新邮件提醒；Android 还支持后台新邮件通知。\n- 邀请好友页支持使用星辰购买邀请码，同时保留鸡腿购买方式。价格从站点获取，购买后可直接查看、复制邀请码，并查看已有邀请码的使用状态。\n\n### 邀请大家体验邮箱功能\n\n邮箱功能首次加入，欢迎大家帮忙测试授权连接、真实收信、验证码识别、已读同步和新邮件提醒。遇到问题时，可以反馈系统版本、连接方式及具体操作，方便排查。\n\n**推荐使用 API Key 模式**，获得更及时的新邮件检查体验：API 模式在应用前台约每 30 秒检查一次，进入邮箱页后约每 15 秒检查一次；网页登录态约每 60 秒检查一次。后台提醒受系统调度影响，并非即时推送。\n\n### API Key 创建方法\n\n1. 在浏览器打开[邮箱官网](https://seek.li)，使用 NodeSeek 账号登录；如果还没有邮箱，先按官网提示创建。\n2. 进入官网[开发者页面](https://seek.li/manage/support?tab=developer)。\n3. 创建 API Key，可将名称填写为 `Nodyssey`，并授予以下三项权限：\n   - `mailbox:read`：列出邮箱。\n   - `mail:read`：读取邮件。\n   - `mail:manage`：更新邮件已读状态。\n4. 复制完整的、以 `sk_live_` 开头的密钥。\n5. 回到 Nodyssey，打开「我的 → NodeSeek 邮箱」，将密钥粘贴到 API Key 输入框，点击「使用 API Key 连接」。\n6. 如果已经通过网页授权连接，可在邮箱选项中选择「改用 API Key」，验证成功后完成切换。\n\n目前邮箱主要支持收信和阅读；发送邮件、查看或下载附件仍请前往官网。API Key 请自行保管，反馈问题时不要附上密钥。\n\n### 鸣谢\n\n- 感谢 Telegram 用户 **@praygem** 反馈 iOS 无法登录的问题，帮助我们发现并修复这一严重故障。\n- 感谢 Telegram 用户 **@dream7painter** 提出使用星辰购买邀请码的需求，让邀请好友更加方便。\n\n也感谢参与测试、提供建议和反馈问题的每一位朋友。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.9...v1.3.10",
+  "versionName": "1.3.11-test.7",
+  "tag": "v1.3.11-test.7",
+  "publishedOn": "2026-11-13",
+  "notes": "测试版，由 tag `v1.3.11-test.7` 构建。不是正式版本，可能不稳定。\n\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.11-ios-test.6...v1.3.11-test.7",
   "apk": {
-    "name": "nodyssey-v1.3.10.apk",
-    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.10/nodyssey-v1.3.10.apk",
-    "sizeBytes": 12156918,
-    "sha256": "bf964da0797280a7e7347ae47890fd6ffc03fe4b9359a66dd909916e4180a471"
+    "name": "nodyssey-v1.3.11-test.7.apk",
+    "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.11-test.7/nodyssey-v1.3.11-test.7.apk",
+    "sizeBytes": 12200146,
+    "sha256": "4874849916556d756711ea0e00950f6b6c893143fac5a6362d2c860c4c69c6bf"
   },
-  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.10"
+  "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.11-test.7"
 }
