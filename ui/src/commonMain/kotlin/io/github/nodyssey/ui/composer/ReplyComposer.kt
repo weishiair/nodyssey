@@ -116,6 +116,7 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassRimBorderStroke
 import io.github.plaza.designsys.theme.glassSheetBrush
+import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -319,13 +320,15 @@ private fun ReplyEditorSheet(
             windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
         }
     val dismiss = { if (!state.isPublishing) onDismiss() }
+    val nativeGlass = LocalPlazaLayers.current.nativeGlass
     val editor: @Composable (Modifier) -> Unit = { editorModifier ->
         Column(modifier = editorModifier.fillMaxWidth()) {
             // The post editor's top bar in miniature: ✕ · where the reply goes · 预览 · 发布. 发布
             // moved up here from the end of the formatting strip, which is what let the strip go —
             // it was the reason that strip had to squeeze its keys to 42dp.
             Row(
-                modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget).padding(start = Spacing.xs, end = Spacing.md),
+                modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget)
+                    .padding(start = Spacing.xs, end = if (nativeGlass) Spacing.lg else Spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -440,6 +443,8 @@ private fun ReplyEditorSheet(
                 actions = state.toolbar.enabled,
                 bodyState = bodyState,
                 editorState = editorState,
+                // The strip already has an 8dp gutter; align it with the reply's 16dp text inset.
+                barModifier = if (nativeGlass) Modifier.padding(start = Spacing.sm, end = Spacing.sm, top = Spacing.sm) else Modifier,
                 onPickImages = onPickImages,
                 onPickHostedImages = onPickHostedImages,
                 onFormatted = { bodyFocus.requestFocus() },
@@ -687,6 +692,7 @@ private fun PublishReplyButton(
             enabled = enabled,
             loading = isPublishing,
             prominent = true,
+            compact = true,
         ),
         modifier = modifier.heightIn(min = 44.dp),
     ) {

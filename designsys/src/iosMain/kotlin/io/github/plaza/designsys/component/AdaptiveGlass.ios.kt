@@ -27,6 +27,7 @@ import platform.UIKit.UIAction
 import platform.UIKit.UIBarButtonItem
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
+import platform.UIKit.UIButtonConfigurationSize
 import platform.UIKit.UIButtonConfigurationTitleAlignment
 import platform.UIKit.UIColor
 import platform.UIKit.UICornerConfiguration
@@ -231,13 +232,22 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
             action.prominent -> UIButtonConfiguration.prominentGlassButtonConfiguration()
             else -> UIButtonConfiguration.glassButtonConfiguration()
         }.apply {
+            if (action.compact) buttonSize = UIButtonConfigurationSize.UIButtonConfigurationSizeSmall
             title = action.title
             subtitle = action.subtitle
             image = action.symbol?.let { UIImage.systemImageNamed(it) }
             // SF Symbols otherwise keep their large intrinsic size rather than following the text
             // transformers below; this is especially visible in a narrow vertical page rail.
             preferredSymbolConfigurationForImage = UIImageSymbolConfiguration.configurationWithPointSize(
-                (if (grouped) 17.0 else 20.0) * scale,
+                (
+                    if (action.compact) {
+                        16.0
+                    } else if (grouped) {
+                        17.0
+                    } else {
+                        20.0
+                    }
+                    ) * scale,
                 weight = platform.UIKit.UIImageSymbolWeightRegular,
             )
             titleLineBreakMode = NSLineBreakByTruncatingTail
@@ -253,7 +263,12 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
             }
             if (action.prominent) baseBackgroundColor = accent
             titleTextAttributesTransformer = { attributes ->
-                attributes.orEmpty() + (platform.UIKit.NSFontAttributeName to UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(15.0 * scale)))
+                val font = if (action.compact) {
+                    UIFont.systemFontOfSize(13.0 * scale, weight = platform.UIKit.UIFontWeightSemibold)
+                } else {
+                    UIFont.systemFontOfSize(15.0 * scale)
+                }
+                attributes.orEmpty() + (platform.UIKit.NSFontAttributeName to UIFontMetrics.defaultMetrics.scaledFontForFont(font))
             }
         }
         val currentState = state

@@ -137,6 +137,7 @@ import io.github.nodyssey.ui.common.sharedThreadAuthor
 import io.github.nodyssey.ui.common.sharedThreadAvatar
 import io.github.nodyssey.ui.common.sharedThreadBoard
 import io.github.nodyssey.ui.common.sharedThreadTitle
+import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.common.withoutTop
 import io.github.nodyssey.ui.compare.LocalReportOrigin
 import io.github.nodyssey.ui.compare.ReportOrigin
@@ -255,6 +256,7 @@ import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.glassFrostedBar
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
@@ -780,9 +782,12 @@ fun PostDetailScreen(
             // header and lay the list below it rather than scrolling text through the title.
             val frostedTopBar = LocalPlazaLayers.current.backdropGlass
             val topInset = if (frostedTopBar) padding.calculateTopPadding() else 0.dp
+            val bottomInset = if (LocalPlazaLayers.current.nativeGlass) padding.calculateBottomPadding() else 0.dp
+            val viewportPadding = if (LocalPlazaLayers.current.nativeGlass) padding.withoutBottom() else padding
             Box(
                 Modifier
-                    .padding(if (frostedTopBar) padding.withoutTop() else padding)
+                    // Draw the list through the home-indicator area, not above an empty page strip.
+                    .padding(if (frostedTopBar) viewportPadding.withoutTop() else viewportPadding)
                     .fillMaxSize(),
             ) {
                 // First in the Box, though it is never drawn: see [FloorShareCapture].
@@ -864,7 +869,7 @@ fun PostDetailScreen(
                                 isRefreshing = state.isRefreshingTail,
                                 onRefresh = onRefreshTail,
                                 enabled = state.hasContent && !state.hasNextPage && !state.isAppending && !state.isPrepending,
-                                indicatorBottomPadding = 80.dp,
+                                indicatorBottomPadding = 80.dp + bottomInset,
                                 modifier = Modifier.fillMaxSize(),
                             ) {
                                 // Which thread a report on these floors came from, for 测评对比's basket;
@@ -903,6 +908,7 @@ fun PostDetailScreen(
                                         onTitleBottom = { collapsedTitleThreshold = it },
                                         lotteryContent = lotteryContent,
                                         topInset = topInset,
+                                        bottomInset = bottomInset,
                                     )
                                 }
                             }
@@ -916,7 +922,7 @@ fun PostDetailScreen(
                         currentFloor = displayedFloor,
                         onDraggingChanged = { isScrollbarDragging = it },
                         // The list scrolls behind the glass header; this touch target starts below it.
-                        modifier = Modifier.align(Alignment.CenterEnd).padding(top = topInset),
+                        modifier = Modifier.align(Alignment.CenterEnd).padding(top = topInset, bottom = bottomInset),
                     )
                 }
 
@@ -926,7 +932,7 @@ fun PostDetailScreen(
                         lastFloor = lastFloor,
                         onJump = { showPageSheet = true },
                         onReply = { onReply(null) },
-                        modifier = Modifier.align(Alignment.BottomCenter),
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset),
                     )
                 }
 
@@ -1391,6 +1397,7 @@ private fun ThreadList(
     lotteryContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
+    bottomInset: Dp = 0.dp,
 ) {
     val original = state.postReplyStyle == PostReplyStyle.ORIGINAL
     LazyColumn(
@@ -1401,9 +1408,9 @@ private fun ThreadList(
         contentPadding =
         if (original) {
             // The official page's own 8dp gutter; each floor adds its 10dp inset inside it.
-            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = topInset + Spacing.xs, bottom = 96.dp)
+            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = topInset + Spacing.xs, bottom = 96.dp + bottomInset)
         } else {
-            PaddingValues(top = topInset + Spacing.sm, bottom = 96.dp)
+            PaddingValues(top = topInset + Spacing.sm, bottom = 96.dp + bottomInset)
         },
         modifier = modifier
             .fillMaxHeight()

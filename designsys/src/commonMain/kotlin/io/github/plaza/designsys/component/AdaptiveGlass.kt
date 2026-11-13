@@ -14,6 +14,8 @@ data class GlassAction(
     val prominent: Boolean = false,
     val loading: Boolean = false,
     val menu: List<GlassMenuAction> = emptyList(),
+    /** Small native content for a dense header; the host still owns the touch-target size. */
+    val compact: Boolean = false,
 )
 
 data class GlassMenuAction(
