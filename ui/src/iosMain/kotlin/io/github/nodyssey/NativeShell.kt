@@ -68,6 +68,7 @@ import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -822,6 +823,7 @@ private class NativeShell(
          * itself and the navigation delegate writes that back. At the root, it is the same request as
          * on Android: 首页 back to the top and reloaded, 通知 back to the top, 我的 nothing.
          */
+        @ObjCSignatureOverride
         override fun tabBarController(
             tabBarController: UITabBarController,
             shouldSelectViewController: UIViewController,
@@ -840,6 +842,7 @@ private class NativeShell(
             return true
         }
 
+        @ObjCSignatureOverride
         override fun tabBarController(
             tabBarController: UITabBarController,
             didSelectViewController: UIViewController,

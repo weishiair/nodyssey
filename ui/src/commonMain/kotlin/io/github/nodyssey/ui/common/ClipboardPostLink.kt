@@ -6,9 +6,9 @@ import io.github.nodyssey.core.NodeSeekSite
 /**
  * Whether 识别剪贴板中的帖子 exists on this platform — and so whether 设置 shows its switch.
  *
- * Android and iOS. On iOS, `NativeShell` checks `changeCount` and `detectPatterns` for a probable
- * web URL before reading `UIPasteboard`, so plain text and own copies never trigger iOS 16's paste
- * permission prompt. The desktop build has nowhere it would be worth the read.
+ * Android and iOS. On iOS, `NativeShell` checks the item's types, `changeCount`, and `detectPatterns`
+ * for a web link before reading `UIPasteboard`. Non-link text and own copies do not request paste
+ * permission; reading an external link still can. The desktop build has nowhere worth the read.
  */
 internal expect val clipboardPostPromptSupported: Boolean
 

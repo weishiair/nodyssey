@@ -4,13 +4,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import java.awt.datatransfer.StringSelection
 
-/** The desktop answer to [rememberPlainTextClip]: an AWT [StringSelection]. */
+/** The desktop answer to [rememberPlainTextClipboardWrite]: an AWT [StringSelection]. */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-internal actual fun rememberPlainTextClip(): (label: String, text: String) -> ClipEntry =
-    remember { { _, text -> ClipEntry(StringSelection(text)) } }
+internal actual fun rememberPlainTextClipboardWrite(): suspend (label: String, text: String) -> Unit {
+    val clipboard = LocalClipboard.current
+    return remember(clipboard) { { _, text -> clipboard.setClipEntry(ClipEntry(StringSelection(text))) } }
+}
 
 /**
  * Nothing, on purpose.
@@ -22,5 +25,3 @@ internal actual fun rememberPlainTextClip(): (label: String, text: String) -> Cl
  */
 @Composable
 internal actual fun rememberCopyConfirmation(): (confirmation: String) -> Unit = remember { {} }
-
-internal actual fun onOwnClipboardWrite() = Unit

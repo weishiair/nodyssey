@@ -2,22 +2,28 @@ package io.github.plaza.designsys.component
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import platform.Foundation.NSData
+import platform.Foundation.NSUUID
 import platform.UIKit.UIPasteboard
+import platform.UniformTypeIdentifiers.UTTypeUTF8PlainText
 
 /**
- * The iOS answer to [rememberPlainTextClip]: Compose's own plain-text entry.
+ * The iOS answer to [rememberPlainTextClipboardWrite]: one item carrying text and its origin.
  *
- * `ClipEntry`'s constructor is internal on this platform — an entry wraps `NSItemProvider`s, which
- * Compose builds itself — so unlike the other two targets there is nothing to hand it. The label is
- * dropped rather than encoded somewhere: `UIPasteboard` has no per-item label, and Android's is only
- * ever read by Android's own paste UI.
+ * Compose 1.13's `ClipEntry.withPlainText` only writes `UIPasteboard.string`; it cannot attach a
+ * private pasteboard type. Use the composition's `nativeClipboard.items` so the marker and text
+ * are written atomically. Remove this native write when Compose can carry custom pasteboard types.
+ * The label is dropped because `UIPasteboard` has no per-item label.
  */
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-internal actual fun rememberPlainTextClip(): (label: String, text: String) -> ClipEntry =
-    remember { { _, text -> ClipEntry.withPlainText(text) } }
+internal actual fun rememberPlainTextClipboardWrite(): suspend (label: String, text: String) -> Unit {
+    // 1.13.0-alpha01 deprecates this member but ships no replacement iOS accessor yet.
+    // Remove the suppression when its platform-specific replacement is available.
+    @Suppress("DEPRECATION")
+    val pasteboard = LocalClipboard.current.nativeClipboard
+    return remember(pasteboard) { { _, text -> pasteboard.setOwnPlainText(text) } }
+}
 
 /**
  * Nothing, for the same reason as desktop and a different mechanism.
@@ -30,16 +36,16 @@ internal actual fun rememberPlainTextClip(): (label: String, text: String) -> Cl
 @Composable
 internal actual fun rememberCopyConfirmation(): (confirmation: String) -> Unit = remember { {} }
 
-private var lastOwnPasteboardChangeCount: Long? = null
+// Process-specific, so a copy from another app using this library is still an external copy.
+private val ownPasteboardType = "io.github.plaza.designsys.own-clip.${NSUUID().UUIDString().lowercase()}"
 
-internal actual fun onOwnClipboardWrite() {
-    lastOwnPasteboardChangeCount = UIPasteboard.generalPasteboard.changeCount
+internal fun UIPasteboard.setOwnPlainText(text: String) {
+    items = listOf(mapOf(UTTypeUTF8PlainText.identifier to text, ownPasteboardType to NSData()))
 }
 
 /**
- * Whether [changeCount] matches the last write made through [rememberSilentClipboardCopy] on this
- * process — the iOS counterpart of Android's [OWN_CLIP_EXTRA] check, without reading the
- * pasteboard contents.
+ * Checks the current item's types, not its contents or a cached change count. UIKit can delay
+ * updating `changeCount` until the end of an event loop; an item marker is already valid then.
  */
-fun isOwnIosClipboardChange(changeCount: Long): Boolean =
-    lastOwnPasteboardChangeCount == changeCount
+fun isOwnIosClipboard(pasteboard: UIPasteboard): Boolean =
+    pasteboard.containsPasteboardTypes(listOf(ownPasteboardType))

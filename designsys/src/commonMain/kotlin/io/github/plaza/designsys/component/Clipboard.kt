@@ -3,23 +3,19 @@ package io.github.plaza.designsys.component
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import kotlinx.coroutines.launch
 
 /**
  * Copies text and says so.
  *
- * Goes through [LocalClipboard] rather than the platform `ClipboardManager`: the composition-local is
+ * Goes through [androidx.compose.ui.platform.LocalClipboard] rather than `ClipboardManager`: the composition-local is
  * substitutable, so a screen test can assert what a copy button put on the clipboard without a real
  * system service. `setClipEntry` suspends, hence the scope — the lambda *this* one returns stays
  * synchronous so its call sites are unaffected; [rememberSilentClipboardCopy] hands the suspension
  * on instead, for the reason written there.
  *
- * The two things this cannot do itself are the two the platforms disagree about. `ClipEntry` is an
- * `expect class` with no common way to build one from plain text, and whether a copy needs to be
- * announced at all is a question about the OS the copy happened on — see [rememberPlainTextClip] and
- * [rememberCopyConfirmation].
+ * Writing plain text with an own-copy marker and announcing a copy are platform questions — see
+ * [rememberPlainTextClipboardWrite] and [rememberCopyConfirmation].
  */
 @Composable
 fun rememberClipboardCopy(): (label: String, text: String, confirmation: String) -> Unit {
@@ -51,26 +47,17 @@ fun rememberClipboardCopy(): (label: String, text: String, confirmation: String)
  * second coroutine that races the first. Its own snackbar goes in the same `launch` as this call.
  */
 @Composable
-fun rememberSilentClipboardCopy(): suspend (label: String, text: String) -> Unit {
-    val clipboard = LocalClipboard.current
-    val plainText: (String, String) -> ClipEntry = rememberPlainTextClip()
-    return remember(clipboard, plainText) {
-        { label, text ->
-            clipboard.setClipEntry(plainText(label, text))
-            onOwnClipboardWrite()
-        }
-    }
-}
+fun rememberSilentClipboardCopy(): suspend (label: String, text: String) -> Unit =
+    rememberPlainTextClipboardWrite()
 
 /**
- * Wraps plain text as something the clipboard will take.
+ * Writes plain text and its own-copy marker through the composition's clipboard.
  *
- * `ClipEntry` is an `expect class` with no common constructor and no common factory — Compose says
- * what a clipboard entry *is* on every platform but not how to make one, because a `ClipData` and a
- * `Transferable` are not the same kind of thing.
+ * Android stores the marker in `ClipDescription` extras; iOS writes a private pasteboard type in
+ * the same item as the text. Both can be checked without reading clipboard contents.
  */
 @Composable
-internal expect fun rememberPlainTextClip(): (label: String, text: String) -> ClipEntry
+internal expect fun rememberPlainTextClipboardWrite(): suspend (label: String, text: String) -> Unit
 
 /**
  * Tells the reader the copy happened — on the platforms that do not tell them already.
@@ -80,9 +67,3 @@ internal expect fun rememberPlainTextClip(): (label: String, text: String) -> Cl
  */
 @Composable
 internal expect fun rememberCopyConfirmation(): (confirmation: String) -> Unit
-
-/**
- * Records that this app just wrote the clipboard, on platforms whose pasteboard does not carry
- * per-item metadata distinguishing own copies from other apps' (see `IosClipboard`).
- */
-internal expect fun onOwnClipboardWrite()

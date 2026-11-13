@@ -1,10 +1,10 @@
 package io.github.nodyssey.ui.common
 
 import androidx.compose.runtime.Composable
-import io.github.plaza.designsys.component.isOwnIosClipboardChange
+import io.github.plaza.designsys.component.isOwnIosClipboard
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.UIKit.UIPasteboard
-import platform.UIKit.UIPasteboardDetectionPatternProbableWebURL
+import platform.UIKit.UIPasteboardDetectionPatternLink
 import kotlin.coroutines.resume
 
 internal actual val clipboardPostPromptSupported: Boolean = true
@@ -21,46 +21,39 @@ internal actual fun rememberNewClipboardText(): () -> String? = { null }
  * Two-step `UIPasteboard` reader for foreground post-link detection on iOS 16+.
  *
  * Checking [UIPasteboard.changeCount], [UIPasteboard.hasURLs], [UIPasteboard.hasStrings], and
- * `detectPatternsForPatterns` for [UIPasteboardDetectionPatternProbableWebURL] only inspects
+ * `detectPatternsForPatterns` for [UIPasteboardDetectionPatternLink] only inspects
  * metadata and does not show iOS 16's paste permission dialog. Only when a new external clip is
- * confirmed to contain a probable web URL is the pasteboard string or URL actually read.
+ * confirmed to contain a web link is the pasteboard string or URL actually read. That final read
+ * remains subject to the system's paste permission.
  */
 internal object IosClipboardPostReader {
-    private var examinedChangeCount: Long? = null
+    private val reader = ClipboardUrlReader(IosClipboardUrlSource(UIPasteboard.generalPasteboard))
 
-    suspend fun readNewUrlText(): String? {
-        val pasteboard = UIPasteboard.generalPasteboard
-        val changeCount = pasteboard.changeCount
-        if (changeCount == examinedChangeCount) return null
-        if (isOwnIosClipboardChange(changeCount)) {
-            examinedChangeCount = changeCount
-            return null
-        }
-        if (!pasteboard.hasURLs && !pasteboard.hasStrings) {
-            examinedChangeCount = changeCount
-            return null
-        }
-        val hasWebUrl = pasteboard.hasProbableWebUrl()
-        if (pasteboard.changeCount == changeCount) {
-            examinedChangeCount = changeCount
-        }
-        if (!hasWebUrl) return null
-        return when {
-            pasteboard.hasURLs -> pasteboard.URL?.absoluteString
-            pasteboard.hasStrings -> pasteboard.string
-            else -> null
-        }
+    suspend fun readNewUrlText(): String? = reader.readNewUrlText()
+}
+
+internal class IosClipboardUrlSource(private val pasteboard: UIPasteboard) : ClipboardUrlSource {
+    override val changeCount: Long get() = pasteboard.changeCount
+    override val isOwnCopy: Boolean get() = isOwnIosClipboard(pasteboard)
+    override val hasText: Boolean get() = pasteboard.hasURLs || pasteboard.hasStrings
+
+    override suspend fun containsWebLink(): Boolean = pasteboard.containsWebLink()
+
+    override fun readText(): String? = when {
+        pasteboard.hasURLs -> pasteboard.URL?.absoluteString
+        pasteboard.hasStrings -> pasteboard.string
+        else -> null
     }
 }
 
-private suspend fun UIPasteboard.hasProbableWebUrl(): Boolean =
+private suspend fun UIPasteboard.containsWebLink(): Boolean =
     suspendCancellableCoroutine { continuation ->
-        detectPatternsForPatterns(setOf(UIPasteboardDetectionPatternProbableWebURL)) { matchedPatterns, error ->
+        detectPatternsForPatterns(setOf(UIPasteboardDetectionPatternLink)) { matchedPatterns, error ->
             if (!continuation.isActive) return@detectPatternsForPatterns
             if (error != null || matchedPatterns == null) {
                 continuation.resume(false)
             } else {
-                continuation.resume(matchedPatterns.contains(UIPasteboardDetectionPatternProbableWebURL))
+                continuation.resume(matchedPatterns.contains(UIPasteboardDetectionPatternLink))
             }
         }
     }
