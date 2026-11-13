@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -86,7 +87,11 @@ class GlassChromeRenderTest {
                         }
                     }
                 }
-                CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+                CompositionLocalProvider(
+                    LocalLiquidGlassBackdrop provides backdrop,
+                    // Match the real screen's Scaffold; a bare Box otherwise inherits black ink.
+                    LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+                ) {
                     if (threadTools) {
                         ThreadReadingControls(
                             currentFloor = 121,

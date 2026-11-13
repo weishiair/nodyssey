@@ -90,6 +90,8 @@ import io.github.nodyssey.ui.resources.page_jump_title
 import io.github.nodyssey.ui.resources.page_jump_to
 import io.github.nodyssey.ui.resources.page_jump_unit_floor
 import io.github.nodyssey.ui.resources.page_jump_unit_page
+import io.github.plaza.designsys.component.AdaptiveGlassToolbar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.theme.ControlShape
@@ -148,6 +150,7 @@ fun PageJumpRail(
     previousEnabled: Boolean = page > 1,
     previousLabel: StringResource = Res.string.page_jump_previous,
     previousIcon: ImageVector = Icons.Default.KeyboardArrowUp,
+    previousNativeSymbol: String = "chevron.up",
 ) {
     if (LocalPlazaLayers.current.frostedGlass) {
         GlassPageJumpRail(
@@ -161,6 +164,7 @@ fun PageJumpRail(
             previousEnabled = previousEnabled,
             previousLabel = previousLabel,
             previousIcon = previousIcon,
+            previousNativeSymbol = previousNativeSymbol,
         )
         return
     }
@@ -217,40 +221,62 @@ private fun GlassPageJumpRail(
     previousEnabled: Boolean,
     previousLabel: StringResource,
     previousIcon: ImageVector,
+    previousNativeSymbol: String,
 ) {
     val layers = LocalPlazaLayers.current
     val pageDescription = stringResource(Res.string.page_jump_page_of, page, totalPages)
-    VerticalFloatingToolbar(
-        expanded = expanded,
-        modifier = modifier.width(56.dp).glassChromeSurface(
-            layers = layers,
-            darkTheme = LocalPlazaDarkTheme.current,
-            shape = CircleShape,
-            backdrop = LocalLiquidGlassBackdrop.current,
-        ),
-        shape = CircleShape,
-        colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
-            toolbarContainerColor = Color.Transparent,
-            toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
-        contentPadding = PaddingValues(4.dp),
-        expandedShadowElevation = 0.dp,
-        collapsedShadowElevation = 0.dp,
-        trailingContent = {
-            IconButton(onClick = onPrevious, enabled = previousEnabled, modifier = Modifier.size(Sizes.minTouchTarget)) {
-                Icon(previousIcon, contentDescription = stringResource(previousLabel))
-            }
-            IconButton(onClick = onNext, enabled = page < totalPages, modifier = Modifier.size(Sizes.minTouchTarget)) {
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
+    val previousDescription = stringResource(previousLabel)
+    val nextDescription = stringResource(Res.string.page_jump_next)
+    AdaptiveGlassToolbar(
+        actions = buildList {
+            add(
+                GlassAction(
+                    label = pageDescription,
+                    title = page.toString(),
+                    subtitle = stringResource(Res.string.page_jump_of_total, totalPages),
+                    onClick = onPageClick,
+                ),
+            )
+            if (expanded) {
+                add(GlassAction(previousDescription, onPrevious, symbol = previousNativeSymbol, enabled = previousEnabled))
+                add(GlassAction(nextDescription, onNext, symbol = "chevron.down", enabled = page < totalPages))
             }
         },
+        modifier = modifier.width(56.dp),
+        vertical = true,
     ) {
-        IconButton(
-            onClick = onPageClick,
-            modifier = Modifier.size(Sizes.minTouchTarget)
-                .semantics { contentDescription = pageDescription },
+        VerticalFloatingToolbar(
+            expanded = expanded,
+            modifier = modifier.width(56.dp).glassChromeSurface(
+                layers = layers,
+                darkTheme = LocalPlazaDarkTheme.current,
+                shape = CircleShape,
+                backdrop = LocalLiquidGlassBackdrop.current,
+            ),
+            shape = CircleShape,
+            colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
+                toolbarContainerColor = Color.Transparent,
+                toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            contentPadding = PaddingValues(4.dp),
+            expandedShadowElevation = 0.dp,
+            collapsedShadowElevation = 0.dp,
+            trailingContent = {
+                IconButton(onClick = onPrevious, enabled = previousEnabled, modifier = Modifier.size(Sizes.minTouchTarget)) {
+                    Icon(previousIcon, contentDescription = stringResource(previousLabel))
+                }
+                IconButton(onClick = onNext, enabled = page < totalPages, modifier = Modifier.size(Sizes.minTouchTarget)) {
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
+                }
+            },
         ) {
-            Box(Modifier.clearAndSetSemantics {}) { PageNumber(page, totalPages) }
+            IconButton(
+                onClick = onPageClick,
+                modifier = Modifier.size(Sizes.minTouchTarget)
+                    .semantics { contentDescription = pageDescription },
+            ) {
+                Box(Modifier.clearAndSetSemantics {}) { PageNumber(page, totalPages) }
+            }
         }
     }
 }

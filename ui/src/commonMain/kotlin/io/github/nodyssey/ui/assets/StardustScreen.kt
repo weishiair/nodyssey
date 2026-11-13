@@ -258,6 +258,7 @@ fun StardustScreen(
                 PlazaExtendedFab(
                     text = stringResource(Res.string.transfer_action),
                     icon = Icons.AutoMirrored.Filled.Send,
+                    nativeSymbol = "paperplane",
                     onClick = onOpenTransfer,
                 )
             }

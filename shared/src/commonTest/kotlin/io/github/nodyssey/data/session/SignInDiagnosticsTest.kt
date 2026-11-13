@@ -47,7 +47,7 @@ class SignInDiagnosticsTest {
         )
         assertTrue(report.contains("1.3.4-test (85)"))
         assertTrue(report.contains("selected=WEISHIAIR,CUSTOM"))
-        assertTrue(report.contains("DoH paused for detected proxy/VPN: true"))
+        assertTrue(report.contains("DoH paused for detected proxy: true"))
         assertTrue(report.contains("Step: two-factor"))
         assertTrue(report.contains("Verification ready: true"))
         assertTrue(report.contains("NSURLErrorDomain (-1200)"))

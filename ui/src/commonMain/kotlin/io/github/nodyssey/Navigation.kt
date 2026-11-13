@@ -111,6 +111,7 @@ import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.flow.first
@@ -598,7 +599,7 @@ fun MainNavigation(
         defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
             defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
             defaultSuiteType == NavigationSuiteType.NavigationBar
-    val useFloatingGlassBar = layers.frostedGlass && isBottomBarLayout
+    val useFloatingGlassBar = layers.backdropGlass && isBottomBarLayout
     val onSelectTab: (TopLevelDestination) -> Unit = { destination ->
         // Re-selecting a tab takes its list back to the start — 首页 reloads on the way,
         // since the one thing a reader taps 首页 for while already on 首页 is 新帖. Only

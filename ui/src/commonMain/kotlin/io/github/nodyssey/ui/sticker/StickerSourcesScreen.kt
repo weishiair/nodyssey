@@ -161,7 +161,7 @@ fun StickerSourcesRoute(
                     delay(4_000)
                     notice = null
                 }
-                PlazaSnackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md)) { Text(current.text) }
+                PlazaSnackbar(message = current.text, modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md))
             }
         }
     }

@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.common.FloatingBottomBarBandHeight
 import io.github.nodyssey.ui.common.FloatingBottomBarBottomGap
@@ -59,12 +60,15 @@ import io.github.nodyssey.ui.resources.post_open_original
 import io.github.nodyssey.ui.resources.post_reading_original
 import io.github.nodyssey.ui.resources.post_reading_original_position
 import io.github.nodyssey.ui.resources.post_reply_action
+import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.stringResource
 
@@ -77,15 +81,18 @@ internal fun ThreadReadingControls(
     onReply: () -> Unit,
     modifier: Modifier = Modifier,
     visible: Boolean = true,
+    bottomInset: Dp = 0.dp,
 ) {
     if (LocalPlazaLayers.current.frostedGlass) {
         val visibility = remember { MutableTransitionState(false) }
         visibility.targetState = visible
         FloatingBottomBarVisibility(visibleState = visibility, modifier = modifier) {
-            ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply)
+            // Include the safe area in the sliding content so the row starts below the screen,
+            // not partly visible in the home-indicator area before its entrance.
+            ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, Modifier.padding(bottom = bottomInset))
         }
     } else if (visible) {
-        ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, modifier)
+        ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, modifier.padding(bottom = bottomInset))
     }
 }
 
@@ -118,77 +125,93 @@ private fun ThreadReadingControlsRow(
             Modifier.fillMaxWidth().padding(horizontal = 60.dp).align(Alignment.Center),
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
-                onClick = onJump,
-                modifier = Modifier
-                    .widthIn(min = 104.dp)
-                    .heightIn(min = 48.dp)
-                    .then(
-                        if (layers.frostedGlass) {
-                            Modifier.glassChromeSurface(
-                                layers = layers,
-                                darkTheme = darkTheme,
-                                shape = CircleShape,
-                                elevated = true,
-                                backdrop = backdrop,
-                            )
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .semantics { contentDescription = positionLabel },
-                shape = CircleShape,
-                color = if (layers.frostedGlass) Color.Transparent else layers.raised,
-                shadowElevation = if (einkMode || layers.frostedGlass) 0.dp else 2.dp,
+            val positionText = if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}"
+            AdaptiveGlassButton(
+                action = GlassAction(positionLabel, onJump, title = positionText),
+                modifier = Modifier.widthIn(min = 104.dp).heightIn(min = 48.dp),
             ) {
-                Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}",
-                        style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
-                        maxLines = 1,
-                    )
+                Surface(
+                    onClick = onJump,
+                    modifier = Modifier
+                        .widthIn(min = 104.dp)
+                        .heightIn(min = 48.dp)
+                        .then(
+                            if (layers.backdropGlass) {
+                                Modifier.glassChromeSurface(
+                                    layers = layers,
+                                    darkTheme = darkTheme,
+                                    shape = CircleShape,
+                                    elevated = true,
+                                    backdrop = backdrop,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .semantics { contentDescription = positionLabel },
+                    shape = CircleShape,
+                    color = if (layers.backdropGlass) Color.Transparent else layers.raised,
+                    shadowElevation = if (einkMode || layers.backdropGlass) 0.dp else 2.dp,
+                ) {
+                    Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}",
+                            style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
         val fabShape = RoundedCornerShape(16.dp)
-        FloatingActionButton(
-            onClick = onReply,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .size(48.dp)
-                .then(
-                    if (layers.frostedGlass) {
-                        Modifier.glassChromeSurface(
-                            layers = layers,
-                            darkTheme = darkTheme,
-                            shape = fabShape,
-                            elevated = true,
-                            backdrop = backdrop,
-                            surfaceTint =
-                            MaterialTheme.colorScheme.primaryContainer.copy(
-                                alpha = if (darkTheme) 0.44f else 0.42f,
-                            ),
-                        )
-                    } else {
-                        Modifier
-                    },
-                ),
-            shape = fabShape,
-            containerColor =
-            if (layers.frostedGlass) {
-                Color.Transparent
-            } else {
-                MaterialTheme.colorScheme.primaryContainer
-            },
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            elevation =
-            if (layers.frostedGlass) {
-                FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
-            } else {
-                FloatingActionButtonDefaults.elevation(defaultElevation = if (einkMode) 0.dp else 2.dp)
-            },
+        AdaptiveGlassButton(
+            action = GlassAction(
+                label = stringResource(Res.string.post_reply_action),
+                onClick = onReply,
+                symbol = "arrowshape.turn.up.left",
+                prominent = true,
+            ),
+            modifier = Modifier.align(Alignment.CenterEnd).size(48.dp),
         ) {
-            Icon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
+            FloatingActionButton(
+                onClick = onReply,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(48.dp)
+                    .then(
+                        if (layers.backdropGlass) {
+                            Modifier.glassChromeSurface(
+                                layers = layers,
+                                darkTheme = darkTheme,
+                                shape = fabShape,
+                                elevated = true,
+                                backdrop = backdrop,
+                                surfaceTint =
+                                MaterialTheme.colorScheme.primaryContainer.copy(
+                                    alpha = if (darkTheme) 0.44f else 0.42f,
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
+                shape = fabShape,
+                containerColor =
+                if (layers.backdropGlass) {
+                    Color.Transparent
+                } else {
+                    MaterialTheme.colorScheme.primaryContainer
+                },
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                elevation =
+                if (layers.backdropGlass) {
+                    FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
+                } else {
+                    FloatingActionButtonDefaults.elevation(defaultElevation = if (einkMode) 0.dp else 2.dp)
+                },
+            ) {
+                Icon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
+            }
         }
     }
 }

@@ -176,6 +176,7 @@ internal fun ConversationList(
         PlazaExtendedFab(
             text = stringResource(Res.string.messages_new_conversation),
             icon = Icons.Default.Edit,
+            nativeSymbol = "square.and.pencil",
             onClick = onNewConversation,
             modifier = Modifier
                 .align(Alignment.BottomEnd)

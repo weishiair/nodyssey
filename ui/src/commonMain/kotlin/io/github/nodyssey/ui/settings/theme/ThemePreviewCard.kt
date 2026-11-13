@@ -42,6 +42,7 @@ import io.github.plaza.designsys.component.TonalTagShape
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
@@ -144,7 +145,7 @@ internal fun ThemePreviewCard(modifier: Modifier = Modifier) {
                 }
             }
         }
-        if (layers.frostedGlass) {
+        if (layers.backdropGlass) {
             val backdrop = rememberLiquidGlassBackdrop()
             Box(Modifier.fillMaxWidth().height(90.dp)) {
                 // The real navigation capsule samples these palette surfaces, using this device's

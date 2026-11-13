@@ -301,6 +301,7 @@ fun BookmarksScreen(
                 PlazaExtendedFab(
                     text = stringResource(Res.string.bookmarks_download_all, state.pendingDownloadCount),
                     icon = PlazaIcons.DownloadForOffline,
+                    nativeSymbol = "arrow.down.circle",
                     onClick = onDownloadPending,
                 )
             }

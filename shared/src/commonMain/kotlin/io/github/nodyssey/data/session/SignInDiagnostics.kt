@@ -55,7 +55,7 @@ fun signInDiagnosticReport(
             else -> "${proxy.type}; scope=${proxy.scope}"
         },
     )
-    appendLine("DoH paused for detected proxy/VPN: ${context.dohPausedForProxy?.toString() ?: "unavailable"}")
+    appendLine("DoH paused for detected proxy: ${context.dohPausedForProxy?.toString() ?: "unavailable"}")
     appendLine("Actual system routing and remote IP family: not verified")
     append(failure.asText())
 }

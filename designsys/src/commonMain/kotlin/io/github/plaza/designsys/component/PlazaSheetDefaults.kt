@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.GlassRimWidth
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassHeaderDividerBrush
 
 /**
@@ -46,7 +47,7 @@ object PlazaSheetDefaults {
         val layers = LocalPlazaLayers.current
         val darkTheme = LocalPlazaDarkTheme.current
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            if (layers.frostedGlass) {
+            if (layers.backdropGlass) {
                 Box(
                     Modifier.fillMaxWidth().height(GlassRimWidth)
                         .background(layers.glassHeaderDividerBrush(darkTheme)),

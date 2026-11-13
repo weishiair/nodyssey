@@ -626,6 +626,7 @@ fun PostListScreen(
                     PlazaExtendedFab(
                         text = stringResource(Res.string.action_create_post),
                         icon = Icons.Default.Edit,
+                        nativeSymbol = "square.and.pencil",
                         onClick = onCreatePost,
                         expanded = !navigationBarHidden,
                         modifier = Modifier.padding(
@@ -899,10 +900,12 @@ private fun FeedPageBar(
             previousEnabled = canScrollToTop,
             previousLabel = Res.string.action_scroll_to_top,
             previousIcon = PlazaIcons.VerticalAlignTop,
+            previousNativeSymbol = "arrow.up.to.line",
         )
         PlazaExtendedFab(
             text = stringResource(Res.string.action_create_post),
             icon = Icons.Default.Edit,
+            nativeSymbol = "square.and.pencil",
             onClick = onCreatePost,
             expanded = expanded,
         )

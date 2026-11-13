@@ -347,7 +347,7 @@ fun PlazaLayers.glassRimBrush(darkTheme: Boolean, strength: Float = 1f): Brush {
  * or falls back to [cardBorderStroke] (the 墨水屏 outline, null elsewhere).
  */
 fun PlazaLayers.glassRimBorderStroke(darkTheme: Boolean): BorderStroke? =
-    if (frostedGlass) BorderStroke(GlassRimWidth, glassRimBrush(darkTheme)) else cardBorderStroke
+    if (backdropGlass) BorderStroke(GlassRimWidth, glassRimBrush(darkTheme)) else cardBorderStroke
 
 /**
  * [glassRimBorderStroke] as a [Modifier] for controls that take no `BorderStroke` parameter of
@@ -358,7 +358,7 @@ fun Modifier.glassRimBorder(
     darkTheme: Boolean,
     shape: Shape,
 ): Modifier =
-    if (layers.frostedGlass) {
+    if (layers.backdropGlass) {
         border(GlassRimWidth, layers.glassRimBrush(darkTheme), shape)
     } else {
         cardBorder(layers, shape)
@@ -381,7 +381,7 @@ fun rememberLiquidGlassBackdrop(
     backgroundColor: Color = LocalPlazaLayers.current.page,
     enabled: Boolean = true,
 ): LayerBackdrop? {
-    if (!LocalPlazaLayers.current.frostedGlass || !enabled || !isRenderEffectSupported()) return null
+    if (!LocalPlazaLayers.current.backdropGlass || !enabled || !isRenderEffectSupported()) return null
     return rememberLayerBackdrop {
         drawRect(backgroundColor)
         drawContent()
@@ -389,7 +389,7 @@ fun rememberLiquidGlassBackdrop(
 }
 
 /**
- * Attaches [backdrop] as a capture source when non-null (i.e. when [PlazaLayers.frostedGlass] is
+ * Attaches [backdrop] as a capture source when non-null (i.e. when [PlazaLayers.backdropGlass] is
  * active); a no-op otherwise.
  */
 fun Modifier.liquidGlassBackdropSource(backdrop: LayerBackdrop?): Modifier =
@@ -397,7 +397,7 @@ fun Modifier.liquidGlassBackdropSource(backdrop: LayerBackdrop?): Modifier =
 
 /**
  * Full-width frosted matte header backdrop for top app bars (covering the status bar and toolbar
- * strip) when [PlazaLayers.frostedGlass] is active. Blurs the scrolling content underneath with a
+ * strip) when [PlazaLayers.backdropGlass] is active. Blurs the scrolling content underneath with a
  * soft Gaussian blur and overlays [glassHeaderBrush] without lens distortion or outer box shadows.
  */
 fun Modifier.glassFrostedBar(
@@ -406,7 +406,7 @@ fun Modifier.glassFrostedBar(
     backdrop: Backdrop?,
     baseColor: Color = layers.page,
 ): Modifier {
-    if (!layers.frostedGlass) return this
+    if (!layers.backdropGlass) return this
     val headerBrush = layers.glassHeaderBrush(darkTheme, baseColor)
     return if (backdrop != null && isRenderEffectSupported()) {
         this.drawBackdrop(
@@ -462,7 +462,7 @@ fun Modifier.glassChromeSurface(
     surfaceTint: Color = Color.Unspecified,
     style: GlassSurfaceStyle = GlassSurfaceStyle.Control,
 ): Modifier {
-    if (!layers.frostedGlass) {
+    if (!layers.backdropGlass) {
         return this
             .floatShadow(shape, enabled = elevated && layers.shadows)
             .clip(shape)
