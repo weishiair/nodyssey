@@ -3,12 +3,15 @@
 功能合入 `dev` 后，Codemagic 自动运行 Rust 网络核心、Kotlin/Native 和 iOS 模拟器回归；推送
 `v` 版本标签后，它自动构建未签名的 iPhone IPA 和模拟器包，并将 IPA 附加到对应的 GitHub
 Release。普通功能分支不会自动占用 Mac，仍可在 Codemagic 手动运行 **Nodyssey iOS unsigned
-IPA**，无需 GitHub 发布凭据。
+IPA**，无需 GitHub 发布凭据；该手动工作流保留原有的 Rust 和 macOS Native 测试，不额外要求
+模拟器回归通过。自动回归与标签发布则运行完整的 iOS 模拟器测试。
 
 工作流使用 M2 Mac、JDK 21、Xcode 26.6，最长运行 120 分钟。它会验证 ARM 宿主、版本、应用
 标识和真机及模拟器二进制的 SDK；iOS SDK 必须至少为 26，才能使用系统液态玻璃底栏。Rust
 工具链由 `native/ios-network/rust-toolchain.toml` 固定。多平台项目的 Android 插件在配置时
 需要 SDK 目录，因此构建使用 Codemagic 预装的 SDK，但不构建 Android 目标。
+模拟器回归使用 `.github/scripts/boot-ios-test-simulator.sh` 启动完整的 iOS 系统服务；测试结束后
+关闭模拟器，再进行需要较多内存的优化链接。
 
 ## 首次接入和切换
 

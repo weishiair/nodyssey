@@ -79,7 +79,9 @@ definitions:
         set -euo pipefail
         export PATH="$HOME/.cargo/bin:$PATH"
         export DEVELOPER_DIR="${DEVELOPER_DIR:-$(xcode-select -p)}"
-        ./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test --max-workers=1
+        device=$(bash .github/scripts/boot-ios-test-simulator.sh)
+        trap 'xcrun simctl shutdown "$device"' EXIT
+        ./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test --max-workers=1 "-Pnodyssey.iosTestDevice=$device"
     archive: &archive
       name: Build and verify the unsigned iPhone IPA
       script: |
@@ -190,7 +192,6 @@ workflows:
       - *prepare
       - *network_test
       - *native_test
-      - *simulator_test
       - *archive
       - *simulator_app
     artifacts: &ios_artifacts
