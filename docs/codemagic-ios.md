@@ -1,35 +1,56 @@
 # Codemagic iOS 构建
 
-仓库根目录的 `codemagic.yaml` 提供 `ios-unsigned` 工作流，使用 macOS M2、JDK 21 和 Xcode 26.6。没有自动触发、自动发布或消息通知；在 Codemagic 页面手动开始构建。
+功能合入 `dev` 后，Codemagic 自动运行 Rust 网络核心、Kotlin/Native 和 iOS 模拟器回归；推送
+`v` 版本标签后，它自动构建未签名的 iPhone IPA 和模拟器包，并将 IPA 附加到对应的 GitHub
+Release。普通功能分支不会自动占用 Mac，仍可在 Codemagic 手动运行 **Nodyssey iOS unsigned
+IPA**，无需 GitHub 发布凭据。
 
-多平台项目的 Android 插件在配置时需要 SDK 目录，因此准备步骤会将 Codemagic 预装 SDK 的路径写入 `local.properties`。此工作流只运行原生测试并编译 iOS，不安装 Android 平台包或 Build Tools，也不修改 Android 的 `compileSdk`。
+工作流使用 M2 Mac、JDK 21、Xcode 26.6，最长运行 120 分钟。它会验证 ARM 宿主、版本、应用
+标识和真机及模拟器二进制的 SDK；iOS SDK 必须至少为 26，才能使用系统液态玻璃底栏。Rust
+工具链由 `native/ios-network/rust-toolchain.toml` 固定。多平台项目的 Android 插件在配置时
+需要 SDK 目录，因此构建使用 Codemagic 预装的 SDK，但不构建 Android 目标。
 
-构建会使用 `native/ios-network/rust-toolchain.toml` 固定的 Rust 工具链，先运行网络核心测试，再通过 Gradle 编译并链接 DoH/ECH 静态库。原生依赖许可随 IPA 一同打包；不需要额外的代理或签名凭据。
+## 首次接入和切换
 
-## 操作
+1. 在 Codemagic 添加 `weishiair/nodyssey`，在应用设置的 **Webhooks** 点击 **Update webhook**。
+   自动触发读取事件对应提交中的 `codemagic.yaml`，所以该文件需先合入相关分支；旧标签不会
+   自动获得新配置。
+2. 为自动上传 IPA，创建只允许访问该仓库的 GitHub fine-grained personal access token，授予
+   **Contents: read and write** 和 **Actions: read**。Contents 写权限也能修改仓库内容，应设置
+   到期时间并妥善保管。在
+   Codemagic 应用设置的 **Environment variables** 中，将 token 作为勾选 **Secret** 的
+   `GH_TOKEN` 保存到 `github_release` 组。不要把 token 写进仓库或聊天。
+3. 将配置合入 `dev` 后，检查自动运行的 **Nodyssey iOS native regression**。从包含新配置的
+   提交创建一个 iOS 测试版本标签，确认 **Nodyssey iOS tag release** 通过，并在 GitHub
+   prerelease 上核对 IPA 与版本信息。iOS-only 标签会创建 prerelease；其他标签会等待 Android
+   工作流创建同名 Release，不会代它创建正式版。
+4. Codemagic 的标签发布验证成功后，在 GitHub 仓库 **Settings → Secrets and variables →
+   Actions → Variables** 中设置 `CODEMAGIC_IOS_RELEASE` 为 `true`。此后标签触发的 GitHub
+   Release 工作流不再启动 Mac job，避免重复构建和覆盖附件。手动运行 Release 工作流仍可
+   使用 GitHub Mac、`ios_ref` 修复和 Telegram 通知；删除该变量或改成其他值即可恢复原行为。
 
-1. 在 Codemagic 应用页面选中包含 `codemagic.yaml` 的分支，然后点击 **Check for configuration files**。
-2. 选择 **Nodyssey iOS unsigned IPA**，手动开始构建。
-3. 构建完成后，从 Artifacts 下载 `.ipa`。这是 iPhone arm64 设备包，需要使用自己的签名工具签名后安装。
-4. 同一次构建还会生成 `Nodyssey.app` 模拟器产物，供 Codemagic App Preview 识别，以及 `*-simulator-arm64.zip` 下载包。解压后可通过 `xcrun simctl install booted Nodyssey.app` 安装到 Apple Silicon Mac 的 iOS Simulator。设备 IPA 与模拟器包不可互换。
+未完成第 4 步时 GitHub 的 iOS job 保持原样。正式发布前也必须将此配置合入 `main`，让正式
+标签所指向的提交包含它。
 
-若 Codemagic 账号已经启用 App Preview，成功构建的 `.app` 旁会出现 **Quick Launch**。此功能是团队的独立服务；官方文档目前说明 Pay as you go 团队启用后有 100 分钟试用，之后按预览分钟计费，不能与免费构建分钟混为一谈。本配置只生成产物，不启用套餐或启动计费预览会话。
+## 产物与恢复
 
-配置修复推送后，请在分支上启动新的构建，并检查页面显示的新提交号；重建旧提交仍会使用旧配置。
+在 Codemagic 构建页的 Artifacts 可以下载 iPhone arm64 IPA、模拟器 `.app` 和
+`*-simulator-arm64.zip`，以及测试报告、源码提交号和构建日志。IPA **没有签名**，需要使用
+自己的签名工具签名后安装；模拟器包只能用于 Apple Silicon Mac 的 iOS Simulator。
 
-不需要上传 Apple 证书、账号密码或 App Store Connect 密钥。此流程不提交 App Store，也不会改动 GitHub Release。
+对于普通版本标签，Codemagic 最多等待五分钟，直到相同标签与提交的 Android Release job
+成功结束；GitHub 的 iOS Mac job 是否排队不影响等待。若 Android job 失败或尚未完成，iOS 发布步骤会失败，已生成的 IPA 仍可在构建产物中下载；应先修复 Android 发布，
+再使用 GitHub 手动 iOS 工作流，或下载并核对产物后附加到同一 Release。Codemagic 的手动构建
+不会自动上传 Release。
 
-## 版本和验证
+自动回归只监听 `dev`，新提交会取消同分支尚未完成的旧回归。标签构建不会互相取消。Codemagic
+各工作流分别缓存 Gradle 依赖、Kotlin/Native 工具链和 Rust 编译产物；第一次构建可能较慢。
+个人账户的免费构建分钟数和按量计费以 Codemagic **Billing** 页面为准，超过免费额度后可能产生
+费用。App Preview 是独立服务，不包含在本自动构建流程里。
 
-`gradle.properties` 的 `nodyssey.versionName`、`nodyssey.versionCode` 是唯一版本来源。构建将其传给 Xcode，并检查包内 Info.plist 版本、应用标识、arm64 架构和 ZIP 完整性。
+参考：
 
-构建先运行 `:shared:macosArm64Test`，再分别编译 Release 真机包和 Debug 模拟器包，后者同样包含 DoH/ECH 原生网络库。构建产物包括 IPA、模拟器 `.app` 和 ZIP、SHA-256、源代码提交号、版本信息、Xcode 日志和原生测试报告，方便核对实际拿到的包。
-
-工作流默认最长 90 分钟，并缓存 Gradle 下载依赖、Kotlin/Native 工具链和 Rust 编译产物。缓存和手动触发用于减少重复下载及不必要的构建；首次运行仍需实际验证 Codemagic 环境。GitHub 的既有构建流程继续保留。
-
-参考官方配置与环境说明：
-
-- https://docs.codemagic.io/yaml-basic-configuration/yaml-getting-started/
-- https://docs.codemagic.io/yaml-quick-start/building-a-native-ios-app/
+- https://docs.codemagic.io/yaml-running-builds/starting-builds-automatically/
+- https://docs.codemagic.io/yaml-distributing/github-releases/
+- https://docs.codemagic.io/yaml-basic-configuration/configuring-environment-variables/
 - https://docs.codemagic.io/specs-macos/xcode-26-6/
-- https://docs.codemagic.io/yaml-distributing/app-preview/

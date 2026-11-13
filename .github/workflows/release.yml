@@ -413,6 +413,9 @@ jobs:
   # it breaks, the APK and the update manifests are already out; the run goes red, and the `.ipa`
   # arrives when the break is fixed and the workflow is re-run for the same tag.
   ios:
+    # Keep GitHub as the fallback until Codemagic has been verified and explicitly enabled.
+    # Manual release runs continue to support ios_ref repairs and Telegram notifications.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.CODEMAGIC_IOS_RELEASE != 'true' }}
     needs: release
     # Release builds require an ARM host so the Native runtime gates cannot be skipped.
     runs-on: ${{ inputs.ios_runner || 'macos-15' }}
