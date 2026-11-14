@@ -43,6 +43,17 @@ sealed interface RichNode {
     ) : RichNode
 
     /**
+     * A video or iframe kept as a link, opened only when the reader chooses it.
+     * No player HTML, scripts or autoplay state is stored or executed by the renderer.
+     */
+    @Serializable
+    @SerialName("media")
+    data class EmbeddedMedia(
+        val url: String,
+        val title: String? = null,
+    ) : RichNode
+
+    /**
      * Where a poll goes. The body carries only its id.
      *
      * Nothing about the poll itself is stored — the options, the tallies and whether this account has

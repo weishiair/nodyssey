@@ -1,0 +1,9 @@
+<!-- Reduced HTML cases for the iframe/video parser paths. -->
+<article id="mixed"><p>Before<iframe src="//player.bilibili.com/player.html?bvid=BV1kMWz6CESY&amp;page=2" title="Bilibili"></iframe>After<img class="sticker" src="/static/image/sticker/ac/01.png"></p></article>
+<article id="bare"><iframe src="https://player.example.com/embed/1"></iframe></article>
+<article id="relative-query"><iframe src="player?next=https://example.com/watch"></iframe></article>
+<article id="media-and-image"><div><span><iframe src="https://player.example.com/embed/3"></iframe><img src="/media/cover.jpg"></span></div></article>
+<article id="video-src"><video src="/media/main.mp4" poster="/media/poster.jpg" title="Demo"><source src="/media/alternate.webm"></video></article>
+<article id="video-sources"><p><video><source src="javascript:alert(1)"><source src="/media/fallback.mp4?x=1&amp;y=2"><source src="/media/other.webm"></video></p></article>
+<article id="nested"><div><p><strong>Before<iframe src="https://player.example.com/embed/2" title="Clip"></iframe>After</strong></p></div><table><tr><td><video src="//cdn.example.com/clip.mp4"></video></td></tr></table></article>
+<article id="unsafe"><p>Before<iframe src="javascript:alert(1)"></iframe><iframe src="data:text/html,player"></iframe><iframe src="file:///private/player.html"></iframe><iframe src="mailto:test@example.com"></iframe><iframe srcdoc="&lt;script&gt;alert(1)&lt;/script&gt;"></iframe><iframe src="https://user:password@player.example.com/embed/1"></iframe><video><source src="blob:unavailable"></video>After</p></article>

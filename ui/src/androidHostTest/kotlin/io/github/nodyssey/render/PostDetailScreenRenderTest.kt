@@ -86,6 +86,26 @@ class PostDetailScreenRenderTest {
         composeRule.onRoot().captureRender("post-detail-dark")
     }
 
+    @Test
+    fun `an embedded video in dark`() {
+        val state = STATE.copy(
+            title = "武状元黄乞儿",
+            body = BODY.copy(
+                authorName = "tiao",
+                categoryTitle = "日常",
+                nodes = listOf(
+                    RichNode.EmbeddedMedia(
+                        "https://player.bilibili.com/player.html?autoplay=0&high_quality=1&bvid=BV1kMWz6CESY&page=1",
+                    ),
+                ),
+            ),
+            isAwarded = false,
+        )
+        composeRule.setContent { Screen(darkTheme = true, state = state) }
+
+        composeRule.onRoot().captureRender("post-detail-embedded-video-dark")
+    }
+
     /** A 置顶 floor: the site lifts it above the rest and marks it with a pin beside its number. */
     @Test
     fun `pinned reply in light`() {
