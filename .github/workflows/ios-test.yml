@@ -71,11 +71,17 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      BUILD_VERSION: 1.3.4-test.10
-      BUILD_CODE: '88'
     steps:
       - uses: actions/checkout@v7
+      - name: Read the package version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
+          code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(ios-)?test\.[0-9]+)?$ ]]
+          [[ "$code" =~ ^[1-9][0-9]*$ ]]
+          echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
+          echo "BUILD_CODE=$code" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -112,7 +118,7 @@ jobs:
           grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$output/apk-signature.txt"
           grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' "$output/apk-signature.txt"
           "$tools/zipalign" -c -P 16 -v 4 "$apk" > "$output/apk-zipalign.txt"
-          name="nodyssey-$BUILD_VERSION.apk"
+          name="nodyssey-v$BUILD_VERSION.apk"
           cp "$apk" "$output/$name"
           cp app/build/outputs/mapping/release/mapping.txt "$output/mapping-$BUILD_VERSION.txt"
           git rev-parse HEAD > "$output/source-commit.txt"
@@ -189,7 +195,7 @@ jobs:
         run: |
           version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
           code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-ios-test\.[0-9]+)?$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(ios-)?test\.[0-9]+)?$ ]]
           [[ "$code" =~ ^[1-9][0-9]*$ ]]
           if [[ "$version" != *-ios-test.* ]]; then
             test "$(uname -m)" = arm64
@@ -200,15 +206,23 @@ jobs:
       - name: Run common tests on Kotlin Native
         if: runner.arch == 'ARM64'
         run: ./gradlew :shared:macosArm64Test --max-workers=2
-      - name: Test iOS split navigation on the simulator
+      - name: Test native controls and iOS navigation on the simulator
         if: runner.arch == 'ARM64'
-        run: ./gradlew :ui:iosSimulatorArm64Test --max-workers=1
+        run: |
+          device=$(bash .github/scripts/boot-ios-test-simulator.sh)
+          echo "NODYSSEY_IOS_TEST_DEVICE=$device" >> "$GITHUB_ENV"
+          ./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test --max-workers=1 "-Pnodyssey.iosTestDevice=$device"
+      - name: Shut down the test simulator before optimized linking
+        if: always() && env.NODYSSEY_IOS_TEST_DEVICE != ''
+        run: xcrun simctl shutdown "$NODYSSEY_IOS_TEST_DEVICE"
       - name: Upload iOS simulator test failures
         if: failure() && runner.arch == 'ARM64'
         uses: actions/upload-artifact@v7
         with:
           name: ios-simulator-test-results-${{ github.run_id }}
           path: |
+            designsys/build/test-results/iosSimulatorArm64Test/
+            designsys/build/reports/tests/iosSimulatorArm64Test/
             ui/build/test-results/iosSimulatorArm64Test/
             ui/build/reports/tests/iosSimulatorArm64Test/
           if-no-files-found: ignore
@@ -217,7 +231,21 @@ jobs:
         if: runner.arch == 'X64'
         run: |
           echo '::notice::Intel fallback: macosArm64Test cannot execute on this host. Running shared JVM tests; the iOS arm64 targets are still compiled below.'
-          ./gradlew :shared:jvmTest --max-workers=2
+          ./gradlew :shared:jvmTest :shared:compileTestKotlinIosArm64 --max-workers=2
+      - name: Test CFNetwork proxy resolution on the Intel host
+        if: runner.arch == 'X64'
+        shell: bash
+        run: |
+          # Paging has no macosX64 artifact, so the whole shared module cannot run on Intel.
+          # This detector depends only on Apple frameworks: run its production source and tests
+          # with the pinned compiler already provisioned by the iOS test compilation above.
+          kotlin_version=$(sed -n 's/^kotlin = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          compiler="$HOME/.konan/kotlin-native-prebuilt-macos-x86_64-$kotlin_version/bin/kotlinc-native"
+          "$compiler" \
+            shared/src/appleMain/kotlin/io/github/plaza/core/net/AppleSystemProxy.kt \
+            shared/src/appleTest/kotlin/io/github/plaza/core/net/AppleSystemProxyTest.kt \
+            -target macos_x64 -generate-test-runner -o "$RUNNER_TEMP/apple-system-proxy-tests"
+          "$RUNNER_TEMP/apple-system-proxy-tests.kexe"
       - name: Compile the iOS shell without packaging
         if: inputs.checks_only == true
         run: ./gradlew :iosapp:compileKotlinIosArm64 :iosapp:compileKotlinIosSimulatorArm64 --max-workers=2

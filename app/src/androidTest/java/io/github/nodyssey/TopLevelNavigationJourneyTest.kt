@@ -13,11 +13,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.waitUntilExactlyOneExists
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.home_search_hint
 import io.github.nodyssey.ui.resources.tab_home
 import io.github.nodyssey.ui.resources.tab_notifications
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
@@ -26,10 +26,11 @@ import org.junit.Test
 import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
 
 /** A device-level smoke journey for tab selection, configuration restoration, and root back. */
-@RunWith(AndroidJUnit4::class)
-class TopLevelNavigationJourneyTest {
+@RunWith(Parameterized::class)
+class TopLevelNavigationJourneyTest(private val frostedGlass: Boolean) {
     private val composeRule = createAndroidComposeRule<MainActivity>()
 
     /**
@@ -48,7 +49,7 @@ class TopLevelNavigationJourneyTest {
      * is applied, which is earlier than any `@Before` runs.
      */
     @get:Rule
-    val rules: RuleChain = RuleChain.outerRule(OnboardingAlreadySeen()).around(composeRule)
+    val rules: RuleChain = RuleChain.outerRule(OnboardingAlreadySeen(frostedGlass)).around(composeRule)
 
     @Test
     fun topLevelSelectionSurvivesRecreationAndBackReturnsHome() {
@@ -70,11 +71,17 @@ class TopLevelNavigationJourneyTest {
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun searchOpensFromTheFeedAndBackReturnsToIt() {
+    fun searchSurvivesGlassThemeChangeAndBackReturnsToTheFeed() {
         navigationItem(Res.string.tab_home).assertIsSelected()
 
         composeRule.onNode(searchAction()).performClick()
         searchInputField().performTextInput("搜索一下")
+        searchInputField().assertTextContains("搜索一下")
+
+        // A live theme change must keep the navigation entry and its in-progress input alive.
+        val settings = ApplicationProvider.getApplicationContext<NodysseyApp>().container.settingsRepository
+        runBlocking { settings.setFrostedGlass(!frostedGlass) }
+        composeRule.waitForIdle()
         searchInputField().assertTextContains("搜索一下")
 
         composeRule.runOnUiThread {
@@ -108,6 +115,12 @@ class TopLevelNavigationJourneyTest {
         composeRule.onNode(
             hasText(runBlocking { getString(label) }) and hasClickAction(),
         )
+
+    companion object {
+        @JvmStatic
+        @Parameterized.Parameters(name = "glass={0}")
+        fun modes() = listOf(false, true)
+    }
 }
 
 /**
@@ -116,9 +129,27 @@ class TopLevelNavigationJourneyTest {
  * The store rather than a test double: it is what `NodysseyRoot` reads, and the instrumentation runs
  * in the app's own process, so this is the same DataStore the guide would have written itself.
  */
-private class OnboardingAlreadySeen : ExternalResource() {
+private class OnboardingAlreadySeen(private val frostedGlass: Boolean) : ExternalResource() {
+    private var previousGlass = false
+    private var previousEink = false
+
     override fun before() {
-        val app = ApplicationProvider.getApplicationContext<NodysseyApp>()
-        runBlocking { app.container.settingsRepository.setOnboardingSeen(true) }
+        val settings = ApplicationProvider.getApplicationContext<NodysseyApp>().container.settingsRepository
+        runBlocking {
+            val previous = settings.settings.first()
+            previousGlass = previous.frostedGlass
+            previousEink = previous.einkMode
+            settings.setOnboardingSeen(true)
+            settings.setEinkMode(false)
+            settings.setFrostedGlass(frostedGlass)
+        }
+    }
+
+    override fun after() {
+        val settings = ApplicationProvider.getApplicationContext<NodysseyApp>().container.settingsRepository
+        runBlocking {
+            settings.setFrostedGlass(previousGlass)
+            settings.setEinkMode(previousEink)
+        }
     }
 }

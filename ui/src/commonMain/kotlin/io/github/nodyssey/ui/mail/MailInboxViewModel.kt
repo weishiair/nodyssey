@@ -66,6 +66,7 @@ class MailInboxViewModel(
     private val state = MutableStateFlow(MailInboxUiState())
     private var generation = 0L
     private var loadJob: Job? = null
+    private var loadSerial = 0L
     private var defaultMailboxJob: Job? = null
     private var markAllReadJob: Job? = null
     private var authorizationGeneration: Long? = null
@@ -106,6 +107,8 @@ class MailInboxViewModel(
                     connecting = !connection.connected && state.value.connecting &&
                         (authorizationGeneration == null || sameAuthorization),
                     authorizing = state.value.authorizing && sameAuthorization,
+                    challengeVerificationAvailable = state.value.challengeVerificationAvailable && sameAuthorization,
+                    verifyingChallenge = state.value.verifyingChallenge && sameAuthorization,
                     error = connection.error,
                 )
                 if (authorizationGeneration != connection.generation || connection.connected) {
@@ -182,10 +185,10 @@ class MailInboxViewModel(
     }
 
     fun authorizeOnWebsite() {
-        startAuthorization(website = true)
+        startAuthorization(website = true, recoveringChallenge = state.value.challengeVerificationAvailable)
     }
 
-    private fun startAuthorization(website: Boolean) {
+    private fun startAuthorization(website: Boolean, recoveringChallenge: Boolean = false, automaticallyVerifyChallenge: Boolean = true) {
         if (state.value.connecting || state.value.authorizing || authorizationJob?.isActive == true) return
         apiKey.clearText()
         val serial = ++authorizationSerial
@@ -193,8 +196,8 @@ class MailInboxViewModel(
             it.copy(
                 connecting = true,
                 error = null,
-                challengeVerificationAvailable = false,
-                verifyingChallenge = false,
+                challengeVerificationAvailable = recoveringChallenge,
+                verifyingChallenge = recoveringChallenge,
             )
         }
         authorizationJob = viewModelScope.launch {
@@ -203,16 +206,29 @@ class MailInboxViewModel(
                     val attempt = repository.beginAuthorization()
                     currentCoroutineContext().ensureActive()
                     authorizationGeneration = attempt
-                    state.update { it.copy(authorizing = website, connecting = !website, error = null) }
+                    state.update {
+                        it.copy(
+                            authorizing = website,
+                            connecting = !website,
+                            error = null,
+                            challengeVerificationAvailable = recoveringChallenge,
+                            verifyingChallenge = recoveringChallenge,
+                        )
+                    }
                     if (!website) repository.authorize(attempt)
                 }.onFailure { error ->
                     val mailError = error.mailError()
                     if (serial == authorizationSerial) {
+                        val challenge = !website && mailError == MailError.CHALLENGE
                         state.update {
                             it.copy(
                                 error = mailError,
-                                challengeVerificationAvailable = !website && mailError == MailError.CHALLENGE,
-                                verifyingChallenge = false,
+                                connecting = false,
+                                // Use the provider's real web flow: the forum home page need not
+                                // trigger the rule that refused the authorization request.
+                                authorizing = challenge && automaticallyVerifyChallenge,
+                                challengeVerificationAvailable = challenge,
+                                verifyingChallenge = challenge && automaticallyVerifyChallenge,
                             )
                         }
                     }
@@ -237,7 +253,7 @@ class MailInboxViewModel(
             } finally {
                 if (authorizationGeneration == attempt) {
                     authorizationGeneration = null
-                    state.update { it.copy(connecting = false, authorizing = false) }
+                    state.update { it.copy(connecting = false, authorizing = false, verifyingChallenge = false) }
                 }
             }
         }
@@ -258,14 +274,17 @@ class MailInboxViewModel(
 
     fun openChallengeVerification() {
         if (state.value.challengeVerificationAvailable && !state.value.connecting) {
-            state.update { it.copy(verifyingChallenge = true) }
+            startAuthorization(website = true, recoveringChallenge = true)
         }
     }
 
     fun retryAfterChallengeVerification() {
-        if (!state.value.verifyingChallenge && !state.value.challengeVerificationAvailable) return
-        state.update { it.copy(verifyingChallenge = false) }
-        authorize()
+        val current = state.value
+        if (!current.verifyingChallenge || !current.authorizing || current.connecting) return
+        state.update { it.copy(authorizing = false, verifyingChallenge = false) }
+        // A renewed cookie is a reason to try once, not proof the endpoint will accept it.
+        // A second challenge stays on the inbox until the reader explicitly opens verification.
+        startAuthorization(website = false, automaticallyVerifyChallenge = false)
     }
 
     fun requestDisconnect() = state.update { it.copy(confirmingDisconnect = true) }
@@ -287,24 +306,22 @@ class MailInboxViewModel(
     fun refresh() {
         if (!state.value.connected) return
         loadJob?.cancel()
+        val serial = ++loadSerial
         val expected = generation
         state.update { it.copy(loading = true, loadingMore = false, error = null) }
         loadJob = viewModelScope.launch {
             runCatchingExceptCancellation {
                 val mailboxes = repository.mailboxes(expected)
-                val defaultMailboxId = repository.defaultMailboxId(expected)
                 val selected = state.value.selectedMailboxId?.takeIf { id -> mailboxes.any { it.id == id } }
-                    ?: defaultMailboxId?.takeIf { id -> mailboxes.any { it.id == id } }
-                    ?: mailboxes.firstOrNull()?.id
-                if (selected != defaultMailboxId) repository.setDefaultMailboxId(expected, selected)
+                if (selected != repository.defaultMailboxId(expected)) repository.setDefaultMailboxId(expected, selected)
                 currentCoroutineContext().ensureActive()
-                if (expected != generation) return@runCatchingExceptCancellation
+                if (expected != generation || serial != loadSerial) return@runCatchingExceptCancellation
                 state.update { it.copy(mailboxes = mailboxes, selectedMailboxId = selected) }
-                val page = selected?.let { repository.inbox(expected, it) }
+                val page = if (mailboxes.isEmpty()) null else repository.inbox(expected, selected)
                 val messages = page?.messages.orEmpty().distinctBy(MailMessage::id)
                 val previews = withContext(dispatchers.default) { messages.associate { mail -> mail.id to MailPreview.from(mail) } }
                 currentCoroutineContext().ensureActive()
-                if (expected == generation && state.value.selectedMailboxId == selected) {
+                if (expected == generation && serial == loadSerial && state.value.selectedMailboxId == selected) {
                     state.update {
                         it.copy(
                             mailboxes = mailboxes,
@@ -318,17 +335,25 @@ class MailInboxViewModel(
                     }
                 }
             }.onFailure { error ->
-                if (expected == generation) state.update { it.copy(loading = false, error = error.mailError()) }
+                if (expected == generation && serial == loadSerial) state.update { it.copy(loading = false, error = error.mailError()) }
             }
         }
     }
 
-    fun selectMailbox(id: Long) {
+    fun selectMailbox(id: Long?) {
         if (state.value.markingAllRead) return
-        if (id == state.value.selectedMailboxId || state.value.mailboxes.none { it.id == id }) return
+        if (id == state.value.selectedMailboxId || (id != null && state.value.mailboxes.none { it.id == id })) return
         loadJob?.cancel()
         state.update {
-            it.copy(selectedMailboxId = id, messages = emptyList(), previews = emptyMap(), nextOffset = null, loadingMore = false)
+            it.copy(
+                selectedMailboxId = id,
+                messages = emptyList(),
+                previews = emptyMap(),
+                nextOffset = null,
+                loadingMore = false,
+                allReadComplete = false,
+                markAllReadError = null,
+            )
         }
         val expected = generation
         defaultMailboxJob?.cancel()
@@ -349,7 +374,7 @@ class MailInboxViewModel(
 
     fun markAllRead() {
         val current = state.value
-        val mailboxId = current.selectedMailboxId ?: return
+        val mailboxId = current.selectedMailboxId
         if (!current.connected || current.markingAllRead || current.loading || current.loadingMore) return
         val expected = generation
         state.update { it.copy(markingAllRead = true, allReadComplete = false, markAllReadError = null) }
@@ -374,7 +399,8 @@ class MailInboxViewModel(
 
     private fun loadPage(append: Boolean) {
         val expected = generation
-        val mailboxId = state.value.selectedMailboxId ?: return
+        val mailboxId = state.value.selectedMailboxId
+        val serial = ++loadSerial
         val offset = if (append) state.value.nextOffset ?: return else 0
         state.update { it.copy(loading = !append, loadingMore = append, error = null) }
         loadJob = viewModelScope.launch {
@@ -383,7 +409,7 @@ class MailInboxViewModel(
                     val messages = ((if (append) state.value.messages else emptyList()) + page.messages).distinctBy(MailMessage::id)
                     val previews = withContext(dispatchers.default) { messages.associate { mail -> mail.id to MailPreview.from(mail) } }
                     currentCoroutineContext().ensureActive()
-                    if (expected == generation && state.value.selectedMailboxId == mailboxId) {
+                    if (expected == generation && serial == loadSerial && state.value.selectedMailboxId == mailboxId) {
                         state.update {
                             it.copy(
                                 messages = messages,
@@ -396,7 +422,7 @@ class MailInboxViewModel(
                         }
                     }
                 }.onFailure { error ->
-                    if (expected == generation && state.value.selectedMailboxId == mailboxId) {
+                    if (expected == generation && serial == loadSerial && state.value.selectedMailboxId == mailboxId) {
                         state.update {
                             it.copy(loading = false, loadingMore = false, error = error.mailError())
                         }

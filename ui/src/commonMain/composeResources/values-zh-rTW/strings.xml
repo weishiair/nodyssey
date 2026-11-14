@@ -406,6 +406,8 @@
     <string name="settings_report_format_source">終端原貌</string>
     <string name="settings_home_page_bar">首頁翻頁列</string>
     <string name="settings_home_page_bar_hint">在首頁右下角顯示頁碼</string>
+    <string name="settings_show_home_pinned_posts">顯示首頁置頂帖</string>
+    <string name="settings_show_home_pinned_posts_hint">關閉後隱藏首頁各版塊的置頂文章，不影響搜尋</string>
     <string name="settings_clipboard_post">識別剪貼簿中的帖子</string>
     <string name="settings_clipboard_post_hint">回到 App 時詢問是否開啟複製的帖子連結</string>
     <string name="clipboard_post_prompt">開啟剪貼簿裡的帖子？</string>
@@ -456,6 +458,7 @@
     <string name="doh_title">加密 DNS</string>
     <string name="doh_master_title">啟用加密 DNS</string>
     <string name="doh_master_hint">App 內的請求改用 DoH 解析網域；手機上的其它 App 照常</string>
+    <string name="doh_paused_for_proxy">加密 DNS 因代理暫停；關閉代理後恢復原設定。</string>
     <string name="doh_provider_title">解析服務商</string>
     <string name="doh_provider_alidns">阿里 DNS</string>
     <string name="doh_provider_weishiair">Weishiair DoH（ECH）</string>
@@ -671,7 +674,7 @@
     <string name="notify_quiet_hours_hint">23:00 – 07:00 · 時段內靜默收取，不發通知</string>
     <string name="notify_channels_section">通知類別 · 對應 Android 通知管道</string>
     <string name="notify_mail">新郵件</string>
-    <string name="notify_mail_hint">背景依上方頻率檢查預設信箱；前景自動快速檢查並顯示應用程式內提醒</string>
+    <string name="notify_mail_hint">背景依上方頻率檢查目前選擇的信箱範圍；前景自動快速檢查並顯示應用程式內提醒</string>
     <string name="notify_telegram_title">想要即時提醒？</string>
     <string name="notify_telegram_body">綁定 Telegram 後由站台即時轉發未讀訊息</string>
     <string name="notify_telegram_action">去綁定</string>
@@ -882,6 +885,10 @@
     <string name="space_message">私訊</string>
     <string name="space_follow">追蹤</string>
     <string name="space_following">已追蹤</string>
+    <string name="space_copy_name">複製使用者名稱</string>
+    <string name="space_copy_uid">複製 UID</string>
+    <string name="space_name_copied">使用者名稱已複製</string>
+    <string name="space_uid_copied">UID 已複製</string>
     <string name="space_readme_empty">沒有找到 readme 🙄</string>
     <string name="space_readme_expand">展開全部</string>
     <string name="space_readme_collapse">收合</string>
@@ -1830,4 +1837,10 @@
     <string name="mail_open_inbox">查看信箱</string>
     <string name="mail_poll_api_hint">前景約每 30 秒檢查；信箱頁約每 15 秒</string>
     <string name="mail_poll_web_hint">前景約每 60 秒檢查新郵件</string>
+    <string name="mail_all_mailboxes">全部信箱</string>
+    <string name="mail_read_status">已讀</string>
+    <string name="mail_unread_status">未讀</string>
+    <string name="mail_recipient_address">收件地址：%1$s</string>
+    <string name="settings_frosted_glass">毛玻璃質感</string>
+    <string name="settings_frosted_glass_hint">懸浮膠囊底欄與頂欄半透明高光；貼文卡片保持純色以確保閱讀對比度</string>
 </resources>

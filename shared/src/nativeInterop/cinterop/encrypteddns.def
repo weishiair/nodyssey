@@ -18,7 +18,6 @@ linkerOpts = -framework Network
 ---
 
 #include <Network/Network.h>
-
 // `-fno-objc-arc` above is what makes the `nw_release` calls here both legal and required: cinterop
 // compiles this stub without ARC, and the two `create` functions return a reference this owns.
 //

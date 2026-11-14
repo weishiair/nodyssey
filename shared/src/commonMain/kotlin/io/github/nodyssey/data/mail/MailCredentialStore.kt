@@ -26,9 +26,9 @@ interface MailCredentialStore {
 
     suspend fun clearDefaultMailboxId()
 
-    suspend fun readNotificationCursor(mailboxId: Long): Long? = null
+    suspend fun readNotificationCursor(mailboxId: Long?): Long? = null
 
-    suspend fun saveNotificationCursor(mailboxId: Long, messageId: Long) = Unit
+    suspend fun saveNotificationCursor(mailboxId: Long?, messageId: Long) = Unit
 
     suspend fun clearNotificationCursors() = Unit
 
@@ -79,7 +79,7 @@ class DataStoreMailCredentialStore(
         dataStore.edit { it.remove(DEFAULT_MAILBOX_ID) }
     }
 
-    override suspend fun readNotificationCursor(mailboxId: Long): Long? = try {
+    override suspend fun readNotificationCursor(mailboxId: Long?): Long? = try {
         dataStore.data.first()[notificationCursorKey(mailboxId)]
     } catch (cancelled: CancellationException) {
         throw cancelled
@@ -87,8 +87,8 @@ class DataStoreMailCredentialStore(
         throw MailException(MailError.STORAGE)
     }
 
-    override suspend fun saveNotificationCursor(mailboxId: Long, messageId: Long): Unit = storage {
-        require(mailboxId > 0 && messageId >= 0)
+    override suspend fun saveNotificationCursor(mailboxId: Long?, messageId: Long): Unit = storage {
+        require((mailboxId == null || mailboxId > 0) && messageId >= 0)
         dataStore.edit { it[notificationCursorKey(mailboxId)] = messageId }
     }
 
@@ -119,6 +119,6 @@ class DataStoreMailCredentialStore(
         val DEFAULT_MAILBOX_ID = longPreferencesKey("default-mailbox-id")
         const val NOTIFICATION_CURSOR_PREFIX = "mail-notification-cursor-"
 
-        fun notificationCursorKey(mailboxId: Long) = longPreferencesKey("$NOTIFICATION_CURSOR_PREFIX$mailboxId")
+        fun notificationCursorKey(mailboxId: Long?) = longPreferencesKey("$NOTIFICATION_CURSOR_PREFIX${mailboxId ?: "all"}")
     }
 }

@@ -45,7 +45,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -81,10 +80,12 @@ import io.github.nodyssey.data.AttendanceMode
 import io.github.nodyssey.ui.common.AttendanceBoardDialog
 import io.github.nodyssey.ui.common.AttendanceModeDialog
 import io.github.nodyssey.ui.common.LevelProgressLine
+import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.UpdateDot
+import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.common.withoutBottom
@@ -149,6 +150,7 @@ import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.SectionLabel
@@ -314,7 +316,12 @@ fun ProfileScreen(
                 }
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            PlazaSnackbarHost(
+                snackbarHostState,
+                modifier = Modifier.padding(bottom = LocalFloatingBottomBarHeight.current),
+            )
+        },
     ) { padding ->
         if (!state.isSignedIn) {
             SignedOutProfile(
@@ -365,7 +372,7 @@ fun ProfileScreen(
         }
         val attendance: @Composable () -> Unit = { AttendanceBanner(state, onAttendance, onAttendanceBoard) }
         val sections = profileSections(destinations, hasUnreadLotteryResults, hasUnreadMail)
-        val bottom = Spacing.lg + padding.calculateBottomPadding()
+        val bottom = Spacing.lg + padding.bottomWithFloatingBar()
         // Under the bottom bar rather than stopping at it — see [withoutBottom].
         BoxWithConstraints(Modifier.padding(padding.withoutBottom()).fillMaxSize()) {
             if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {

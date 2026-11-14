@@ -50,11 +50,11 @@ class MailViewModelTest {
         val inbox = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
         advanceUntilIdle()
         val requests = repository.offsets.size
-        repository.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(1, 7, MailPage(listOf(MAIL), null, 1))
+        repository.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(1, null, MailPage(listOf(MAIL), null, 1))
         advanceUntilIdle()
         assertEquals(listOf(21L), inbox.uiState.value.messages.map { it.id })
         assertEquals(requests, repository.offsets.size)
-        repository.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(0, 7, MailPage(emptyList(), null, 0))
+        repository.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(0, null, MailPage(emptyList(), null, 0))
         advanceUntilIdle()
         assertEquals(listOf(21L), inbox.uiState.value.messages.map { it.id })
         repository.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(1, 9, MailPage(emptyList(), null, 0))
@@ -72,7 +72,7 @@ class MailViewModelTest {
         inbox.refresh()
         advanceUntilIdle()
         assertTrue(inbox.uiState.value.loading)
-        repository.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(1, 7, MailPage(listOf(MAIL), null, 1))
+        repository.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(1, null, MailPage(listOf(MAIL), null, 1))
         advanceUntilIdle()
         gate.complete(MailPage(emptyList(), null, 0))
         advanceUntilIdle()
@@ -94,7 +94,7 @@ class MailViewModelTest {
         assertTrue(viewModel.uiState.value.connected)
         assertEquals(MailAuthMode.API_KEY, viewModel.uiState.value.authMode)
         assertEquals(generation, viewModel.uiState.value.generation)
-        assertEquals(7L, viewModel.uiState.value.selectedMailboxId)
+        assertNull(viewModel.uiState.value.selectedMailboxId)
         assertEquals("sk_live_example", harness.saved)
         viewModel.authorizeOnWebsite()
         advanceUntilIdle()
@@ -110,7 +110,7 @@ class MailViewModelTest {
         assertEquals("web:synthetic-session", harness.saved)
         assertTrue(viewModel.uiState.value.generation > generation)
         assertEquals(MailAuthMode.WEB_SESSION, viewModel.uiState.value.authMode)
-        assertEquals(7L, viewModel.uiState.value.selectedMailboxId)
+        assertNull(viewModel.uiState.value.selectedMailboxId)
         assertFalse(viewModel.uiState.value.connecting)
     }
 
@@ -170,7 +170,7 @@ class MailViewModelTest {
     }
 
     @Test
-    fun `native challenge stays on the inbox and a retry connects without opening the browser`() = runTest(dispatcher) {
+    fun `native challenge opens web authorization and verification resumes the native exchange`() = runTest(dispatcher) {
         val harness = NativeAuthorizationHarness(dispatcher)
         harness.forumCode = 468
         val viewModel = MailInboxViewModel(harness.repository, AppDispatchers(dispatcher, dispatcher))
@@ -178,14 +178,12 @@ class MailViewModelTest {
         viewModel.authorize()
         advanceUntilIdle()
         assertEquals(MailError.CHALLENGE, viewModel.uiState.value.error)
-        assertFalse(viewModel.uiState.value.authorizing)
+        assertTrue(viewModel.uiState.value.authorizing)
         assertFalse(viewModel.uiState.value.connecting)
         assertTrue(viewModel.uiState.value.challengeVerificationAvailable)
+        assertTrue(viewModel.uiState.value.verifyingChallenge)
         assertEquals("", harness.saved)
         assertEquals(0, harness.callbacks)
-        viewModel.openChallengeVerification()
-        advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.verifyingChallenge)
         harness.forumCode = 200
         viewModel.retryAfterChallengeVerification()
         advanceUntilIdle()
@@ -199,7 +197,76 @@ class MailViewModelTest {
     }
 
     @Test
-    fun `selected mailbox remains the default after recreating the inbox and stale defaults recover`() = runTest(dispatcher) {
+    fun `a rejected verification retries once and waits for an explicit web recovery before trying again`() = runTest(dispatcher) {
+        val harness = NativeAuthorizationHarness(dispatcher).apply { forumCode = 468 }
+        val viewModel = MailInboxViewModel(harness.repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        viewModel.authorize()
+        advanceUntilIdle()
+        viewModel.retryAfterChallengeVerification()
+        advanceUntilIdle()
+        assertEquals(2, harness.grants)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertFalse(viewModel.uiState.value.verifyingChallenge)
+        assertFalse(viewModel.uiState.value.connecting)
+        assertEquals(MailError.CHALLENGE, viewModel.uiState.value.error)
+        assertEquals("", harness.saved)
+        viewModel.retryAfterChallengeVerification()
+        advanceUntilIdle()
+        assertEquals(2, harness.grants)
+        viewModel.openChallengeVerification()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.authorizing)
+        assertTrue(viewModel.uiState.value.verifyingChallenge)
+        harness.forumCode = 200
+        viewModel.retryAfterChallengeVerification()
+        advanceUntilIdle()
+        assertEquals(3, harness.grants)
+        assertEquals(1, harness.callbacks)
+        assertEquals("web:synthetic-session", harness.saved)
+    }
+
+    @Test
+    fun `cancelling challenge recovery ignores late verification and browser tokens`() = runTest(dispatcher) {
+        val harness = NativeAuthorizationHarness(dispatcher).apply { forumCode = 468 }
+        val viewModel = MailInboxViewModel(harness.repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        viewModel.authorize()
+        advanceUntilIdle()
+        viewModel.cancelAuthorization()
+        harness.forumCode = 200
+        viewModel.retryAfterChallengeVerification()
+        viewModel.completeAuthorization("late-session")
+        advanceUntilIdle()
+        assertEquals(1, harness.grants)
+        assertEquals(0, harness.callbacks)
+        assertEquals("", harness.saved)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertFalse(viewModel.uiState.value.verifyingChallenge)
+        assertFalse(viewModel.uiState.value.connected)
+    }
+
+    @Test
+    fun `a browser token arriving before the verification poll completes the same authorization once`() = runTest(dispatcher) {
+        val harness = NativeAuthorizationHarness(dispatcher).apply { forumCode = 468 }
+        val viewModel = MailInboxViewModel(harness.repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        viewModel.authorize()
+        advanceUntilIdle()
+        viewModel.completeAuthorization("browser-session")
+        viewModel.retryAfterChallengeVerification()
+        advanceUntilIdle()
+        assertEquals("web:browser-session", harness.saved)
+        assertEquals(1, harness.grants)
+        assertEquals(0, harness.callbacks)
+        assertTrue(viewModel.uiState.value.connected)
+        assertFalse(viewModel.uiState.value.authorizing)
+        assertFalse(viewModel.uiState.value.verifyingChallenge)
+        assertFalse(viewModel.uiState.value.connecting)
+    }
+
+    @Test
+    fun `opening the inbox defaults to all mailboxes even after a previous single mailbox selection`() = runTest(dispatcher) {
         val repository = FakeMailRepository()
         val first = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
         advanceUntilIdle()
@@ -210,14 +277,15 @@ class MailViewModelTest {
 
         val reopened = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
         advanceUntilIdle()
-        assertEquals(9L, reopened.uiState.value.selectedMailboxId)
+        assertNull(reopened.uiState.value.selectedMailboxId)
+        assertNull(repository.savedDefaultMailboxId)
 
         repository.availableMailboxes = listOf(Mailbox(7, "a@example.org"))
         repository.savedDefaultMailboxId = 99
         val afterMailboxRemoval = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
         advanceUntilIdle()
-        assertEquals(7L, afterMailboxRemoval.uiState.value.selectedMailboxId)
-        assertEquals(7L, repository.savedDefaultMailboxId)
+        assertNull(afterMailboxRemoval.uiState.value.selectedMailboxId)
+        assertNull(repository.savedDefaultMailboxId)
     }
 
     @Test
@@ -254,7 +322,7 @@ class MailViewModelTest {
         val pending = CompletableDeferred<MailPage>()
         val repository = FakeMailRepository().apply {
             inboxAnswer = { mailbox, _ ->
-                if (mailbox == 7L) {
+                if (mailbox == null) {
                     withContext(NonCancellable) { pending.await() }
                 } else {
                     MailPage(listOf(MailMessage(22, 9, subject = "second inbox")), null, 1)
@@ -294,6 +362,64 @@ class MailViewModelTest {
     }
 
     @Test
+    fun `unified inbox paginates across mailbox boundaries and switching filters resets its offset`() = runTest(dispatcher) {
+        val calls = mutableListOf<Pair<Long?, Int>>()
+        val second = MailMessage(22, 9, toAddress = "b@example.org")
+        val older = MailMessage(20, 9, toAddress = "b@example.org")
+        val repository = FakeMailRepository().apply {
+            savedDefaultMailboxId = 7
+            inboxAnswer = { mailbox, offset ->
+                calls += mailbox to offset
+                when {
+                    mailbox == 9L -> MailPage(listOf(second, older), null, 2)
+                    offset == 0 -> MailPage(listOf(second, MAIL), 2, 3)
+                    else -> MailPage(listOf(MAIL, older), null, 3)
+                }
+            }
+        }
+        val inbox = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        assertNull(inbox.uiState.value.selectedMailboxId)
+        assertEquals(listOf(22L, 21L), inbox.uiState.value.messages.map { it.id })
+        inbox.loadMore()
+        inbox.loadMore()
+        advanceUntilIdle()
+        assertEquals(listOf(22L, 21L, 20L), inbox.uiState.value.messages.map { it.id })
+
+        inbox.selectMailbox(9)
+        advanceUntilIdle()
+        assertEquals(listOf(9L, 9L), inbox.uiState.value.messages.map { it.mailboxId })
+        assertNull(inbox.uiState.value.nextOffset)
+        inbox.selectMailbox(null)
+        advanceUntilIdle()
+        assertEquals(listOf(22L, 21L), inbox.uiState.value.messages.map { it.id })
+        assertEquals(listOf(null to 0, null to 2, 9L to 0, null to 0), calls)
+        assertNull(repository.savedDefaultMailboxId)
+    }
+
+    @Test
+    fun `an old single inbox snapshot cannot replace all mailbox messages after switching back`() = runTest(dispatcher) {
+        val pending = CompletableDeferred<MailPage>()
+        val second = MailMessage(22, 9)
+        val repository = FakeMailRepository().apply {
+            inboxAnswer = { mailbox, _ ->
+                if (mailbox == 7L) withContext(NonCancellable) { pending.await() } else MailPage(listOf(second, MAIL), null, 2)
+            }
+        }
+        val inbox = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        inbox.selectMailbox(7)
+        advanceUntilIdle()
+        inbox.selectMailbox(null)
+        advanceUntilIdle()
+        repository.inboxUpdates.value = io.github.nodyssey.data.mail.MailInboxSnapshot(1, 7, MailPage(listOf(MAIL), null, 1))
+        pending.complete(MailPage(listOf(MAIL), null, 1))
+        advanceUntilIdle()
+        assertNull(inbox.uiState.value.selectedMailboxId)
+        assertEquals(listOf(22L, 21L), inbox.uiState.value.messages.map { it.id })
+    }
+
+    @Test
     fun `all read prevents duplicate operations and mailbox switches and reports partial failure without success`() = runTest(dispatcher) {
         val gate = CompletableDeferred<Int>()
         val repository = FakeMailRepository().apply { allReadAnswer = { gate.await() } }
@@ -303,8 +429,8 @@ class MailViewModelTest {
         inbox.markAllRead()
         inbox.selectMailbox(9)
         advanceUntilIdle()
-        assertEquals(listOf(7L), repository.allReadMailboxes)
-        assertEquals(7L, inbox.uiState.value.selectedMailboxId)
+        assertEquals(listOf<Long?>(null), repository.allReadMailboxes)
+        assertNull(inbox.uiState.value.selectedMailboxId)
         assertTrue(inbox.uiState.value.markingAllRead)
         gate.completeExceptionally(MailException(MailError.RATE_LIMITED))
         advanceUntilIdle()
@@ -451,9 +577,9 @@ internal class FakeMailRepository : MailRepository {
     val offsets = mutableListOf<Int>()
     var savedDefaultMailboxId: Long? = null
     var availableMailboxes = listOf(Mailbox(7, "a@example.org"), Mailbox(9, "b@example.org"))
-    var inboxAnswer: suspend (Long, Int) -> MailPage = { _, _ -> MailPage(listOf(MAIL), null, 1) }
+    var inboxAnswer: suspend (Long?, Int) -> MailPage = { _, _ -> MailPage(listOf(MAIL), null, 1) }
     var readAnswer: suspend () -> Unit = {}
-    val allReadMailboxes = mutableListOf<Long>()
+    val allReadMailboxes = mutableListOf<Long?>()
     var allReadAnswer: suspend () -> Int = { 0 }
     var detailMail = MAIL
     var polls = 0
@@ -501,14 +627,14 @@ internal class FakeMailRepository : MailRepository {
 
     override suspend fun mailboxes(generation: Long) = availableMailboxes
 
-    override suspend fun inbox(generation: Long, mailboxId: Long, offset: Int): MailPage {
+    override suspend fun inbox(generation: Long, mailboxId: Long?, offset: Int): MailPage {
         offsets += offset
         return inboxAnswer(mailboxId, offset)
     }
 
     override suspend fun detail(generation: Long, mailboxId: Long, id: Long) = detailMail
 
-    override suspend fun markAllRead(generation: Long, mailboxId: Long): Int {
+    override suspend fun markAllRead(generation: Long, mailboxId: Long?): Int {
         allReadMailboxes += mailboxId
         return allReadAnswer()
     }

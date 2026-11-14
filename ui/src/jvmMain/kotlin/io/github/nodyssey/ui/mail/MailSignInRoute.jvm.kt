@@ -15,6 +15,7 @@ actual fun MailSignInRoute(
     onClose: () -> Unit,
     onOpenExternal: (String) -> Unit,
     modifier: Modifier,
+    onChallengePassed: (() -> Unit)?,
 ) {
     LaunchedEffect(Unit) {
         onOpenExternal(SeekMailSite.LOGIN)

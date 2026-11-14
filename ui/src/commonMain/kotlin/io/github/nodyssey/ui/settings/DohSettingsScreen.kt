@@ -28,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -97,6 +96,7 @@ import io.github.nodyssey.ui.resources.doh_move_down
 import io.github.nodyssey.ui.resources.doh_move_up
 import io.github.nodyssey.ui.resources.doh_no_server
 import io.github.nodyssey.ui.resources.doh_order_note
+import io.github.nodyssey.ui.resources.doh_paused_for_proxy
 import io.github.nodyssey.ui.resources.doh_provider_alidns
 import io.github.nodyssey.ui.resources.doh_provider_cloudflare
 import io.github.nodyssey.ui.resources.doh_provider_custom_hint
@@ -125,6 +125,7 @@ import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.SectionNotes
@@ -216,9 +217,10 @@ fun DohSettingsScreen(
 ) {
     val appBarState = rememberOneHandAppBarState()
     val ordered = state.capabilities.triesServersInOrder
+    val active = state.enabled && !state.pausedForProxy
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
             OneHandTopAppBar(
                 title = stringResource(Res.string.doh_title),
@@ -247,12 +249,13 @@ fun DohSettingsScreen(
                 GroupedRow(
                     icon = PlazaIcons.Dns,
                     title = stringResource(Res.string.doh_master_title),
-                    subtitle = stringResource(Res.string.doh_master_hint),
+                    subtitle = stringResource(if (state.pausedForProxy) Res.string.doh_paused_for_proxy else Res.string.doh_master_hint),
                     first = true,
                     last = true,
-                    checked = state.enabled,
+                    enabled = !state.pausedForProxy,
+                    checked = active,
                     onCheckedChange = onEnabledChange,
-                    trailing = { GroupedListItemSwitch(checked = state.enabled) },
+                    trailing = { GroupedListItemSwitch(checked = active, enabled = !state.pausedForProxy) },
                 )
             }
 
@@ -264,7 +267,7 @@ fun DohSettingsScreen(
                 DohServerList(
                     servers = state.servers,
                     ordered = ordered,
-                    enabled = state.enabled,
+                    enabled = active,
                     onToggle = onToggleServer,
                     onMove = onMoveServer,
                     onOpen = onOpenServer,
@@ -292,10 +295,10 @@ fun DohSettingsScreen(
                                 subtitle = stringResource(Res.string.doh_ipv6_hint),
                                 first = true,
                                 last = !canFallBack,
-                                enabled = state.enabled,
+                                enabled = active,
                                 checked = state.includeIPv6,
                                 onCheckedChange = onIncludeIPv6Change,
-                                trailing = { GroupedListItemSwitch(checked = state.includeIPv6, enabled = state.enabled) },
+                                trailing = { GroupedListItemSwitch(checked = state.includeIPv6, enabled = active) },
                             )
                         }
                         if (canFallBack) {
@@ -304,11 +307,11 @@ fun DohSettingsScreen(
                                 subtitle = stringResource(Res.string.doh_fallback_hint),
                                 first = !canChooseRecordTypes,
                                 last = true,
-                                enabled = state.enabled,
+                                enabled = active,
                                 checked = state.fallbackToSystem,
                                 onCheckedChange = onFallbackChange,
                                 trailing = {
-                                    GroupedListItemSwitch(checked = state.fallbackToSystem, enabled = state.enabled)
+                                    GroupedListItemSwitch(checked = state.fallbackToSystem, enabled = active)
                                 },
                             )
                         }
@@ -341,7 +344,7 @@ fun DohSettingsScreen(
                     testLabel = stringResource(Res.string.doh_test),
                     saveLabel = stringResource(Res.string.doh_save),
                     testing = state.testing,
-                    enabled = state.enabled,
+                    enabled = active,
                     onTest = onTest,
                     onSave = onSave,
                 )

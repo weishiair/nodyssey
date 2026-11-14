@@ -28,7 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,31 +44,27 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.mail.MailAuthMode
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.session.SessionRepository
-import io.github.nodyssey.ui.login.WebViewGoal
-import io.github.nodyssey.ui.login.WebViewRoute
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.action_retry
+import io.github.nodyssey.ui.resources.mail_all_mailboxes
 import io.github.nodyssey.ui.resources.mail_api_key
 import io.github.nodyssey.ui.resources.mail_api_key_switch_hint
 import io.github.nodyssey.ui.resources.mail_api_key_switch_title
 import io.github.nodyssey.ui.resources.mail_authorize
 import io.github.nodyssey.ui.resources.mail_authorize_hint
 import io.github.nodyssey.ui.resources.mail_authorize_website
-import io.github.nodyssey.ui.resources.mail_choose_mailbox
 import io.github.nodyssey.ui.resources.mail_connect
 import io.github.nodyssey.ui.resources.mail_connect_hint
 import io.github.nodyssey.ui.resources.mail_connect_title
 import io.github.nodyssey.ui.resources.mail_connecting
 import io.github.nodyssey.ui.resources.mail_create_key
-import io.github.nodyssey.ui.resources.mail_default_mailbox
 import io.github.nodyssey.ui.resources.mail_disconnect
 import io.github.nodyssey.ui.resources.mail_disconnect_hint
 import io.github.nodyssey.ui.resources.mail_empty
@@ -93,7 +88,6 @@ import io.github.nodyssey.ui.resources.mail_switch_web_session
 import io.github.nodyssey.ui.resources.mail_title
 import io.github.nodyssey.ui.resources.mail_use_key
 import io.github.nodyssey.ui.resources.mail_verify_and_retry
-import io.github.nodyssey.ui.resources.mail_verify_challenge
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
@@ -101,6 +95,7 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTag
@@ -131,18 +126,6 @@ fun MailInboxRoute(
             viewModel.dismissAllReadResult()
         }
     }
-    if (state.verifyingChallenge) {
-        WebViewRoute(
-            url = NodeSeekSite.BASE_URL,
-            title = stringResource(Res.string.mail_verify_challenge),
-            goal = WebViewGoal.CHALLENGE,
-            session = session,
-            userAgent = userAgent,
-            onOpenExternal = onOpenWebsite,
-            onClose = viewModel::retryAfterChallengeVerification,
-        )
-        return
-    }
     if (state.authorizing) {
         PlazaBackHandler { viewModel.cancelAuthorization() }
         MailSignInRoute(
@@ -151,6 +134,7 @@ fun MailInboxRoute(
             onToken = viewModel::completeAuthorization,
             onClose = viewModel::cancelAuthorization,
             onOpenExternal = onOpenWebsite,
+            onChallengePassed = if (state.verifyingChallenge) viewModel::retryAfterChallengeVerification else null,
         )
         return
     }
@@ -173,13 +157,7 @@ fun MailInboxRoute(
         onOpenWebsite = onOpenWebsite,
         onAuthorize = viewModel::authorize,
         onAuthorizeWebsite = viewModel::authorizeOnWebsite,
-        onVerifyChallenge = {
-            if (session.peek().hasClearance) {
-                viewModel.retryAfterChallengeVerification()
-            } else {
-                viewModel.openChallengeVerification()
-            }
-        },
+        onVerifyChallenge = viewModel::openChallengeVerification,
         onCancelAuthorization = viewModel::cancelAuthorization,
         snackbarHostState = snackbarHostState,
     )
@@ -195,7 +173,7 @@ fun MailInboxScreen(
     onConfirmDisconnect: () -> Unit,
     onDismissDisconnect: () -> Unit,
     onRefresh: () -> Unit,
-    onSelectMailbox: (Long) -> Unit,
+    onSelectMailbox: (Long?) -> Unit,
     onLoadMore: () -> Unit,
     onOpenMail: (MailMessage) -> Unit,
     onOpenWebsite: (String) -> Unit,
@@ -243,7 +221,7 @@ fun MailInboxScreen(
                 },
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.loading,
@@ -302,7 +280,7 @@ fun MailInboxScreen(
                                 GroupedListItem(
                                     headlineContent = {
                                         Text(
-                                            selectedMailbox?.address ?: stringResource(Res.string.mail_choose_mailbox),
+                                            selectedMailbox?.address ?: stringResource(Res.string.mail_all_mailboxes),
                                             style = MaterialTheme.typography.titleSmall,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
@@ -380,6 +358,17 @@ fun MailInboxScreen(
                                     },
                                 )
                                 DropdownMenu(expanded = choosingMailbox, onDismissRequest = { choosingMailbox = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(Res.string.mail_all_mailboxes)) },
+                                        enabled = !state.markingAllRead,
+                                        trailingIcon = {
+                                            if (state.selectedMailboxId == null) Icon(Icons.Default.Check, contentDescription = null)
+                                        },
+                                        onClick = {
+                                            choosingMailbox = false
+                                            onSelectMailbox(null)
+                                        },
+                                    )
                                     state.mailboxes.forEach { mailbox ->
                                         DropdownMenuItem(
                                             text = { Text(mailbox.address) },
@@ -388,7 +377,7 @@ fun MailInboxScreen(
                                                 if (mailbox.id == state.selectedMailboxId) {
                                                     Icon(
                                                         Icons.Default.Check,
-                                                        contentDescription = stringResource(Res.string.mail_default_mailbox),
+                                                        contentDescription = null,
                                                     )
                                                 }
                                             },
@@ -421,7 +410,7 @@ fun MailInboxScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             SectionLabel(stringResource(Res.string.mail_inbox), modifier = Modifier.weight(1f))
-                            if (state.selectedMailboxId != null) {
+                            if (state.mailboxes.isNotEmpty()) {
                                 TextButton(
                                     onClick = onMarkAllRead,
                                     enabled = !state.markingAllRead && !state.loading && !state.loadingMore && !state.connecting && state.messages.isNotEmpty(),
@@ -459,6 +448,8 @@ fun MailInboxScreen(
                             first = index == 0,
                             last = index == state.messages.lastIndex,
                             nowMillis = state.nowMillis,
+                            recipientAddress = mail.toAddress.takeIf(String::isNotBlank)
+                                ?: state.mailboxes.firstOrNull { it.id == mail.mailboxId }?.address.orEmpty(),
                             onOpen = { onOpenMail(mail) },
                             modifier = Modifier.padding(horizontal = LayerPageGutter),
                         )

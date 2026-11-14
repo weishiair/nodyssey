@@ -413,6 +413,9 @@ jobs:
   # it breaks, the APK and the update manifests are already out; the run goes red, and the `.ipa`
   # arrives when the break is fixed and the workflow is re-run for the same tag.
   ios:
+    # Keep GitHub as the fallback until Codemagic has been verified and explicitly enabled.
+    # Manual release runs continue to support ios_ref repairs and Telegram notifications.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.CODEMAGIC_IOS_RELEASE != 'true' }}
     needs: release
     # Release builds require an ARM host so the Native runtime gates cannot be skipped.
     runs-on: ${{ inputs.ios_runner || 'macos-15' }}
@@ -540,8 +543,30 @@ jobs:
       - name: Run the common tests on Kotlin/Native
         run: ./gradlew :shared:macosArm64Test --max-workers=1
 
-      - name: Test iOS navigation on the ARM simulator
-        run: ./gradlew :ui:iosSimulatorArm64Test --max-workers=1
+      - name: Test native controls and iOS navigation on the ARM simulator
+        run: |
+          device=$(bash .github/scripts/boot-ios-test-simulator.sh)
+          echo "NODYSSEY_IOS_TEST_DEVICE=$device" >> "$GITHUB_ENV"
+          ./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test --max-workers=1 "-Pnodyssey.iosTestDevice=$device"
+
+      - name: Shut down the test simulator before optimized linking
+        if: always() && env.NODYSSEY_IOS_TEST_DEVICE != ''
+        run: xcrun simctl shutdown "$NODYSSEY_IOS_TEST_DEVICE"
+
+      - name: Preserve Native regression reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-native-reports-${{ github.run_id }}
+          path: |
+            shared/build/test-results/macosArm64Test/
+            shared/build/reports/tests/macosArm64Test/
+            designsys/build/test-results/iosSimulatorArm64Test/
+            designsys/build/reports/tests/iosSimulatorArm64Test/
+            ui/build/test-results/iosSimulatorArm64Test/
+            ui/build/reports/tests/iosSimulatorArm64Test/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Release the test daemon before optimized linking
         run: ./gradlew --stop

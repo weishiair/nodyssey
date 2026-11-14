@@ -37,6 +37,9 @@ private const val VISIBLE_UNLESS_REVEALED =
         "SELECT 1 FROM title_keywords k WHERE k.kind = 'BLOCK' AND instr(lower(p.title), k.keyword) > 0) " +
         "AND p.postId NOT IN (SELECT postId FROM title_regex_hits)))"
 
+// Paging and page navigation must count the same visible rows, including the pinned-post preference.
+private const val VISIBLE_IN_FEED = "$VISIBLE_UNLESS_REVEALED AND (:includePinned OR p.isPinned = 0)"
+
 @Dao
 interface FeedDao {
     /**
@@ -60,13 +63,14 @@ interface FeedDao {
         FROM posts p
         INNER JOIN feed_positions f ON f.postId = p.postId
         LEFT JOIN post_read_marks r ON r.postId = p.postId
-        WHERE f.feedKey = :feedKey AND $VISIBLE_UNLESS_REVEALED
+        WHERE f.feedKey = :feedKey AND $VISIBLE_IN_FEED
         ORDER BY f.sortIndex ASC
         """,
     )
     fun pagingSource(
         feedKey: String,
         includeBlocked: Boolean = false,
+        includePinned: Boolean = true,
     ): PagingSource<Int, FeedPostRow>
 
     /**
@@ -140,13 +144,14 @@ interface FeedDao {
         SELECT MIN(f.sortIndex)
         FROM feed_positions f
         INNER JOIN posts p ON p.postId = f.postId
-        WHERE f.feedKey = :feedKey AND f.page = :page AND $VISIBLE_UNLESS_REVEALED
+        WHERE f.feedKey = :feedKey AND f.page = :page AND $VISIBLE_IN_FEED
         """,
     )
     suspend fun firstSortIndexOnPage(
         feedKey: String,
         page: Int,
         includeBlocked: Boolean = false,
+        includePinned: Boolean = true,
     ): Int?
 
     /**
@@ -158,13 +163,14 @@ interface FeedDao {
         SELECT COUNT(*)
         FROM feed_positions f
         INNER JOIN posts p ON p.postId = f.postId
-        WHERE f.feedKey = :feedKey AND f.sortIndex < :sortIndex AND $VISIBLE_UNLESS_REVEALED
+        WHERE f.feedKey = :feedKey AND f.sortIndex < :sortIndex AND $VISIBLE_IN_FEED
         """,
     )
     suspend fun countRowsBefore(
         feedKey: String,
         sortIndex: Int,
         includeBlocked: Boolean = false,
+        includePinned: Boolean = true,
     ): Int
 
     /**

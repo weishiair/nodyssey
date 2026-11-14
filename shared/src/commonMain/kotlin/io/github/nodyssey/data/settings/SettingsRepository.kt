@@ -98,6 +98,7 @@ class SettingsRepository(
                 fontScale = preferences[KEY_FONT_SCALE] ?: 1f,
                 oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: true,
                 einkMode = preferences[KEY_EINK_MODE] ?: false,
+                frostedGlass = preferences[KEY_FROSTED_GLASS] ?: false,
                 predictiveBack = preferences[KEY_PREDICTIVE_BACK] ?: true,
                 postReplyStyle = preferences[KEY_POST_REPLY_STYLE]
                     ?.let { runCatching { PostReplyStyle.valueOf(it) }.getOrNull() }
@@ -119,6 +120,7 @@ class SettingsRepository(
                     ?.let { runCatching { FeedSort.valueOf(it) }.getOrNull() }
                     ?: FeedSort.LAST_REPLY,
                 homePageBar = preferences[KEY_HOME_PAGE_BAR] ?: true,
+                showHomePinnedPosts = preferences[KEY_SHOW_HOME_PINNED_POSTS] ?: true,
                 clipboardPostPrompt = preferences[KEY_CLIPBOARD_POST_PROMPT] ?: true,
                 holidayTheme = preferences[KEY_HOLIDAY_THEME] ?: false,
                 searchHistory = decodeSearchHistory(preferences),
@@ -280,6 +282,9 @@ class SettingsRepository(
     /** 墨水屏模式; see [UserSettings.einkMode] for everything it takes over. */
     suspend fun setEinkMode(enabled: Boolean) = edit { it[KEY_EINK_MODE] = enabled }
 
+    /** 毛玻璃质感; see [UserSettings.frostedGlass]. */
+    suspend fun setFrostedGlass(enabled: Boolean) = edit { it[KEY_FROSTED_GLASS] = enabled }
+
     suspend fun setDisplayRefreshRate(hertz: Int) =
         edit { it[KEY_DISPLAY_REFRESH_RATE] = hertz.takeIf { rate -> rate in DISPLAY_REFRESH_RATE_CHOICES } ?: 0 }
 
@@ -314,6 +319,8 @@ class SettingsRepository(
 
     /** 首页翻页栏; see [UserSettings.homePageBar] for what it adds. */
     suspend fun setHomePageBar(enabled: Boolean) = edit { it[KEY_HOME_PAGE_BAR] = enabled }
+
+    suspend fun setShowHomePinnedPosts(enabled: Boolean) = edit { it[KEY_SHOW_HOME_PINNED_POSTS] = enabled }
 
     /** 识别剪贴板中的帖子; see [UserSettings.clipboardPostPrompt]. */
     suspend fun setClipboardPostPrompt(enabled: Boolean) = edit { it[KEY_CLIPBOARD_POST_PROMPT] = enabled }
@@ -725,6 +732,7 @@ class SettingsRepository(
         private val KEY_FONT_SCALE = floatPreferencesKey("font_scale")
         private val KEY_ONE_HAND_MODE = booleanPreferencesKey("one_hand_mode")
         private val KEY_EINK_MODE = booleanPreferencesKey("eink_mode")
+        private val KEY_FROSTED_GLASS = booleanPreferencesKey("frosted_glass")
         private val KEY_PREDICTIVE_BACK = booleanPreferencesKey("predictive_back")
         private val KEY_POST_REPLY_STYLE = stringPreferencesKey("post_reply_style")
         private val KEY_SHOW_AUTHOR_ACCOUNT_INFO = booleanPreferencesKey("show_author_account_info")
@@ -761,6 +769,7 @@ class SettingsRepository(
         private val KEY_MESSAGE_TOOLBAR = stringPreferencesKey("message_toolbar_actions")
         private val KEY_FEED_SORT = stringPreferencesKey("feed_sort")
         private val KEY_HOME_PAGE_BAR = booleanPreferencesKey("home_page_bar")
+        private val KEY_SHOW_HOME_PINNED_POSTS = booleanPreferencesKey("show_home_pinned_posts")
         private val KEY_CLIPBOARD_POST_PROMPT = booleanPreferencesKey("clipboard_post_prompt")
         private val KEY_LAST_CLIPBOARD_POST_LINK = stringPreferencesKey("last_clipboard_post_link")
         private val KEY_ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
@@ -946,6 +955,12 @@ data class UserSettings(
      * screen — which is why paper books are not black.
      */
     val einkMode: Boolean = false,
+    /**
+     * 毛玻璃质感 — whether navigation bars and floating chrome controls wear a translucent
+     * liquid-glass gradient, floating pill geometry, and a directional 1dp specular rim. Reading
+     * cards and post floors stay solid so reading contrast is unchanged.
+     */
+    val frostedGlass: Boolean = false,
     val predictiveBack: Boolean = true,
     /** Reply presentation only; switching never changes floor keys, ordering or pagination. */
     val postReplyStyle: PostReplyStyle = PostReplyStyle.CARDS,
@@ -996,6 +1011,8 @@ data class UserSettings(
      * only adds a way to arrive somewhere, which is the same pairing the comment thread uses.
      */
     val homePageBar: Boolean = true,
+    /** Whether the home feeds, including their board tabs, show pinned threads. Search is unaffected. */
+    val showHomePinnedPosts: Boolean = true,
     /**
      * 识别剪贴板中的帖子 (Android): on coming back to the app, offer to open a thread whose link is
      * on the clipboard. On by default — the prompt is a snackbar that asks once per link and goes

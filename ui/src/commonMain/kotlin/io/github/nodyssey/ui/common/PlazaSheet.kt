@@ -48,12 +48,13 @@ internal fun PlazaSheet(
     dragHandle: @Composable (() -> Unit)? = { PlazaSheetDefaults.DragHandle() },
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val layers = LocalPlazaLayers.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
         sheetState = sheetState,
         shape = PlazaSheetDefaults.shape,
-        containerColor = LocalPlazaLayers.current.page,
+        containerColor = layers.page,
         dragHandle = dragHandle,
     ) {
         if (title != null) {

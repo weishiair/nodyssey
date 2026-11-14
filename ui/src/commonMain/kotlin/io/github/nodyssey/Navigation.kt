@@ -2,11 +2,13 @@ package io.github.nodyssey
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
@@ -23,9 +25,11 @@ import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneSt
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSuiteScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,6 +66,8 @@ import io.github.nodyssey.data.session.AccountRepository
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
+import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
+import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.ThreadSharedTransition
 import io.github.nodyssey.ui.common.appName
@@ -76,6 +82,8 @@ import io.github.nodyssey.ui.composer.ComposerShare
 import io.github.nodyssey.ui.composer.PendingComposerShare
 import io.github.nodyssey.ui.login.WebViewGoal
 import io.github.nodyssey.ui.mail.MailMonitorViewModel
+import io.github.nodyssey.ui.navigation.FloatingGlassBarClearance
+import io.github.nodyssey.ui.navigation.GlassBottomNavigationBar
 import io.github.nodyssey.ui.navigation.NodysseyNavigationItems
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
@@ -99,8 +107,13 @@ import io.github.nodyssey.ui.sticker.LocalStickerNavigation
 import io.github.nodyssey.ui.sticker.StickerNavigation
 import io.github.nodyssey.ui.sticker.StickerNotices
 import io.github.plaza.core.runCatchingExceptCancellation
+import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.theme.LocalEinkMode
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.backdropGlass
+import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
@@ -580,45 +593,64 @@ fun MainNavigation(
         )
     }
 
+    val layers = LocalPlazaLayers.current
+    val defaultSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(windowAdaptiveInfo)
+    val isBottomBarLayout =
+        defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
+            defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
+            defaultSuiteType == NavigationSuiteType.NavigationBar
+    val useFloatingGlassBar = layers.backdropGlass && isBottomBarLayout
+    val onSelectTab: (TopLevelDestination) -> Unit = { destination ->
+        // Re-selecting a tab takes its list back to the start — 首页 reloads on the way,
+        // since the one thing a reader taps 首页 for while already on 首页 is 新帖. Only
+        // the two tabs that *are* a list long enough to get lost in answer at all; 我的
+        // stays inert, because a tab that silently jumps somewhere is worse than one
+        // that does nothing.
+        if (destination == currentTab) {
+            when (destination) {
+                TopLevelDestination.HOME -> homeReselectRequests++
+                TopLevelDestination.NOTIFICATIONS -> notificationsScrollToTopRequests++
+                else -> Unit
+            }
+        }
+        currentTab = destination
+    }
+
     NavigationSuiteScaffold(
         navigationItems = {
             NodysseyNavigationItems(
                 current = currentTab,
-                onSelect = { destination ->
-                    // Re-selecting a tab takes its list back to the start — 首页 reloads on the way,
-                    // since the one thing a reader taps 首页 for while already on 首页 is 新帖. Only
-                    // the two tabs that *are* a list long enough to get lost in answer at all; 我的
-                    // stays inert, because a tab that silently jumps somewhere is worse than one
-                    // that does nothing.
-                    if (destination == currentTab) {
-                        when (destination) {
-                            TopLevelDestination.HOME -> homeReselectRequests++
-                            TopLevelDestination.NOTIFICATIONS -> notificationsScrollToTopRequests++
-                            else -> Unit
-                        }
-                    }
-                    currentTab = destination
-                },
+                onSelect = onSelectTab,
                 unreadCount = notificationsState.counts.all,
             )
         },
         modifier = modifier,
-        navigationSuiteType =
-        NavigationSuiteScaffoldDefaults.navigationSuiteType(windowAdaptiveInfo),
+        navigationSuiteType = if (useFloatingGlassBar) NavigationSuiteType.None else defaultSuiteType,
         // The bar is a card like any other — white on the grey page — and the rail beside a wide
         // layout sits flush with the page, since it has no content under it to lift off.
         navigationSuiteColors =
         NavigationSuiteDefaults.colors(
-            shortNavigationBarContainerColor = LocalPlazaLayers.current.card,
-            navigationBarContainerColor = LocalPlazaLayers.current.card,
-            navigationRailContainerColor = LocalPlazaLayers.current.page,
+            shortNavigationBarContainerColor = layers.card,
+            navigationBarContainerColor = layers.card,
+            navigationRailContainerColor = layers.page,
         ),
         state = navigationSuiteState,
     ) {
+        val glassBarVisibility = remember { MutableTransitionState(useFloatingGlassBar && showNavigationSuite) }
+        glassBarVisibility.targetState = useFloatingGlassBar && showNavigationSuite
+        var composedNotices by remember { mutableIntStateOf(0) }
+        // Keep capture through both exit animations. SnackbarHost may draw an outgoing notice
+        // after currentSnackbarData clears, or overlap it with the next notice in the queue.
+        val navBackdrop = rememberLiquidGlassBackdrop(
+            layers.page,
+            enabled = glassBarVisibility.currentState || glassBarVisibility.targetState || !glassBarVisibility.isIdle ||
+                clipboardSnackbar.currentSnackbarData != null || composedNotices > 0,
+        )
         Box(Modifier.fillMaxSize()) {
             SharedTransitionLayout(
                 Modifier
                     .fillMaxSize()
+                    .liquidGlassBackdropSource(navBackdrop)
                     // iOS 26's swipe-anywhere back, within a tab's own stack only: a tab's root has no
                     // content swipe on iOS, and here it would mean "jump to 首页" — which stays on the
                     // edge swipe, as it always was.
@@ -658,6 +690,7 @@ fun MainNavigation(
                     LocalOpenReportCompare provides { openReportCompare() },
                     // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
                     LocalStickerNavigation provides stickerNavigation,
+                    LocalFloatingBottomBarHeight provides if (useFloatingGlassBar && atTabRoot) FloatingGlassBarClearance else 0.dp,
                 ) {
                     val navigateBack: () -> Unit = {
                         if (backStack.size > 1) {
@@ -677,12 +710,35 @@ fun MainNavigation(
                     )
                 }
             }
-            SnackbarHost(
-                hostState = clipboardSnackbar,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
-            )
+            CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
+                FloatingBottomBarVisibility(
+                    visibleState = glassBarVisibility,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+                ) {
+                    GlassBottomNavigationBar(
+                        current = currentTab,
+                        onSelect = onSelectTab,
+                        unreadCount = notificationsState.counts.all,
+                    )
+                }
+            }
+            CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
+                SnackbarHost(
+                    hostState = clipboardSnackbar,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                        .padding(bottom = if (useFloatingGlassBar && showNavigationSuite) FloatingGlassBarClearance else 0.dp),
+                ) { data ->
+                    DisposableEffect(data) {
+                        composedNotices++
+                        onDispose { composedNotices-- }
+                    }
+                    PlazaSnackbar(data)
+                }
+            }
         }
     }
 }

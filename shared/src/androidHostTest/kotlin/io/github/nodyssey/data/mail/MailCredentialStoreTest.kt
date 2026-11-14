@@ -24,12 +24,14 @@ class MailCredentialStoreTest {
         credentials.save("sk_live_previous")
         credentials.saveDefaultMailboxId(9)
         credentials.saveNotificationCursor(9, 21)
+        credentials.saveNotificationCursor(null, 25)
 
         credentials.replace("sk_live_replacement")
 
         assertEquals("sk_live_replacement", credentials.read())
         assertEquals(null, credentials.readDefaultMailboxId())
         assertEquals(null, credentials.readNotificationCursor(9))
+        assertEquals(null, credentials.readNotificationCursor(null))
     }
 
     @Test

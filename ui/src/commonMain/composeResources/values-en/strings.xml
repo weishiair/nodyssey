@@ -412,6 +412,8 @@
     <string name="settings_report_format_source">Terminal</string>
     <string name="settings_home_page_bar">Page bar on home</string>
     <string name="settings_home_page_bar_hint">Shows the page number at the bottom right of home</string>
+    <string name="settings_show_home_pinned_posts">Show pinned posts on home</string>
+    <string name="settings_show_home_pinned_posts_hint">Turn off to hide pinned posts in all home tabs. Search is unaffected.</string>
     <string name="settings_clipboard_post">Detect copied post links</string>
     <string name="settings_clipboard_post_hint">Offer to open a copied post link when you come back</string>
     <string name="clipboard_post_prompt">Open the post on your clipboard?</string>
@@ -462,6 +464,7 @@
     <string name="doh_title">Encrypted DNS</string>
     <string name="doh_master_title">Use encrypted DNS</string>
     <string name="doh_master_hint">The app resolves hostnames over DoH; every other app on the phone carries on as before</string>
+    <string name="doh_paused_for_proxy">Encrypted DNS is paused while a proxy is active. Your saved setting will resume when the proxy is off.</string>
     <string name="doh_provider_title">Resolver</string>
     <string name="doh_provider_alidns">AliDNS</string>
     <string name="doh_provider_weishiair">Weishiair DoH (ECH)</string>
@@ -677,7 +680,7 @@
     <string name="notify_quiet_hours_hint">23:00 – 07:00 · still fetched, never announced</string>
     <string name="notify_channels_section">Categories · these are the Android notification channels</string>
     <string name="notify_mail">New email</string>
-    <string name="notify_mail_hint">Checks the default inbox in the background at the interval above; foreground checks and in-app alerts remain automatic</string>
+    <string name="notify_mail_hint">Checks the selected mailboxes in the background at the interval above; foreground checks and in-app alerts remain automatic</string>
     <string name="notify_telegram_title">Want it instantly?</string>
     <string name="notify_telegram_body">Link Telegram and the site forwards unread messages as they arrive</string>
     <string name="notify_telegram_action">Link it</string>
@@ -888,6 +891,10 @@
     <string name="space_message">Message</string>
     <string name="space_follow">Follow</string>
     <string name="space_following">Following</string>
+    <string name="space_copy_name">Copy username</string>
+    <string name="space_copy_uid">Copy UID</string>
+    <string name="space_name_copied">Username copied</string>
+    <string name="space_uid_copied">UID copied</string>
     <string name="space_readme_empty">No readme found 🙄</string>
     <string name="space_readme_expand">Show all</string>
     <string name="space_readme_collapse">Collapse</string>
@@ -1838,4 +1845,10 @@
     <string name="mail_open_inbox">Open inbox</string>
     <string name="mail_poll_api_hint">Checks about every 30 seconds in the foreground, or 15 seconds in the inbox</string>
     <string name="mail_poll_web_hint">Checks for new mail about every 60 seconds while the app is open</string>
+    <string name="mail_all_mailboxes">All mailboxes</string>
+    <string name="mail_read_status">Read</string>
+    <string name="mail_unread_status">Unread</string>
+    <string name="mail_recipient_address">To: %1$s</string>
+    <string name="settings_frosted_glass">Frosted glass chrome</string>
+    <string name="settings_frosted_glass_hint">Floating translucent bottom bar and specular rims; post cards stay solid for reading contrast</string>
 </resources>

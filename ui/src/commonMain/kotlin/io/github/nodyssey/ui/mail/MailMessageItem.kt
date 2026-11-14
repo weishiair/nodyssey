@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Badge
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,11 +27,15 @@ import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.mail_code_copied
 import io.github.nodyssey.ui.resources.mail_copy_code
 import io.github.nodyssey.ui.resources.mail_no_subject
+import io.github.nodyssey.ui.resources.mail_read_status
+import io.github.nodyssey.ui.resources.mail_recipient_address
+import io.github.nodyssey.ui.resources.mail_unread_status
 import io.github.nodyssey.ui.resources.mail_verification_code
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.theme.Spacing
 import kotlinx.datetime.TimeZone
@@ -49,6 +52,7 @@ internal fun MailMessageItem(
     nowMillis: Long,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    recipientAddress: String = mail.toAddress,
 ) {
     GroupedListItem(
         first = first,
@@ -62,7 +66,6 @@ internal fun MailMessageItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                if (!mail.isRead) Badge()
                 Text(
                     mail.sender,
                     Modifier.weight(1f),
@@ -89,6 +92,25 @@ internal fun MailMessageItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    Text(
+                        stringResource(Res.string.mail_recipient_address, recipientAddress),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    TonalTag(
+                        text = stringResource(if (mail.isRead) Res.string.mail_read_status else Res.string.mail_unread_status),
+                        containerColor = if (mail.isRead) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = if (mail.isRead) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
                 if (!preview?.snippet.isNullOrBlank()) {
                     Text(
                         preview.snippet,

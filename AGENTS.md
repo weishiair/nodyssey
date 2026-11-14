@@ -95,6 +95,7 @@ The project requires JDK 21 and Android SDK 37. Use the checked-in Gradle wrappe
 - `./gradlew :gallery:run` opens the design system in a desktop window. Not a gate; it is how a change to `:designsys` gets looked at without an emulator.
 - `./gradlew :ui:testAndroidHostTest -PrenderUi --tests '*XxxScreenRenderTest'` renders a screen to `ui/build/outputs/renders/*.png` for a pull request to carry. Off by default — the render classes skip themselves — and nothing is committed; see `ui/src/androidHostTest/kotlin/io/github/nodyssey/render/ScreenRender.kt`.
 - `./gradlew :shared:macosArm64Test` runs the same common tests on Kotlin/Native. Mac only — the everyday CI jobs run on Linux and never execute it, so it stays a local gate; the release workflow's macOS job runs it once per tag as a backstop. It is what catches common code that only the JVM accepts. It needs a full Xcode rather than the Command Line Tools: if `xcode-select -p` answers `/Library/Developer/CommandLineTools`, the link step fails inside `CurrentXcode.xcrun`, and the fix is to prefix the command with `DEVELOPER_DIR=` pointing at whichever Xcode is installed — not to change `xcode-select` globally. Do not hardcode `/Applications/Xcode.app`: a `DEVELOPER_DIR` naming a path that does not exist overrides a working default and produces the same failure it was meant to avoid.
+- UIKit tests need a booted simulator: `device=$(bash .github/scripts/boot-ios-test-simulator.sh)` then `./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test "-Pnodyssey.iosTestDevice=$device"`. Kotlin's standalone mode omits system services such as the pasteboard server. Shut down the test device with `xcrun simctl shutdown "$device"` before optimized app linking; CI does this even after a failed test.
 - `./gradlew :app:lintDebug` runs Android lint with warnings treated as errors. `checkDependencies` is on, so this one invocation also covers the libraries the app depends on.
 - `./gradlew spotlessCheck` verifies formatting; `./gradlew spotlessApply` fixes it.
 - `./gradlew resolveAndLockAll --write-locks` refreshes every module's `gradle.lockfile` after dependency changes. Commit all of them.
@@ -112,7 +113,8 @@ Before submitting, run the same gates as `.github/workflows/ci.yml`. After build
   `1.3.5-ios-test.2` (97), `1.3.5-ios-test.3` (98) and `1.3.5-ios-test.4` (99) are assigned.
   Stable `1.3.5` uses 100. The `1.3.6-test.1` through `1.3.6-test.10` snapshots use 101–110;
   `1.3.6-ios-test.1` and `1.3.6-ios-test.2` use 111 and 112. Stable `1.3.6` uses 113;
-  the next test is `1.3.7-test.1` (114).
+  `1.3.7-test.1` uses 114. Stable `1.3.10` uses 148; `1.3.11-ios-test.7` uses 164 and
+  stable `1.3.11` uses 165. Check newer builds before assigning the next code (at least 166).
   Subsequent tests increment both `-test.N` and Android `versionCode`; never reuse an older code.
 - Keep the version in `gradle.properties`, name the artifact `nodyssey-v<versionName>.apk`, and
   publish test tags as GitHub prereleases. Legacy `-dev.N` tags remain supported.
@@ -202,7 +204,7 @@ are disposable.
   Never put a test version bump on `main`.
 - `dev` is the integration line for the next release. Feature and fix branches merge here, and test
   snapshots are cut from here. Keep its `gradle.properties` at the last stable version
-  (`1.3.6 / 113` after this release) — the test branch owns the bump.
+  (`1.3.11 / 165` after this release) — the test branch owns the bump.
 - Feature and fix branches use `<type>/<slug>`, with `type` one of `feature`, `fix`, `ios`,
   `android` or `docs` (for example `feature/original-thread-layout`). One feature per branch; do not
   mix an Android screen change and an iOS fix unless the user asked for a combined build. Legacy

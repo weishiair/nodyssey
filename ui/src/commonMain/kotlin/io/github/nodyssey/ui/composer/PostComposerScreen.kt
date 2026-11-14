@@ -39,7 +39,6 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -116,6 +115,7 @@ import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.UserAvatar
@@ -305,7 +305,7 @@ fun PostComposerScreen(
         // A sheet of paper rather than the grey page: the editor is one card the writer is inside,
         // so the whole screen takes the card colour and only the bar at the bottom recedes (1d).
         containerColor = LocalPlazaLayers.current.card,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
             ComposerTopBar(
                 viewMode = state.viewMode,

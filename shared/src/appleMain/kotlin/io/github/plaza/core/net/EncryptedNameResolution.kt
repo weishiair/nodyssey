@@ -9,11 +9,6 @@ import kotlinx.cinterop.cstr
 import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.set
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 
 /**
  * One DoH server, in the terms Network.framework takes them.
@@ -52,8 +47,8 @@ data class EncryptedResolver(
  * - The fallback resolver is used only "if no other encrypted DNS resolver is already configured for
  *   the query", so a device carrying a DoH profile keeps using that one and this setting only takes
  *   effect where the system has no opinion.
- * - Nothing in the API describes which record types to query — that is the system resolver's
- *   business, which is why `canChooseRecordTypes` is false too.
+ * - Nothing in this API describes which record types to query. The IPv6 setting is implemented by
+ *   the separate Rust transport; it cannot constrain lookups made through this system context.
  *
  * The cache is flushed on every change because a privacy context caches answers; without it the
  * addresses the old resolver gave would keep being used, which is the same failure evicting the
@@ -68,18 +63,13 @@ data class EncryptedResolver(
  * carries the exception and why cinterop cannot type that global.
  */
 @OptIn(ExperimentalForeignApi::class)
-class EncryptedNameResolution(
-    scope: CoroutineScope,
-    resolver: Flow<EncryptedResolver?>,
-) {
-    init {
-        resolver
-            .distinctUntilChanged()
-            .onEach(::apply)
-            .launchIn(scope)
-    }
+class EncryptedNameResolution {
+    private var initialized = false
+    private var applied: EncryptedResolver? = null
 
-    private fun apply(resolver: EncryptedResolver?) {
+    /** Calls are serialized by the routing policy; unchanged settings must not flush DNS per call. */
+    fun apply(resolver: EncryptedResolver?) {
+        if (initialized && applied == resolver) return
         val addresses = resolver?.serverAddresses.orEmpty()
         memScoped {
             // `allocArray(0)` is not a thing worth relying on, and the count is what the stub reads
@@ -88,5 +78,7 @@ class EncryptedNameResolution(
             addresses.forEachIndexed { index, address -> array[index] = address.cstr.getPointer(this) }
             plaza_apply_encrypted_dns(resolver?.url, array, addresses.size)
         }
+        applied = resolver
+        initialized = true
     }
 }

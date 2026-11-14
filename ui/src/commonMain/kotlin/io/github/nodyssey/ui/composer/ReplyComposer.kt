@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -91,7 +92,9 @@ import io.github.nodyssey.ui.stardust.StardustReceiveComposeDialog
 import io.github.nodyssey.ui.vote.VoteComposeDialog
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
+import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.EditorTextField
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
@@ -106,9 +109,14 @@ import io.github.plaza.designsys.editor.MarkdownEditorState
 import io.github.plaza.designsys.editor.ToolbarCustomizeSheet
 import io.github.plaza.designsys.editor.rememberMarkdownEditorState
 import io.github.plaza.designsys.theme.CommentBody
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.backdropGlass
+import io.github.plaza.designsys.theme.glassRimBorderStroke
+import io.github.plaza.designsys.theme.glassSheetBrush
+import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -312,13 +320,15 @@ private fun ReplyEditorSheet(
             windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
         }
     val dismiss = { if (!state.isPublishing) onDismiss() }
+    val nativeGlass = LocalPlazaLayers.current.nativeGlass
     val editor: @Composable (Modifier) -> Unit = { editorModifier ->
         Column(modifier = editorModifier.fillMaxWidth()) {
             // The post editor's top bar in miniature: ✕ · where the reply goes · 预览 · 发布. 发布
             // moved up here from the end of the formatting strip, which is what let the strip go —
             // it was the reason that strip had to squeeze its keys to 42dp.
             Row(
-                modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget).padding(start = Spacing.xs, end = Spacing.md),
+                modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget)
+                    .padding(start = Spacing.xs, end = if (nativeGlass) Spacing.lg else Spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -433,6 +443,8 @@ private fun ReplyEditorSheet(
                 actions = state.toolbar.enabled,
                 bodyState = bodyState,
                 editorState = editorState,
+                // The strip already has an 8dp gutter; align it with the reply's 16dp text inset.
+                barModifier = if (nativeGlass) Modifier.padding(start = Spacing.sm, end = Spacing.sm, top = Spacing.sm) else Modifier,
                 onPickImages = onPickImages,
                 onPickHostedImages = onPickHostedImages,
                 onFormatted = { bodyFocus.requestFocus() },
@@ -452,6 +464,8 @@ private fun ReplyEditorSheet(
             )
         }
     }
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
     if (asCard) {
         Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             // The keyboard pushes the card up rather than covering its bottom, where 发布's strip is.
@@ -461,10 +475,21 @@ private fun ReplyEditorSheet(
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.extraLarge,
-                    color = LocalPlazaLayers.current.card,
+                    color = layers.card,
+                    border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
                     modifier = Modifier.widthIn(max = REPLY_CARD_MAX_WIDTH).fillMaxWidth(),
                 ) {
-                    editor(Modifier.padding(top = Spacing.xs))
+                    editor(
+                        Modifier
+                            .then(
+                                if (layers.backdropGlass) {
+                                    Modifier.background(layers.glassSheetBrush(darkTheme))
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .padding(top = Spacing.xs),
+                    )
                 }
             }
         }
@@ -479,10 +504,12 @@ private fun ReplyEditorSheet(
             ),
             // A sheet of paper, like the post editor's page (2c): the editor is one card lifted over the
             // thread, and only its bar and the emoji panel under it recede.
-            containerColor = LocalPlazaLayers.current.card,
+            containerColor = layers.card,
             shape = PlazaSheetDefaults.shape,
             dragHandle = { PlazaSheetDefaults.DragHandle() },
         ) {
+            // Material clips the whole sheet, including its handle, to one outer shape. Painting
+            // another full-width background below the handle creates a second, square-edged panel.
             editor(Modifier.imePadding())
         }
     }
@@ -640,30 +667,60 @@ private fun PublishReplyButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
+    val scheme = MaterialTheme.colorScheme
     // Material's extra-small size step with its square shape: the Lean round's 32dp button, the
     // header's one filled thing without being the tallest.
-    Button(
-        onClick = onClick,
-        enabled = enabled && !isPublishing,
-        shape = ButtonDefaults.squareShape,
-        contentPadding = ButtonDefaults.ExtraSmallContentPadding,
-        modifier = modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
+    val label = stringResource(if (isPublishing) Res.string.composer_publishing else Res.string.action_publish)
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = label,
+            title = label,
+            symbol = "paperplane",
+            onClick = onClick,
+            enabled = enabled,
+            loading = isPublishing,
+            prominent = true,
+            compact = true,
+        ),
+        modifier = modifier.heightIn(min = 44.dp),
     ) {
-        if (isPublishing) {
-            PlazaSpinner(
-                modifier = Modifier.describedAsLoading(),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onPrimary,
-                size = 14.dp,
+        Button(
+            onClick = onClick,
+            enabled = enabled && !isPublishing,
+            shape = ButtonDefaults.squareShape,
+            border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
+            colors =
+            if (layers.backdropGlass) {
+                ButtonDefaults.buttonColors(
+                    containerColor = scheme.primary.copy(alpha = 0.88f),
+                    contentColor = scheme.onPrimary,
+                    disabledContainerColor = layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.72f),
+                    disabledContentColor = scheme.onSurfaceVariant,
+                )
+            } else {
+                ButtonDefaults.buttonColors()
+            },
+            contentPadding = ButtonDefaults.ExtraSmallContentPadding,
+            modifier = modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
+        ) {
+            if (isPublishing) {
+                PlazaSpinner(
+                    modifier = Modifier.describedAsLoading(),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    size = 14.dp,
+                )
+            } else {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+            }
+            Text(
+                text = stringResource(if (isPublishing) Res.string.composer_publishing else Res.string.action_publish),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.padding(start = Spacing.xs),
             )
-        } else {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
         }
-        Text(
-            text = stringResource(if (isPublishing) Res.string.composer_publishing else Res.string.action_publish),
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.padding(start = Spacing.xs),
-        )
     }
 }
 

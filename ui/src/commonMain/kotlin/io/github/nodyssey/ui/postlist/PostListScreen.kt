@@ -37,7 +37,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -96,6 +95,7 @@ import io.github.nodyssey.ui.common.CollapsingHeader
 import io.github.nodyssey.ui.common.EmptyFeedState
 import io.github.nodyssey.ui.common.FeedSortOrder
 import io.github.nodyssey.ui.common.JumpDestination
+import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.LocalThreadTransition
 import io.github.nodyssey.ui.common.NavigationBarScrollConnection
 import io.github.nodyssey.ui.common.NavigationDirectionThreshold
@@ -108,6 +108,7 @@ import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.SortMenuItem
 import io.github.nodyssey.ui.common.THREAD_ORIGIN_FEED
 import io.github.nodyssey.ui.common.UserNoteTag
+import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.collectPagesAtRest
 import io.github.nodyssey.ui.common.compactCount
 import io.github.nodyssey.ui.common.postCardTitleStyle
@@ -151,9 +152,11 @@ import io.github.plaza.designsys.component.MetaStat
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaFabHeight
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SkeletonBar
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Sizes
@@ -161,7 +164,9 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
+import io.github.plaza.designsys.theme.liquidGlassBackdropSource
 import io.github.plaza.designsys.theme.readableWidth
+import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -564,9 +569,20 @@ fun PostListScreen(
         }
     }
 
+    val feedBackdrop = rememberLiquidGlassBackdrop(LocalPlazaLayers.current.page)
+
     Scaffold(
         modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            CompositionLocalProvider(LocalLiquidGlassBackdrop provides feedBackdrop) {
+                PlazaSnackbarHost(
+                    snackbarHostState,
+                    // Scaffold already lifts this above its FAB. With a page rail, that FAB lives in
+                    // the content instead, so only this path needs the floating navigation clearance.
+                    modifier = Modifier.padding(bottom = if (showPageBar) LocalFloatingBottomBarHeight.current else 0.dp),
+                )
+            }
+        },
         topBar = {
             Column {
                 HomeHeader(
@@ -603,21 +619,29 @@ fun PostListScreen(
             // it — two floating things in the same corner is what Material's slot exists to prevent,
             // and it is the arrangement the thread already ships with its 回复 button.
             if (!showPageBar) {
-                // Follow the same sticky direction state as the navigation bar. Stopping cannot
-                // briefly flip this value, so the built-in extended-FAB animation gets one stable
-                // target.
-                PlazaExtendedFab(
-                    text = stringResource(Res.string.action_create_post),
-                    icon = Icons.Default.Edit,
-                    onClick = onCreatePost,
-                    expanded = !navigationBarHidden,
-                )
+                CompositionLocalProvider(LocalLiquidGlassBackdrop provides feedBackdrop) {
+                    // Follow the same sticky direction state as the navigation bar. Stopping cannot
+                    // briefly flip this value, so the built-in extended-FAB animation gets one stable
+                    // target.
+                    PlazaExtendedFab(
+                        text = stringResource(Res.string.action_create_post),
+                        icon = Icons.Default.Edit,
+                        nativeSymbol = "square.and.pencil",
+                        onClick = onCreatePost,
+                        expanded = !navigationBarHidden,
+                        modifier = Modifier.padding(
+                            bottom = if (!navigationBarHidden) LocalFloatingBottomBarHeight.current else 0.dp,
+                        ),
+                    )
+                }
             }
         },
     ) { padding ->
         // The list runs on under the bottom bar and takes the bar's height as content padding — see
         // [withoutBottom].
-        val bottomInset = padding.calculateBottomPadding()
+        val bottomInset = padding.bottomWithFloatingBar()
+        val activeBarInset =
+            if (!navigationBarHidden || showPageSheet) bottomInset else padding.calculateBottomPadding()
         Box(
             Modifier
                 .padding(padding.withoutBottom())
@@ -628,7 +652,9 @@ fun PostListScreen(
                 // Keyed by board, so parking one or dragging it up the strip moves its page with it
                 // rather than handing its rows to whichever board inherited the index.
                 key = { index -> boards.getOrNull(index)?.slug ?: FRONT_PAGE_KEY },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .liquidGlassBackdropSource(feedBackdrop),
             ) { index ->
                 val board = boards.getOrNull(index) ?: return@HorizontalPager
                 BoardFeed(
@@ -649,29 +675,31 @@ fun PostListScreen(
             }
 
             if (showPageBar) {
-                FeedPageBar(
-                    // The same sticky direction state the FAB follows, rather than a second nested
-                    // scroll connection of the toolbar's own: two of them reading the same gesture
-                    // would disagree at the threshold and the bar would collapse out of step with
-                    // the navigation bar it sits above.
-                    expanded = !navigationBarHidden || showPageSheet,
-                    page = visiblePage,
-                    totalPages = state.totalPages,
-                    canScrollToTop = scrolledFromTop || state.startPage > FIRST_PAGE,
-                    onScrollToTop = {
-                        scope.launch {
-                            // A window opened at a later page has no page-one rows to scroll to.
-                            if (state.startPage > FIRST_PAGE) onGoToPage(FIRST_PAGE)
-                            scrollToTop()
-                        }
-                    },
-                    onNext = { goToPage((visiblePage + 1).coerceAtMost(state.totalPages)) },
-                    onPageClick = { showPageSheet = true },
-                    onCreatePost = onCreatePost,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = bottomInset),
-                )
+                CompositionLocalProvider(LocalLiquidGlassBackdrop provides feedBackdrop) {
+                    FeedPageBar(
+                        // The same sticky direction state the FAB follows, rather than a second nested
+                        // scroll connection of the toolbar's own: two of them reading the same gesture
+                        // would disagree at the threshold and the bar would collapse out of step with
+                        // the navigation bar it sits above.
+                        expanded = !navigationBarHidden || showPageSheet,
+                        page = visiblePage,
+                        totalPages = state.totalPages,
+                        canScrollToTop = scrolledFromTop || state.startPage > FIRST_PAGE,
+                        onScrollToTop = {
+                            scope.launch {
+                                // A window opened at a later page has no page-one rows to scroll to.
+                                if (state.startPage > FIRST_PAGE) onGoToPage(FIRST_PAGE)
+                                scrollToTop()
+                            }
+                        },
+                        onNext = { goToPage((visiblePage + 1).coerceAtMost(state.totalPages)) },
+                        onPageClick = { showPageSheet = true },
+                        onCreatePost = onCreatePost,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = activeBarInset),
+                    )
+                }
             }
         }
     }
@@ -859,9 +887,8 @@ private fun FeedPageBar(
     Column(
         modifier = modifier.padding(Spacing.lg),
         horizontalAlignment = Alignment.End,
-        // The thread's measurement, for the thread's reason: the rail's bottom key carries 4dp of
-        // touch-target slack under its paint, so 4dp here draws as the design's 8dp.
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        // Separate the glass capsule from the FAB. Standard keys already carry 4dp touch slack.
+        verticalArrangement = Arrangement.spacedBy(if (LocalPlazaLayers.current.frostedGlass) Spacing.sm else Spacing.xs),
     ) {
         PageJumpRail(
             expanded = expanded,
@@ -873,10 +900,12 @@ private fun FeedPageBar(
             previousEnabled = canScrollToTop,
             previousLabel = Res.string.action_scroll_to_top,
             previousIcon = PlazaIcons.VerticalAlignTop,
+            previousNativeSymbol = "arrow.up.to.line",
         )
         PlazaExtendedFab(
             text = stringResource(Res.string.action_create_post),
             icon = Icons.Default.Edit,
+            nativeSymbol = "square.and.pencil",
             onClick = onCreatePost,
             expanded = expanded,
         )

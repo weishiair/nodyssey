@@ -34,6 +34,70 @@ class AppDnsRecordsTest {
     )
 
     @Test
+    fun `a proxy uses system records even when saved DoH has strict fallback`() = runTest {
+        val resolver = RecordDns()
+        val system = RecordDns()
+        val dns = AppDns(backgroundScope, MutableStateFlow(config), { resolver }, system, proxyActive = { true })
+        runCurrent()
+        val result = Result()
+        dns.newCall(request).enqueue(result)
+        runCurrent()
+        system.calls.single().records(true, listOf(ip, metadata))
+        runCurrent()
+
+        assertTrue(resolver.calls.isEmpty())
+        assertEquals(listOf(ip, metadata), result.records)
+        assertEquals(1, result.terminals)
+    }
+
+    @Test
+    fun `a proxy connected between creating and enqueueing a DNS call prevents DoH`() = runTest {
+        var connected = false
+        val resolver = RecordDns()
+        val system = RecordDns()
+        val dns = AppDns(backgroundScope, MutableStateFlow(config), { resolver }, system, proxyActive = { connected })
+        runCurrent()
+        val call = dns.newCall(request)
+        connected = true
+        val result = Result()
+        call.enqueue(result)
+        runCurrent()
+        system.calls.single().records(true, listOf(ip))
+        runCurrent()
+
+        assertTrue(resolver.calls.isEmpty())
+        assertEquals(listOf(ip), result.records)
+        assertEquals(1, result.terminals)
+    }
+
+    @Test
+    fun `a proxy connecting during the last DoH failure uses system records in strict mode`() = runTest {
+        var connected = false
+        val resolver = RecordDns()
+        val system = RecordDns()
+        val dns = AppDns(
+            backgroundScope,
+            MutableStateFlow(config.copy(servers = config.servers.take(1))),
+            { resolver },
+            system,
+            proxyActive = { connected },
+        )
+        runCurrent()
+        val result = Result()
+        dns.newCall(request).enqueue(result)
+        runCurrent()
+        connected = true
+        resolver.calls.single().fail(IOException("unreachable"))
+        runCurrent()
+        system.calls.single().records(true, listOf(ip, metadata))
+        runCurrent()
+
+        assertEquals(listOf(ip, metadata), result.records)
+        assertTrue(result.failures.isEmpty())
+        assertEquals(1, result.terminals)
+    }
+
+    @Test
     fun `the connection receives ECH metadata and addresses from every batch`() = runTest {
         val resolver = RecordDns()
         val dns = AppDns(backgroundScope, MutableStateFlow(config), { resolver })

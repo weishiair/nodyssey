@@ -34,12 +34,15 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalFloatingToolbar
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -52,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -86,15 +90,20 @@ import io.github.nodyssey.ui.resources.page_jump_title
 import io.github.nodyssey.ui.resources.page_jump_to
 import io.github.nodyssey.ui.resources.page_jump_unit_floor
 import io.github.nodyssey.ui.resources.page_jump_unit_page
+import io.github.plaza.designsys.component.AdaptiveGlassToolbar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.theme.ControlShape
 import io.github.plaza.designsys.theme.LocalEinkMode
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.cardBorderStroke
+import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -141,7 +150,24 @@ fun PageJumpRail(
     previousEnabled: Boolean = page > 1,
     previousLabel: StringResource = Res.string.page_jump_previous,
     previousIcon: ImageVector = Icons.Default.KeyboardArrowUp,
+    previousNativeSymbol: String = "chevron.up",
 ) {
+    if (LocalPlazaLayers.current.frostedGlass) {
+        GlassPageJumpRail(
+            expanded = expanded,
+            page = page,
+            totalPages = totalPages,
+            onPrevious = onPrevious,
+            onNext = onNext,
+            onPageClick = onPageClick,
+            modifier = modifier,
+            previousEnabled = previousEnabled,
+            previousLabel = previousLabel,
+            previousIcon = previousIcon,
+            previousNativeSymbol = previousNativeSymbol,
+        )
+        return
+    }
     val motionScheme = MaterialTheme.motionScheme
     // No arrangement spacing: each key paints 40dp inside a 48dp touch slot, and the 4dp of slack
     // that leaves on every side is exactly the 8dp gap the design draws between two keys. Asking for
@@ -152,20 +178,7 @@ fun PageJumpRail(
             onClick = onPageClick,
             contentDescription = stringResource(Res.string.page_jump_page_of, page, totalPages),
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = page.toString(),
-                    style = PageNumberStyle,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                )
-                Text(
-                    text = stringResource(Res.string.page_jump_of_total, totalPages),
-                    style = PageTotalStyle,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
+            PageNumber(page, totalPages)
         }
         // Retracting upwards, into the page key rather than into the FAB below: the two keys belong
         // to the number they step, and the FAB is not theirs to grow out of.
@@ -193,6 +206,96 @@ fun PageJumpRail(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GlassPageJumpRail(
+    expanded: Boolean,
+    page: Int,
+    totalPages: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onPageClick: () -> Unit,
+    modifier: Modifier,
+    previousEnabled: Boolean,
+    previousLabel: StringResource,
+    previousIcon: ImageVector,
+    previousNativeSymbol: String,
+) {
+    val layers = LocalPlazaLayers.current
+    val pageDescription = stringResource(Res.string.page_jump_page_of, page, totalPages)
+    val previousDescription = stringResource(previousLabel)
+    val nextDescription = stringResource(Res.string.page_jump_next)
+    AdaptiveGlassToolbar(
+        actions = buildList {
+            add(
+                GlassAction(
+                    label = pageDescription,
+                    title = page.toString(),
+                    subtitle = stringResource(Res.string.page_jump_of_total, totalPages),
+                    onClick = onPageClick,
+                ),
+            )
+            if (expanded) {
+                add(GlassAction(previousDescription, onPrevious, symbol = previousNativeSymbol, enabled = previousEnabled))
+                add(GlassAction(nextDescription, onNext, symbol = "chevron.down", enabled = page < totalPages))
+            }
+        },
+        modifier = modifier.width(56.dp),
+        vertical = true,
+    ) {
+        VerticalFloatingToolbar(
+            expanded = expanded,
+            modifier = modifier.width(56.dp).glassChromeSurface(
+                layers = layers,
+                darkTheme = LocalPlazaDarkTheme.current,
+                shape = CircleShape,
+                backdrop = LocalLiquidGlassBackdrop.current,
+            ),
+            shape = CircleShape,
+            colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
+                toolbarContainerColor = Color.Transparent,
+                toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            contentPadding = PaddingValues(4.dp),
+            expandedShadowElevation = 0.dp,
+            collapsedShadowElevation = 0.dp,
+            trailingContent = {
+                IconButton(onClick = onPrevious, enabled = previousEnabled, modifier = Modifier.size(Sizes.minTouchTarget)) {
+                    Icon(previousIcon, contentDescription = stringResource(previousLabel))
+                }
+                IconButton(onClick = onNext, enabled = page < totalPages, modifier = Modifier.size(Sizes.minTouchTarget)) {
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
+                }
+            },
+        ) {
+            IconButton(
+                onClick = onPageClick,
+                modifier = Modifier.size(Sizes.minTouchTarget)
+                    .semantics { contentDescription = pageDescription },
+            ) {
+                Box(Modifier.clearAndSetSemantics {}) { PageNumber(page, totalPages) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageNumber(page: Int, totalPages: Int) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = page.toString(),
+            style = PageNumberStyle,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+        )
+        Text(
+            text = stringResource(Res.string.page_jump_of_total, totalPages),
+            style = PageTotalStyle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
     }
 }
 
@@ -234,6 +337,7 @@ private fun PageKey(
     content: @Composable () -> Unit,
 ) {
     val eink = LocalEinkMode.current
+    val layers = LocalPlazaLayers.current
     Box(modifier = Modifier.size(Sizes.minTouchTarget), contentAlignment = Alignment.Center) {
         Surface(
             onClick = onClick,
@@ -241,7 +345,7 @@ private fun PageKey(
             shape = ControlShape,
             // The raised layer, not the page's grey: the rail floats over cards and over the gaps
             // between them, and a key the colour of the gaps disappeared into them there.
-            color = LocalPlazaLayers.current.raised,
+            color = layers.raised,
             // Material's Surface otherwise leaves a disabled key looking exactly like a live one.
             contentColor =
             if (enabled) {

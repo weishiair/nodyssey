@@ -37,6 +37,7 @@ import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,6 +57,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -150,6 +152,16 @@ import coil3.size.Size as CoilSize
  * tap-only.
  */
 val LocalImageLongPress = staticCompositionLocalOf<((String) -> Unit)?> { null }
+
+/** Optional typography for secondary rich content; the parsed markup and link actions stay intact. */
+@Immutable
+data class RichTextAppearance(
+    val linkColor: Color = Color.Unspecified,
+    val strongFontWeight: FontWeight = FontWeight.Bold,
+)
+
+/** Inherited by nested paragraphs, quotes, lists and tables, like the surrounding text style. */
+val LocalRichTextAppearance = staticCompositionLocalOf { RichTextAppearance() }
 
 /** A tap opens [url]; a long press goes to [LocalImageLongPress] when one is provided. */
 @Composable
@@ -1105,11 +1117,12 @@ private fun DataTable(
     onLinkClick: (String) -> Unit,
     onImageClick: (String) -> Unit,
 ) {
+    val appearance = LocalRichTextAppearance.current
     val linkStyles =
         TextLinkStyles(
             style =
             SpanStyle(
-                color = MaterialTheme.colorScheme.primary,
+                color = appearance.linkColor.takeOrElse { MaterialTheme.colorScheme.primary },
                 textDecoration = TextDecoration.Underline,
             ),
         )
@@ -1128,11 +1141,11 @@ private fun DataTable(
             stringResource(Res.string.richtext_quote_reply, ref.name, ref.floor)
         }
     val cells =
-        remember(content, linkStyles, codeBackground, linkListener, quoteLabels) {
+        remember(content, linkStyles, codeBackground, linkListener, quoteLabels, appearance.strongFontWeight) {
             content.map { row ->
                 row.map { inlines ->
                     WrapCell(
-                        text = cellText(inlines, linkStyles, codeBackground, linkListener, quoteLabels),
+                        text = cellText(inlines, linkStyles, codeBackground, linkListener, quoteLabels, appearance.strongFontWeight),
                         images =
                         inlines.filterIsInstance<InlineNode.Image>().map {
                             WrapCellImage(url = it.url, alt = it.alt)
@@ -1169,10 +1182,11 @@ private fun cellText(
     codeBackground: Color,
     linkListener: LinkInteractionListener,
     quoteLabels: Map<InlineNode.QuoteRef, String>,
+    strongFontWeight: FontWeight,
 ): AnnotatedString = buildAnnotatedString {
     inlines.forEach { inline ->
         when (inline) {
-            is InlineNode.Text -> withSpan(inline.style, codeBackground) { append(inline.text) }
+            is InlineNode.Text -> withSpan(inline.style, codeBackground, strongFontWeight) { append(inline.text) }
 
             is InlineNode.Link ->
                 withLink(
@@ -1182,7 +1196,7 @@ private fun cellText(
                         linkInteractionListener = linkListener,
                     ),
                 ) {
-                    withSpan(inline.style, codeBackground) { append(inline.text) }
+                    withSpan(inline.style, codeBackground, strongFontWeight) { append(inline.text) }
                 }
 
             is InlineNode.Sticker -> append(inline.alt.orEmpty())
@@ -1208,11 +1222,12 @@ private fun InlineText(
 ) {
     if (inlines.isEmpty()) return
 
+    val appearance = LocalRichTextAppearance.current
     val linkStyles =
         TextLinkStyles(
             style =
             SpanStyle(
-                color = MaterialTheme.colorScheme.primary,
+                color = appearance.linkColor.takeOrElse { MaterialTheme.colorScheme.primary },
                 textDecoration = TextDecoration.Underline,
             ),
         )
@@ -1281,6 +1296,7 @@ private fun InlineText(
             stickerFallback,
             linkListener,
             quoteListener,
+            appearance.strongFontWeight,
         ) {
             val ranges = mutableListOf<IntRange>()
             val built =
@@ -1329,7 +1345,7 @@ private fun InlineText(
                         when (inline) {
                             is InlineNode.Text ->
                                 appendWithPangu(inline.text, inline.style.code) {
-                                    withSpan(inline.style, codeBackground) { append(inline.text) }
+                                    withSpan(inline.style, codeBackground, appearance.strongFontWeight) { append(inline.text) }
                                 }
 
                             is InlineNode.Link ->
@@ -1341,7 +1357,7 @@ private fun InlineText(
                                             linkInteractionListener = linkListener,
                                         ),
                                     ) {
-                                        withSpan(inline.style, codeBackground) { append(inline.text) }
+                                        withSpan(inline.style, codeBackground, appearance.strongFontWeight) { append(inline.text) }
                                     }
                                 }
 
@@ -1684,6 +1700,7 @@ private fun isHalfwidthAlnum(char: Char): Boolean =
 private inline fun AnnotatedString.Builder.withSpan(
     style: InlineStyle,
     codeBackground: Color,
+    strongFontWeight: FontWeight,
     block: AnnotatedString.Builder.() -> Unit,
 ) {
     val span =
@@ -1693,7 +1710,7 @@ private inline fun AnnotatedString.Builder.withSpan(
             // becomes weight instead, which is what the design's typography rules require.
             fontWeight =
             when {
-                style.bold -> FontWeight.Bold
+                style.bold -> strongFontWeight
                 style.italic -> FontWeight.Medium
                 else -> null
             },

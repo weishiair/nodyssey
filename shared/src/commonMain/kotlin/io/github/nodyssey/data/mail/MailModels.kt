@@ -39,10 +39,10 @@ data class MailConnection(
 
 enum class MailAuthMode { WEB_SESSION, API_KEY }
 
-data class MailArrival(val mailboxId: Long, val count: Int, val generation: Long = 0)
+data class MailArrival(val mailboxId: Long?, val count: Int, val generation: Long = 0)
 
-/** Latest first page of the default inbox, shared by foreground polling and the inbox screen. */
-data class MailInboxSnapshot(val generation: Long, val mailboxId: Long, val page: MailPage)
+/** Latest first page of the selected inbox scope; a null mailbox ID includes all mailboxes. */
+data class MailInboxSnapshot(val generation: Long, val mailboxId: Long?, val page: MailPage)
 
 data class MailReadStates(
     val generation: Long = 0,

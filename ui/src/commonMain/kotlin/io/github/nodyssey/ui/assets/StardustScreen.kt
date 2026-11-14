@@ -32,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -114,6 +113,7 @@ import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.digitsOnly
@@ -250,7 +250,7 @@ fun StardustScreen(
                 },
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         floatingActionButton = {
             // No uid means the profile call has not answered — nobody to send from and no balance to
             // check the amount against, so the form would be a form that cannot submit.
@@ -258,6 +258,7 @@ fun StardustScreen(
                 PlazaExtendedFab(
                     text = stringResource(Res.string.transfer_action),
                     icon = Icons.AutoMirrored.Filled.Send,
+                    nativeSymbol = "paperplane",
                     onClick = onOpenTransfer,
                 )
             }

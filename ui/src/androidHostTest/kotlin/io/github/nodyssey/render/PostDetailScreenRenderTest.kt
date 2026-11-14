@@ -23,6 +23,7 @@ import io.github.nodyssey.ui.postdetail.PostDetailUiState
 import io.github.nodyssey.ui.postdetail.ReplyAuthorInfo
 import io.github.nodyssey.ui.postdetail.readingView
 import io.github.plaza.core.richtext.InlineNode
+import io.github.plaza.core.richtext.InlineStyle
 import io.github.plaza.core.richtext.RichNode
 import io.github.plaza.designsys.theme.PlazaSoftPalette
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -55,8 +56,9 @@ class PostDetailScreenRenderTest {
         fontScale: Float = 1f,
         pureWhite: Boolean = false,
         softPalette: PlazaSoftPalette? = null,
+        frostedGlass: Boolean = false,
     ) {
-        PlazaTheme(darkTheme = darkTheme, fontScale = fontScale, pureWhite = pureWhite, softPalette = softPalette) {
+        PlazaTheme(darkTheme = darkTheme, fontScale = fontScale, pureWhite = pureWhite, softPalette = softPalette, frostedGlass = frostedGlass) {
             PostDetailScreen(
                 state = state,
                 postUrl = "https://www.nodeseek.com/post-100-1",
@@ -135,6 +137,23 @@ class PostDetailScreenRenderTest {
     fun `light cards with signature links and quotes`() {
         composeRule.setContent { Screen(darkTheme = false, state = SIGNED_REPLIES, pureWhite = true) }
         composeRule.onRoot().captureRender("post-detail-cards-signatures")
+    }
+
+    @Test
+    fun `signature comparison in standard light`() = signaturePreview(darkTheme = false, glass = false)
+
+    @Test
+    fun `signature comparison in standard dark`() = signaturePreview(darkTheme = true, glass = false)
+
+    @Test
+    fun `signature comparison in glass light`() = signaturePreview(darkTheme = false, glass = true)
+
+    @Test
+    fun `signature comparison in glass dark`() = signaturePreview(darkTheme = true, glass = true)
+
+    private fun signaturePreview(darkTheme: Boolean, glass: Boolean) {
+        composeRule.setContent { Screen(darkTheme = darkTheme, state = SIGNATURE_PREVIEW, pureWhite = true, frostedGlass = glass) }
+        composeRule.onRoot().captureRender("post-signatures-${if (glass) "glass" else "standard"}-${if (darkTheme) "dark" else "light"}")
     }
 
     @Test
@@ -395,6 +414,16 @@ class PostDetailScreenRenderTest {
     @Test
     fun `the page jump in dark`() = pageJump(darkTheme = true)
 
+    @Test
+    fun `the glass page jump in light`() = pageJump(darkTheme = false, frostedGlass = true)
+
+    @Test
+    fun `the glass page jump in dark`() = pageJump(darkTheme = true, frostedGlass = true)
+
+    @Test
+    @Config(qualifiers = "w320dp-h640dp")
+    fun `the glass page jump on a narrow screen`() = pageJump(darkTheme = false, frostedGlass = true, fontScale = 1.3f)
+
     private fun floorPanel(darkTheme: Boolean) {
         composeRule.setContent { Screen(darkTheme = darkTheme) }
         // Open through its semantics action so this capture does not depend on scroll placement.
@@ -404,12 +433,12 @@ class PostDetailScreenRenderTest {
         captureWindows("post-detail-actions-${if (darkTheme) "dark" else "light"}")
     }
 
-    private fun pageJump(darkTheme: Boolean) {
-        composeRule.setContent { Screen(darkTheme = darkTheme) }
+    private fun pageJump(darkTheme: Boolean, frostedGlass: Boolean = false, fontScale: Float = 1f) {
+        composeRule.setContent { Screen(darkTheme = darkTheme, frostedGlass = frostedGlass, fontScale = fontScale) }
         composeRule.onNodeWithContentDescription("正在读主帖，点击跳楼").performClick()
         composeRule.waitForIdle()
 
-        captureWindows("post-detail-jump-${if (darkTheme) "dark" else "light"}")
+        captureWindows("post-detail-jump-${if (frostedGlass) "glass-" else ""}${if (darkTheme) "dark" else "light"}${if (fontScale > 1f) "-large-text" else ""}")
     }
 
     /**
@@ -600,6 +629,32 @@ class PostDetailScreenRenderTest {
                     } else {
                         emptyList()
                     },
+                )
+            },
+        )
+
+        val SIGNATURE_PREVIEW = SIGNED_REPLIES.copy(
+            replyAuthors = (121L..130L).associateWith { ReplyAuthorInfo((it % 8).toInt(), 427) },
+            comments = SIGNED_REPLIES.comments.mapIndexed { index, comment ->
+                comment.copy(
+                    badges = emptyList(),
+                    signatureNodes = listOf(
+                        RichNode.Paragraph(
+                            listOf(
+                                InlineNode.Text("♥ "),
+                                InlineNode.Link("探针监控", "https://monitor.example", InlineStyle(bold = true)),
+                                InlineNode.Text(" · "),
+                                InlineNode.Link("技术交流", "https://chat.example", InlineStyle(bold = true)),
+                                InlineNode.Text(" · "),
+                                InlineNode.Link("个人主页", "https://home.example", InlineStyle(bold = true)),
+                            ),
+                        ),
+                        RichNode.Paragraph(
+                            listOf(
+                                InlineNode.Text(if (index % 2 == 0) "记录折腾日常，分享实用经验。" else "保持好奇，慢慢折腾。", InlineStyle(bold = true)),
+                            ),
+                        ),
+                    ),
                 )
             },
         )

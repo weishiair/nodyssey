@@ -36,7 +36,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -91,6 +90,7 @@ import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
@@ -215,19 +215,15 @@ fun StickerGroupRoute(
                     delay(4_000)
                     notice = null
                 }
-                Snackbar(
+                PlazaSnackbar(
+                    message = shown.text,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md),
-                    action = if (shown.undoUrls.isEmpty()) {
-                        null
-                    } else {
-                        {
-                            TextButton(onClick = {
-                                viewModel.undoAdd(shown.undoUrls)
-                                notice = null
-                            }) { Text(stringResource(Res.string.sticker_undo)) }
-                        }
+                    actionLabel = stringResource(Res.string.sticker_undo).takeIf { shown.undoUrls.isNotEmpty() },
+                    onAction = {
+                        viewModel.undoAdd(shown.undoUrls)
+                        notice = null
                     },
-                ) { Text(shown.text) }
+                )
             }
         }
     }

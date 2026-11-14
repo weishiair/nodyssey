@@ -1,7 +1,10 @@
 package io.github.nodyssey.render
 
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
@@ -74,33 +77,59 @@ class ComposerRenderTest {
         }
     }
 
-    private fun setReply(darkTheme: Boolean) {
+    private fun setReply(darkTheme: Boolean, frostedGlass: Boolean = false) {
         composeRule.setContent {
-            PlazaTheme(darkTheme = darkTheme) {
-                ReplyComposerHost(
-                    state = REPLY,
-                    covered = false,
-                    onDismiss = {},
-                    bodyState = rememberTextFieldState(REPLY.body),
-                    onClearReplyTo = {},
-                    onPreviewChange = {},
-                    onPickImages = {},
-                    onRemoveAttachment = {},
-                    onRetryAttachment = {},
-                    onRetryFailedUploads = {},
-                    onPublish = {},
-                    onClearError = {},
-                    onSignIn = {},
-                    onVerify = {},
-                    onToolbarChange = {},
-                    onToolbarReset = {},
-                    onCreateVote = { _, _, _, _, _ -> },
-                    onDismissVoteCreation = {},
-                    payeeUid = { null },
-                    onInsertReceiveCode = { _, _, _, _ -> },
-                )
+            PlazaTheme(darkTheme = darkTheme, pureWhite = frostedGlass, frostedGlass = frostedGlass) {
+                CompositionLocalProvider(
+                    LocalContentColor provides if (frostedGlass) MaterialTheme.colorScheme.onSurface else LocalContentColor.current,
+                ) {
+                    ReplyComposerHost(
+                        state = REPLY,
+                        covered = false,
+                        onDismiss = {},
+                        bodyState = rememberTextFieldState(REPLY.body),
+                        onClearReplyTo = {},
+                        onPreviewChange = {},
+                        onPickImages = {},
+                        onRemoveAttachment = {},
+                        onRetryAttachment = {},
+                        onRetryFailedUploads = {},
+                        onPublish = {},
+                        onClearError = {},
+                        onSignIn = {},
+                        onVerify = {},
+                        onToolbarChange = {},
+                        onToolbarReset = {},
+                        onCreateVote = { _, _, _, _, _ -> },
+                        onDismissVoteCreation = {},
+                        payeeUid = { null },
+                        onInsertReceiveCode = { _, _, _, _ -> },
+                    )
+                }
             }
         }
+    }
+
+    @Test
+    fun `the glass reply sheet in light`() {
+        setReply(darkTheme = false, frostedGlass = true)
+        composeRule.waitForIdle()
+        captureScreen("composer-reply-glass-light")
+    }
+
+    @Test
+    fun `the glass reply sheet in dark`() {
+        setReply(darkTheme = true, frostedGlass = true)
+        composeRule.waitForIdle()
+        captureScreen("composer-reply-glass-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h960dp-land")
+    fun `the glass reply card in a wide window`() {
+        setReply(darkTheme = true, frostedGlass = true)
+        composeRule.waitForIdle()
+        captureScreen("composer-reply-glass-wide")
     }
 
     @Test

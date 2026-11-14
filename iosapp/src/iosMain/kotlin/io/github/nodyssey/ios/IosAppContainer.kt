@@ -73,6 +73,7 @@ import io.github.nodyssey.data.dns.DataStoreDohSettings
 import io.github.nodyssey.data.dns.DohCapabilities
 import io.github.nodyssey.data.dns.DohSettings
 import io.github.nodyssey.data.dns.DohSupport
+import io.github.nodyssey.data.dns.ProxyAwareDoh
 import io.github.nodyssey.data.dns.resolvesOverHttps
 import io.github.nodyssey.data.imagehost.DataStoreImageHostSettings
 import io.github.nodyssey.data.imagehost.DefaultImageHostRepository
@@ -119,6 +120,7 @@ import io.github.plaza.core.net.AppleAccountCookies
 import io.github.plaza.core.net.AppleCookieStore
 import io.github.plaza.core.net.AppleEchResponse
 import io.github.plaza.core.net.AppleEchTransport
+import io.github.plaza.core.net.AppleProxyMonitor
 import io.github.plaza.core.net.CookieScrubbingTransport
 import io.github.plaza.core.net.EncryptedNameResolution
 import io.github.plaza.core.net.EncryptedResolver
@@ -201,7 +203,7 @@ class IosAppContainer(
     /** See `DeviceAcceptLanguage.kt` — a request without this one is a request no browser makes. */
     private val acceptLanguage: String by lazy { deviceAcceptLanguage() }
 
-    /** Collects the proxy setting for as long as the process lives; nothing else runs on it. */
+    /** Collects proxy/DNS settings and monitors network state for as long as the process lives. */
     private val appScope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val accountRequests = AccountRequestGate()
     private val accountStore by lazy { protectedAccountStore() }
@@ -263,7 +265,7 @@ class IosAppContainer(
     private val encryptedTransport by lazy {
         AppleEchTransport(
             fallback = NSUrlSessionTransport { forumSession.current },
-            config = { dohSettings.config.first() },
+            config = { dohPolicy.currentConfig() },
             usesProxy = { proxySettings.config.first().routes(ProxyClientKind.FORUM) },
             userAgent = userAgent.value,
             acceptLanguage = acceptLanguage,
@@ -391,6 +393,7 @@ class IosAppContainer(
                 canFallBackToSystem = false,
                 triesServersInOrder = true,
             ),
+            pausedForProxy = dohPolicy.pausedForProxy,
         )
     }
 
@@ -406,22 +409,27 @@ class IosAppContainer(
     override val networkDiagnostics: NetworkDiagnostics? = null
 
     /**
-     * Applied at construction rather than lazily, because unlike every other member here this one is
-     * not read by anybody: its whole effect is a side effect on the process, and a resolver setting
-     * that only takes hold once somebody opens 设置 is a resolver setting that does not work.
+     * Start the policy at construction so WebKit receives the effective resolver before a native
+     * request is needed. Lazily initializing it through the settings screen would leave browser-only
+     * login using an obsolete DNS context.
      */
-    private val encryptedNameResolution =
-        EncryptedNameResolution(
-            appScope,
-            dohSettings.config
-                .map { config ->
-                    // One server, because the privacy context takes one; the screen here lets only
-                    // one be ticked, and this reads the first in case a list from elsewhere has more.
-                    config.chain.firstOrNull()?.takeIf { config.resolvesOverHttps() }?.let { server ->
-                        EncryptedResolver(url = server.url, serverAddresses = server.bootstrap)
-                    }
-                },
-        )
+    private val encryptedNameResolution = EncryptedNameResolution()
+    private val externalProxy = AppleProxyMonitor(appScope, NodeSeekSite.BASE_URL)
+    private val dohPolicy = ProxyAwareDoh(
+        scope = appScope,
+        settings = dohSettings,
+        appProxy = proxySettings.config,
+        externalProxy = externalProxy.active,
+        refreshExternalProxy = externalProxy::refresh,
+        applyConfig = { config ->
+            // The system privacy context takes one resolver. Clear it too while a proxy is active,
+            // so disabling the Rust route cannot leave URLSession using app-enforced DoH.
+            val resolver = config.chain.firstOrNull()?.takeIf { config.resolvesOverHttps() }?.let {
+                EncryptedResolver(url = it.url, serverAddresses = it.bootstrap)
+            }
+            encryptedNameResolution.apply(resolver)
+        },
+    )
 
     private val historyAccounts by lazy { ReadingHistoryAccounts(database) { sessionRepository.state.value } }
 
@@ -437,6 +445,7 @@ class IosAppContainer(
             offlineLibrary as? OfflineThreadReader,
             collectedPostMetaStore,
             historyAccounts = historyAccounts,
+            showHomePinnedPosts = settingsRepository.settings.map { it.showHomePinnedPosts }.distinctUntilChanged(),
         )
     }
 
@@ -545,7 +554,7 @@ class IosAppContainer(
             }
             val cookies = SessionCookies(NodeSeekSite.CONFIG, AppleCookieStore(storage))
             val encrypted = AppleEchTransport(
-                fallback = NSUrlSessionTransport { isolated.current }, config = { dohSettings.config.first() },
+                fallback = NSUrlSessionTransport { isolated.current }, config = { dohPolicy.currentConfig() },
                 usesProxy = { proxySettings.config.first().routes(ProxyClientKind.FORUM) },
                 userAgent = userAgent.value, acceptLanguage = acceptLanguage, referer = "${NodeSeekSite.BASE_URL}/",
                 sessionCookies = cookies, byteSession = { isolated.current }, storage = storage,

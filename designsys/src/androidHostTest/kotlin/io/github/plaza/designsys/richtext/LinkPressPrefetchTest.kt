@@ -14,7 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -31,10 +31,10 @@ import org.robolectric.annotation.GraphicsMode
  * the link it landed on and nothing else: prefetching is a request to a stranger's host, and a
  * paragraph that merely *contains* a link is not the reader having chosen it.
  */
-@RunWith(RobolectricTestRunner::class)
+@RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w360dp-h800dp")
-class LinkPressPrefetchTest {
+class LinkPressPrefetchTest(private val frostedGlass: Boolean) {
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -42,7 +42,7 @@ class LinkPressPrefetchTest {
 
     private fun setContent(inlines: List<InlineNode>) {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 CompositionLocalProvider(
                     LocalLinkPrefetcher provides LinkPrefetcher { prefetched += it },
                 ) {
@@ -115,6 +115,11 @@ class LinkPressPrefetchTest {
         composeRule.waitForIdle()
 
         assertEquals(listOf(NQ_URL), prefetched)
+    }
+    companion object {
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters(name = "glass={0}")
+        fun modes() = listOf(false, true)
     }
 }
 

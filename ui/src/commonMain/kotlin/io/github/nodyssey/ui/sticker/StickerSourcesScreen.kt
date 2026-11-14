@@ -24,7 +24,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,6 +65,7 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
@@ -161,7 +161,7 @@ fun StickerSourcesRoute(
                     delay(4_000)
                     notice = null
                 }
-                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md)) { Text(current.text) }
+                PlazaSnackbar(message = current.text, modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md))
             }
         }
     }

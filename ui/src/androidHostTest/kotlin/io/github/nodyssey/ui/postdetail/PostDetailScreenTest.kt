@@ -42,17 +42,17 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /** Screen-level tests for the thread view, including the offline-first error behaviour. */
-@RunWith(RobolectricTestRunner::class)
+@RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 // The design targets a 360×800dp compact phone; Robolectric's default window is far
 // shorter than any real device and would fail screens that fit fine in the hand.
 @Config(qualifiers = "w360dp-h800dp")
-class PostDetailScreenTest {
+class PostDetailScreenTest(private val frostedGlass: Boolean) {
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -92,9 +92,10 @@ class PostDetailScreenTest {
         onJumpToFloor: (String) -> Unit = {},
         onReadingPositionChange: (Int, String?) -> Unit = { _, _ -> },
         onVisibleAuthorsChange: (Set<Long>) -> Unit = {},
+        frostedGlass: Boolean = this.frostedGlass,
     ) {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 PostDetailScreen(
                     state = state,
                     postUrl = "https://www.nodeseek.com/post-1-1",
@@ -154,13 +155,41 @@ class PostDetailScreenTest {
             onJumpToFloor = { requested += it },
             onReadingPositionChange = { page, floor -> position = page to floor },
         )
-        composeRule.onNodeWithContentDescription("正在读第 121 楼，点击跳楼").performClick()
+        composeRule.onNodeWithContentDescription("点击跳楼", substring = true).performClick()
         composeRule.onNode(hasSetTextAction()).performTextReplacement("127")
         composeRule.onNodeWithText("前往").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("floor 127").assertIsDisplayed()
         assertEquals(13 to "#127", position)
         assertEquals(emptyList<String>(), requested)
+    }
+
+    /** 到最新 must wait for the requested page and land at its foot, not its first floor. */
+    @Test
+    fun `latest waits for the last page before scrolling to its final floor`() {
+        var state by mutableStateOf(jumpedState())
+        val requests = mutableListOf<Int>()
+        composeRule.setContent {
+            PlazaTheme(frostedGlass = frostedGlass) {
+                PostDetailScreen(
+                    state = state,
+                    postUrl = "https://www.nodeseek.com/post-1-13",
+                    onBack = {},
+                    onOpenBrowser = {},
+                    onImageClick = {},
+                    onRetry = {},
+                    onLoadMore = {},
+                    onLoadPage = { requests += it },
+                    onVerify = {},
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("点击跳楼", substring = true).performClick()
+        composeRule.onNodeWithText("到最新").performClick()
+        assertEquals(listOf(40), requests)
+        state = jumpedState(floors = (391..400).toList(), page = 40).copy(hasNextPage = false)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("floor 400").assertIsDisplayed()
     }
 
     @Test
@@ -192,8 +221,12 @@ class PostDetailScreenTest {
 
     @Test
     fun `dragging the scrollbar to the loaded bottom waits for release before loading more`() {
+        dragScrollbarToLoadedBottom(frostedGlass = frostedGlass)
+    }
+
+    private fun dragScrollbarToLoadedBottom(frostedGlass: Boolean) {
         var requests = 0
-        setScreen(jumpedState(floors = (121..140).toList()), onLoadMore = { requests++ })
+        setScreen(jumpedState(floors = (121..140).toList()), onLoadMore = { requests++ }, frostedGlass = frostedGlass)
         composeRule.waitForIdle()
         assertEquals(0, requests)
         val scrollbar = readingScrollbar()
@@ -243,7 +276,7 @@ class PostDetailScreenTest {
                 PostDetailUiState(title = preview.title, preview = preview, isLoading = true),
             )
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 PostDetailScreen(
                     state = state.value,
                     postUrl = "https://www.nodeseek.com/post-1-1",
@@ -569,7 +602,7 @@ class PostDetailScreenTest {
         var requests = 0
         var state by mutableStateOf(jumpedState())
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 PostDetailScreen(
                     state = state,
                     postUrl = "https://www.nodeseek.com/post-1-13",
@@ -591,7 +624,8 @@ class PostDetailScreenTest {
 
         val list = composeRule.onNode(hasScrollToIndexAction())
         list.performScrollToIndex(5)
-        list.performTouchInput { swipeDown() }
+        // The glass list also extends under the app bar; start on the visible content.
+        list.performTouchInput { swipeDown(startY = height * 0.3f, endY = height * 0.8f) }
         composeRule.waitForIdle()
 
         assertEquals(1, requests)
@@ -609,7 +643,7 @@ class PostDetailScreenTest {
     private fun assertHeaderPrependKeepsReply(page: Int, firstFloor: Int) {
         var state by mutableStateOf(jumpedState(page = page, floors = (firstFloor until firstFloor + 10).toList()))
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 PostDetailScreen(
                     state = state,
                     postUrl = "https://www.nodeseek.com/post-1-13",
@@ -624,8 +658,8 @@ class PostDetailScreenTest {
             }
         }
         val before = composeRule.onNodeWithText("floor $firstFloor").fetchSemanticsNode().positionInRoot.y
-        composeRule.onNode(hasScrollToIndexAction()).performTouchInput {
-            swipeDown(startY = top + 40f, endY = top + 360f)
+        composeRule.onNodeWithText("floor $firstFloor").performTouchInput {
+            swipeDown(startY = centerY, endY = centerY + 320f)
         }
         composeRule.runOnIdle { assertEquals(true, state.isPrepending) }
         composeRule.runOnIdle {
@@ -677,7 +711,7 @@ class PostDetailScreenTest {
         )
         var handled = 0
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 PostDetailScreen(
                     state = state,
                     postUrl = "https://www.nodeseek.com/post-1-1",
@@ -731,7 +765,7 @@ class PostDetailScreenTest {
             ),
         )
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 PostDetailScreen(
                     state = state,
                     postUrl = "https://www.nodeseek.com/post-1-5",
@@ -775,7 +809,7 @@ class PostDetailScreenTest {
             ),
         )
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(frostedGlass = frostedGlass) {
                 PostDetailScreen(
                     state = state,
                     postUrl = "https://www.nodeseek.com/post-1-1",
@@ -911,4 +945,9 @@ class PostDetailScreenTest {
         hasNextPage = true,
         pendingScroll = pendingScroll,
     )
+    companion object {
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters(name = "glass={0}")
+        fun modes() = listOf(false, true)
+    }
 }

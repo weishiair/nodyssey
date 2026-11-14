@@ -3,6 +3,7 @@
 @file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 
 import com.android.build.api.withAndroid
+import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest
 
 plugins {
     id("plaza.kmp.library")
@@ -24,8 +25,17 @@ kotlin {
     // compiler that refuses `java.text.BreakIterator` in a source set claiming to be neutral, and one
     // arch is enough for that. D3b adds the simulator: it is where the shell actually runs, and every
     // module under it has to publish a variant for the arch the shell links against.
-    iosArm64()
-    iosSimulatorArm64()
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        // Like :ui's simulator tests, these binaries link pinned Compose libraries that embed
+        // their producer's Xcode path. Use the selected Xcode's Swift compatibility libraries
+        // until the dependency's linker options become relocatable.
+        providers.environmentVariable("DEVELOPER_DIR").orNull?.let { developerDir ->
+            val platform = if (target.name == "iosArm64") "iphoneos" else "iphonesimulator"
+            target.binaries.configureEach {
+                linkerOpts("-L$developerDir/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$platform")
+            }
+        }
+    }
 
     // `java.net.SocketTimeoutException` and `java.text.BreakIterator` are not the Android part of
     // Android — they are the JVM part, and both targets answer for them identically. Without a
@@ -100,6 +110,11 @@ kotlin {
             // `PlazaTheme` a `Color` and gets a `ColorScheme` back, and never names an Hct or a
             // DynamicScheme itself.
             implementation(libs.material.color.utilities)
+
+            // Liquid Glass / real-time backdrop sampling and refraction for floating chrome.
+            // `api` so `:ui` can wire `rememberLayerBackdrop()` / `layerBackdrop(...)` on its
+            // scrolling containers and pass the backdrop down to floating bars and pills.
+            api(libs.backdrop)
 
             // Avatars load over the network. Only `coil-compose` — the GIF and SVG decoders are a
             // decision about a particular site's content, so they stay with the app that needs them.
@@ -177,6 +192,12 @@ kotlin {
             implementation(kotlin("test"))
         }
     }
+}
+
+// Clipboard tests must exercise UIKit with its system services, not standalone's in-process cache.
+tasks.withType<KotlinNativeSimulatorTest>().configureEach {
+    standalone.set(false)
+    device.set(providers.gradleProperty("nodyssey.iosTestDevice").orElse("booted"))
 }
 
 compose.resources {

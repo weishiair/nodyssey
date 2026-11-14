@@ -49,8 +49,7 @@ class MailScreenRenderTest {
                         initializing = false,
                         connected = true,
                         authMode = MailAuthMode.API_KEY,
-                        mailboxes = listOf(Mailbox(7, "reader@nodeseek.org")),
-                        selectedMailboxId = 7,
+                        mailboxes = listOf(Mailbox(7, "reader@nodeseek.org"), Mailbox(9, "alerts@nodeseek.org")),
                         messages = MAILS,
                         nowMillis = 1794182400000,
                         previews = MAILS.associate { it.id to MailPreview.from(it) },
@@ -162,7 +161,7 @@ private val OTP = MAIL.copy(
 private val MAILS = listOf(
     MAIL.copy(id = 20, subject = "What's new: backbone, looking glass, status page and more", isRead = true),
     MAIL.copy(id = 19, subject = "Black Friday countdown: this month's offers", bodyText = "A few updates and offers from our team. See what's new this month.", isRead = true),
-    OTP,
+    OTP.copy(mailboxId = 9, toAddress = "alerts@nodeseek.org"),
     OTP.copy(id = 23, isRead = true),
     MAIL.copy(id = 24, subject = "[Network Alert] Case #138: network issue", bodyText = "Service incident notification: we are investigating the issue.", isRead = true),
 )

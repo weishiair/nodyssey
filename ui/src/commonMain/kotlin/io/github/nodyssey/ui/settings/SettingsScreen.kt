@@ -56,6 +56,7 @@ import io.github.nodyssey.ui.common.rememberDisplayRefreshRates
 import io.github.nodyssey.ui.common.rememberFileSizeLabel
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
+import io.github.nodyssey.ui.resources.doh_paused_for_proxy
 import io.github.nodyssey.ui.resources.imagehost_connected
 import io.github.nodyssey.ui.resources.imagehost_not_connected
 import io.github.nodyssey.ui.resources.imagehost_title
@@ -128,6 +129,8 @@ import io.github.nodyssey.ui.resources.settings_search_history_limit_count
 import io.github.nodyssey.ui.resources.settings_search_history_limit_hint
 import io.github.nodyssey.ui.resources.settings_show_author_account_info
 import io.github.nodyssey.ui.resources.settings_show_author_account_info_hint
+import io.github.nodyssey.ui.resources.settings_show_home_pinned_posts
+import io.github.nodyssey.ui.resources.settings_show_home_pinned_posts_hint
 import io.github.nodyssey.ui.resources.settings_sticker_preview_caption
 import io.github.nodyssey.ui.resources.settings_sticker_size
 import io.github.nodyssey.ui.resources.settings_sticker_uniform
@@ -228,6 +231,7 @@ fun SettingsRoute(
         onImagesOnWifiOnlyChange = viewModel::setImagesOnWifiOnly,
         onReportFormatChange = viewModel::setReportFormat,
         onHomePageBarChange = viewModel::setHomePageBar,
+        onShowHomePinnedPostsChange = viewModel::setShowHomePinnedPosts,
         onClipboardPostPromptChange = viewModel::setClipboardPostPrompt.takeIf { clipboardPostPromptSupported },
         onUpdateCheckOnLaunchChange = viewModel::setUpdateCheckOnLaunch,
         onUpdateDevChannelChange = viewModel::setUpdateDevChannel,
@@ -267,6 +271,7 @@ fun SettingsScreen(
     onUpdateDevChannelChange: (Boolean) -> Unit,
     onClearCache: () -> Unit,
     modifier: Modifier = Modifier,
+    onShowHomePinnedPostsChange: (Boolean) -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onOpenProxy: () -> Unit = {},
     onOpenDoh: () -> Unit = {},
@@ -551,6 +556,14 @@ fun SettingsScreen(
                     onCheckedChange = onHomePageBarChange,
                     trailing = { GroupedListItemSwitch(checked = state.settings.homePageBar) },
                 )
+                GroupedRow(
+                    icon = PlazaIcons.PushPin,
+                    title = stringResource(Res.string.settings_show_home_pinned_posts),
+                    subtitle = stringResource(Res.string.settings_show_home_pinned_posts_hint),
+                    checked = state.settings.showHomePinnedPosts,
+                    onCheckedChange = onShowHomePinnedPostsChange,
+                    trailing = { GroupedListItemSwitch(checked = state.settings.showHomePinnedPosts) },
+                )
                 SettingsBlock(
                     title = stringResource(Res.string.settings_post_reply_style),
                     subtitle = stringResource(Res.string.settings_post_reply_style_hint),
@@ -679,7 +692,7 @@ fun SettingsScreen(
                 state.dohChain?.let { chain ->
                     GroupedRow(
                         title = stringResource(Res.string.settings_doh_entry),
-                        subtitle = dohSummary(chain),
+                        subtitle = if (state.dohPausedForProxy) stringResource(Res.string.doh_paused_for_proxy) else dohSummary(chain),
                         last = !state.hasNetworkCheck,
                         onClick = onOpenDoh,
                         icon = PlazaIcons.Dns,

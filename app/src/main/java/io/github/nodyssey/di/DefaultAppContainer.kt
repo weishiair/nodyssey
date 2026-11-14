@@ -86,9 +86,11 @@ import io.github.nodyssey.data.diagnostics.OkHttpNetworkDiagnostics
 import io.github.nodyssey.data.diagnostics.SessionSummary
 import io.github.nodyssey.data.dns.DataStoreDohSettings
 import io.github.nodyssey.data.dns.DohCapabilities
+import io.github.nodyssey.data.dns.DohConfig
 import io.github.nodyssey.data.dns.DohSettings
 import io.github.nodyssey.data.dns.DohSupport
 import io.github.nodyssey.data.dns.OkHttpDnsResolutionTester
+import io.github.nodyssey.data.dns.ProxyAwareDoh
 import io.github.nodyssey.data.imagehost.DataStoreImageHostSettings
 import io.github.nodyssey.data.imagehost.DefaultImageHostRepository
 import io.github.nodyssey.data.imagehost.ImageHostRepository
@@ -128,6 +130,7 @@ import io.github.nodyssey.notifications.lotteryDataStore
 import io.github.nodyssey.platform.AndroidAccountCookies
 import io.github.nodyssey.platform.AndroidApkInstaller
 import io.github.nodyssey.platform.AndroidAttendanceCookies
+import io.github.nodyssey.platform.AndroidProxyMonitor
 import io.github.nodyssey.platform.DefaultImagePreparer
 import io.github.nodyssey.platform.KeystoreSecretCipher
 import io.github.nodyssey.platform.customTabsProvider
@@ -166,8 +169,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -309,9 +314,8 @@ class DefaultAppContainer(
     private val acceptLanguage: String by lazy { deviceAcceptLanguage() }
 
     /**
-     * Lives as long as the process, and has two tenants: the update download, which has to survive
-     * the 关于 screen being left (a ViewModel scope would cancel it the moment the user backs out to
-     * read what changed), and [liveProxyConfig], which has to survive every screen.
+     * Owns update downloads, live proxy settings and the DNS policy across screens. Shutdown of
+     * this site's graph cancels its network monitor as well as its background work.
      */
     private val appScope = CoroutineScope(SupervisorJob() + dispatchers.default)
 
@@ -340,6 +344,22 @@ class DefaultAppContainer(
     }
 
     private val dohSettings: DohSettings by lazy { DataStoreDohSettings(appContext.dnsDataStore) }
+
+    private val effectiveDohConfig = MutableStateFlow(DohConfig(enabled = false))
+    private val externalProxy by lazy { AndroidProxyMonitor(appContext, appScope, site.origin) }
+    private val dohPolicy by lazy {
+        ProxyAwareDoh(
+            scope = appScope,
+            settings = dohSettings,
+            appProxy = proxySettings.config,
+            externalProxy = externalProxy.active,
+            refreshExternalProxy = externalProxy::refresh,
+            applyConfig = { effectiveDohConfig.value = it },
+        )
+    }
+
+    private fun isDohPausedForProxy(): Boolean =
+        externalProxy.refresh() || liveProxyConfig.value.let { it.enabled && it.isUsable }
 
     /**
      * The client 加密 DNS's own queries travel on, and the one client in the graph that must not use
@@ -380,14 +400,17 @@ class DefaultAppContainer(
      * for, minus the reason to opt out of it, since resolving a name costs nothing wherever it goes.
      */
     private val appDns: AppDns by lazy {
+        // Start the policy even when the first network request precedes opening DNS settings.
+        dohPolicy
         AppDns(
             scope = appScope,
-            config = dohSettings.config,
+            config = effectiveDohConfig,
             resolvers = dnsOverHttpsResolvers { dohClient },
             // A connection already open to an address the old resolver handed out would otherwise
             // keep carrying requests, and the change would look like it had done nothing.
             onResolverChanged = connectionPool::evictAll,
             clock = clock,
+            proxyActive = ::isDohPausedForProxy,
         )
     }
 
@@ -410,6 +433,7 @@ class DefaultAppContainer(
                 canFallBackToSystem = true,
                 triesServersInOrder = true,
             ),
+            pausedForProxy = dohPolicy.pausedForProxy,
         )
     }
 
@@ -430,7 +454,7 @@ class DefaultAppContainer(
             device = deviceIdentity(),
             appVersion = appVersion.name,
             proxyConfig = proxySettings.config,
-            dohConfig = dohSettings.config,
+            dohConfig = flow { emit(dohPolicy.currentConfig()) },
             network = appContext::networkSnapshot,
             browsers = {
                 BrowserIdentities(
@@ -602,6 +626,7 @@ class DefaultAppContainer(
             offlineLibrary as? OfflineThreadReader,
             collectedPostMetaStore,
             historyAccounts = historyAccounts,
+            showHomePinnedPosts = settingsRepository.settings.map { it.showHomePinnedPosts }.distinctUntilChanged(),
         )
     }
 
