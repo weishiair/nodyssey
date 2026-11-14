@@ -68,15 +68,25 @@ iOS 26+ 的发帖、私信、下载、转账、楼层定位、回复和发布按
 Compose 画布；默认的挖孔方式会令材质后面没有内容。底栏仍由现有原生外壳提供。
 低于 iOS 26、关闭玻璃主题或启用墨水屏时，新控件回到普通样式，最低 iOS 版本仍为 16。
 
+`UICornerConfiguration`、`UIGlassEffect` 和玻璃按钮配置仅在 `:designsys` 的
+`PlazaNativeGlass.h` 中通过 Objective-C `@available(iOS 26.0, *)` 调用。Kotlin 只接收旧系统已有的
+`UIVisualEffect`、`UIButtonConfiguration` 和 `UIView` 类型。不能在 Kotlin 中直接引用这些新类再加
+版本判断：Kotlin/Native 会生成强链接，iOS 17 等旧系统在加载程序时就会因缺少符号而退出，
+尚未执行登录或读取玻璃开关。
+
+GitHub 与 Codemagic 的真机、模拟器打包流程运行 `check-ios-weak-imports.py`，检查最终 Mach-O
+中这两个新类及其元类的引用；强链接会让构建失败。`ios-weak-imports.txt` 记录检查结果。
+
 已有的模拟器门禁同时运行 `:designsys:iosSimulatorArm64Test` 与 `:ui:iosSimulatorArm64Test`。
 前者回归复用原生按钮后仍调用旧账号动作、发布中又执行一次排队点击的问题，后者继续检查导航。
-Windows 可以交叉编译 `:designsys:compileKotlinIosArm64` 和 `:designsys:compileTestKotlinIosArm64`；
-完整 iOS 外壳依赖 Apple 网络 cinterop，需要在 Mac 上编译、运行和检查效果。
+`:designsys` 的 UIKit cinterop 与完整 iOS 外壳的 Apple 网络 cinterop 均需要 Xcode SDK，
+因此 iOS 编译、链接和运行检查需要在 Mac 上执行。
 
 ## 真机验收
 
 - iOS 26 / 27：三个主标签应显示系统悬浮胶囊、玻璃材质和选中态；滚动时检查背景折射与文字对比。
 - 低于 iOS 26：显示普通有背景的底栏，列表文字不能直接穿过图标。
+- iOS 17：未登录且玻璃关闭时冷启动；随后登录、开启玻璃并强制退出重启，均应进入应用并使用普通控件。
 - 开启玻璃主题，滚动首页和帖子：发帖、翻页、楼层定位和回复按钮后面应有真实滚动内容；翻页栏图标大小协调，页码清楚。
 - 帖子顶栏和状态栏背景不透明，正文不能穿过标题；长标题保持单行省略，点击仍能跳到主帖。
 - 打开回复编辑器、翻页弹窗和确认对话框，确认底层原生按钮不会越过遮罩显示或接收触控；关闭后恢复。

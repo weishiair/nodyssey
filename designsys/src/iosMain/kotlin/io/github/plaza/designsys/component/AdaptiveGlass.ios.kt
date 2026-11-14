@@ -15,6 +15,9 @@ import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.viewinterop.remeasureRequester
 import androidx.compose.ui.viewinterop.rememberUIKitInteropRemeasureRequester
+import io.github.plaza.designsys.nativeglass.plaza_glass_button_configuration
+import io.github.plaza.designsys.nativeglass.plaza_glass_effect
+import io.github.plaza.designsys.nativeglass.plaza_set_glass_capsule
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -30,11 +33,8 @@ import platform.UIKit.UIButtonConfiguration
 import platform.UIKit.UIButtonConfigurationSize
 import platform.UIKit.UIButtonConfigurationTitleAlignment
 import platform.UIKit.UIColor
-import platform.UIKit.UICornerConfiguration
 import platform.UIKit.UIFont
 import platform.UIKit.UIFontMetrics
-import platform.UIKit.UIGlassEffect
-import platform.UIKit.UIGlassEffectStyle
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageSymbolConfiguration
 import platform.UIKit.UILabel
@@ -51,9 +51,9 @@ import platform.UIKit.UINavigationItem
 import platform.UIKit.UIStackView
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
+import platform.UIKit.UIVisualEffect
 import platform.UIKit.UIVisualEffectView
 import platform.UIKit.accessibilityLabel
-import platform.UIKit.cornerConfiguration
 import platform.UIKit.labelColor
 
 // Overlay placement is essential: the default UIKitView cuts a hole in the Metal canvas, so native
@@ -229,8 +229,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         view.accessibilityLabel = action.label
         view.configuration = when {
             grouped -> UIButtonConfiguration.plainButtonConfiguration()
-            action.prominent -> UIButtonConfiguration.prominentGlassButtonConfiguration()
-            else -> UIButtonConfiguration.glassButtonConfiguration()
+            else -> checkNotNull(plaza_glass_button_configuration(action.prominent))
         }.apply {
             if (action.compact) buttonSize = UIButtonConfigurationSize.UIButtonConfigurationSizeSmall
             title = action.title
@@ -307,7 +306,7 @@ private class NativeGlassToolbarHost(vertical: Boolean) {
     init {
         // UIToolbar only lays out horizontally. A UIStackView inside the official glass effect is
         // needed for the vertical page rail; remove this host if UIKit adds a vertical toolbar.
-        view.cornerConfiguration = UICornerConfiguration.capsuleConfiguration()
+        plaza_set_glass_capsule(view, maximumRadius = 0.0)
         pin(stack, view.contentView, 4.0)
     }
 
@@ -346,7 +345,7 @@ private class NativeGlassNoticeHost {
     private var buttons = emptyList<NativeGlassButtonHost>()
 
     init {
-        view.cornerConfiguration = UICornerConfiguration.capsuleConfigurationWithMaximumRadius(20.0)
+        plaza_set_glass_capsule(view, maximumRadius = 20.0)
         pin(stack, view.contentView, 12.0)
     }
 
@@ -375,11 +374,8 @@ private class NativeGlassNoticeHost {
 private fun glassView(interactive: Boolean = false): UIVisualEffectView =
     UIVisualEffectView(effect = glassEffect(interactive))
 
-private fun glassEffect(interactive: Boolean, tint: UIColor? = null): UIGlassEffect =
-    UIGlassEffect.effectWithStyle(UIGlassEffectStyle.UIGlassEffectStyleRegular).apply {
-        this.interactive = interactive
-        tintColor = tint
-    }
+private fun glassEffect(interactive: Boolean, tint: UIColor? = null): UIVisualEffect =
+    checkNotNull(plaza_glass_effect(interactive, tint))
 
 private fun pin(child: UIView, parent: UIView, inset: Double) {
     parent.addSubview(child)
