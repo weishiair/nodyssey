@@ -544,7 +544,14 @@ jobs:
         run: ./gradlew :shared:macosArm64Test --max-workers=1
 
       - name: Test native controls and iOS navigation on the ARM simulator
-        run: ./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test --max-workers=1
+        run: |
+          device=$(bash .github/scripts/boot-ios-test-simulator.sh)
+          echo "NODYSSEY_IOS_TEST_DEVICE=$device" >> "$GITHUB_ENV"
+          ./gradlew :designsys:iosSimulatorArm64Test :ui:iosSimulatorArm64Test --max-workers=1 "-Pnodyssey.iosTestDevice=$device"
+
+      - name: Shut down the test simulator before optimized linking
+        if: always() && env.NODYSSEY_IOS_TEST_DEVICE != ''
+        run: xcrun simctl shutdown "$NODYSSEY_IOS_TEST_DEVICE"
 
       - name: Preserve Native regression reports
         if: always()

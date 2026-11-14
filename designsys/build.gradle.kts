@@ -3,6 +3,7 @@
 @file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 
 import com.android.build.api.withAndroid
+import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest
 
 plugins {
     id("plaza.kmp.library")
@@ -191,6 +192,12 @@ kotlin {
             implementation(kotlin("test"))
         }
     }
+}
+
+// Clipboard tests must exercise UIKit with its system services, not standalone's in-process cache.
+tasks.withType<KotlinNativeSimulatorTest>().configureEach {
+    standalone.set(false)
+    device.set(providers.gradleProperty("nodyssey.iosTestDevice").orElse("booted"))
 }
 
 compose.resources {
