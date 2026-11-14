@@ -5,6 +5,10 @@ on:
     branches: ['test/ios-doh-ech-1.3.4-test.2']
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Source branch, tag or SHA to build (empty uses the workflow ref; run from main to share caches)
+        type: string
+        default: ''
       platform:
         description: Test packages to build
         type: choice
@@ -28,16 +32,34 @@ permissions:
   contents: read
 
 concurrency:
-  group: test-apps-${{ github.ref }}-${{ inputs.platform || 'all' }}
+  group: test-apps-${{ inputs.source_ref || github.ref }}-${{ inputs.platform || 'all' }}
   cancel-in-progress: false
 
 jobs:
+  # Resolve a moving branch only once: Android packaging can start much later than
+  # validation, and must still build the exact commit that passed those gates.
+  resolve-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - name: Resolve the source commit
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   validate:
     if: inputs.platform != 'ios' && inputs.checks_only != true
+    needs: resolve-source
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve-source.outputs.sha }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -72,11 +94,13 @@ jobs:
 
   android:
     if: inputs.platform != 'ios' && inputs.checks_only != true
-    needs: validate
+    needs: [resolve-source, validate]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve-source.outputs.sha }}
       - name: Read the package version
         shell: bash
         run: |
@@ -144,6 +168,7 @@ jobs:
 
   ios:
     if: inputs.platform != 'android'
+    needs: resolve-source
     runs-on: ${{ inputs.ios_runner || 'macos-15' }}
     # The simulator regression links the UI test binary in addition to both app builds.
     timeout-minutes: 120
@@ -153,11 +178,23 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve-source.outputs.sha }}
+      - name: Record the checked-out iOS source
+        id: source
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$sha" > "$RUNNER_TEMP/ios-source-commit.txt"
+          echo "Building iOS from $sha."
       - name: Verify the Xcode and iOS SDK for Liquid Glass
+        id: apple-toolchain
         shell: bash
         run: |
           test -d "$DEVELOPER_DIR"
-          xcodebuild -version
+          xcode_version=$(xcodebuild -version)
+          printf '%s\n' "$xcode_version"
+          echo "cache-id=$(printf '%s' "$xcode_version" | tr '[:space:]' '-')" >> "$GITHUB_OUTPUT"
           sdk_version=$(xcrun --sdk iphoneos --show-sdk-version)
           if [[ ! "$sdk_version" =~ ^([0-9]+)\. ]] || (( ${BASH_REMATCH[1]} < 26 )); then
             echo "::error::Liquid Glass requires linking with iOS SDK 26 or newer; selected $sdk_version."
@@ -169,23 +206,30 @@ jobs:
           java-version: '21'
       - name: Set up the Android SDK for multiplatform configuration
         uses: android-actions/setup-android@v4
-      - name: Cache the Kotlin Native toolchain
-        uses: actions/cache@v6
+      - name: Restore the Kotlin Native toolchain
+        id: konan-cache
+        uses: actions/cache/restore@v6
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+          key: konan-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.apple-toolchain.outputs.cache-id }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.apple-toolchain.outputs.cache-id }}-
       - uses: gradle/actions/setup-gradle@v5
+        env:
+          # v5 keys by the workflow SHA, not the checked-out source. A new execution also
+          # lets packaging extend a cache previously saved by a checks-only run.
+          GRADLE_BUILD_ACTION_CACHE_KEY_JOB_EXECUTION: ${{ steps.source.outputs.sha }}-${{ github.run_id }}
         with:
           cache-read-only: false
-      - name: Prepare the pinned native network toolchain
-        uses: actions/cache@v6
+      - name: Restore the pinned native network toolchain
+        id: native-network-cache
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             native/ios-network/target
-          key: native-network-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}
+          key: native-network-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.apple-toolchain.outputs.cache-id }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}-${{ hashFiles('native/ios-network/Cargo.toml', 'native/ios-network/src/**', 'native/ios-network/include/**', '.github/scripts/build-ios-network.sh') }}
+          restore-keys: native-network-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.apple-toolchain.outputs.cache-id }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}-
       - name: Test the pinned native network toolchain
         working-directory: native/ios-network
         run: |
@@ -299,7 +343,7 @@ jobs:
           name="nodyssey-$BUILD_VERSION.ipa"
           (cd "$RUNNER_TEMP" && zip -qry "ios-test-dist/$name" Payload)
           unzip -t "$RUNNER_TEMP/ios-test-dist/$name" > "$RUNNER_TEMP/ipa-zip-check.txt"
-          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/ios-test-dist/source-commit.txt"
+          cp "$RUNNER_TEMP/ios-source-commit.txt" "$RUNNER_TEMP/ios-test-dist/source-commit.txt"
           printf 'version=%s\nbuild=%s\nsigning=unsigned\nsdk=%s\n' "$BUILD_VERSION" "$BUILD_CODE" "$sdk_name" > "$RUNNER_TEMP/ios-test-dist/build-info.txt"
           (cd "$RUNNER_TEMP/ios-test-dist" && shasum -a 256 "$name" > SHA256SUMS.txt)
       - name: Upload the unsigned IPA
@@ -340,3 +384,20 @@ jobs:
       - name: Stop Gradle
         if: always()
         run: ./gradlew --stop
+      # Keep downloaded/compiled toolchains after a failed regression, so a repair
+      # does not spend another run downloading them. Cancelled runs do not publish caches.
+      - name: Save the Kotlin Native toolchain
+        if: ${{ !cancelled() && steps.konan-cache.outcome == 'success' && steps.konan-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.konan
+          key: ${{ steps.konan-cache.outputs.cache-primary-key }}
+      - name: Save the native network toolchain
+        if: ${{ !cancelled() && steps.native-network-cache.outcome == 'success' && steps.native-network-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/ios-network/target
+          key: ${{ steps.native-network-cache.outputs.cache-primary-key }}

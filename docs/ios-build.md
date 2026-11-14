@@ -1,11 +1,46 @@
 # GitHub Actions iOS 测试包
 
-手动运行 `.github/workflows/ios-test.yml` 的 **Build Android and iOS test apps**，选择测试分支，
-将 `platform` 设为 `ios`。版本仍取自该测试分支的 `gradle.properties`。
+GitHub Actions 是日常出包和标签发布的主线，Codemagic 只作手动备用。
+
+## 换测试分支时仍复用缓存
+
+这份工作流经 `dev` 合入 `main` 后，在 **Build Android and iOS test apps → Run workflow** 中：
+
+1. 将工作流分支固定为 `main`，不要每个测试版本都切换它。
+2. 将 `source_ref` 填为要构建的分支、标签或提交，例如 `test/1.3.12-test.1`。
+3. 将 `platform` 设为 `ios`；只给手机出包时，取消勾选 `build_simulator`。
+
+`source_ref` 选择源码，Run workflow 的分支选择工作流和缓存作用域。版本取自源码的
+`gradle.properties`，产物中的 `source-commit.txt` 也记录实际检出的提交，而不是工作流提交。
+不填 `source_ref` 时，仍构建工作流分支，保留原有用法。配置尚未合入 `main` 时，可以先从
+包含新配置的分支运行；缓存保存在该分支下，不会因此变成 `main` 的共享缓存。
+工作流开始时只解析一次源码提交，验证、Android 和 iOS 都检出同一个 SHA，避免排队期间分支
+前进后，安装包与通过回归的源码不同。
+
+GitHub 缓存可在当前分支和默认分支中查找，不能直接读取另一个测试分支的缓存。
+从 `main` 发起正常出包，就会同时更新可供后续测试分支和发布标签读取的默认分支缓存，
+不需要额外跑一轮只为预热的 Mac 任务。ARM 与 Intel 的缓存仍分开，切换宿主架构需要另行填充。
 
 只需要手机安装包时，取消勾选 `build_simulator`：仍运行原有回归并生成 Release 真机 IPA，
 省略模拟器 App 的构建和上传，不跳过模拟器回归测试。该选项默认勾选，保留原来的双产物行为；
 自动 push 构建也继续生成两种产物。真机与模拟器的 Xcode 构建均输出 `Build Timing Summary`。
+
+## 缓存覆盖下载和编译产物
+
+测试与正式发布使用相同的 Kotlin/Native、Rust 缓存键规则，按宿主架构和实际 Xcode build
+隔离。Rust 键还包含锁文件、工具链、源码、头文件与构建脚本：改本地网络代码后保存新的编译
+结果，并从同一工具链的旧条目复用依赖，不再一直命中只含旧源码产物的固定缓存。
+
+Gradle 继续使用 `setup-gradle@v5` 管理下载依赖和本地任务缓存；缓存执行键使用源码提交和
+运行 ID，避免工作流固定在 `main` 后，所有源码版本都写入同一个不可更新的工作流 SHA 键。
+Kotlin/Native 与 Rust 缓存在普通回归失败后也会保存，修复重跑不必重复下载；取消的任务不保存。
+测试失败仍阻止出包，缓存保存不会改变发布门禁。
+
+在同一源码提交、同一 ARM runner、相同 `build_simulator` 设置下连续构建，比较第二次的
+缓存恢复、回归、Archive 和上传耗时。查看 Gradle 的 `FROM-CACHE` 与 Xcode 的
+`Build Timing Summary`；缓存恢复成功不代表 Release 全程序链接可以省略。
+
+## 只验证 Apple 回归
 
 排查 Apple 平台的测试失败时，可在 `platform = ios` 下启用 `checks_only`。该模式运行
 Native 与 iOS 模拟器回归，并编译真机和模拟器的 iOS 外壳，跳过版本检查与安装包构建；因此可以先在修复分支验证，
@@ -118,5 +153,7 @@ IPA 旁同时提供 SHA-256 和 `ios-build-v版本号.txt`，记录版本、SDK 
 
 官方依据：
 
+- GitHub 缓存作用域：<https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching>
+- Gradle v5 缓存执行键：<https://github.com/gradle/actions/blob/v5/sources/src/caching/cache-key.ts>
 - Apple：<https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass>
 - Actions runner：<https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md>

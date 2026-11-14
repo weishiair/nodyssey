@@ -1,5 +1,5 @@
-# The manual workflow stays usable without a GitHub publishing credential. Automated
-# tag releases use a separate workflow so a missing credential cannot break it.
+# GitHub Actions is the primary builder and publisher. Codemagic workflows are manual
+# backups; no pushes or tags should consume its limited build minutes automatically.
 definitions:
   environment: &ios_environment
     java: 21
@@ -41,7 +41,7 @@ definitions:
       script: |
         #!/usr/bin/env bash
         set -euo pipefail
-        tag="${CM_TAG:?This workflow must be started by a tag webhook}"
+        tag="${CM_TAG:?Set CM_TAG to the matching release tag for this manual build}"
         [[ "$tag" =~ ^v[0-9]+(\.[0-9]+)*(-(test|dev|ios-test)\.[0-9]+)?$ ]]
         version=$(sed -n 's/^nodyssey\.versionName=//p' gradle.properties | head -1)
         code=$(sed -n 's/^nodyssey\.versionCode=//p' gradle.properties | head -1)
@@ -185,14 +185,6 @@ workflows:
     max_build_duration: 120
     environment: *ios_environment
     cache: *ios_cache
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: dev
-          include: true
-          source: true
-      cancel_previous_builds: true
     scripts:
       - *prepare
       - *network_test
@@ -246,12 +238,6 @@ workflows:
       groups:
         - github_release
     cache: *ios_cache
-    triggering:
-      events:
-        - tag
-      tag_patterns:
-        - pattern: 'v*'
-          include: true
     scripts:
       - *release_tag
       - *prepare

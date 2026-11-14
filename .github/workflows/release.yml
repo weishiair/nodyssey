@@ -413,9 +413,7 @@ jobs:
   # it breaks, the APK and the update manifests are already out; the run goes red, and the `.ipa`
   # arrives when the break is fixed and the workflow is re-run for the same tag.
   ios:
-    # Keep GitHub as the fallback until Codemagic has been verified and explicitly enabled.
-    # Manual release runs continue to support ios_ref repairs and Telegram notifications.
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.CODEMAGIC_IOS_RELEASE != 'true' }}
+    # GitHub is the primary publisher; Codemagic is a manual backup.
     needs: release
     # Release builds require an ARM host so the Native runtime gates cannot be skipped.
     runs-on: ${{ inputs.ios_runner || 'macos-15' }}
@@ -430,6 +428,7 @@ jobs:
 
       # A repair ref supplies iOS-only fixes while the published Android tag remains immutable.
       - name: Verify the iOS source matches the release version
+        id: source
         env:
           EXPECTED_VERSION: ${{ needs.release.outputs.version }}
           EXPECTED_CODE: ${{ needs.release.outputs.version_code }}
@@ -440,15 +439,20 @@ jobs:
             echo "::error::The iOS source version and build number must match the release tag." >&2
             exit 1
           fi
-          echo "Building iOS from $(git rev-parse HEAD) ($version / $code)."
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Building iOS from $sha ($version / $code)."
 
       - name: Verify the Xcode and iOS SDK for Liquid Glass
+        id: apple-toolchain
         shell: bash
         run: |
           test "$(uname -m)" = arm64
           sysctl hw.memsize
           test -d "$DEVELOPER_DIR"
-          xcodebuild -version
+          xcode_version=$(xcodebuild -version)
+          printf '%s\n' "$xcode_version"
+          echo "cache-id=$(printf '%s' "$xcode_version" | tr '[:space:]' '-')" >> "$GITHUB_OUTPUT"
           sdk_version=$(xcrun --sdk iphoneos --show-sdk-version)
           if [[ ! "$sdk_version" =~ ^([0-9]+)\. ]] || (( ${BASH_REMATCH[1]} < 26 )); then
             echo "::error::Liquid Glass requires linking with iOS SDK 26 or newer; selected $sdk_version."
@@ -469,36 +473,25 @@ jobs:
       - name: Set up the Android SDK
         uses: android-actions/setup-android@v4
 
-      # The Kotlin/Native compiler and its toolchain, which live outside `GRADLE_USER_HOME` and so
-      # are not covered by the Gradle cache below. Downloading them is over a gigabyte, and it
-      # happened on every run before this step existed.
-      #
-      # Keyed on the version catalogue because that is where the Kotlin version is declared: bump
-      # Kotlin and the key changes, which is exactly when a different compiler has to be fetched.
-      # Any other dependency bump changes it too — a cache miss that costs one re-download — and the
-      # `restore-keys` fallback takes the last macOS entry in that case, into which Gradle downloads
-      # only what is actually missing.
-      - name: Cache the Kotlin/Native toolchain
-        uses: actions/cache@v6
+      # Keep compiler caches separate by host architecture and the selected Xcode build.
+      # A dependency bump may reuse downloads from the same Apple toolchain.
+      - name: Restore the Kotlin/Native toolchain
+        id: konan-cache
+        uses: actions/cache/restore@v6
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+          key: konan-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.apple-toolchain.outputs.cache-id }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.apple-toolchain.outputs.cache-id }}-
 
       # Pinned to v5 for the licensing reason spelled out in ci.yml.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
+        env:
+          # Include the repair/source SHA rather than just the workflow's release SHA.
+          GRADLE_BUILD_ACTION_CACHE_KEY_JOB_EXECUTION: ${{ steps.source.outputs.sha }}-${{ github.run_id }}
         with:
-          # The one place in this workflow that writes a Gradle cache, and the exception is narrower
-          # than it looks. "A release must never write the shared cache" — the rule the release job
-          # above follows — is about not letting a tag build poison what every pull request reads.
-          # This job cannot: `setup-gradle` puts the runner's OS in the cache key, and nothing else
-          # in this repository builds on macOS, so the entry it writes has exactly one reader — the
-          # next run of this job.
-          #
-          # Without it there is no reader at all. This job is a from-scratch Kotlin/Native build of
-          # every module on a 3-core runner: 44 minutes on the first one that ran, against 4 for the
-          # whole Android release beside it.
+          # macOS state is separate from Android CI. Normal test builds dispatched from
+          # main supply the default-branch cache that tag builds can also restore.
           cache-read-only: false
 
       # `CODE_SIGNING_ALLOWED=NO` is what makes this an unsigned build rather than a failed one:
@@ -518,20 +511,19 @@ jobs:
       # never goes near the App Store — a sideloaded `.ipa` installs with the string as written, and
       # a tester who cannot tell which dev build is on their phone is the worse outcome.
       # The Native half of the common test suite. Every Linux job compiles these sources for the
-      # host JVM and runs them there; only a Mac can *execute* them on a Kotlin/Native target, so
-      # until this line the whole Native side ran only on whichever contributor remembered the local
-      # gate. This job is the one paid-for Mac the project boots, so the tests ride along — the
-      # toolchain they need is already here for the build below, and macosArm64 is the cheap target:
-      # a test binary, not a whole app link.
+      # host JVM and runs them there; only an ARM Mac can execute macosArm64Test. Run it here
+      # before packaging, using the same toolchain as the app build.
       # The Apple transport now links a pinned Rust library for DoH/ECH.
-      - name: Cache the native network dependencies
-        uses: actions/cache@v6
+      - name: Restore the native network dependencies
+        id: native-network-cache
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             native/ios-network/target
-          key: native-network-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}
+          key: native-network-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.apple-toolchain.outputs.cache-id }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}-${{ hashFiles('native/ios-network/Cargo.toml', 'native/ios-network/src/**', 'native/ios-network/include/**', '.github/scripts/build-ios-network.sh') }}
+          restore-keys: native-network-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.apple-toolchain.outputs.cache-id }}-${{ hashFiles('native/ios-network/Cargo.lock', 'native/ios-network/rust-toolchain.toml') }}-
 
       - name: Test the native network core
         working-directory: native/ios-network
@@ -584,6 +576,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Nodyssey.xcarchive" \
+            -showBuildTimingSummary \
             archive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -711,3 +704,20 @@ jobs:
       - name: Stop Gradle
         if: always()
         run: ./gradlew --stop
+
+      - name: Save the Kotlin/Native toolchain
+        if: ${{ !cancelled() && steps.konan-cache.outcome == 'success' && steps.konan-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.konan
+          key: ${{ steps.konan-cache.outputs.cache-primary-key }}
+
+      - name: Save the native network dependencies
+        if: ${{ !cancelled() && steps.native-network-cache.outcome == 'success' && steps.native-network-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/ios-network/target
+          key: ${{ steps.native-network-cache.outputs.cache-primary-key }}
