@@ -1,6 +1,7 @@
 package io.github.nodyssey.data.diagnostics
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.net.SiteConfig
 import io.github.plaza.core.runCatchingExceptCancellation
@@ -17,7 +18,7 @@ internal class PostResponseDiagnosticStore(
     private val clock: AppClock,
 ) {
     fun save(record: PostResponseDiagnostic) {
-        preferences.edit().putString(KEY, Json.encodeToString(record)).apply()
+        preferences.edit { putString(KEY, Json.encodeToString(record)) }
     }
 
     fun read(): PostResponseDiagnostic? {
@@ -30,7 +31,7 @@ internal class PostResponseDiagnosticStore(
         return record
     }
 
-    fun clear() = preferences.edit().remove(KEY).apply()
+    fun clear() = preferences.edit { remove(KEY) }
 
     private companion object {
         const val KEY = "last_failure"
