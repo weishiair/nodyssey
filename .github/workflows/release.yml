@@ -611,6 +611,7 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" = 'io.github.nodyssey'
           executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
           test "$(lipo -archs "$app/$executable")" = 'arm64'
+          python3 .github/scripts/check-ios-weak-imports.py "$app/$executable" > "$RUNNER_TEMP/ios-weak-imports.txt"
           sdk_name=$(/usr/libexec/PlistBuddy -c 'Print DTSDKName' "$app/Info.plist")
           [[ "$sdk_name" =~ ^iphoneos([0-9]+)\. ]]
           (( ${BASH_REMATCH[1]} >= 26 ))
