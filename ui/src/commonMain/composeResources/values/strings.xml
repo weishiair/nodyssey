@@ -626,7 +626,7 @@
     <string name="network_check_copy">复制结果</string>
     <string name="network_check_copied">已复制</string>
     <!-- 网络自检报告顶部的结论卡：只看论坛那一项，更新源失败时补一行 -->
-    <string name="network_check_summary_ok">论坛可以正常访问</string>
+    <string name="network_check_summary_ok">论坛首页请求成功</string>
     <string name="network_check_summary_failed">论坛无法访问</string>
     <string name="network_check_summary_updates">更新源：%1$s</string>
 
@@ -668,7 +668,19 @@
     <string name="network_check_yes">是</string>
     <string name="network_check_no">否</string>
 
-    <string name="network_check_section_forum">论坛</string>
+    <string name="network_check_section_forum">论坛首页探测</string>
+    <string name="network_check_post_failure_title">最近一次帖子请求失败</string>
+    <string name="network_check_post_failure_none">尚无记录</string>
+    <string name="network_check_post_failure_hint">帖子请求返回 HTTP 4xx/5xx 时自动保存最近一条脱敏记录，保留 7 天，恢复访问和重启后仍可复制。只记录固定响应特征，不保存 Cookie 值或正文。首页探测成功不代表帖子可访问。</string>
+    <string name="network_check_post_failure_clear">清除帖子失败记录</string>
+    <string name="network_check_post_failure_time">发生时间（UTC）</string>
+    <string name="network_check_post_failure_request">帖子地址</string>
+    <string name="network_check_post_failure_final">最终地址</string>
+    <string name="network_check_post_failure_headers">响应特征</string>
+    <string name="network_check_post_failure_body">错误页特征</string>
+    <string name="network_check_post_failure_sent_cookies">请求 Cookie 名称</string>
+    <string name="network_check_post_failure_received_cookies">响应 Cookie 名称</string>
+    <string name="network_check_post_failure_connection">当时的连接</string>
     <string name="network_check_section_updates">更新源</string>
     <string name="network_check_status">结果</string>
     <string name="network_check_stage">最远连接阶段</string>
