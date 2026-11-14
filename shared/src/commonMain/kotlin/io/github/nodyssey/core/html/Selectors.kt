@@ -84,6 +84,8 @@ object Selectors {
     const val DETAIL_AWARD_CORNER = "div.nsk-post-wrapper div.award-corner"
 
     // --- One post body or comment ------------------------------------------
+    const val CONTENT_MEDIA = "iframe,video"
+    const val CONTENT_MEDIA_SOURCE = "source[src]"
     const val CONTENT_AVATAR = "div.avatar-wrapper img"
     const val CONTENT_AUTHOR = "a.author-name"
     const val CONTENT_POSTER_BADGE = "div.author-info .is-poster"

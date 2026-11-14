@@ -403,6 +403,8 @@ private fun RichBlock(
 
         is RichNode.BlockImage -> BlockImage(node = node, onImageClick = onImageClick, onLinkClick = onLinkClick)
 
+        is RichNode.EmbeddedMedia -> EmbeddedMediaCard(node = node, onLinkClick = onLinkClick)
+
         is RichNode.CodeBlock -> codeBlockContent(node)
 
         is RichNode.Quote -> {

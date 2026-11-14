@@ -104,6 +104,8 @@ private class PreviewBuilder(
 
                 is RichNode.BlockImage -> placeholder(node.url.pictureKind())
 
+                is RichNode.EmbeddedMedia -> text(node.title ?: node.url)
+
                 is RichNode.CodeBlock -> placeholder(PreviewPlaceholder.CODE)
 
                 is RichNode.Table -> placeholder(PreviewPlaceholder.TABLE)

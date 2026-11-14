@@ -14,14 +14,14 @@ import io.github.plaza.core.richtext.RichNode
  * markers, a quote its `>` and a table its rows with the cells tab-separated, which is what a
  * spreadsheet or an editor makes of a paste. Pictures among the words are kept as their addresses:
  * a copy that silently lost them would read as complete. A poll and a stardust transfer have no text
- * of their own and are left out.
+ * of their own and are left out. Embedded media keeps its player address as a link.
  *
  * Whether there is anything to copy at all is [hasCopyableText], which a picture does not answer.
  */
 internal fun List<RichNode>.copyableText(): String = blocksText(this, images = true).trim()
 
 /**
- * Whether the floor has words of its own — what decides that 复制正文 is offered at all.
+ * Whether the floor has words or a media link of its own — what decides that 复制正文 is offered.
  *
  * A picture's address is not 正文: a floor that is only a screenshot would put a URL on the clipboard
  * and say the text had been copied. Pictures still go along with [copyableText] when there are words.
@@ -67,6 +67,8 @@ private fun blockText(
             }
 
         is RichNode.BlockImage -> node.url.takeIf { images }
+
+        is RichNode.EmbeddedMedia -> listOfNotNull(node.title, node.url).joinToString("\n")
 
         is RichNode.VotePlaceholder, is RichNode.StardustReceive, RichNode.Divider -> null
     }

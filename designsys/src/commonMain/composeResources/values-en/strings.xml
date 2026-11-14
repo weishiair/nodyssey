@@ -39,6 +39,7 @@
 
     <string name="richtext_image_loading">Loading image…</string>
     <string name="richtext_image_label">Image</string>
+    <string name="richtext_embedded_media_title">Embedded media</string>
     <string name="richtext_image_view_full">Tap to see the full image</string>
     <string name="richtext_image_load_failed">Image failed to load</string>
     <string name="richtext_image_failed_challenge">The image host wants a human check the app cannot pass (HTTP %1$d)</string>
