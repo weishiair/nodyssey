@@ -26,6 +26,13 @@ kotlin {
     // arch is enough for that. D3b adds the simulator: it is where the shell actually runs, and every
     // module under it has to publish a variant for the arch the shell links against.
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        // Clang weak-links the iOS 26 classes behind @available; Kotlin references would be strong
+        // even inside a version check, preventing the app from launching on iOS 16–18.
+        target.compilations.getByName("main").cinterops.create("nativeglass") {
+            definitionFile.set(layout.projectDirectory.file("src/nativeInterop/cinterop/nativeglass.def"))
+            includeDirs(layout.projectDirectory.dir("src/nativeInterop/cinterop").asFile)
+        }
+
         // Like :ui's simulator tests, these binaries link pinned Compose libraries that embed
         // their producer's Xcode path. Use the selected Xcode's Swift compatibility libraries
         // until the dependency's linker options become relocatable.

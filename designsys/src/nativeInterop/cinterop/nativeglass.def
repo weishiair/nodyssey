@@ -1,0 +1,6 @@
+package = io.github.plaza.designsys.nativeglass
+language = Objective-C
+headers = PlazaNativeGlass.h
+headerFilter = PlazaNativeGlass.h
+compilerOpts = -fobjc-arc
+linkerOpts = -framework UIKit
