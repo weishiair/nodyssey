@@ -13,6 +13,7 @@ xcodebuild \
   -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath "$output/DerivedData" \
+  -showBuildTimingSummary \
   build \
   CODE_SIGNING_ALLOWED=NO \
   ARCHS=arm64 \

@@ -19,6 +19,10 @@ on:
         description: Run Apple regression tests without assigning or building a test version
         type: boolean
         default: false
+      build_simulator:
+        description: Also build the simulator app artifact (regression tests still run when disabled)
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -264,6 +268,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Nodyssey.xcarchive" \
+            -showBuildTimingSummary \
             archive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -306,12 +311,13 @@ jobs:
           retention-days: 14
           if-no-files-found: error
       - name: Build and verify the iOS Simulator app
-        if: inputs.checks_only != true
+        # Push builds keep both artifacts; only an explicit manual choice omits the simulator app.
+        if: inputs.checks_only != true && (github.event_name != 'workflow_dispatch' || inputs.build_simulator)
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g -XX:+UseSerialGC -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=1
         run: bash .github/scripts/build-ios-simulator.sh "$GITHUB_WORKSPACE/build/ios-simulator"
       - name: Upload the iOS Simulator app
-        if: inputs.checks_only != true
+        if: inputs.checks_only != true && (github.event_name != 'workflow_dispatch' || inputs.build_simulator)
         uses: actions/upload-artifact@v7
         with:
           name: nodyssey-ios-simulator-${{ github.run_id }}

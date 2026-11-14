@@ -9,6 +9,8 @@ definitions:
   cache: &ios_cache
     cache_paths:
       - $HOME/.gradle/caches/modules-2
+      # Task outputs, not just downloaded dependencies. Gradle validates their inputs on restore.
+      - $HOME/.gradle/caches/build-cache-1
       - $HOME/.gradle/wrapper
       - $HOME/.konan
       - $HOME/.cargo/registry
@@ -104,6 +106,7 @@ definitions:
           -sdk iphoneos \
           -destination 'generic/platform=iOS' \
           -archivePath "$output/Nodyssey.xcarchive" \
+          -showBuildTimingSummary \
           archive \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
@@ -153,6 +156,29 @@ definitions:
       script: ./gradlew --stop
 
 workflows:
+  ios-ipa:
+    name: Nodyssey iPhone IPA only
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment: *ios_environment
+    cache: *ios_cache
+    # Same regression gates as ios-unsigned; omit only the simulator app artifact.
+    scripts:
+      - *prepare
+      - *network_test
+      - *native_test
+      - *archive
+    artifacts:
+      - build/ios-unsigned/*.ipa
+      - build/ios-unsigned/*.txt
+      - build/ios-unsigned/xcodebuild.log
+      - shared/build/test-results/macosArm64Test/*.xml
+      - shared/build/reports/tests/macosArm64Test/**
+      - native/ios-network/rust-toolchain.toml
+    publishing:
+      scripts:
+        - *stop
+
   ios-checks:
     name: Nodyssey iOS native regression
     instance_type: mac_mini_m2

@@ -3,6 +3,10 @@
 手动运行 `.github/workflows/ios-test.yml` 的 **Build Android and iOS test apps**，选择测试分支，
 将 `platform` 设为 `ios`。版本仍取自该测试分支的 `gradle.properties`。
 
+只需要手机安装包时，取消勾选 `build_simulator`：仍运行原有回归并生成 Release 真机 IPA，
+省略模拟器 App 的构建和上传，不跳过模拟器回归测试。该选项默认勾选，保留原来的双产物行为；
+自动 push 构建也继续生成两种产物。真机与模拟器的 Xcode 构建均输出 `Build Timing Summary`。
+
 排查 Apple 平台的测试失败时，可在 `platform = ios` 下启用 `checks_only`。该模式运行
 Native 与 iOS 模拟器回归，并编译真机和模拟器的 iOS 外壳，跳过版本检查与安装包构建；因此可以先在修复分支验证，
 通过后再创建带版本号的测试快照。
