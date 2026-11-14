@@ -99,6 +99,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -310,8 +311,10 @@ fun MessageThreadScreen(
     ) { padding ->
         // The bar floats, so its height is not taken off the top of the body: the thread runs up
         // underneath it and only the list's own content padding keeps the oldest message clear.
-        // The bottom is taken as `paddingWithKeyboard` takes it, for the reason given there.
+        // The bottom inset and IME padding sit inside [MessageComposer]'s surface so its background
+        // fills the home-indicator area rather than leaving an empty strip below the bar.
         val topClearance = padding.calculateTopPadding()
+        val bottomInset = padding.calculateBottomPadding()
         val direction = LocalLayoutDirection.current
         val showScamBanner =
             state.userName != MessageConversation.SYSTEM_NAME &&
@@ -320,16 +323,12 @@ fun MessageThreadScreen(
         val effectiveTopClearance = if (showScamBanner) 0.dp else topClearance
         Column(
             Modifier
-                // The sides as well as the bottom: `consumeWindowInsets` below takes all of
-                // [padding], so a side the body does not pad here is padded by nothing — and in
-                // landscape with three-button navigation that side is the navigation bar, over the
-                // send key.
+                // Keep horizontal safe-area / side navigation bar insets clear of the thread and
+                // composer controls; the bottom inset is handled inside [MessageComposer].
                 .padding(
                     start = padding.calculateStartPadding(direction),
                     end = padding.calculateEndPadding(direction),
-                    bottom = padding.calculateBottomPadding(),
-                ).consumeWindowInsets(padding)
-                .imePadding()
+                )
                 .fillMaxSize(),
         ) {
             if (showScamBanner) {
@@ -415,6 +414,7 @@ fun MessageThreadScreen(
                 draftState = draftState,
                 state = state,
                 editorState = editorState,
+                bottomInset = bottomInset,
                 onSend = onSend,
                 onRemoveQuote = onRemoveQuote,
                 onPickImages = onPickImages,
@@ -1138,6 +1138,7 @@ private fun MessageComposer(
     draftState: TextFieldState,
     state: MessageThreadUiState,
     editorState: MarkdownEditorState,
+    bottomInset: Dp,
     onSend: () -> Unit,
     onRemoveQuote: (String) -> Unit,
     onPickImages: (List<PickedImage>) -> Unit,
@@ -1165,7 +1166,7 @@ private fun MessageComposer(
 
     val layers = LocalPlazaLayers.current
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag(MESSAGE_COMPOSER_SURFACE_TAG),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         color = layers.raised,
         border = layers.cardBorderStroke,
@@ -1267,6 +1268,21 @@ private fun MessageComposer(
                     onRecentChange = panel.onRecentChange,
                 )
             }
+            val bottomPadding = PaddingValues(bottom = bottomInset)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (editorState.emojiOpen) {
+                            Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .padding(bottomPadding)
+                    .consumeWindowInsets(bottomPadding)
+                    .imePadding(),
+            )
         }
     }
 }
@@ -1573,6 +1589,8 @@ private const val TOOL_COLUMNS = 4
 private val TOOL_TILE_SIZE = 60.dp
 private const val MAX_INPUT_LINES = 5
 private const val MAX_IMAGES_PER_PICK = 9
+
+internal const val MESSAGE_COMPOSER_SURFACE_TAG = "message_composer_surface"
 
 /** One height for +, the send key and the empty draft pill, so the bar reads as a row. */
 private val INPUT_CONTROL_SIZE = 48.dp

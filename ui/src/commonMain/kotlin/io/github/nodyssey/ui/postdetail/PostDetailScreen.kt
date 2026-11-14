@@ -257,7 +257,6 @@ import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.glassFrostedBar
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
-import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
@@ -783,8 +782,8 @@ fun PostDetailScreen(
             // header and lay the list below it rather than scrolling text through the title.
             val frostedTopBar = LocalPlazaLayers.current.backdropGlass
             val topInset = if (frostedTopBar) padding.calculateTopPadding() else 0.dp
-            val bottomInset = if (LocalPlazaLayers.current.nativeGlass) padding.calculateBottomPadding() else 0.dp
-            val viewportPadding = if (LocalPlazaLayers.current.nativeGlass) padding.withoutBottom() else padding
+            val bottomInset = padding.calculateBottomPadding()
+            val viewportPadding = padding.withoutBottom()
             Box(
                 Modifier
                     // Draw the list through the home-indicator area, not above an empty page strip.
@@ -825,12 +824,12 @@ fun PostDetailScreen(
                      * the four shared elements mid-landing and flies them again.
                      */
                     !state.hasContent && state.isLoading && state.preview == null ->
-                        Box(Modifier.padding(top = topInset)) {
+                        Box(Modifier.padding(top = topInset, bottom = bottomInset)) {
                             UnopenedThreadSkeleton()
                         }
 
                     !state.hasContent && error != null ->
-                        Box(Modifier.padding(top = topInset)) {
+                        Box(Modifier.padding(top = topInset, bottom = bottomInset)) {
                             SiteErrorState(
                                 error = error,
                                 onRetry = onRetry,
