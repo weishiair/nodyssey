@@ -3,6 +3,7 @@ package io.github.nodyssey
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -267,6 +269,14 @@ fun MainNavigation(
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
     val currentPredictiveBack by rememberUpdatedState(navigationSettings.predictiveBack)
+    val layers = LocalPlazaLayers.current
+    val defaultSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(windowAdaptiveInfo)
+    val isBottomBarLayout =
+        defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
+            defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
+            defaultSuiteType == NavigationSuiteType.NavigationBar
+    val useFloatingGlassBar = layers.backdropGlass && isBottomBarLayout
+    val currentUseFloatingGlassBar by rememberUpdatedState(useFloatingGlassBar)
     val listDetailSceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
 
@@ -489,6 +499,13 @@ fun MainNavigation(
      *
      * Three `remember` calls rather than a loop, for the same reason the stacks above are written out.
      */
+    val entryFloatingBottomBarHeight: (NavKey) -> Dp = { key ->
+        if (currentUseFloatingGlassBar && TopLevelDestination.forKey(key) != null) {
+            FloatingGlassBarClearance
+        } else {
+            0.dp
+        }
+    }
     val homeProvider =
         remember {
             stackScopedEntryProvider(
@@ -496,6 +513,7 @@ fun MainNavigation(
                 destinationProvider(homeStack, dependencies),
                 backStack = homeStack,
                 predictiveBack = { currentPredictiveBack },
+                floatingBottomBarHeight = entryFloatingBottomBarHeight,
             )
         }
     val notificationsProvider =
@@ -505,6 +523,7 @@ fun MainNavigation(
                 destinationProvider(notificationsStack, dependencies),
                 backStack = notificationsStack,
                 predictiveBack = { currentPredictiveBack },
+                floatingBottomBarHeight = entryFloatingBottomBarHeight,
             )
         }
     val profileProvider =
@@ -514,6 +533,7 @@ fun MainNavigation(
                 destinationProvider(profileStack, dependencies),
                 backStack = profileStack,
                 predictiveBack = { currentPredictiveBack },
+                floatingBottomBarHeight = entryFloatingBottomBarHeight,
             )
         }
 
@@ -593,13 +613,6 @@ fun MainNavigation(
         )
     }
 
-    val layers = LocalPlazaLayers.current
-    val defaultSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(windowAdaptiveInfo)
-    val isBottomBarLayout =
-        defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
-            defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
-            defaultSuiteType == NavigationSuiteType.NavigationBar
-    val useFloatingGlassBar = layers.backdropGlass && isBottomBarLayout
     val onSelectTab: (TopLevelDestination) -> Unit = { destination ->
         // Re-selecting a tab takes its list back to the start — 首页 reloads on the way,
         // since the one thing a reader taps 首页 for while already on 首页 is 新帖. Only
@@ -690,7 +703,6 @@ fun MainNavigation(
                     LocalOpenReportCompare provides { openReportCompare() },
                     // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
                     LocalStickerNavigation provides stickerNavigation,
-                    LocalFloatingBottomBarHeight provides if (useFloatingGlassBar && atTabRoot) FloatingGlassBarClearance else 0.dp,
                 ) {
                     val navigateBack: () -> Unit = {
                         if (backStack.size > 1) {
@@ -725,12 +737,17 @@ fun MainNavigation(
                 }
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
+                val clipboardSnackbarBottomClearance by animateDpAsState(
+                    targetValue = if (useFloatingGlassBar && showNavigationSuite) FloatingGlassBarClearance else 0.dp,
+                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                    label = "clipboardSnackbarBottomClearance",
+                )
                 SnackbarHost(
                     hostState = clipboardSnackbar,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-                        .padding(bottom = if (useFloatingGlassBar && showNavigationSuite) FloatingGlassBarClearance else 0.dp),
+                        .padding(bottom = clipboardSnackbarBottomClearance.coerceAtLeast(0.dp)),
                 ) { data ->
                     DisposableEffect(data) {
                         composedNotices++
@@ -1072,6 +1089,10 @@ internal fun stackScopedEntryProvider(
     provider: (NavKey) -> NavEntry<NavKey>,
     backStack: List<NavKey>,
     predictiveBack: () -> Boolean = { true },
+    // Scope floating bar clearance to each entry rather than the active route: when a tab root
+    // exits beneath an entering thread or child screen, its FAB and page rail must keep their
+    // bottom clearance instead of dropping onto the retracting navigation bar on frame zero.
+    floatingBottomBarHeight: (NavKey) -> Dp = { 0.dp },
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val entry = provider(key)
     val transition = entry.metadata[NavDisplay.TransitionKey]
@@ -1094,7 +1115,11 @@ internal fun stackScopedEntryProvider(
         // scene interrupted mid-entrance. Omit removed content so it cannot intercept input; remove
         // this guard when NavDisplay can finish an interrupted non-animated pop immediately.
         if (predictiveBack() || backStack.any { it === key }) {
-            if (key is PostDetailKey) ThreadSharedTransition { entry.Content() } else entry.Content()
+            CompositionLocalProvider(
+                LocalFloatingBottomBarHeight provides floatingBottomBarHeight(key),
+            ) {
+                if (key is PostDetailKey) ThreadSharedTransition { entry.Content() } else entry.Content()
+            }
         }
     }
 }
