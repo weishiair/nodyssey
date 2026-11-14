@@ -18,12 +18,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -99,7 +97,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -206,6 +203,7 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
+import io.github.plaza.designsys.theme.paddingWithKeyboard
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -1166,7 +1164,7 @@ private fun MessageComposer(
 
     val layers = LocalPlazaLayers.current
     Surface(
-        modifier = Modifier.fillMaxWidth().testTag(MESSAGE_COMPOSER_SURFACE_TAG),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         color = layers.raised,
         border = layers.cardBorderStroke,
@@ -1279,9 +1277,7 @@ private fun MessageComposer(
                             Modifier
                         },
                     )
-                    .padding(bottomPadding)
-                    .consumeWindowInsets(bottomPadding)
-                    .imePadding(),
+                    .paddingWithKeyboard(bottomPadding),
             )
         }
     }
@@ -1589,8 +1585,6 @@ private const val TOOL_COLUMNS = 4
 private val TOOL_TILE_SIZE = 60.dp
 private const val MAX_INPUT_LINES = 5
 private const val MAX_IMAGES_PER_PICK = 9
-
-internal const val MESSAGE_COMPOSER_SURFACE_TAG = "message_composer_surface"
 
 /** One height for +, the send key and the empty draft pill, so the bar reads as a row. */
 private val INPUT_CONTROL_SIZE = 48.dp

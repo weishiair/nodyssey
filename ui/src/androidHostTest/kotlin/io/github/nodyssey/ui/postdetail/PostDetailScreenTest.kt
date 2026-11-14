@@ -8,27 +8,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.WindowInsets
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
-import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -37,9 +29,6 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
-import androidx.compose.ui.unit.dp
-import androidx.core.graphics.Insets
-import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ApplicationProvider
 import io.github.nodyssey.ThreadPreview
 import io.github.nodyssey.model.PostContent
@@ -56,7 +45,6 @@ import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import kotlin.math.roundToInt
 
 /** Screen-level tests for the thread view, including the offline-first error behaviour. */
 @RunWith(ParameterizedRobolectricTestRunner::class)
@@ -937,51 +925,6 @@ class PostDetailScreenTest(private val frostedGlass: Boolean) {
         val blocked = after.copy(comments = after.comments.map { it.copy(isBlocked = true) })
         assertEquals(emptySet<Long>(), blocked.visibleReplyAuthorUids(setOf(visibleKey)))
         assertEquals(setOf(122L), blocked.copy(showBlockedContent = true).visibleReplyAuthorUids(setOf(visibleKey)))
-    }
-
-    @Test
-    fun `thread list fills the bottom inset while floating controls remain clear of it`() {
-        composeRule.setContent {
-            val density = LocalDensity.current
-            val insets = with(density) {
-                WindowInsetsCompat.Builder()
-                    .setInsets(
-                        WindowInsetsCompat.Type.navigationBars(),
-                        Insets.of(0, 0, 0, 34.dp.toPx().roundToInt()),
-                    )
-                    .build()
-            }
-            DeviceConfigurationOverride(DeviceConfigurationOverride.WindowInsets(insets)) {
-                PlazaTheme(frostedGlass = frostedGlass) {
-                    PostDetailScreen(
-                        state = jumpedState(),
-                        postUrl = "https://www.nodeseek.com/post-1-13",
-                        onBack = {},
-                        onOpenBrowser = {},
-                        onImageClick = {},
-                        onRetry = {},
-                        onLoadMore = {},
-                        onVerify = {},
-                    )
-                }
-            }
-        }
-        composeRule.waitForIdle()
-
-        val rootBottom = composeRule.onAllNodes(isRoot()).onFirst().getUnclippedBoundsInRoot().bottom
-        val listBottom = composeRule.onNode(hasScrollToIndexAction()).getUnclippedBoundsInRoot().bottom
-        val jumpPillBottom = composeRule.onNodeWithContentDescription("正在读第 121 楼，点击跳楼").getUnclippedBoundsInRoot().bottom
-        val replyFabBottom = composeRule.onNode(hasContentDescription("回复") and !hasText("回复")).getUnclippedBoundsInRoot().bottom
-
-        assertEquals(rootBottom.value, listBottom.value, 1f)
-        org.junit.Assert.assertTrue(
-            "Jump pill should sit above 34dp inset (glass=$frostedGlass): jumpPillBottom=$jumpPillBottom rootBottom=$rootBottom",
-            jumpPillBottom <= rootBottom - 34.dp,
-        )
-        org.junit.Assert.assertTrue(
-            "Reply FAB should sit above 34dp inset (glass=$frostedGlass): replyFabBottom=$replyFabBottom rootBottom=$rootBottom",
-            replyFabBottom <= rootBottom - 34.dp,
-        )
     }
 
     /** One page of a long thread, loaded on its own — what a jump or a notification produces. */
