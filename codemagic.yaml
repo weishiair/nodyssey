@@ -117,6 +117,7 @@ definitions:
         test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" = 'io.github.nodyssey'
         executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
         test "$(lipo -archs "$app/$executable")" = 'arm64'
+        python3 .github/scripts/check-ios-weak-imports.py "$app/$executable" > "$output/ios-weak-imports.txt"
         sdk_name=$(/usr/libexec/PlistBuddy -c 'Print DTSDKName' "$app/Info.plist")
         if [[ ! "$sdk_name" =~ ^iphoneos([0-9]+)\. ]] || (( ${BASH_REMATCH[1]} < 26 )); then
           echo "iOS SDK 26 or newer is required in the app; found $sdk_name." >&2
