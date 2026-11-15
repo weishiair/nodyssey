@@ -27,6 +27,7 @@ test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")
 test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleSupportedPlatforms:0' "$app/Info.plist")" = 'iPhoneSimulator'
 executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
 test "$(lipo -archs "$app/$executable")" = 'arm64'
+python3 .github/scripts/check-ios-weak-imports.py "$app/$executable" > "$output/ios-weak-imports.txt"
 xcrun vtool -show-build "$app/$executable" | tee "$output/binary-platform.txt"
 grep -q 'platform IOSSIMULATOR' "$output/binary-platform.txt"
 binary_sdk=$(awk '$1 == "sdk" { print $2 }' "$output/binary-platform.txt")

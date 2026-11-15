@@ -52,6 +52,8 @@
     <string name="richtext_image_loading">图片加载中…</string>
     <!-- Stands in for an image met where only text can go — running prose whose alt text is blank. -->
     <string name="richtext_image_label">图片</string>
+    <!-- Iframes and videos are links; no third-party player loads before the reader opens one. -->
+    <string name="richtext_embedded_media_title">嵌入媒体</string>
     <string name="richtext_image_view_full">点击查看全图</string>
     <string name="richtext_image_load_failed">图片加载失败</string>
     <!-- The second line under 图片加载失败: why it failed, in terms of what the reader can do next.

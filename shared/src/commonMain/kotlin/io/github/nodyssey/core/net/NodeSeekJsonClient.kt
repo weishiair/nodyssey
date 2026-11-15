@@ -337,6 +337,8 @@ class NodeSeekJsonClient(
          */
         const val PATH_COLLECTION = "/api/statistics/collection"
 
+        const val PATH_PIN_COMMENT = "/api/content/pin-comment"
+
         /*
          * 投票. Captured from the live site on 2026-08-06.
          *

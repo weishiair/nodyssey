@@ -84,6 +84,8 @@ object Selectors {
     const val DETAIL_AWARD_CORNER = "div.nsk-post-wrapper div.award-corner"
 
     // --- One post body or comment ------------------------------------------
+    const val CONTENT_MEDIA = "iframe,video"
+    const val CONTENT_MEDIA_SOURCE = "source[src]"
     const val CONTENT_AVATAR = "div.avatar-wrapper img"
     const val CONTENT_AUTHOR = "a.author-name"
     const val CONTENT_POSTER_BADGE = "div.author-info .is-poster"
@@ -97,7 +99,7 @@ object Selectors {
 
     /**
      * 置顶 on a floor: a bare pin ahead of the floor number, the site's mark for a comment a
-     * moderator pinned.
+     * thread author pinned.
      *
      * `<svg title="置顶" class="iconpark-icon pined-comment-badge"><use href="#pin"></use></svg>`,
      * inside `div.floor-link-wrapper`. Captured on 2026-11-02 from `/post-1026936-1`, where #2

@@ -1,6 +1,7 @@
 package io.github.plaza.designsys.component
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
@@ -25,12 +26,39 @@ import androidx.compose.ui.unit.dp
 fun Modifier.fadingEndEdge(
     scrollState: ScrollState,
     length: Dp = 48.dp,
+): Modifier = fadingEndEdge(length) { (scrollState.maxValue - scrollState.value).toFloat() }
+
+/**
+ * [LazyListState] counterpart of [fadingEndEdge], fading out across [length] while more items
+ * remain past the viewport end and clearing smoothly as the last item finishes entering.
+ */
+fun Modifier.fadingEndEdge(
+    listState: LazyListState,
+    length: Dp = 48.dp,
+): Modifier =
+    fadingEndEdge(length) { edge ->
+        if (!listState.canScrollForward) return@fadingEndEdge 0f
+        val info = listState.layoutInfo
+        val last = info.visibleItemsInfo.lastOrNull() ?: return@fadingEndEdge 0f
+        if (last.index < info.totalItemsCount - 1) {
+            edge
+        } else {
+            (last.offset + last.size + info.afterContentPadding - info.viewportEndOffset)
+                .toFloat()
+                .coerceAtLeast(0f)
+        }
+    }
+
+private fun Modifier.fadingEndEdge(
+    length: Dp,
+    remainingPx: (edgePx: Float) -> Float,
 ): Modifier =
     graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
         .drawWithContent {
             drawContent()
             val edge = length.toPx()
-            val strength = ((scrollState.maxValue - scrollState.value) / edge).coerceIn(0f, 1f)
+            if (edge <= 0f) return@drawWithContent
+            val strength = (remainingPx(edge) / edge).coerceIn(0f, 1f)
             if (strength == 0f) return@drawWithContent
             val ltr = layoutDirection == LayoutDirection.Ltr
             drawRect(

@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 
 /**
@@ -20,16 +21,18 @@ import androidx.compose.ui.platform.LocalContext
  */
 const val OWN_CLIP_EXTRA = "io.github.plaza.designsys.OWN_CLIP"
 
-/** The Android answer to [io.github.plaza.designsys.component.rememberPlainTextClip]: a `ClipData`. */
+/** The Android answer to [rememberPlainTextClipboardWrite]: a marked `ClipData`. */
 @Composable
-internal actual fun rememberPlainTextClip(): (label: String, text: String) -> ClipEntry =
-    remember {
+internal actual fun rememberPlainTextClipboardWrite(): suspend (label: String, text: String) -> Unit {
+    val clipboard = LocalClipboard.current
+    return remember(clipboard) {
         { label, text ->
             val clip = ClipData.newPlainText(label, text)
             clip.description.extras = PersistableBundle().apply { putBoolean(OWN_CLIP_EXTRA, true) }
-            ClipEntry(clip)
+            clipboard.setClipEntry(ClipEntry(clip))
         }
     }
+}
 
 /**
  * Tells the reader the copy happened — on the versions that do not tell them already.

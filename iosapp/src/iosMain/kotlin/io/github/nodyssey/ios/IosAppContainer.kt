@@ -36,6 +36,7 @@ import io.github.nodyssey.data.OfflineFirstPostRepository
 import io.github.nodyssey.data.OfflineLibrary
 import io.github.nodyssey.data.OfflineThreadReader
 import io.github.nodyssey.data.PostCollectionWriter
+import io.github.nodyssey.data.PostPinWriter
 import io.github.nodyssey.data.PostReactionWriter
 import io.github.nodyssey.data.PostRepository
 import io.github.nodyssey.data.ProfileRepository
@@ -446,6 +447,7 @@ class IosAppContainer(
             collectedPostMetaStore,
             historyAccounts = historyAccounts,
             showHomePinnedPosts = settingsRepository.settings.map { it.showHomePinnedPosts }.distinctUntilChanged(),
+            pins = PostPinWriter(jsonClient),
         )
     }
 

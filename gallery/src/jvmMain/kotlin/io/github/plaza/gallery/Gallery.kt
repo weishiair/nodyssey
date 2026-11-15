@@ -64,7 +64,7 @@ import io.github.plaza.designsys.theme.Spacing
  * place only by being run — `./gradlew :gallery:run` — and by covering the parts of the module whose
  * portability was in question rather than the parts that were obviously fine: text that had to be
  * measured, a component tree fed by `:shared`'s own parser, and the two seams (`platformSystemColorScheme`,
- * `rememberPlainTextClip`) whose desktop halves exist only for this.
+ * `rememberPlainTextClipboardWrite`) whose desktop halves exist only for this.
  */
 fun main() = application {
     Window(
@@ -200,7 +200,7 @@ fun GalleryContent() {
                 }
 
                 Section("剪贴板") {
-                    // `rememberPlainTextClip`'s desktop `actual` wraps an AWT `StringSelection`,
+                    // `rememberPlainTextClipboardWrite`'s desktop `actual` wraps an AWT `StringSelection`,
                     // and `rememberCopyConfirmation`'s does nothing — the two halves of the seam
                     // `AndroidClipboard.kt` used to be the only side of. Pressing this and then
                     // pasting elsewhere is the test.
