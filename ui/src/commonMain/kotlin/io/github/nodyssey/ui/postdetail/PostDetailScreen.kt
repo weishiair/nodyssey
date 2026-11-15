@@ -190,6 +190,10 @@ import io.github.nodyssey.ui.resources.post_loading_earlier
 import io.github.nodyssey.ui.resources.post_new_replies_divider
 import io.github.nodyssey.ui.resources.post_only_author
 import io.github.nodyssey.ui.resources.post_open_original
+import io.github.nodyssey.ui.resources.post_pin_action
+import io.github.nodyssey.ui.resources.post_pin_body
+import io.github.nodyssey.ui.resources.post_pin_confirm
+import io.github.nodyssey.ui.resources.post_pin_success
 import io.github.nodyssey.ui.resources.post_quote_floor
 import io.github.nodyssey.ui.resources.post_reaction_chicken
 import io.github.nodyssey.ui.resources.post_reaction_cost
@@ -211,6 +215,9 @@ import io.github.nodyssey.ui.resources.post_title_copied
 import io.github.nodyssey.ui.resources.post_track_full
 import io.github.nodyssey.ui.resources.post_track_thread
 import io.github.nodyssey.ui.resources.post_tracked
+import io.github.nodyssey.ui.resources.post_unpin_action
+import io.github.nodyssey.ui.resources.post_unpin_body
+import io.github.nodyssey.ui.resources.post_unpin_success
 import io.github.nodyssey.ui.resources.post_untrack_thread
 import io.github.nodyssey.ui.resources.user_note_action
 import io.github.nodyssey.ui.richtext.PostRichContent
@@ -336,6 +343,11 @@ fun PostDetailRoute(
         onReact = viewModel::react,
         onLoadFreeChickenLegs = viewModel::loadFreeChickenLegs,
         onReactionFailureShown = viewModel::onReactionFailureShown,
+        onRequestCommentPin = viewModel::requestCommentPin,
+        onConfirmCommentPin = viewModel::confirmCommentPin,
+        onDismissCommentPin = viewModel::dismissCommentPin,
+        onPinFailureShown = viewModel::onPinFailureShown,
+        onPinMessageShown = viewModel::onPinMessageShown,
         onCollect = viewModel::toggleCollect,
         onCollectFailureShown = viewModel::onCollectFailureShown,
         onToggleTrack = viewModel::toggleTrack,
@@ -426,6 +438,11 @@ fun PostDetailScreen(
     /** Asked for when a 投喂 confirmation opens, so it can say whether this one is free. */
     onLoadFreeChickenLegs: () -> Unit = {},
     onReactionFailureShown: () -> Unit = {},
+    onRequestCommentPin: (Long) -> Unit = {},
+    onConfirmCommentPin: () -> Unit = {},
+    onDismissCommentPin: () -> Unit = {},
+    onPinFailureShown: () -> Unit = {},
+    onPinMessageShown: () -> Unit = {},
     /** Collects the thread, or takes it out. Whole-thread, so only the opening post offers it. */
     onCollect: () -> Unit = {},
     onCollectFailureShown: () -> Unit = {},
@@ -940,7 +957,7 @@ fun PostDetailScreen(
                 // content that is on its way out. This says "a different page is coming" where the reader
                 // is already looking — and it is the only feedback between the tap and the new page.
                 // A pull-to-refresh is the one load excused: its own indicator is already saying it.
-                if (state.isLoading && !state.isRefreshing && state.hasContent) {
+                if ((state.isLoading || state.pendingCommentPin != null) && !state.isRefreshing && state.hasContent) {
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(top = topInset).describedAsLoading(),
                     )
@@ -977,7 +994,15 @@ fun PostDetailScreen(
             },
             onSelectTitle = { titleToCopy = it },
             onShareImage = if (shareImage != null && shareImageOf == null) ({ shareImageOf = live }) else null,
+            onPin = if (state.isSignedIn && live.canPin && state.pendingCommentPin == null) {
+                { live.commentId?.let(onRequestCommentPin) }
+            } else {
+                null
+            },
         )
+    }
+    state.pinConfirmation?.let { target ->
+        CommentPinDialog(target.pinned, onDismissCommentPin, onConfirmCommentPin)
     }
     titleToCopy?.let { title ->
         val copied = stringResource(Res.string.post_title_copied)
@@ -1027,6 +1052,23 @@ fun PostDetailScreen(
         onSignIn = onSignIn,
         onRetry = onCollect,
     )
+
+    val pinFailure = state.pinFailure
+    SiteErrorSnackbar(
+        error = pinFailure?.error,
+        snackbarHostState = snackbarHostState,
+        onShown = onPinFailureShown,
+        detail = pinFailure?.detail,
+        onVerify = onVerify,
+        onSignIn = onSignIn,
+    )
+    val pinnedMessage = stringResource(Res.string.post_pin_success)
+    val unpinnedMessage = stringResource(Res.string.post_unpin_success)
+    LaunchedEffect(state.pinMessage) {
+        val pinned = state.pinMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(if (pinned) pinnedMessage else unpinnedMessage)
+        onPinMessageShown()
+    }
 
     // Shown, then consumed — the order `SiteErrorSnackbar` uses, so clearing the message cannot
     // cancel the effect that is showing it.
@@ -2999,8 +3041,7 @@ private data class ReactionConfirm(
  * The one gate in front of an irreversible spend.
  *
  * Only 加鸡腿 and 反对 get one, matching the site: 点赞 costs nothing and is sent on the tap. The body
- * has to name the price, because these are the only two places in the app where reading a thread can
- * cost the reader currency — and 反对 costs *two*, which is the kind of thing a reader discovers
+ * has to name the price: 反对 costs *two*, which is the kind of thing a reader discovers
  * afterwards if the dialog only says "确定吗".
  */
 @Composable
@@ -3061,6 +3102,22 @@ private fun ReactionConfirmDialog(
     )
 }
 
+@Composable
+private fun CommentPinDialog(pinned: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(PlazaIcons.PushPin, contentDescription = null) },
+        title = { Text(stringResource(if (pinned) Res.string.post_pin_action else Res.string.post_unpin_action)) },
+        text = { Text(stringResource(if (pinned) Res.string.post_pin_body else Res.string.post_unpin_body)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(if (pinned) Res.string.post_pin_confirm else Res.string.post_unpin_action))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
+    )
+}
+
 /**
  * What a floor's 1c panel can do besides the three marks, as that floor's own row already wired it.
  *
@@ -3098,6 +3155,7 @@ private fun FloorActionSheet(
     onSelectTitle: (String) -> Unit,
     /** 分享为图片; null where this platform has no share sheet, or while one is already being drawn. */
     onShareImage: (() -> Unit)? = null,
+    onPin: (() -> Unit)? = null,
 ) {
     val copy = rememberClipboardCopy()
     val copied = stringResource(Res.string.post_body_copied)
@@ -3146,6 +3204,9 @@ private fun FloorActionSheet(
             }
             val rows =
                 buildList {
+                    onPin?.let {
+                        add(Triple(PlazaIcons.PushPin, stringResource(if (content.isPinned) Res.string.post_unpin_action else Res.string.post_pin_action), it))
+                    }
                     actions.onEdit?.let { add(Triple(Icons.Default.Edit, stringResource(Res.string.post_edit_action), it)) }
                         ?: actions.onReply?.let {
                             add(Triple(PlazaIcons.Reply, stringResource(Res.string.post_reply_to, content.authorName), it))

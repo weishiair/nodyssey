@@ -1851,4 +1851,12 @@
     <string name="mail_recipient_address">To: %1$s</string>
     <string name="settings_frosted_glass">Frosted glass chrome</string>
     <string name="settings_frosted_glass_hint">Floating translucent bottom bar and specular rims; post cards stay solid for reading contrast</string>
+
+    <string name="post_pin_action">Pin comment</string>
+    <string name="post_pin_body">Spend 5 chicken legs to pin this comment to the first page of the thread.</string>
+    <string name="post_pin_confirm">Pin (5 chicken legs)</string>
+    <string name="post_pin_success">Comment pinned</string>
+    <string name="post_unpin_action">Unpin comment</string>
+    <string name="post_unpin_body">This comment will return to its floor order.</string>
+    <string name="post_unpin_success">Comment unpinned</string>
 </resources>

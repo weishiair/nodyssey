@@ -158,6 +158,16 @@ interface PostDetailDao {
     @Query("SELECT * FROM post_comments WHERE postId = :postId")
     suspend fun findComments(postId: Long): List<CommentEntity>
 
+    /** Keep an accepted write visible even if the following page-1 read fails. */
+    @Transaction
+    suspend fun updateCommentPin(postId: Long, commentId: Long, pinned: Boolean) {
+        val detail = findDetail(postId) ?: return
+        // Pinning changes page membership. The old window stays readable, but is no longer fresh.
+        upsertDetail(detail.copy(cachedAtMillis = 0))
+        val rows = findComments(postId).filter { it.content.commentId == commentId }
+        upsertComments(rows.map { it.copy(content = it.content.copy(isPinned = pinned)) })
+    }
+
     @Upsert
     suspend fun upsertDetail(detail: PostDetailEntity)
 
