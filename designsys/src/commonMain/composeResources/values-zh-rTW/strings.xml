@@ -54,6 +54,10 @@
     <string name="richtext_action_open_in_browser">用瀏覽器開啟</string>
     <string name="richtext_code_copied">程式碼已複製</string>
     <string name="richtext_action_copy">複製</string>
+    <string name="richtext_action_copy_link">複製連結</string>
+    <string name="richtext_action_copy_text">複製文字</string>
+    <string name="richtext_link_copied">連結已複製</string>
+    <string name="richtext_text_copied">文字已複製</string>
     <string name="richtext_quote_reply">@%1$s %2$s</string>
     <string name="richtext_sticker_description">表情</string>
     <string name="richtext_image_skipped_title">已開啟「僅 Wi-Fi 載入圖片」，目前不是 Wi-Fi</string>
