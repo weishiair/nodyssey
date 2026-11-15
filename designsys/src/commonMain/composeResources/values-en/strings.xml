@@ -50,6 +50,10 @@
     <string name="richtext_action_open_in_browser">Open in browser</string>
     <string name="richtext_code_copied">Code copied</string>
     <string name="richtext_action_copy">Copy</string>
+    <string name="richtext_action_copy_link">Copy link</string>
+    <string name="richtext_action_copy_text">Copy text</string>
+    <string name="richtext_link_copied">Link copied</string>
+    <string name="richtext_text_copied">Text copied</string>
     <string name="richtext_quote_reply">@%1$s %2$s</string>
     <string name="richtext_sticker_description">Sticker</string>
     <string name="richtext_sticker_fallback">[Sticker]</string>

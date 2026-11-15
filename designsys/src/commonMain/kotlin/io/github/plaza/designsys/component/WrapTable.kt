@@ -32,7 +32,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +49,7 @@ import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.richtext_action_retry
 import io.github.plaza.designsys.resources.richtext_image_load_failed
 import io.github.plaza.designsys.resources.richtext_image_skipped_action
+import io.github.plaza.designsys.richtext.RichLinkText
 import io.github.plaza.designsys.richtext.imageClicks
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
@@ -173,11 +173,7 @@ private fun CellContent(
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
         if (cell != null && cell.text.isNotEmpty()) {
-            // A 拼车 post files its benchmark reports in a table column, so this cell is where most
-            // of the outbound links in a thread actually are — and the one place worth telling the
-            // browser about a link while the finger is still on it. See `prefetchLinksOnPress`.
-            var layout by remember(cell.text) { mutableStateOf<TextLayoutResult?>(null) }
-            Text(
+            RichLinkText(
                 text = cell.text,
                 style = style,
                 color =
@@ -186,8 +182,6 @@ private fun CellContent(
                 } else {
                     MaterialTheme.colorScheme.onSurface
                 },
-                onTextLayout = { layout = it },
-                modifier = Modifier.prefetchLinksOnPress(cell.text) { layout },
             )
         }
         cell?.images?.forEach { image ->

@@ -60,27 +60,28 @@ fun Modifier.prefetchLinksOnPress(
     return this.pointerInput(text, prefetcher) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            text.linkAt(down.position, layout())?.let(prefetcher::prefetch)
+            (text.linkRangeAt(down.position, layout())?.item as? LinkAnnotation.Url)?.url
+                ?.let(prefetcher::prefetch)
         }
     }
 }
 
 /**
- * The URL of the link drawn under [position], or null where there is no link — or no text.
+ * The link drawn under [position], or null where there is no link — or no text.
  *
  * `getOffsetForPosition` answers with the *nearest* offset rather than admitting a miss, so a press
  * in the margin past the end of a line comes back as that line's last character. The line's own
  * horizontal bounds are checked first, which is what keeps a tap on the empty half of a short line
  * from warming whatever link happens to end it.
  */
-private fun AnnotatedString.linkAt(
+internal fun AnnotatedString.linkRangeAt(
     position: Offset,
     layout: TextLayoutResult?,
-): String? {
+): AnnotatedString.Range<LinkAnnotation>? {
     val result = layout ?: return null
+    if (position.y < 0 || position.y >= result.size.height) return null
     val line = result.getLineForVerticalPosition(position.y)
     if (position.x < result.getLineLeft(line) || position.x > result.getLineRight(line)) return null
     val offset = result.getOffsetForPosition(position)
-    return getLinkAnnotations(offset, offset)
-        .firstNotNullOfOrNull { (it.item as? LinkAnnotation.Url)?.url }
+    return getLinkAnnotations(offset, offset).firstOrNull()
 }

@@ -103,7 +103,6 @@ import io.github.plaza.designsys.component.WrapCellImage
 import io.github.plaza.designsys.component.WrapTable
 import io.github.plaza.designsys.component.asSpecTable
 import io.github.plaza.designsys.component.imageLoadFailureText
-import io.github.plaza.designsys.component.prefetchLinksOnPress
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberTerminalText
 import io.github.plaza.designsys.component.specTableFits
@@ -1519,16 +1518,13 @@ private fun InlineText(
         }
 
     var textLayoutResult by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
-    Text(
+    RichLinkText(
         text = text,
         style = style.fitStickers(stickerBoxes.values, density),
         inlineContent = stickerContent,
         onTextLayout = { textLayoutResult = it },
-        // `prefetchLinksOnPress` before the link handling, not after: the browser is told which page
-        // is coming while the finger is still down, and `LinkAnnotation` only ever reports the
-        // release.
         modifier =
-        Modifier.prefetchLinksOnPress(text) { textLayoutResult }.drawBehind {
+        Modifier.drawBehind {
             val layout = textLayoutResult ?: return@drawBehind
             val chipHeight = QUOTE_HEIGHT.toPx()
             val labelCenter = QUOTE_LABEL_CENTER.toPx()
