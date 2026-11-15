@@ -19,6 +19,8 @@ import kotlinx.serialization.json.longOrNull
  * different claim from "no marks and nothing blocked", and why both are read in one pass.
  */
 internal data class PostConfig(
+    /** The site's own gate: `user.member_id === postData.op.uid`. */
+    val canPin: Boolean = false,
     val reactions: Map<Long, PostReactions> = emptyMap(),
     val blockedCommentIds: Set<Long> = emptySet(),
     /**
@@ -31,7 +33,7 @@ internal data class PostConfig(
      */
     val ownCommentIds: Set<Long> = emptySet(),
     /**
-     * The floors a moderator pinned, per the blob's `comments[].pined` — the site's own spelling.
+     * The floors the thread's author pinned, per the blob's `comments[].pined` — the site's own spelling.
      *
      * Empty when the page carried no blob, which here is not a lost answer: a signed-out page still
      * renders the pin in the markup, and [PostDetailParser] reads that as its second source.
@@ -86,12 +88,15 @@ internal object PostConfigParser {
     /** The blob's per-floor state, empty when the page carried none. The body is a comment here too. */
     fun parse(document: Document): PostConfig {
         val decoded = SiteBootstrap.decodeOrNull(document) ?: return PostConfig()
-        val postData =
+        val root =
             try {
-                json.parseToJsonElement(decoded).jsonObject["postData"]?.jsonObject
+                json.parseToJsonElement(decoded).jsonObject
             } catch (exception: IllegalArgumentException) {
                 null
             } ?: return PostConfig()
+        val postData = root["postData"] as? JsonObject ?: return PostConfig()
+        val readerUid = (root["user"] as? JsonObject)?.long("member_id")
+        val opUid = (postData["op"] as? JsonObject)?.long("uid")
 
         val reactions = mutableMapOf<Long, PostReactions>()
         val blocked = mutableSetOf<Long>()
@@ -122,6 +127,7 @@ internal object PostConfigParser {
             (comment["time"] as? JsonObject)?.let { time -> edited.putEdit(commentId, time) }
         }
         return PostConfig(
+            canPin = readerUid != null && readerUid == opUid,
             reactions = reactions,
             blockedCommentIds = blocked,
             ownCommentIds = own,

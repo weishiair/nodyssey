@@ -115,6 +115,7 @@ class PostDetailViewModel(
     }
 
     private var loadJob: Job? = null
+    private var pinRefreshRequired = false
     private var replyCountJob: Job? = null
     private var authorProfileJob: Job? = null
     private var fetchedAuthorUid: Long? = null
@@ -255,10 +256,10 @@ class PostDetailViewModel(
             .onEach { show -> updateState { it.copy(showBlockedContent = show) } }
             .launchIn(viewModelScope)
 
-        // The reply editor is the only thing here that needs an account, and it needs to know before
-        // it opens rather than after a failed publish.
         session
-            .onEach { sessionState -> updateState { it.copy(isSignedIn = sessionState.isSignedIn) } }
+            .onEach { sessionState ->
+                updateState { it.copy(isSignedIn = sessionState.isSignedIn, pinConfirmation = null) }
+            }
             .launchIn(viewModelScope)
 
         // Coming back from the WebView signed in, or with a challenge cleared, is the one case where a
@@ -446,7 +447,9 @@ class PostDetailViewModel(
             ?: 1
 
     fun refresh() {
-        if (sourceState.value.onlyAuthor) {
+        if (pinRefreshRequired) {
+            load(page = 1, replacesWindow = true, scrollTo = PendingScroll(1))
+        } else if (sourceState.value.onlyAuthor) {
             scanAuthorPages(refresh = true)
         } else {
             load(page = sourceState.value.firstLoadedPage, replacesWindow = true)
@@ -530,7 +533,7 @@ class PostDetailViewModel(
      * the replies that arrived since — not to be carried back to where the window began.
      */
     fun refreshPage(page: Int) {
-        if (sourceState.value.onlyAuthor) refresh() else load(page = page.coerceAtLeast(1), replacesWindow = true)
+        if (pinRefreshRequired || sourceState.value.onlyAuthor) refresh() else load(page = page.coerceAtLeast(1), replacesWindow = true)
     }
 
     /**
@@ -769,6 +772,54 @@ class PostDetailViewModel(
         updateState { it.copy(reactionFailure = null) }
     }
 
+    /** Opening or dismissing a confirmation never sends a paid request. */
+    fun requestCommentPin(commentId: Long) {
+        val state = sourceState.value
+        if (!state.isSignedIn || state.pendingCommentPin != null) return
+        val comment = state.comments.firstOrNull { it.commentId == commentId && it.canPin } ?: return
+        updateState { it.copy(pinConfirmation = CommentPinConfirmation(commentId, !comment.isPinned)) }
+    }
+
+    fun dismissCommentPin() {
+        updateState { it.copy(pinConfirmation = null) }
+    }
+
+    fun confirmCommentPin() {
+        val state = sourceState.value
+        val target = state.pinConfirmation ?: return
+        dismissCommentPin()
+        if (!state.isSignedIn || state.pendingCommentPin != null) return
+        val comment = state.comments.firstOrNull { it.commentId == target.commentId && it.canPin } ?: return
+        if (comment.isPinned == target.pinned) return
+        loadJob?.cancel()
+        leaveAuthorFilter()
+        updateState { it.copy(pendingCommentPin = target.commentId, pinFailure = null, pinMessage = null) }
+        viewModelScope.launch {
+            runCatchingExceptCancellation { repository.setCommentPinned(postId, target.commentId, target.pinned) }
+                .onSuccess { accepted ->
+                    updateState { it.copy(pinMessage = accepted) }
+                    // A failed read must offer a read retry, never another five-leg write.
+                    pinRefreshRequired = true
+                    leaveAuthorFilter()
+                    load(page = 1, replacesWindow = true, scrollTo = PendingScroll(1))
+                    loadJob?.join()
+                }.onFailure { throwable ->
+                    updateState {
+                        it.copy(pinFailure = ReactionFailure(throwable.toSiteError(), (throwable as? SiteException)?.detail))
+                    }
+                }
+            updateState { it.copy(pendingCommentPin = null) }
+        }
+    }
+
+    fun onPinFailureShown() {
+        updateState { it.copy(pinFailure = null) }
+    }
+
+    fun onPinMessageShown() {
+        updateState { it.copy(pinMessage = null) }
+    }
+
     /**
      * Collects the thread, or takes it out of the collection.
      *
@@ -900,6 +951,7 @@ class PostDetailViewModel(
                         }
                     }
                 }.onSuccess {
+                    if (page == 1) pinRefreshRequired = false
                     // Neither content nor the read mark is applied here: both follow from the Room
                     // observation above, so there is exactly one path by which either can happen.
                     updateState {
@@ -1017,6 +1069,11 @@ data class PostDetailUiState(
     val pendingReaction: PendingReaction? = null,
     /** A refused reaction, held until the screen has shown it once. */
     val reactionFailure: ReactionFailure? = null,
+    val pinConfirmation: CommentPinConfirmation? = null,
+    val pendingCommentPin: Long? = null,
+    val pinFailure: ReactionFailure? = null,
+    /** Accepted state, held until the success snackbar is shown. */
+    val pinMessage: Boolean? = null,
     /** Today's free 加鸡腿 allowance; null until [PostDetailViewModel.loadFreeChickenLegs] answers. */
     val freeChickenLegs: FreeChickenLegs? = null,
     /**
@@ -1143,6 +1200,8 @@ data class PendingReaction(
     val commentId: Long,
     val action: ReactionAction,
 )
+
+data class CommentPinConfirmation(val commentId: Long, val pinned: Boolean)
 
 /**
  * A scroll the screen still owes the reader.
