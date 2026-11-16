@@ -28,7 +28,7 @@ class AboutAppScreenRenderTest {
     @Before
     fun onlyWhenRendering() = assumeRendering()
 
-    private fun screen(darkTheme: Boolean) {
+    private fun screen(darkTheme: Boolean, inAppUpdatesSupported: Boolean = true) {
         val release =
             AppRelease(
                 versionName = "1.3.0",
@@ -64,6 +64,7 @@ class AboutAppScreenRenderTest {
                     onOpenUri = {},
                     onExportCrashReport = {},
                     onClearCrashReport = {},
+                    inAppUpdatesSupported = inAppUpdatesSupported,
                 )
             }
         }
@@ -79,5 +80,19 @@ class AboutAppScreenRenderTest {
     fun `about in dark`() {
         screen(darkTheme = true)
         composeRule.onRoot().captureRender("about-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1100dp")
+    fun `iOS release download entry in light`() {
+        screen(darkTheme = false, inAppUpdatesSupported = false)
+        composeRule.onRoot().captureRender("ios-about-light")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1100dp")
+    fun `iOS release download entry in dark`() {
+        screen(darkTheme = true, inAppUpdatesSupported = false)
+        composeRule.onRoot().captureRender("ios-about-dark")
     }
 }

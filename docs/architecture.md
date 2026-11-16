@@ -165,6 +165,8 @@ WorkerFactory 构造注入）、CI 门禁（含 R8 minified 冒烟与依赖锁�
   画一个空相册会被读成"图床把我的图弄丢了"，而这两件事的处理方式完全不同。
 
 **应用内更新约定（github.com）**：
+- iOS 的 IPA 由用户的签名工具安装，版本下载和更新日志入口打开项目发布页；平台能力值让界面隐藏
+  尚未接入的启动检查、通道切换和 APK 安装流程，不能用空实现的 idle 状态充当“已经检查”。
 - 分发渠道就是本项目的 GitHub Releases，所以「更新」= 下载那个 Release 上的签名 APK 并交给系统
   安装器。数据层在 `data/update/`，纯粹的版本号比较在 `core/update/VersionNames.kt`。
 - **第三个 `OkHttpClient`。** 理由和图床那条一样：`AppContainer.okHttpClient` 挂着 WebView 的
@@ -476,6 +478,13 @@ Route/Screen 拆分 + Preview；ViewModel 测试（含两个回归用例）。
 ---
 
 ## 5. 常见修改的正确姿势
+
+**改图片加载策略** → 两端外壳依次安装 `:designsys` 的 `StoredImageInterceptor` 和
+`ImageNetworkPolicyInterceptor`，前者接平台离线文件路径，后者接设置流与平台网络状态。
+本地文件和普通缓存保持可读；远程缓存未命中且不允许联网时返回 `ImagesDeferredException`，
+由现有图片组件提供手动加载。iOS 使用进程生命周期的 `NWPathMonitor`，图片请求等待首个网络状态后再判断。
+Coil 的 `NetworkFetcher` 在磁盘未命中时仍会把 `only-if-cached` 请求交给客户端，因此 iOS 还用
+`NetworkCachePolicyClient` 在字节传输前返回缓存未命中响应，避免自定义客户端忽略禁用联网标记。
 
 **加一个设置项** → 只改 `SettingsRepository`（加 key、加 `UserSettings` 字段、加 setter）。
 消费方 collect 就行。**不要**在任何 ViewModel 里缓存它。

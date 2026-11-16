@@ -1859,4 +1859,11 @@
     <string name="post_unpin_action">Unpin comment</string>
     <string name="post_unpin_body">This comment will return to its floor order.</string>
     <string name="post_unpin_success">Comment unpinned</string>
+    <string name="notify_background_unavailable_title">Background message alerts are not available yet</string>
+    <string name="notify_background_unavailable_body">This build does not send background alerts for interactions, private messages, mail, keywords, or tracked threads. You can still view forum messages in the app.</string>
+    <string name="notify_lottery_hint">Manage draw reminders and result notifications</string>
+    <string name="settings_notify_summary_unavailable">View available reminders</string>
+    <string name="about_open_releases">Versions and downloads</string>
+    <string name="about_ios_update_hint">Download the new IPA, then install it with the signing tool you already use.</string>
+    <string name="notify_saved_alerts_section">Saved alert rules</string>
 </resources>

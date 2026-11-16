@@ -42,10 +42,13 @@ import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.keywords_alert_title
 import io.github.nodyssey.ui.resources.keywords_summary_count
 import io.github.nodyssey.ui.resources.keywords_summary_none
+import io.github.nodyssey.ui.resources.lottery_title
 import io.github.nodyssey.ui.resources.notifications_interactions
 import io.github.nodyssey.ui.resources.notifications_messages
 import io.github.nodyssey.ui.resources.notify_app_alerts_footer
 import io.github.nodyssey.ui.resources.notify_app_alerts_section
+import io.github.nodyssey.ui.resources.notify_background_unavailable_body
+import io.github.nodyssey.ui.resources.notify_background_unavailable_title
 import io.github.nodyssey.ui.resources.notify_channels_section
 import io.github.nodyssey.ui.resources.notify_check_section
 import io.github.nodyssey.ui.resources.notify_frequency
@@ -55,12 +58,14 @@ import io.github.nodyssey.ui.resources.notify_frequency_60
 import io.github.nodyssey.ui.resources.notify_frequency_every
 import io.github.nodyssey.ui.resources.notify_frequency_hint
 import io.github.nodyssey.ui.resources.notify_keyword_alerts
+import io.github.nodyssey.ui.resources.notify_lottery_hint
 import io.github.nodyssey.ui.resources.notify_mail
 import io.github.nodyssey.ui.resources.notify_mail_hint
 import io.github.nodyssey.ui.resources.notify_master_hint
 import io.github.nodyssey.ui.resources.notify_master_title
 import io.github.nodyssey.ui.resources.notify_quiet_hours
 import io.github.nodyssey.ui.resources.notify_quiet_hours_hint
+import io.github.nodyssey.ui.resources.notify_saved_alerts_section
 import io.github.nodyssey.ui.resources.notify_settings_title
 import io.github.nodyssey.ui.resources.notify_telegram_action
 import io.github.nodyssey.ui.resources.notify_telegram_body
@@ -78,6 +83,7 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
+import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.groupedListItemColors
 import io.github.plaza.designsys.component.groupedRowTitleStyle
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
@@ -95,6 +101,7 @@ fun NotificationSettingsRoute(
     onOpenAlertKeywords: () -> Unit,
     onOpenTrackedThreads: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenLottery: (() -> Unit)? = null,
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
     val alertCounts by viewModel.alertCounts.collectAsStateWithLifecycle()
@@ -119,6 +126,7 @@ fun NotificationSettingsRoute(
         onOpenAlertKeywords = onOpenAlertKeywords,
         onOpenTrackedThreads = onOpenTrackedThreads,
         modifier = modifier,
+        onOpenLottery = onOpenLottery,
     )
 }
 
@@ -148,6 +156,8 @@ fun NotificationSettingsScreen(
     onNotifyTrackedThreadsChange: (Boolean) -> Unit = {},
     onOpenAlertKeywords: () -> Unit = {},
     onOpenTrackedThreads: () -> Unit = {},
+    onOpenLottery: (() -> Unit)? = null,
+    backgroundPollingSupported: Boolean = platformHasBackgroundNotificationPolling,
 ) {
     val enabled = settings.notificationsEnabled
     val appBarState = rememberOneHandAppBarState()
@@ -179,129 +189,167 @@ fun NotificationSettingsScreen(
                 .padding(SettingsPagePadding),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
-            // The master switch as 6d draws it: a group of its own in the primary container tone, larger
-            // type than the rows under it, because everything else on the page is conditional on it.
-            val scheme = MaterialTheme.colorScheme
-            GroupedListItem(
-                first = true,
-                last = true,
-                checked = enabled,
-                onCheckedChange = onEnabledChange,
-                colors = groupedListItemColors(scheme.onPrimaryContainer, scheme.primaryContainer),
-                headlineContent = {
+            if (backgroundPollingSupported) {
+                // The master switch as 6d draws it: a group of its own in the primary container tone, larger
+                // type than the rows under it, because everything else on the page is conditional on it.
+                val scheme = MaterialTheme.colorScheme
+                GroupedListItem(
+                    first = true,
+                    last = true,
+                    checked = enabled,
+                    onCheckedChange = onEnabledChange,
+                    colors = groupedListItemColors(scheme.onPrimaryContainer, scheme.primaryContainer),
+                    headlineContent = {
+                        Text(
+                            stringResource(Res.string.notify_master_title),
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, lineHeight = 24.sp),
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            stringResource(Res.string.notify_master_hint),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = scheme.onPrimaryContainer,
+                        )
+                    },
+                    trailingContent = { GroupedListItemSwitch(checked = enabled) },
+                )
+
+                // Everything below the master switch is inert while it is off — f4's "主开关关闭时下方
+                // 全部禁用". Each control takes `enabled` and dims itself the way Material dims it; an
+                // alpha over the block on top of that would dim the text twice and turn the cards
+                // translucent over the page.
+                Column(verticalArrangement = Arrangement.spacedBy(SettingsItemGap)) {
+                    SectionLabel(stringResource(Res.string.notify_check_section))
+                    SettingsGroup {
+                        GroupedRow(
+                            icon = PlazaIcons.Schedule,
+                            title = stringResource(Res.string.notify_frequency),
+                            subtitle =
+                            stringResource(
+                                Res.string.notify_frequency_every,
+                                stringResource(pollMinutesLabel(settings.notificationPollMinutes)),
+                            ),
+                            first = true,
+                            enabled = enabled,
+                            onClick = { frequencySheet = true },
+                        )
+                        GroupedRow(
+                            icon = PlazaIcons.Wifi,
+                            title = stringResource(Res.string.notify_wifi_only),
+                            subtitle = stringResource(Res.string.notify_wifi_only_hint),
+                            checked = settings.notificationsWifiOnly,
+                            onCheckedChange = onWifiOnlyChange,
+                            enabled = enabled,
+                            trailing = { GroupedListItemSwitch(checked = settings.notificationsWifiOnly, enabled = enabled) },
+                        )
+                        GroupedRow(
+                            icon = PlazaIcons.Bedtime,
+                            title = stringResource(Res.string.notify_quiet_hours),
+                            subtitle = stringResource(Res.string.notify_quiet_hours_hint),
+                            last = true,
+                            checked = settings.notificationQuietHours,
+                            onCheckedChange = onQuietHoursChange,
+                            enabled = enabled,
+                            trailing = { GroupedListItemSwitch(checked = settings.notificationQuietHours, enabled = enabled) },
+                        )
+                    }
+
+                    SectionLabel(stringResource(Res.string.notify_channels_section))
+                    SettingsGroup {
+                        // One row for the two site groups, because one comment is filed under both and
+                        // the app posts one notification for it — see `NotificationChannels`.
+                        GroupedRow(
+                            title = stringResource(Res.string.notifications_interactions),
+                            first = true,
+                            icon = PlazaIcons.AlternateEmail,
+                            checked = settings.notifyInteractions,
+                            onCheckedChange = onNotifyInteractionsChange,
+                            enabled = enabled,
+                            trailing = { GroupedListItemSwitch(checked = settings.notifyInteractions, enabled = enabled) },
+                        )
+                        GroupedRow(
+                            title = stringResource(Res.string.notifications_messages),
+                            icon = Icons.Default.Email,
+                            checked = settings.notifyMessages,
+                            onCheckedChange = onNotifyMessagesChange,
+                            enabled = enabled,
+                            trailing = { GroupedListItemSwitch(checked = settings.notifyMessages, enabled = enabled) },
+                        )
+                        GroupedRow(
+                            title = stringResource(Res.string.notify_mail),
+                            subtitle = stringResource(Res.string.notify_mail_hint),
+                            last = true,
+                            icon = Icons.Default.Email,
+                            checked = settings.notifyMail,
+                            onCheckedChange = onNotifyMailChange,
+                            enabled = enabled,
+                            trailing = { GroupedListItemSwitch(checked = settings.notifyMail, enabled = enabled) },
+                        )
+                    }
+
+                    // The app's own alerts. They read public lists, so unlike the two above they work
+                    // signed out — the section says so rather than leaving it to be discovered.
+                    SectionLabel(stringResource(Res.string.notify_app_alerts_section))
+                    SettingsGroup {
+                        GroupedRow(
+                            title = stringResource(Res.string.notify_keyword_alerts),
+                            first = true,
+                            icon = PlazaIcons.Campaign,
+                            checked = settings.notifyKeywordAlerts,
+                            onCheckedChange = onNotifyKeywordAlertsChange,
+                            enabled = enabled,
+                            trailing = { GroupedListItemSwitch(checked = settings.notifyKeywordAlerts, enabled = enabled) },
+                        )
+                        GroupedRow(
+                            title = stringResource(Res.string.keywords_alert_title),
+                            subtitle = countSummary(alertCounts.keywords),
+                            onClick = onOpenAlertKeywords,
+                        )
+                        GroupedRow(
+                            title = stringResource(Res.string.notify_tracked_threads),
+                            icon = PlazaIcons.Forum,
+                            checked = settings.notifyTrackedThreads,
+                            onCheckedChange = onNotifyTrackedThreadsChange,
+                            enabled = enabled,
+                            trailing = { GroupedListItemSwitch(checked = settings.notifyTrackedThreads, enabled = enabled) },
+                        )
+                        GroupedRow(
+                            title = stringResource(Res.string.tracked_threads_title),
+                            subtitle = countSummary(alertCounts.trackedThreads),
+                            last = true,
+                            onClick = onOpenTrackedThreads,
+                        )
+                    }
                     Text(
-                        stringResource(Res.string.notify_master_title),
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, lineHeight = 24.sp),
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        stringResource(Res.string.notify_master_hint),
+                        stringResource(Res.string.notify_app_alerts_footer),
                         style = MaterialTheme.typography.labelSmall,
-                        color = scheme.onPrimaryContainer,
-                    )
-                },
-                trailingContent = { GroupedListItemSwitch(checked = enabled) },
-            )
-
-            // Everything below the master switch is inert while it is off — f4's "主开关关闭时下方
-            // 全部禁用". Each control takes `enabled` and dims itself the way Material dims it; an
-            // alpha over the block on top of that would dim the text twice and turn the cards
-            // translucent over the page.
-            Column(verticalArrangement = Arrangement.spacedBy(SettingsItemGap)) {
-                SectionLabel(stringResource(Res.string.notify_check_section))
-                SettingsGroup {
-                    GroupedRow(
-                        icon = PlazaIcons.Schedule,
-                        title = stringResource(Res.string.notify_frequency),
-                        subtitle =
-                        stringResource(
-                            Res.string.notify_frequency_every,
-                            stringResource(pollMinutesLabel(settings.notificationPollMinutes)),
-                        ),
-                        first = true,
-                        enabled = enabled,
-                        onClick = { frequencySheet = true },
-                    )
-                    GroupedRow(
-                        icon = PlazaIcons.Wifi,
-                        title = stringResource(Res.string.notify_wifi_only),
-                        subtitle = stringResource(Res.string.notify_wifi_only_hint),
-                        checked = settings.notificationsWifiOnly,
-                        onCheckedChange = onWifiOnlyChange,
-                        enabled = enabled,
-                        trailing = { GroupedListItemSwitch(checked = settings.notificationsWifiOnly, enabled = enabled) },
-                    )
-                    GroupedRow(
-                        icon = PlazaIcons.Bedtime,
-                        title = stringResource(Res.string.notify_quiet_hours),
-                        subtitle = stringResource(Res.string.notify_quiet_hours_hint),
-                        last = true,
-                        checked = settings.notificationQuietHours,
-                        onCheckedChange = onQuietHoursChange,
-                        enabled = enabled,
-                        trailing = { GroupedListItemSwitch(checked = settings.notificationQuietHours, enabled = enabled) },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = Spacing.xs),
                     )
                 }
-
-                SectionLabel(stringResource(Res.string.notify_channels_section))
-                SettingsGroup {
-                    // One row for the two site groups, because one comment is filed under both and
-                    // the app posts one notification for it — see `NotificationChannels`.
-                    GroupedRow(
-                        title = stringResource(Res.string.notifications_interactions),
-                        first = true,
-                        icon = PlazaIcons.AlternateEmail,
-                        checked = settings.notifyInteractions,
-                        onCheckedChange = onNotifyInteractionsChange,
-                        enabled = enabled,
-                        trailing = { GroupedListItemSwitch(checked = settings.notifyInteractions, enabled = enabled) },
-                    )
-                    GroupedRow(
-                        title = stringResource(Res.string.notifications_messages),
-                        icon = Icons.Default.Email,
-                        checked = settings.notifyMessages,
-                        onCheckedChange = onNotifyMessagesChange,
-                        enabled = enabled,
-                        trailing = { GroupedListItemSwitch(checked = settings.notifyMessages, enabled = enabled) },
-                    )
-                    GroupedRow(
-                        title = stringResource(Res.string.notify_mail),
-                        subtitle = stringResource(Res.string.notify_mail_hint),
-                        last = true,
-                        icon = Icons.Default.Email,
-                        checked = settings.notifyMail,
-                        onCheckedChange = onNotifyMailChange,
-                        enabled = enabled,
-                        trailing = { GroupedListItemSwitch(checked = settings.notifyMail, enabled = enabled) },
-                    )
+            } else {
+                SectionLabel(stringResource(Res.string.notify_background_unavailable_title))
+                SectionNote(stringResource(Res.string.notify_background_unavailable_body))
+                onOpenLottery?.let { open ->
+                    SettingsGroup {
+                        GroupedRow(
+                            title = stringResource(Res.string.lottery_title),
+                            subtitle = stringResource(Res.string.notify_lottery_hint),
+                            icon = PlazaIcons.Campaign,
+                            first = true,
+                            last = true,
+                            onClick = open,
+                        )
+                    }
                 }
-
-                // The app's own alerts. They read public lists, so unlike the two above they work
-                // signed out — the section says so rather than leaving it to be discovered.
-                SectionLabel(stringResource(Res.string.notify_app_alerts_section))
+                SectionLabel(stringResource(Res.string.notify_saved_alerts_section))
                 SettingsGroup {
-                    GroupedRow(
-                        title = stringResource(Res.string.notify_keyword_alerts),
-                        first = true,
-                        icon = PlazaIcons.Campaign,
-                        checked = settings.notifyKeywordAlerts,
-                        onCheckedChange = onNotifyKeywordAlertsChange,
-                        enabled = enabled,
-                        trailing = { GroupedListItemSwitch(checked = settings.notifyKeywordAlerts, enabled = enabled) },
-                    )
                     GroupedRow(
                         title = stringResource(Res.string.keywords_alert_title),
                         subtitle = countSummary(alertCounts.keywords),
+                        first = true,
                         onClick = onOpenAlertKeywords,
-                    )
-                    GroupedRow(
-                        title = stringResource(Res.string.notify_tracked_threads),
-                        icon = PlazaIcons.Forum,
-                        checked = settings.notifyTrackedThreads,
-                        onCheckedChange = onNotifyTrackedThreadsChange,
-                        enabled = enabled,
-                        trailing = { GroupedListItemSwitch(checked = settings.notifyTrackedThreads, enabled = enabled) },
                     )
                     GroupedRow(
                         title = stringResource(Res.string.tracked_threads_title),
@@ -310,12 +358,6 @@ fun NotificationSettingsScreen(
                         onClick = onOpenTrackedThreads,
                     )
                 }
-                Text(
-                    stringResource(Res.string.notify_app_alerts_footer),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = Spacing.xs),
-                )
             }
 
             // The Telegram pointer stays active regardless of the master switch: the site's own
@@ -324,7 +366,7 @@ fun NotificationSettingsScreen(
         }
     }
 
-    if (frequencySheet) {
+    if (backgroundPollingSupported && frequencySheet) {
         FrequencySheet(
             selected = settings.notificationPollMinutes,
             onSelect = {

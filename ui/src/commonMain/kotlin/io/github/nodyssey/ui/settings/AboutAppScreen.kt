@@ -60,7 +60,9 @@ import io.github.nodyssey.ui.resources.about_install_failed_incompatible
 import io.github.nodyssey.ui.resources.about_install_failed_invalid
 import io.github.nodyssey.ui.resources.about_install_failed_storage
 import io.github.nodyssey.ui.resources.about_install_failed_unknown
+import io.github.nodyssey.ui.resources.about_ios_update_hint
 import io.github.nodyssey.ui.resources.about_licenses_hint
+import io.github.nodyssey.ui.resources.about_open_releases
 import io.github.nodyssey.ui.resources.about_project_home
 import io.github.nodyssey.ui.resources.about_theme_signature
 import io.github.nodyssey.ui.resources.about_title
@@ -168,6 +170,7 @@ fun AboutAppScreen(
     onExportCrashReport: (CrashReport) -> Unit,
     onClearCrashReport: () -> Unit,
     modifier: Modifier = Modifier,
+    inAppUpdatesSupported: Boolean = platformHasInAppUpdates,
 ) {
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
@@ -201,20 +204,23 @@ fun AboutAppScreen(
                 versionName = state.versionName,
                 versionCode = state.versionCode,
                 check = state.update.check,
-                onCheckUpdates = onCheckUpdates,
+                onCheckUpdates = if (inAppUpdatesSupported) onCheckUpdates else ({ onOpenUri(AppLinks.RELEASES) }),
+                inAppUpdatesSupported = inAppUpdatesSupported,
             )
-            state.update.available?.let { release ->
-                UpdateCard(
-                    release = release,
-                    download = state.update.download,
-                    installFailure = state.update.installFailure,
-                    needsInstallPermission = state.needsInstallPermission,
-                    onDownload = onDownloadUpdate,
-                    onCancelDownload = onCancelDownload,
-                    onInstall = onInstallUpdate,
-                    onGrantInstallPermission = onGrantInstallPermission,
-                    onOpenRelease = { onOpenUri(release.htmlUrl) },
-                )
+            if (inAppUpdatesSupported) {
+                state.update.available?.let { release ->
+                    UpdateCard(
+                        release = release,
+                        download = state.update.download,
+                        installFailure = state.update.installFailure,
+                        needsInstallPermission = state.needsInstallPermission,
+                        onDownload = onDownloadUpdate,
+                        onCancelDownload = onCancelDownload,
+                        onInstall = onInstallUpdate,
+                        onGrantInstallPermission = onGrantInstallPermission,
+                        onOpenRelease = { onOpenUri(release.htmlUrl) },
+                    )
+                }
             }
             SettingsGroup {
                 // Above 更新日志 on purpose: a reader on this screen looking for "how does this work"
@@ -229,7 +235,8 @@ fun AboutAppScreen(
                 AboutRow(
                     title = stringResource(Res.string.about_changelog),
                     icon = PlazaIcons.History,
-                    onClick = onOpenChangelog,
+                    external = !inAppUpdatesSupported,
+                    onClick = if (inAppUpdatesSupported) onOpenChangelog else ({ onOpenUri(AppLinks.RELEASES) }),
                 )
                 AboutRow(
                     title = stringResource(Res.string.about_project_home),
@@ -313,6 +320,7 @@ private fun AppIdentity(
     versionCode: Long,
     check: UpdateCheck,
     onCheckUpdates: () -> Unit,
+    inAppUpdatesSupported: Boolean,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm, bottom = Spacing.md),
@@ -340,10 +348,10 @@ private fun AppIdentity(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Button(
                 onClick = onCheckUpdates,
-                enabled = check !is UpdateCheck.Checking,
+                enabled = !inAppUpdatesSupported || check !is UpdateCheck.Checking,
                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
             ) {
-                if (check is UpdateCheck.Checking) {
+                if (inAppUpdatesSupported && check is UpdateCheck.Checking) {
                     PlazaSpinner(
                         modifier = Modifier.describedAsLoading(),
                         strokeWidth = 2.dp,
@@ -354,16 +362,19 @@ private fun AppIdentity(
                     Icon(PlazaIcons.History, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.width(Spacing.sm))
-                Text(stringResource(Res.string.about_check_updates))
+                Text(stringResource(if (inAppUpdatesSupported) Res.string.about_check_updates else Res.string.about_open_releases))
             }
-            val highlighted = check is UpdateCheck.Available
-            Text(
-                checkSummary(check),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Normal,
-            )
+            if (inAppUpdatesSupported) {
+                val highlighted = check is UpdateCheck.Available
+                Text(
+                    checkSummary(check),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Normal,
+                )
+            }
         }
+        if (!inAppUpdatesSupported) SectionNote(stringResource(Res.string.about_ios_update_hint))
     }
 }
 

@@ -9,24 +9,7 @@ import io.github.plaza.core.update.ReleaseNote
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/*
- * What this shell declines to do, gathered in one file so the list reads as a list.
- *
- * Every one of these is a member of `AppContainer`: a screen names it, so something has to be there
- * for the graph to assemble at all. What is left here is not a gap — sideloading an APK and checking
- * GitHub for a newer build are Android's answer to a question this platform answers differently:
- * software arrives from the App Store. There is nothing here to implement later.
- *
- * The list has only shrunk. The image-host upload went in step D3c, which moved the six clients into
- * `commonMain` and gave `HttpTransport` the upload-progress callback that had kept them out; the
- * background download scheduler went in step D4 — see `BgTaskOfflineScheduler`, the `BGTaskScheduler`
- * that WorkManager was mapped to. `IosAppContainer` builds both for real now.
- *
- * Nothing here throws where a button leads to it. A `TODO()` would be a crash waiting for the first
- * person to press one, and what is behind these is *nothing* rather than something broken.
- */
-
-/** There is no sideloading here, and no screen asks: `rememberInstallPermissionRequest` draws nothing. */
+/** iOS packages are distributed as unsigned IPAs; installation is handled by the user's signing tool. */
 internal object NoApkInstaller : ApkInstaller {
     override fun canInstallPackages(): Boolean = false
 
@@ -34,13 +17,8 @@ internal object NoApkInstaller : ApkInstaller {
 }
 
 /**
- * 应用内更新 as this platform has it: it does not.
- *
- * Not a stub for something later. The Android app checks GitHub Releases because it is distributed as
- * an APK and nothing else would tell a user a new one exists; an iOS build arrives through the App
- * Store or TestFlight, both of which own that job and neither of which an app is allowed to bypass.
- * A permanently idle state is the honest answer, and every screen already draws it — it is the same
- * state the Android app is in for the whole of a launch where nothing newer was published.
+ * iOS has no in-app update checker or installer. The UI opens the GitHub release page for versions,
+ * downloads and release notes; it does not present this idle repository as a working update check.
  */
 internal object NoAppUpdates : AppUpdateRepository {
     override val state: StateFlow<AppUpdateState> = MutableStateFlow(AppUpdateState())

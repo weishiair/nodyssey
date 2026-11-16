@@ -2138,4 +2138,12 @@
     <string name="post_unpin_action">取消置顶</string>
     <string name="post_unpin_body">这条评论将恢复按楼层排序。</string>
     <string name="post_unpin_success">已取消置顶</string>
+    <!-- 平台能力提示；iOS 的后台消息轮询与应用内安装器尚未接入 -->
+    <string name="notify_background_unavailable_title">后台消息提醒暂未接入</string>
+    <string name="notify_background_unavailable_body">此版本暂不支持互动、私信、邮箱、关键词和追踪帖的后台提醒。站内消息仍可在应用内查看。</string>
+    <string name="notify_lottery_hint">管理开奖提醒和结果通知</string>
+    <string name="settings_notify_summary_unavailable">查看当前支持的提醒</string>
+    <string name="about_open_releases">查看版本与下载</string>
+    <string name="about_ios_update_hint">下载新版 IPA 后，请使用原有的签名工具安装。</string>
+    <string name="notify_saved_alerts_section">已保存的提醒规则</string>
 </resources>
