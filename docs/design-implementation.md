@@ -10,8 +10,8 @@ App 的总体真实状态以 [`implementation-status.md`](implementation-status.
 
 - `NotificationSettingsScreen`：iOS 显示后台消息提醒的当前限制、抽奖助手入口与 Telegram 绑定入口；
   Android 保留原有轮询频率、类别和免打扰设置。iOS 设置首页不再把保存的轮询开关显示为有效后台能力。
-- `AboutAppScreen`：iOS 的主操作为“查看版本与下载”，打开项目发布页，并说明 IPA 的签名安装方式；
-  更新日志同样打开发布页。设置首页隐藏 iOS 未实现的启动检查和测试通道选项。
+- `AboutAppScreen`：iOS 支持手动检查版本，新版本卡片的“查看版本与下载”打开对应发布页，并说明 IPA 的签名安装方式；
+  更新日志打开发布页。设置首页提供启动检查和测试通道开关，启动提醒可暂缓当前版本。
 - 两项页面继续使用共用主题和布局。本次能力分支的明暗渲染位于 `ui/build/outputs/renders/ios-notification-settings-*.png`
   与 `ios-about-*.png`；这些是共享页面在 Robolectric 上的渲染，原生导航和真机效果另行验收。
 

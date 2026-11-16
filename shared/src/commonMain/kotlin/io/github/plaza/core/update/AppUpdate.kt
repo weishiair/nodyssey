@@ -3,14 +3,14 @@ package io.github.plaza.core.update
 import kotlinx.serialization.Serializable
 
 /**
- * A published release carrying an installable APK.
+ * A published release carrying a platform package: an APK or an externally signed IPA.
  *
  * Serializable because the last answer GitHub gave is kept on disk: the badge on 设置 has to be there
  * the moment the app opens, before any network call could have finished.
  */
 @Serializable
 data class AppRelease(
-    /** The version inside the APK — `1.2.0`, not the `v1.2.0` tag. */
+    /** The package's version — `1.2.0`, not the `v1.2.0` tag. */
     val versionName: String,
     val tag: String,
     /** The release notes as published, which is the CHANGELOG section for that version. */

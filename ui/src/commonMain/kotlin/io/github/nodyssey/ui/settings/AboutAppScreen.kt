@@ -171,6 +171,7 @@ fun AboutAppScreen(
     onClearCrashReport: () -> Unit,
     modifier: Modifier = Modifier,
     inAppUpdatesSupported: Boolean = platformHasInAppUpdates,
+    updateChecksSupported: Boolean = platformHasUpdateChecks,
 ) {
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
@@ -204,10 +205,11 @@ fun AboutAppScreen(
                 versionName = state.versionName,
                 versionCode = state.versionCode,
                 check = state.update.check,
-                onCheckUpdates = if (inAppUpdatesSupported) onCheckUpdates else ({ onOpenUri(AppLinks.RELEASES) }),
+                onCheckUpdates = if (updateChecksSupported) onCheckUpdates else ({ onOpenUri(AppLinks.RELEASES) }),
                 inAppUpdatesSupported = inAppUpdatesSupported,
+                updateChecksSupported = updateChecksSupported,
             )
-            if (inAppUpdatesSupported) {
+            if (updateChecksSupported) {
                 state.update.available?.let { release ->
                     UpdateCard(
                         release = release,
@@ -219,6 +221,7 @@ fun AboutAppScreen(
                         onInstall = onInstallUpdate,
                         onGrantInstallPermission = onGrantInstallPermission,
                         onOpenRelease = { onOpenUri(release.htmlUrl) },
+                        inAppUpdatesSupported = inAppUpdatesSupported,
                     )
                 }
             }
@@ -321,6 +324,7 @@ private fun AppIdentity(
     check: UpdateCheck,
     onCheckUpdates: () -> Unit,
     inAppUpdatesSupported: Boolean,
+    updateChecksSupported: Boolean,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm, bottom = Spacing.md),
@@ -348,10 +352,10 @@ private fun AppIdentity(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Button(
                 onClick = onCheckUpdates,
-                enabled = !inAppUpdatesSupported || check !is UpdateCheck.Checking,
+                enabled = !updateChecksSupported || check !is UpdateCheck.Checking,
                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
             ) {
-                if (inAppUpdatesSupported && check is UpdateCheck.Checking) {
+                if (updateChecksSupported && check is UpdateCheck.Checking) {
                     PlazaSpinner(
                         modifier = Modifier.describedAsLoading(),
                         strokeWidth = 2.dp,
@@ -362,9 +366,9 @@ private fun AppIdentity(
                     Icon(PlazaIcons.History, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.width(Spacing.sm))
-                Text(stringResource(if (inAppUpdatesSupported) Res.string.about_check_updates else Res.string.about_open_releases))
+                Text(stringResource(if (updateChecksSupported) Res.string.about_check_updates else Res.string.about_open_releases))
             }
-            if (inAppUpdatesSupported) {
+            if (updateChecksSupported) {
                 val highlighted = check is UpdateCheck.Available
                 Text(
                     checkSummary(check),
@@ -428,6 +432,7 @@ private fun UpdateCard(
     onInstall: () -> Unit,
     onGrantInstallPermission: () -> Unit,
     onOpenRelease: () -> Unit,
+    inAppUpdatesSupported: Boolean,
 ) {
     LayerCard(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -479,55 +484,61 @@ private fun UpdateCard(
                 )
             }
 
-            when (download) {
-                is UpdateDownload.Running -> DownloadProgress(download, onCancelDownload)
+            if (!inAppUpdatesSupported) {
+                Button(onClick = onOpenRelease, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(Res.string.about_open_releases))
+                }
+            } else {
+                when (download) {
+                    is UpdateDownload.Running -> DownloadProgress(download, onCancelDownload)
 
-                is UpdateDownload.Ready ->
-                    Button(onClick = onInstall, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(Res.string.about_update_install))
-                    }
+                    is UpdateDownload.Ready ->
+                        Button(onClick = onInstall, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(Res.string.about_update_install))
+                        }
 
-                else -> {
-                    if (download is UpdateDownload.Failed) {
-                        Text(
-                            failureText(download.failure),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                    Button(
-                        onClick = onDownload,
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-                    ) {
-                        Icon(PlazaIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(Spacing.sm))
-                        Text(
-                            stringResource(
-                                if (download is UpdateDownload.Failed) {
-                                    Res.string.about_update_retry
-                                } else {
-                                    Res.string.about_update_download
-                                },
-                            ),
-                        )
+                    else -> {
+                        if (download is UpdateDownload.Failed) {
+                            Text(
+                                failureText(download.failure),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        Button(
+                            onClick = onDownload,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+                        ) {
+                            Icon(PlazaIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text(
+                                stringResource(
+                                    if (download is UpdateDownload.Failed) {
+                                        Res.string.about_update_retry
+                                    } else {
+                                        Res.string.about_update_download
+                                    },
+                                ),
+                            )
+                        }
                     }
                 }
-            }
 
-            if (needsInstallPermission) {
-                InstallPermissionNotice(onGrantInstallPermission)
-            }
-            installFailure?.let {
-                Text(
-                    installFailureText(it),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+                if (needsInstallPermission) {
+                    InstallPermissionNotice(onGrantInstallPermission)
+                }
+                installFailure?.let {
+                    Text(
+                        installFailureText(it),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
 
-            TextButton(onClick = onOpenRelease, modifier = Modifier.align(Alignment.End)) {
-                Text(stringResource(Res.string.about_update_open_release))
+                TextButton(onClick = onOpenRelease, modifier = Modifier.align(Alignment.End)) {
+                    Text(stringResource(Res.string.about_update_open_release))
+                }
             }
         }
     }

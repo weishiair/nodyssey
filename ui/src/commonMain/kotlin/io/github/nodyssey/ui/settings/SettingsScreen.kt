@@ -300,7 +300,7 @@ fun SettingsScreen(
     onSearchAvatarChange: (Boolean) -> Unit = {},
     onSearchAvatarSizeChange: (Int) -> Unit = {},
     backgroundPollingSupported: Boolean = platformHasBackgroundNotificationPolling,
-    inAppUpdatesSupported: Boolean = platformHasInAppUpdates,
+    updateChecksSupported: Boolean = platformHasUpdateChecks,
 ) {
     var bodyFontSize by remember(state.settings.fontScale) {
         mutableFloatStateOf(fontScaleToBodySize(state.settings.fontScale))
@@ -727,7 +727,7 @@ fun SettingsScreen(
                     icon = Icons.Default.Info,
                     trailing = { if (state.updateVersionName != null) UpdateDot() },
                 )
-                if (inAppUpdatesSupported) {
+                if (updateChecksSupported) {
                     GroupedRow(
                         icon = PlazaIcons.Update,
                         title = stringResource(Res.string.settings_update_on_launch),

@@ -17,6 +17,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.common.rememberFileSizeLabel
 import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.about_ios_update_hint
+import io.github.nodyssey.ui.resources.about_open_releases
 import io.github.nodyssey.ui.resources.about_update_download
 import io.github.nodyssey.ui.resources.about_update_prerelease_hint
 import io.github.nodyssey.ui.resources.update_reminder_later
@@ -30,11 +32,12 @@ import io.github.plaza.designsys.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * 启动提醒 — the one thing that actually tells the owner of a sideloaded APK that a fix shipped.
+ * 启动提醒 — tells the owner of a sideloaded build that a newer package is available.
  *
  * Says what the release is, how big it is, and what changed, because "有新版本，要更新吗" with none of
  * that is a question nobody can answer. 下载并安装 starts the download and moves on to 关于, which owns
- * the rest of the flow — progress, the install permission, and every way it can fail.
+ * the rest of the flow — progress, the install permission, and every way it can fail. iOS instead
+ * opens the release page, where the owner can download an IPA for their signing tool.
  *
  * Dismissing by back or by tapping outside is [onPostpone] rather than a third outcome: 稍后 is the
  * harmless answer already (the dot on 设置 stays and 关于 still offers the update), so the gesture that
@@ -46,6 +49,7 @@ fun UpdateReminderDialog(
     onDownload: () -> Unit,
     onPostpone: () -> Unit,
     modifier: Modifier = Modifier,
+    inAppUpdatesSupported: Boolean = platformHasInAppUpdates,
 ) {
     AlertDialog(
         onDismissRequest = onPostpone,
@@ -97,11 +101,14 @@ fun UpdateReminderDialog(
                             .verticalScroll(rememberScrollState()),
                     )
                 }
+                if (!inAppUpdatesSupported) {
+                    Text(stringResource(Res.string.about_ios_update_hint), style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = onDownload) {
-                Text(stringResource(Res.string.about_update_download))
+                Text(stringResource(if (inAppUpdatesSupported) Res.string.about_update_download else Res.string.about_open_releases))
             }
         },
         dismissButton = {

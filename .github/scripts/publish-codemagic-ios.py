@@ -108,6 +108,11 @@ def publish(tag, version, build_dir):
         )
         gh("release", "edit", tag, "--notes-file", str(notes))
 
+    # A repository dispatch uses the existing Contents write permission; it does not require
+    # granting this uploader Actions write. It also runs for GitHub's built-in release token.
+    repository = os.environ["GH_REPO"]
+    gh("api", "--method", "POST", f"repos/{repository}/dispatches", "-f", "event_type=ios-package-published")
+
 
 def main():
     tag = os.environ["CM_TAG"]
