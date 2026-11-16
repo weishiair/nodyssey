@@ -13,9 +13,8 @@ import okio.IOException
  * turn the whole thing off.
  *
  * The key and the exception below live here rather than beside the interceptor that acts on them
- * because they are the halves an image *component* touches: a placeholder sets the extra when it is
- * tapped, and reads the exception to know it was skipped rather than broken. Enforcing the
- * preference is the app's, and the app can see this module.
+ * because image components set the extra and read the exception. Each app shell installs
+ * [ImageNetworkPolicyInterceptor] with its own preference and network status.
  */
 val AllowMeteredImage = Extras.Key(default = false)
 

@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
@@ -169,5 +170,10 @@ object NodysseyApp {
     }
 
     private fun imageLoader(context: PlatformContext, container: IosAppContainer): ImageLoader =
-        nodysseyImageLoader(context) { container.fetchForumImage(it) }
+        nodysseyImageLoader(
+            context = context,
+            offlineFiles = IosOfflineFileStore.of(applicationSupportDirectory()),
+            imagesOnWifiOnly = container.settingsRepository.settings.map { it.imagesOnWifiOnly },
+            fetch = { container.fetchForumImage(it) },
+        )
 }
