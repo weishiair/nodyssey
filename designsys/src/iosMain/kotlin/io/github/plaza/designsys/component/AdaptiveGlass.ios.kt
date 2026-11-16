@@ -77,7 +77,7 @@ private val NativeGlassInterop = UIKitInteropProperties(
 )
 
 private val CooperativeOverlayInterop = UIKitInteropProperties(
-    interactionMode = UIKitInteropInteractionMode.Cooperative,
+    interactionMode = UIKitInteropInteractionMode.Cooperative(),
     isNativeAccessibilityEnabled = true,
     placedAsOverlay = true,
 )
