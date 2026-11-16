@@ -1,5 +1,9 @@
 # Codemagic iOS 构建
 
+只需要真机测试包时，手动选择 **Nodyssey iPhone IPA only**（`ios-ipa`）。它保留 Rust
+网络核心和 macOS Native 回归，生成并核对 Release 真机 IPA，省略模拟器 App Preview。
+IPA 未签名，需要自行签名后安装。需要模拟器包时，继续使用 `ios-unsigned`。
+
 功能合入 `dev` 后，Codemagic 自动运行 Rust 网络核心、Kotlin/Native 和 iOS 模拟器回归；推送
 `v` 版本标签后，它自动构建未签名的 iPhone IPA 和模拟器包，并将 IPA 附加到对应的 GitHub
 Release。普通功能分支不会自动占用 Mac，仍可在 Codemagic 手动运行 **Nodyssey iOS unsigned
