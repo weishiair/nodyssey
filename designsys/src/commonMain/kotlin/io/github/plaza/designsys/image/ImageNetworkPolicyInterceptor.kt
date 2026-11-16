@@ -1,4 +1,4 @@
-package io.github.nodyssey.image
+package io.github.plaza.designsys.image
 
 import coil3.getExtra
 import coil3.intercept.Interceptor
@@ -6,8 +6,6 @@ import coil3.request.CachePolicy
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.ImageResult
-import io.github.plaza.designsys.image.AllowMeteredImage
-import io.github.plaza.designsys.image.ImagesDeferredException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
@@ -18,22 +16,19 @@ import kotlinx.coroutines.flow.first
  * consulted per request; where that flow comes from — which DataStore key, under which name — it is
  * deliberately not told, which is what lets its test hand it a `flowOf` and nothing else.
  *
- * Lives here rather than in a library module because enforcing a preference is the app's job, and
- * because it is the only thing that constructs one. The vocabulary it works in — the extra it reads
- * and the exception it raises — is `:designsys`'s, since that is where the components that set the
- * one and catch the other are.
+ * Both app shells install this policy with their own settings and network status. Sharing it keeps
+ * cached images and the explicit per-image opt-out working the same way on every platform.
  */
 class ImageNetworkPolicyInterceptor(
     private val imagesOnWifiOnly: Flow<Boolean>,
-    /** See [io.github.nodyssey.platform.hasValidatedUnmeteredNetwork] — what counts as unmetered is the platform's to answer. */
-    private val hasUnmeteredNetwork: () -> Boolean,
+    private val hasUnmeteredNetwork: suspend () -> Boolean,
 ) : Interceptor {
     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
         val deferred =
             shouldDeferImage(
                 request = chain.request,
                 imagesOnWifiOnly = imagesOnWifiOnly.first(),
-                hasUnmeteredNetwork = hasUnmeteredNetwork(),
+                hasUnmeteredNetwork = if (chain.request.isRemoteImage()) hasUnmeteredNetwork() else true,
             )
         val request = if (deferred) chain.request.withoutNetwork() else chain.request
         val result = chain.withRequest(request).proceed()
