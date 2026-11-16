@@ -103,6 +103,30 @@ class PostComposerViewModelTest {
         assertEquals("原标题", viewModel.titleState.text.toString())
         assertEquals("原正文", viewModel.bodyState.text.toString())
         assertFalse(state.isLoadingEdit)
+        assertFalse(state.hasUnsavedEditChanges)
+        assertFalse(viewModel.hasUnsavedEditChangesNow())
+    }
+
+    @Test
+    fun `unsaved edit tracking detects changes and clears when reverted`() = runTest(dispatcher) {
+        val editor = FakePostEditor(PostEditContent("原标题", PostPermission(2), "原正文"))
+        val viewModel = viewModel(editTarget = openingPost, editor = editor)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.hasUnsavedEditChangesNow())
+
+        viewModel.bodyState.typeText("修改后的正文")
+        assertTrue(viewModel.hasUnsavedEditChangesNow())
+        runCurrent()
+        assertTrue(viewModel.uiState.value.hasUnsavedEditChanges)
+
+        viewModel.bodyState.typeText("原正文")
+        assertFalse(viewModel.hasUnsavedEditChangesNow())
+        runCurrent()
+        assertFalse(viewModel.uiState.value.hasUnsavedEditChanges)
+
+        viewModel.selectPermission(PostPermission.PRIVATE)
+        assertTrue(viewModel.hasUnsavedEditChangesNow())
     }
 
     /**
@@ -372,6 +396,49 @@ class PostComposerViewModelTest {
         assertEquals("新标题", repository.savedDraft?.title)
         assertEquals("正文", repository.savedDraft?.body)
         assertEquals(clock.nowMillis(), viewModel.uiState.value.savedAtMillis)
+    }
+
+    @Test
+    fun `flushDraft and clearing ViewModel before autosave delay persist latest new-post edits`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.titleState.typeText("还没等到750ms")
+        viewModel.bodyState.typeText("立即退出也要保住")
+        runCurrent()
+        advanceTimeBy(100)
+        assertNull(repository.savedDraft)
+
+        viewModel.flushDraft()
+        advanceUntilIdle()
+        assertEquals("还没等到750ms", repository.savedDraft?.title)
+        assertEquals("立即退出也要保住", repository.savedDraft?.body)
+
+        viewModel.bodyState.typeText("最后时刻补写一句")
+        // Do not wait for debounce or snapshotFlow delay — simulate immediate ViewModel disposal.
+        viewModels.clear(dispatcher.scheduler)
+        advanceUntilIdle()
+
+        assertEquals("最后时刻补写一句", repository.savedDraft?.body)
+    }
+
+    @Test
+    fun `clearing ViewModel after successful publish does not resurrect the draft`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.titleState.typeText("发布标题")
+        viewModel.bodyState.typeText("发布正文")
+        viewModel.selectBoard(boards.value.single())
+        advanceUntilIdle()
+
+        viewModel.publish {}
+        advanceUntilIdle()
+        assertNull(repository.draftState.value)
+
+        viewModels.clear(dispatcher.scheduler)
+        advanceUntilIdle()
+
+        assertNull(repository.draftState.value)
     }
 
     @Test

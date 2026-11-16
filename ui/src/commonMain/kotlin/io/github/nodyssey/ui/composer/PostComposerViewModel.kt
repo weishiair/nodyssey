@@ -44,6 +44,8 @@ import io.github.plaza.designsys.editor.insertText
 import io.github.plaza.designsys.editor.removeBlock
 import io.github.plaza.designsys.editor.toolbarLayout
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +58,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 class PostComposerViewModel(
     private val repository: PostComposerRepository,
@@ -110,6 +115,10 @@ class PostComposerViewModel(
     private var authorJob: Job? = null
     private var profileLoaded = false
 
+    private val draftMutex = Mutex()
+    private var lastSavedDraft: PostDraft? = null
+    private var published = false
+
     /** A share from another app, held until the draft question has been answered. See [receiveShare]. */
     private var pendingShare: ComposerShare? = null
 
@@ -139,6 +148,7 @@ class PostComposerViewModel(
         // about mid-post below everything else.
         uploads.uploaded
             .onEach { attachment ->
+                if (uploads.attachments.value.none { it.id == attachment.id }) return@onEach
                 val markdown = attachment.markdown ?: return@onEach
                 bodyState.editFromViewModel { insertBlockAtCaret(markdown) }
             }.launchIn(viewModelScope)
@@ -163,7 +173,21 @@ class PostComposerViewModel(
                         )
                     }
                 }
+                if (draft?.hasContent() == true) {
+                    lastSavedDraft = draft.copy(savedAtMillis = 0L)
+                }
                 applyShareIfDecided()
+            }
+            viewModelScope.launch {
+                try {
+                    awaitCancellation()
+                } finally {
+                    // viewModelScope is cancelled when navigating away; finish any pending new-post
+                    // draft write even if the 750ms debounce had not fired yet.
+                    withContext(NonCancellable) {
+                        flushPendingDraft()
+                    }
+                }
             }
         } else {
             loadEditSource()
@@ -199,6 +223,7 @@ class PostComposerViewModel(
                             title = content.title,
                             body = content.body,
                             permission = content.permission,
+                            initialEditContent = content,
                             isLoadingEdit = false,
                         )
                     }
@@ -245,11 +270,18 @@ class PostComposerViewModel(
                 draftDecisionMade = true,
             )
         }
+        lastSavedDraft = draft.copy(savedAtMillis = 0L)
         applyShareIfDecided()
     }
 
     fun discardDraft() {
-        viewModelScope.launch { repository.deleteDraft() }
+        saveJob?.cancel()
+        viewModelScope.launch {
+            draftMutex.withLock {
+                repository.deleteDraft()
+                lastSavedDraft = null
+            }
+        }
         _uiState.update { it.copy(pendingDraft = null, draftDecisionMade = true) }
         applyShareIfDecided()
     }
@@ -341,7 +373,13 @@ class PostComposerViewModel(
             }.onSuccess { postId ->
                 saveJob?.cancel()
                 // Only a new post has a draft to clear; edit mode never wrote one.
-                if (editTarget == null) repository.deleteDraft()
+                if (editTarget == null) {
+                    published = true
+                    draftMutex.withLock {
+                        repository.deleteDraft()
+                        lastSavedDraft = null
+                    }
+                }
                 _uiState.update { it.copy(isPublishing = false) }
                 onPublished(postId)
             }.onFailure { throwable ->
@@ -358,6 +396,15 @@ class PostComposerViewModel(
 
     fun clearPublishError() {
         _uiState.update { it.copy(publishError = null, publishErrorDetail = null) }
+    }
+
+    /** Live unsaved check against the text fields so an immediate close never misses the last frame. */
+    fun hasUnsavedEditChangesNow(): Boolean {
+        val baseline = _uiState.value.initialEditContent ?: return false
+        if (editTarget == null) return false
+        return titleState.text.toString() != baseline.title ||
+            bodyState.text.toString() != baseline.body ||
+            _uiState.value.permission != baseline.permission
     }
 
     /**
@@ -384,6 +431,57 @@ class PostComposerViewModel(
         }
     }
 
+    /**
+     * Flushes any un-debounced new-post draft changes right away so exiting before the 750ms
+     * autosave window still preserves the latest edits.
+     */
+    fun flushDraft() {
+        if (editTarget != null || published) return
+        saveJob?.cancel()
+        viewModelScope.launch {
+            withContext(NonCancellable) {
+                flushPendingDraft()
+            }
+        }
+    }
+
+    private fun liveDraftSnapshot(): PostDraft? {
+        if (editTarget != null || published) return null
+        val state = _uiState.value
+        if (!state.draftDecisionMade) return null
+        return state.copy(
+            title = titleState.text.toString(),
+            body = bodyState.text.toString(),
+        ).toDraft()
+    }
+
+    private suspend fun flushPendingDraft() {
+        if (editTarget != null || published) return
+        draftMutex.withLock {
+            if (published) return@withLock
+            val draft = liveDraftSnapshot() ?: return@withLock
+            persistDraft(draft)
+        }
+    }
+
+    private suspend fun persistDraft(draft: PostDraft) {
+        val normalized = draft.copy(savedAtMillis = 0L)
+        if (!draft.hasContent()) {
+            // Emptying the editor is how a draft is abandoned; keeping the old one stored would
+            // resurrect it in the recovery dialog on the next visit.
+            if (lastSavedDraft != null) {
+                repository.deleteDraft()
+                lastSavedDraft = null
+            }
+            _uiState.update { it.copy(savedAtMillis = null) }
+            return
+        }
+        if (normalized == lastSavedDraft) return
+        repository.saveDraft(draft)
+        lastSavedDraft = normalized
+        _uiState.update { it.copy(savedAtMillis = clock.nowMillis()) }
+    }
+
     private fun mutate(transform: (PostComposerUiState) -> PostComposerUiState) {
         _uiState.update { transform(it).copy(draftDecisionMade = true, pendingDraft = null) }
         // An edit settles the draft question too, so a share that was waiting on it can land now.
@@ -394,20 +492,17 @@ class PostComposerViewModel(
     private fun scheduleSave() {
         // An edit is a change to something already posted; there is nothing to recover and nothing
         // to offer back on the next visit, and writing one here would resurrect it as a new post.
-        if (editTarget != null) return
+        if (editTarget != null || published) return
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
             delay(AUTOSAVE_DELAY_MILLIS)
             val state = _uiState.value
-            if (!state.draftDecisionMade) return@launch
-            if (!state.hasContent) {
-                // Emptying the editor is how a draft is abandoned; keeping the old one stored would
-                // resurrect it in the recovery dialog on the next visit.
-                repository.deleteDraft()
-                return@launch
+            if (!state.draftDecisionMade || published) return@launch
+            draftMutex.withLock {
+                if (published) return@withLock
+                val draft = liveDraftSnapshot() ?: return@withLock
+                persistDraft(draft)
             }
-            repository.saveDraft(state.toDraft())
-            _uiState.update { it.copy(savedAtMillis = clock.nowMillis()) }
         }
     }
 
@@ -561,6 +656,8 @@ data class PostComposerUiState(
     val voteCreation: VoteCreationState = VoteCreationState.Idle,
     /** The floor being rewritten, or null when this is a new post. */
     val edit: PostEditTarget? = null,
+    /** Snapshot fetched from the site in edit mode, used to guard unsaved exit. */
+    val initialEditContent: PostEditContent? = null,
     val isLoadingEdit: Boolean = false,
     val editLoadError: SiteError? = null,
     val editLoadErrorDetail: String? = null,
@@ -568,6 +665,12 @@ data class PostComposerUiState(
     val hasContent: Boolean get() = title.isNotBlank() || body.isNotBlank()
 
     val isEditing: Boolean get() = edit != null
+
+    val hasUnsavedEditChanges: Boolean
+        get() {
+            val baseline = initialEditContent ?: return false
+            return isEditing && (title != baseline.title || body != baseline.body || permission != baseline.permission)
+        }
 
     /** A reply has no title and no 阅读权限 — the site's own editor hides both when editing one. */
     val isThreadLevelEdit: Boolean get() = edit?.isOpeningPost != false

@@ -42,7 +42,9 @@ import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.ClipboardPost
 import io.github.nodyssey.ui.common.IosClipboardPostReader
+import io.github.nodyssey.ui.common.LocalNativePopGuard
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
+import io.github.nodyssey.ui.common.PagePopGuard
 import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
 import io.github.nodyssey.ui.composer.PendingComposerShare
@@ -52,6 +54,7 @@ import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
+import io.github.nodyssey.ui.navigation.popCheckIndices
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
 import io.github.nodyssey.ui.postlist.HomeFeedStates
@@ -442,7 +445,12 @@ private class NativeShell(
     }
 
     /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
-    private class Page(val key: NavKey, val controller: UIViewController, val owner: PageOwner)
+    private class Page(
+        val key: NavKey,
+        val controller: UIViewController,
+        val owner: PageOwner,
+        val popGuard: PagePopGuard,
+    )
 
     private class PageOwner : ViewModelStoreOwner {
         override val viewModelStore = ViewModelStore()
@@ -452,6 +460,7 @@ private class NativeShell(
         val stack = stacks.getValue(destination)
         val entry = providers.getValue(destination)(key)
         val owner = PageOwner()
+        val popGuard = PagePopGuard()
         lateinit var page: Page
         val controller =
             ComposeUIViewController(
@@ -468,6 +477,7 @@ private class NativeShell(
                             // view model lives exactly as long as its entry is on the stack — see
                             // [flushReleases] — and not as long as UIKit keeps the controller around.
                             LocalViewModelStoreOwner provides owner,
+                            LocalNativePopGuard provides popGuard,
                             // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
                             LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
                             // 测评对比 from any report card's 对比 (n), onto this page's tab.
@@ -498,7 +508,7 @@ private class NativeShell(
                     }
                 }
             }
-        page = Page(key, controller, owner)
+        page = Page(key, controller, owner, popGuard)
         return page
     }
 
@@ -656,7 +666,7 @@ private class NativeShell(
 
         // UIKit holds delegates weakly; these fields are what keeps them alive.
         private val navigationDelegate = DetailsDelegate(destination, this)
-        private val popGestureDelegate = DetailsPopGestureDelegate(details)
+        private val popGestureDelegate = DetailsPopGestureDelegate(destination, details)
 
         init {
             details.delegate = navigationDelegate
@@ -940,18 +950,33 @@ private class NativeShell(
             ) {
                 return false
             }
-            return navigationController.viewControllers.size > 1 &&
-                navigationController.transitionCoordinator == null
+            if (navigationController.viewControllers.size <= 1 || navigationController.transitionCoordinator != null) {
+                return false
+            }
+            val topGroup = groups.getValue(destination).lastOrNull()
+            val views = mirrors.getValue(destination).views
+            if (topGroup == null) {
+                return views.lastOrNull()?.popGuard?.shouldAllowPop() != false
+            }
+            return topGroup.popCheckIndices().all { index ->
+                views.getOrNull(index)?.popGuard?.shouldAllowPop() != false
+            }
         }
     }
 
-    /** [PopGestureDelegate]'s two conditions, for the right half of a pair. */
-    private class DetailsPopGestureDelegate(
+    /** [PopGestureDelegate]'s conditions, for the right half of a pair. */
+    private inner class DetailsPopGestureDelegate(
+        private val destination: TopLevelDestination,
         private val details: UINavigationController,
     ) : NSObject(),
         UIGestureRecognizerDelegateProtocol {
-        override fun gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): Boolean =
-            details.viewControllers.size > 1 && details.transitionCoordinator == null
+        override fun gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): Boolean {
+            if (details.viewControllers.size <= 1 || details.transitionCoordinator != null) return false
+            val topController = details.topViewController
+            val views = mirrors.getValue(destination).views
+            val active = views.lastOrNull { it.controller === topController } ?: views.lastOrNull() ?: return true
+            return active.popGuard.shouldAllowPop()
+        }
     }
 }
 

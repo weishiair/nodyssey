@@ -85,6 +85,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
@@ -95,6 +96,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -174,6 +177,7 @@ import io.github.nodyssey.ui.resources.post_body_copied
 import io.github.nodyssey.ui.resources.post_body_empty
 import io.github.nodyssey.ui.resources.post_collect_action
 import io.github.nodyssey.ui.resources.post_collected_action
+import io.github.nodyssey.ui.resources.post_collected_feedback
 import io.github.nodyssey.ui.resources.post_comment_blocked
 import io.github.nodyssey.ui.resources.post_comment_blocked_show
 import io.github.nodyssey.ui.resources.post_comments_empty
@@ -215,10 +219,12 @@ import io.github.nodyssey.ui.resources.post_title_copied
 import io.github.nodyssey.ui.resources.post_track_full
 import io.github.nodyssey.ui.resources.post_track_thread
 import io.github.nodyssey.ui.resources.post_tracked
+import io.github.nodyssey.ui.resources.post_uncollected_feedback
 import io.github.nodyssey.ui.resources.post_unpin_action
 import io.github.nodyssey.ui.resources.post_unpin_body
 import io.github.nodyssey.ui.resources.post_unpin_success
 import io.github.nodyssey.ui.resources.post_untrack_thread
+import io.github.nodyssey.ui.resources.post_untracked
 import io.github.nodyssey.ui.resources.user_note_action
 import io.github.nodyssey.ui.richtext.PostRichContent
 import io.github.nodyssey.ui.sticker.ImageActionsFrom
@@ -228,6 +234,7 @@ import io.github.nodyssey.ui.sticker.rememberImageActionsState
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
+import io.github.plaza.designsys.component.AdaptiveConfirmDialog
 import io.github.plaza.designsys.component.AdaptiveGlassTopBar
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
@@ -349,6 +356,7 @@ fun PostDetailRoute(
         onPinFailureShown = viewModel::onPinFailureShown,
         onPinMessageShown = viewModel::onPinMessageShown,
         onCollect = viewModel::toggleCollect,
+        onCollectMessageShown = viewModel::onCollectMessageShown,
         onCollectFailureShown = viewModel::onCollectFailureShown,
         onToggleTrack = viewModel::toggleTrack,
         onTrackMessageShown = viewModel::onTrackMessageShown,
@@ -386,6 +394,8 @@ fun PostDetailRoute(
         onDismissVoteCreation = replyViewModel::dismissVoteCreation,
         payeeUid = replyViewModel::receiveCodePayeeUid,
         onInsertReceiveCode = replyViewModel::insertReceiveCode,
+        onDiscardDraft = replyViewModel::discardDraft,
+        onUndoDiscard = replyViewModel::undoDiscardDraft,
     )
 }
 
@@ -445,6 +455,7 @@ fun PostDetailScreen(
     onPinMessageShown: () -> Unit = {},
     /** Collects the thread, or takes it out. Whole-thread, so only the opening post offers it. */
     onCollect: () -> Unit = {},
+    onCollectMessageShown: () -> Unit = {},
     onCollectFailureShown: () -> Unit = {},
     /** 追踪新回复 / 取消追踪, from the overflow menu. */
     onToggleTrack: () -> Unit = {},
@@ -1070,13 +1081,28 @@ fun PostDetailScreen(
         onPinMessageShown()
     }
 
+    val collectedMessage = stringResource(Res.string.post_collected_feedback)
+    val uncollectedMessage = stringResource(Res.string.post_uncollected_feedback)
+    LaunchedEffect(state.collectMessage) {
+        val collected = state.collectMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(if (collected) collectedMessage else uncollectedMessage)
+        onCollectMessageShown()
+    }
+
     // Shown, then consumed — the order `SiteErrorSnackbar` uses, so clearing the message cannot
     // cancel the effect that is showing it.
     val trackTracked = stringResource(Res.string.post_tracked)
+    val trackUntracked = stringResource(Res.string.post_untracked)
     val trackFull = stringResource(Res.string.post_track_full)
     LaunchedEffect(state.trackMessage) {
         val message = state.trackMessage ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(if (message == TrackMessage.TRACKED) trackTracked else trackFull)
+        snackbarHostState.showSnackbar(
+            when (message) {
+                TrackMessage.TRACKED -> trackTracked
+                TrackMessage.UNTRACKED -> trackUntracked
+                TrackMessage.FULL -> trackFull
+            },
+        )
         onTrackMessageShown()
     }
 
@@ -1164,7 +1190,9 @@ private fun DetailTopBar(
     pageColor: Color,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val shareText = rememberShareText()
+    var moreBounds by remember { mutableStateOf<Rect?>(null) }
+    val density = LocalDensity.current
+    val shareText = rememberShareText { moreBounds }
     val copy = rememberClipboardCopy()
     val openOriginalPostLabel = stringResource(Res.string.post_open_original)
     val linkCopied = stringResource(Res.string.post_link_copied)
@@ -1215,7 +1243,21 @@ private fun DetailTopBar(
                 GlassAction(stringResource(Res.string.action_open_in_browser), onOpenInBrowser, symbol = "safari"),
                 GlassAction(stringResource(Res.string.action_more), {}, symbol = "ellipsis", menu = nativeMenu),
             ),
-            modifier = Modifier.fillMaxWidth().background(pageColor).windowInsetsPadding(nativeInsets).height(TopBarHeight),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(pageColor)
+                .windowInsetsPadding(nativeInsets)
+                .height(TopBarHeight)
+                .onGloballyPositioned { coordinates ->
+                    val bounds = coordinates.boundsInWindow()
+                    val actionSlotWidthPx = with(density) { 48.dp.toPx() }
+                    moreBounds = Rect(
+                        left = (bounds.right - actionSlotWidthPx).coerceAtLeast(bounds.left),
+                        top = bounds.top,
+                        right = bounds.right,
+                        bottom = bounds.bottom,
+                    )
+                },
         ) {
             Box(
                 Modifier
@@ -1318,7 +1360,10 @@ private fun DetailTopBar(
                                     Box {
                                         IconButton(
                                             onClick = { menuOpen = true },
-                                            modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
+                                            modifier =
+                                            Modifier
+                                                .then(if (layers.backdropGlass) Modifier.size(48.dp) else Modifier)
+                                                .onGloballyPositioned { moreBounds = it.boundsInWindow() },
                                         ) {
                                             Icon(
                                                 Icons.Default.MoreVert,
@@ -3055,67 +3100,74 @@ private fun ReactionConfirmDialog(
     // Only claim it is free when the site told us so; an unread quota says nothing either way, and
     // "免费" that turns out to have cost a chicken leg is the worse of the two mistakes.
     val free = isChicken && freeChickenLegs != null && freeChickenLegs.remaining > 0
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                if (isChicken) NodeSeekIcons.ChickenLeg else PlazaIcons.ThumbDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        },
-        title = {
-            Text(
-                stringResource(
-                    if (isChicken) Res.string.chicken_dialog_title else Res.string.dislike_dialog_title,
-                ),
-            )
-        },
-        text = {
-            Text(
-                when {
-                    free ->
-                        stringResource(
-                            Res.string.chicken_dialog_body_free,
-                            target.content.authorName,
-                            freeChickenLegs.remaining,
-                        )
-
-                    isChicken -> stringResource(Res.string.chicken_dialog_body, target.content.authorName)
-
-                    else -> stringResource(Res.string.dislike_dialog_body)
-                },
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    stringResource(
-                        if (isChicken) Res.string.chicken_dialog_confirm else Res.string.dislike_dialog_confirm,
-                    ),
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) }
-        },
+    val title = stringResource(
+        if (isChicken) Res.string.chicken_dialog_title else Res.string.dislike_dialog_title,
     )
+    val body = when {
+        free ->
+            stringResource(
+                Res.string.chicken_dialog_body_free,
+                target.content.authorName,
+                freeChickenLegs.remaining,
+            )
+
+        isChicken -> stringResource(Res.string.chicken_dialog_body, target.content.authorName)
+
+        else -> stringResource(Res.string.dislike_dialog_body)
+    }
+    val confirmLabel = stringResource(
+        if (isChicken) Res.string.chicken_dialog_confirm else Res.string.dislike_dialog_confirm,
+    )
+    val cancelLabel = stringResource(Res.string.action_cancel)
+    AdaptiveConfirmDialog(
+        title = title,
+        message = body,
+        confirmLabel = confirmLabel,
+        dismissLabel = cancelLabel,
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        destructiveConfirm = !isChicken,
+    ) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            icon = {
+                Icon(
+                    if (isChicken) NodeSeekIcons.ChickenLeg else PlazaIcons.ThumbDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            title = { Text(title) },
+            text = { Text(body) },
+            confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(cancelLabel) } },
+        )
+    }
 }
 
 @Composable
 private fun CommentPinDialog(pinned: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(PlazaIcons.PushPin, contentDescription = null) },
-        title = { Text(stringResource(if (pinned) Res.string.post_pin_action else Res.string.post_unpin_action)) },
-        text = { Text(stringResource(if (pinned) Res.string.post_pin_body else Res.string.post_unpin_body)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(if (pinned) Res.string.post_pin_confirm else Res.string.post_unpin_action))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
-    )
+    val title = stringResource(if (pinned) Res.string.post_pin_action else Res.string.post_unpin_action)
+    val body = stringResource(if (pinned) Res.string.post_pin_body else Res.string.post_unpin_body)
+    val confirmLabel = stringResource(if (pinned) Res.string.post_pin_confirm else Res.string.post_unpin_action)
+    val cancelLabel = stringResource(Res.string.action_cancel)
+    AdaptiveConfirmDialog(
+        title = title,
+        message = body,
+        confirmLabel = confirmLabel,
+        dismissLabel = cancelLabel,
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    ) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            icon = { Icon(PlazaIcons.PushPin, contentDescription = null) },
+            title = { Text(title) },
+            text = { Text(body) },
+            confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(cancelLabel) } },
+        )
+    }
 }
 
 /**

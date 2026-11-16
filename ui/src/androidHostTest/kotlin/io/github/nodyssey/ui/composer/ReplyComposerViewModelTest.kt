@@ -8,11 +8,13 @@ import io.github.nodyssey.data.composer.CommentDraft
 import io.github.nodyssey.data.composer.CommentSubmission
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.ImageUploader
+import io.github.nodyssey.data.composer.PickedImage
 import io.github.nodyssey.ui.ViewModels
 import io.github.nodyssey.ui.typeMore
 import io.github.nodyssey.ui.typeText
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -54,12 +56,13 @@ class ReplyComposerViewModelTest {
     private fun viewModel(
         postId: Long = 1L,
         profiles: ProfileRepository? = null,
+        customUploader: ImageUploader = uploader,
     ) = viewModels.track(
         ReplyComposerViewModel(
             postId,
             repository,
             clock,
-            uploader,
+            customUploader,
             profileRepository = profiles,
         ),
     )
@@ -377,6 +380,73 @@ class ReplyComposerViewModelTest {
 
         assertNull(repository.saved[1L])
         assertNull(viewModel.uiState.value.savedAtMillis)
+    }
+
+    @Test
+    fun `discardDraft clears editor and undoDiscardDraft restores body and reply target`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        val floor = FloorReference(floor = 7, author = "alice", excerpt = "原始引用")
+        viewModel.open(floor)
+        advanceUntilIdle()
+        viewModel.bodyState.typeText("已经写了半天的内容")
+        runCurrent()
+        advanceUntilIdle()
+        assertEquals("已经写了半天的内容", repository.saved[1L]?.body)
+
+        viewModel.discardDraft()
+        advanceUntilIdle()
+
+        assertEquals("", viewModel.bodyState.text.toString())
+        assertEquals("", viewModel.uiState.value.body)
+        assertNull(viewModel.uiState.value.replyTo)
+        assertNull(repository.saved[1L])
+        assertTrue(viewModel.uiState.value.canUndoClear)
+
+        viewModel.undoDiscardDraft()
+        advanceUntilIdle()
+
+        assertEquals("已经写了半天的内容", viewModel.bodyState.text.toString())
+        assertEquals("已经写了半天的内容", viewModel.uiState.value.body)
+        assertEquals(floor, viewModel.uiState.value.replyTo)
+        assertFalse(viewModel.uiState.value.canUndoClear)
+        assertEquals("已经写了半天的内容", repository.saved[1L]?.body)
+        assertEquals(7, repository.saved[1L]?.replyToFloor)
+    }
+
+    @Test
+    fun `discardDraft cancels in-flight uploads so completion does not write markdown or clear undo`() = runTest(dispatcher) {
+        val uploadGate = CompletableDeferred<Unit>()
+        val gatedUploader = ImageUploader { _, _ ->
+            uploadGate.await()
+            "https://cdn.nodeimage.com/i/late.webp"
+        }
+        val viewModel = viewModel(customUploader = gatedUploader)
+        viewModel.open()
+        advanceUntilIdle()
+        viewModel.bodyState.typeText("原先的文字")
+        runCurrent()
+        viewModel.addImages(listOf(PickedImage("content://pick/1", "pic.png")))
+        runCurrent()
+        assertEquals(1, viewModel.uiState.value.attachments.size)
+
+        viewModel.discardDraft()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.canUndoClear)
+        assertTrue(viewModel.uiState.value.attachments.isEmpty())
+
+        uploadGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("", viewModel.bodyState.text.toString())
+        assertEquals("", viewModel.uiState.value.body)
+        assertNull(repository.saved[1L])
+        assertTrue(viewModel.uiState.value.canUndoClear)
+
+        viewModel.undoDiscardDraft()
+        advanceUntilIdle()
+
+        assertEquals("原先的文字", viewModel.bodyState.text.toString())
+        assertFalse(viewModel.uiState.value.canUndoClear)
     }
 }
 

@@ -3,17 +3,32 @@ package io.github.nodyssey.ui.composer
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.text.TextRange
+import io.github.nodyssey.data.composer.PostEditContent
+import io.github.nodyssey.data.composer.PostEditTarget
+import io.github.nodyssey.data.composer.PostPermission
+import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.action_cancel
+import io.github.nodyssey.ui.resources.action_retry
+import io.github.nodyssey.ui.resources.composer_continue_editing
+import io.github.nodyssey.ui.resources.composer_discard_edit_confirm
+import io.github.nodyssey.ui.resources.composer_discard_edit_title
+import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.theme.PlazaTheme
+import org.jetbrains.compose.resources.stringResource
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,22 +48,39 @@ class PostComposerScreenTest {
 
     private lateinit var titleState: TextFieldState
 
-    private fun setScreen(state: PostComposerUiState) {
+    private var cancelLabel = ""
+    private var discardTitle = ""
+    private var discardConfirmLabel = ""
+    private var continueEditingLabel = ""
+    private var retryLabel = ""
+
+    private fun setScreen(
+        state: PostComposerUiState,
+        onClose: () -> Unit = {},
+        onPublish: () -> Unit = {},
+        onClearPublishError: () -> Unit = {},
+    ) {
         composeRule.setContent {
             PlazaTheme {
+                cancelLabel = stringResource(Res.string.action_cancel)
+                discardTitle = stringResource(Res.string.composer_discard_edit_title)
+                discardConfirmLabel = stringResource(Res.string.composer_discard_edit_confirm)
+                continueEditingLabel = stringResource(Res.string.composer_continue_editing)
+                retryLabel = stringResource(Res.string.action_retry)
                 PostComposerScreen(
                     state = state,
                     titleState = rememberTextFieldState(state.title).also { titleState = it },
                     bodyState = rememberTextFieldState(state.body),
                     snackbarHostState = SnackbarHostState(),
-                    onClose = {},
+                    onClose = onClose,
                     onBoardSelect = {},
                     onPermissionSelect = {},
                     onViewModeChange = { viewMode = it },
                     onPickImages = {},
                     onRemoveAttachment = {},
                     onRetryAttachment = {},
-                    onPublish = {},
+                    onPublish = onPublish,
+                    onClearPublishError = onClearPublishError,
                     onVerify = {},
                     onContinueDraft = {},
                     onDiscardDraft = {},
@@ -97,5 +129,45 @@ class PostComposerScreenTest {
         composeRule.onNodeWithContentDescription("对照").assertIsOn().performClick()
 
         assertEquals(ComposerViewMode.CONTENT, viewMode)
+    }
+
+    @Test
+    fun `closing edit mode with unsaved changes asks confirmation before closing`() {
+        var closed = false
+        setScreen(
+            state = draftState(title = "修改后的标题", body = "修改后的正文").copy(
+                edit = PostEditTarget(postId = 1L, commentId = 2L, page = 1, isOpeningPost = true),
+                initialEditContent = PostEditContent("原标题", PostPermission.PUBLIC, "原正文"),
+            ),
+            onClose = { closed = true },
+        )
+
+        composeRule.onNodeWithContentDescription(cancelLabel).performClick()
+        composeRule.onNodeWithText(discardTitle).assertIsDisplayed()
+        composeRule.onNodeWithText(continueEditingLabel).performClick()
+        assertFalse(closed)
+
+        composeRule.onNodeWithContentDescription(cancelLabel).performClick()
+        composeRule.onNodeWithText(discardConfirmLabel).performClick()
+        assertTrue(closed)
+    }
+
+    @Test
+    fun `publish error renders inline banner with retry action`() {
+        var retried = 0
+        var cleared = 0
+        setScreen(
+            state = draftState().copy(
+                publishError = SiteError.Unknown,
+                publishErrorDetail = "服务器拒绝了请求",
+            ),
+            onPublish = { retried++ },
+            onClearPublishError = { cleared++ },
+        )
+
+        composeRule.onNodeWithText("服务器拒绝了请求", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText(retryLabel).performClick()
+        assertEquals(1, cleared)
+        assertEquals(1, retried)
     }
 }

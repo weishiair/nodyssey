@@ -1,6 +1,7 @@
 package io.github.nodyssey.ui.composer
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
@@ -38,16 +40,14 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,31 +70,28 @@ import io.github.nodyssey.data.Board
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.PostDraft
 import io.github.nodyssey.data.composer.PostPermission
-import io.github.nodyssey.data.composer.UploadFailure
+import io.github.nodyssey.ui.common.NativePopGuardEffect
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_publish
-import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.action_save
-import io.github.nodyssey.ui.resources.action_sign_in
-import io.github.nodyssey.ui.resources.action_verify
 import io.github.nodyssey.ui.resources.composer_board_target
 import io.github.nodyssey.ui.resources.composer_body_hint
+import io.github.nodyssey.ui.resources.composer_continue_editing
+import io.github.nodyssey.ui.resources.composer_discard_edit_body
+import io.github.nodyssey.ui.resources.composer_discard_edit_confirm
+import io.github.nodyssey.ui.resources.composer_discard_edit_title
 import io.github.nodyssey.ui.resources.composer_draft_saved
 import io.github.nodyssey.ui.resources.composer_draft_saving
+import io.github.nodyssey.ui.resources.composer_edit_title
 import io.github.nodyssey.ui.resources.composer_image_default_name
+import io.github.nodyssey.ui.resources.composer_new_title
 import io.github.nodyssey.ui.resources.composer_permission_level
 import io.github.nodyssey.ui.resources.composer_permission_private
 import io.github.nodyssey.ui.resources.composer_permission_public
-import io.github.nodyssey.ui.resources.composer_publish_challenge
-import io.github.nodyssey.ui.resources.composer_publish_failed
-import io.github.nodyssey.ui.resources.composer_publish_http
-import io.github.nodyssey.ui.resources.composer_publish_login_required
-import io.github.nodyssey.ui.resources.composer_publish_network_failed
-import io.github.nodyssey.ui.resources.composer_publish_unknown
 import io.github.nodyssey.ui.resources.composer_publishing
 import io.github.nodyssey.ui.resources.composer_restore_body
 import io.github.nodyssey.ui.resources.composer_restore_body_images
@@ -111,8 +108,12 @@ import io.github.nodyssey.ui.resources.composer_view_preview
 import io.github.nodyssey.ui.stardust.StardustReceiveComposeDialog
 import io.github.nodyssey.ui.vote.VoteComposeDialog
 import io.github.plaza.core.TimeFormat
-import io.github.plaza.core.net.SiteError
+import io.github.plaza.designsys.component.AdaptiveConfirmDialog
+import io.github.plaza.designsys.component.AdaptiveGlassTopBar
+import io.github.plaza.designsys.component.AdaptiveNativeMenu
 import io.github.plaza.designsys.component.EditorTextField
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
@@ -147,21 +148,9 @@ fun PostComposerRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    PublishErrorSnackbar(
-        state = state,
-        snackbarHostState = snackbarHostState,
-        onDismissed = viewModel::clearPublishError,
-        onSignIn = onSignIn,
-        onVerify = onVerify,
-        onRetry = { viewModel.publish(onPublished) },
-    )
-    UploadErrorSnackbar(
-        failedCount = state.failedUploadCount,
-        failure = state.uploadFailure,
-        detail = state.uploadErrorDetail,
-        snackbarHostState = snackbarHostState,
-        onRetry = viewModel::retryFailedUploads,
-    )
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.flushDraft() }
+    }
 
     val pickImages =
         rememberImagePicker(
@@ -175,7 +164,10 @@ fun PostComposerRoute(
         titleState = viewModel.titleState,
         bodyState = viewModel.bodyState,
         snackbarHostState = snackbarHostState,
-        onClose = onClose,
+        onClose = {
+            viewModel.flushDraft()
+            onClose()
+        },
         onBoardSelect = viewModel::selectBoard,
         onPermissionSelect = viewModel::selectPermission,
         onViewModeChange = viewModel::setViewMode,
@@ -186,6 +178,9 @@ fun PostComposerRoute(
         onRetryAttachment = viewModel::retryUpload,
         onPublish = { if (state.isSignedIn) viewModel.publish(onPublished) else onSignIn() },
         onRetryLoad = viewModel::loadEditSource,
+        onRetryFailedUploads = viewModel::retryFailedUploads,
+        onClearPublishError = viewModel::clearPublishError,
+        hasUnsavedChanges = viewModel::hasUnsavedEditChangesNow,
         onOpenBrowser = onOpenBrowser,
         onSignIn = onSignIn,
         onVerify = onVerify,
@@ -199,64 +194,6 @@ fun PostComposerRoute(
         onInsertReceiveCode = viewModel::insertReceiveCode,
         modifier = modifier,
     )
-}
-
-@Composable
-private fun PublishErrorSnackbar(
-    state: PostComposerUiState,
-    snackbarHostState: SnackbarHostState,
-    onDismissed: () -> Unit,
-    onSignIn: () -> Unit,
-    onVerify: (String) -> Unit,
-    onRetry: () -> Unit,
-) {
-    val message = state.publishError?.let { publishErrorMessage(it, state.publishErrorDetail) }
-    val actionLabel = state.publishError?.let { error ->
-        stringResource(
-            when (error) {
-                SiteError.LoginRequired -> Res.string.action_sign_in
-                is SiteError.Cloudflare -> Res.string.action_verify
-                else -> Res.string.action_retry
-            },
-        )
-    }
-    LaunchedEffect(state.publishError, message, actionLabel) {
-        val error = state.publishError ?: return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(
-            message = message ?: return@LaunchedEffect,
-            actionLabel = actionLabel,
-            duration = SnackbarDuration.Indefinite,
-        )
-        onDismissed()
-        if (result == SnackbarResult.ActionPerformed) {
-            when (error) {
-                SiteError.LoginRequired -> onSignIn()
-                is SiteError.Cloudflare -> onVerify(error.url)
-                else -> onRetry()
-            }
-        }
-    }
-}
-
-@Composable
-private fun UploadErrorSnackbar(
-    failedCount: Int,
-    failure: UploadFailure?,
-    detail: String?,
-    snackbarHostState: SnackbarHostState,
-    onRetry: () -> Unit,
-) {
-    val message = uploadFailureText(failedCount, failure, detail)
-    val retry = stringResource(Res.string.action_retry)
-    LaunchedEffect(failedCount, message) {
-        if (failedCount == 0) return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(
-            message = message,
-            actionLabel = retry,
-            duration = SnackbarDuration.Long,
-        )
-        if (result == SnackbarResult.ActionPerformed) onRetry()
-    }
 }
 
 @Composable
@@ -280,6 +217,9 @@ fun PostComposerScreen(
     modifier: Modifier = Modifier,
     /** Re-reads the floor being edited. Only reachable from the load-failure state. */
     onRetryLoad: () -> Unit = {},
+    onRetryFailedUploads: () -> Unit = {},
+    onClearPublishError: () -> Unit = {},
+    hasUnsavedChanges: () -> Boolean = { state.hasUnsavedEditChanges },
     onOpenBrowser: (String) -> Unit = {},
     onSignIn: () -> Unit = {},
     onVerify: (String) -> Unit,
@@ -294,12 +234,39 @@ fun PostComposerScreen(
     payeeUid: () -> Long? = { null },
     onInsertReceiveCode: (Int, Long, String, Boolean) -> Unit = { _, _, _, _ -> },
 ) {
+    var showDiscardEditConfirm by rememberSaveable { mutableStateOf(false) }
+    val requestClose = {
+        if (!state.isPublishing) {
+            if (hasUnsavedChanges()) {
+                showDiscardEditConfirm = true
+            } else {
+                onClose()
+            }
+        }
+    }
+
     // While a publish is in flight the request may already have created the topic; leaving now would
     // cancel the ViewModel, keep the draft, and set up a duplicate post on the next attempt. Preview
     // reuses the same handler so system back mirrors the top bar's arrow instead of closing.
-    PlazaBackHandler(enabled = state.isPublishing || state.viewMode == ComposerViewMode.PREVIEW) {
-        if (!state.isPublishing) onViewModeChange(ComposerViewMode.CONTENT)
+    PlazaBackHandler(enabled = state.isPublishing || state.viewMode == ComposerViewMode.PREVIEW || state.hasUnsavedEditChanges) {
+        if (state.isPublishing) return@PlazaBackHandler
+        if (state.viewMode == ComposerViewMode.PREVIEW) {
+            onViewModeChange(ComposerViewMode.CONTENT)
+        } else if (hasUnsavedChanges()) {
+            showDiscardEditConfirm = true
+        }
     }
+    NativePopGuardEffect(
+        blocked = state.isPublishing || state.viewMode == ComposerViewMode.PREVIEW || state.hasUnsavedEditChanges,
+        onBlockedAttempt = {
+            if (state.isPublishing) return@NativePopGuardEffect
+            if (state.viewMode == ComposerViewMode.PREVIEW) {
+                onViewModeChange(ComposerViewMode.CONTENT)
+            } else if (hasUnsavedChanges() && !showDiscardEditConfirm) {
+                showDiscardEditConfirm = true
+            }
+        },
+    )
     Scaffold(
         modifier = modifier.fillMaxSize(),
         // A sheet of paper rather than the grey page: the editor is one card the writer is inside,
@@ -320,7 +287,7 @@ fun PostComposerScreen(
                     state.savedAtMillis?.let { stringResource(Res.string.composer_draft_saved, formatTime(it)) }
                         ?: stringResource(Res.string.composer_draft_saving)
                 },
-                onClose = onClose,
+                onClose = requestClose,
                 onViewModeChange = onViewModeChange,
                 onPublish = onPublish,
             )
@@ -346,7 +313,14 @@ fun PostComposerScreen(
                 modifier = Modifier.padding(padding),
             )
         } else if (state.viewMode == ComposerViewMode.PREVIEW) {
-            PreviewContent(state = state, modifier = Modifier.padding(padding))
+            PreviewContent(
+                state = state,
+                onRetryPublish = onPublish,
+                onClearPublishError = onClearPublishError,
+                onSignIn = onSignIn,
+                onVerify = onVerify,
+                modifier = Modifier.padding(padding),
+            )
         } else {
             EditorContent(
                 state = state,
@@ -357,6 +331,11 @@ fun PostComposerScreen(
                 onPickImages = onPickImages,
                 onRemoveAttachment = onRemoveAttachment,
                 onRetryAttachment = onRetryAttachment,
+                onRetryFailedUploads = onRetryFailedUploads,
+                onPublish = onPublish,
+                onClearPublishError = onClearPublishError,
+                onSignIn = onSignIn,
+                onVerify = onVerify,
                 onToolbarChange = onToolbarChange,
                 onToolbarReset = onToolbarReset,
                 onCreateVote = onCreateVote,
@@ -370,6 +349,15 @@ fun PostComposerScreen(
 
     state.pendingDraft?.let { draft ->
         DraftRecoveryDialog(draft = draft, onContinue = onContinueDraft, onDiscard = onDiscardDraft)
+    }
+    if (showDiscardEditConfirm) {
+        DiscardEditConfirmDialog(
+            onConfirmDiscard = {
+                showDiscardEditConfirm = false
+                onClose()
+            },
+            onKeepEditing = { showDiscardEditConfirm = false },
+        )
     }
 }
 
@@ -397,45 +385,98 @@ private fun ComposerTopBar(
     onViewModeChange: (ComposerViewMode) -> Unit,
     onPublish: () -> Unit,
 ) {
+    val cardColor = LocalPlazaLayers.current.card
+    val publishText = stringResource(
+        when {
+            isPublishing && isEditing -> Res.string.composer_saving
+            isPublishing -> Res.string.composer_publishing
+            isEditing -> Res.string.action_save
+            else -> Res.string.action_publish
+        },
+    )
     ReadableTopBar { barInsets ->
-        TopAppBar(
-            windowInsets = barInsets,
-            title = {
-                draftStatus?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        // The slot is what the two view toggles and 发布 leave, which in English or at a
-                        // large text size is less than the sentence; cut, it should say so.
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = onClose, enabled = !isPublishing) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.action_cancel),
-                        modifier = Modifier.size(TopBarIconSize),
-                    )
-                }
-            },
-            actions = {
-                ViewModeToggle(ComposerViewMode.COMPARE, PlazaIcons.VerticalSplit, viewMode, onViewModeChange)
-                ViewModeToggle(ComposerViewMode.PREVIEW, PlazaIcons.Visibility, viewMode, onViewModeChange)
-                PublishButton(
-                    isPublishing = isPublishing,
-                    enabled = canPublish,
-                    isEditing = isEditing,
+        AdaptiveGlassTopBar(
+            title = stringResource(if (isEditing) Res.string.composer_edit_title else Res.string.composer_new_title),
+            subtitle = draftStatus,
+            titleAction = null,
+            back = GlassAction(
+                label = stringResource(Res.string.action_cancel),
+                onClick = onClose,
+                symbol = "xmark",
+                enabled = !isPublishing,
+            ),
+            actions = listOf(
+                GlassAction(
+                    label = stringResource(Res.string.composer_view_compare),
+                    onClick = {
+                        onViewModeChange(
+                            if (viewMode == ComposerViewMode.COMPARE) ComposerViewMode.CONTENT else ComposerViewMode.COMPARE,
+                        )
+                    },
+                    symbol = "rectangle.split.2x1",
+                    selected = viewMode == ComposerViewMode.COMPARE,
+                ),
+                GlassAction(
+                    label = stringResource(Res.string.composer_view_preview),
+                    onClick = {
+                        onViewModeChange(
+                            if (viewMode == ComposerViewMode.PREVIEW) ComposerViewMode.CONTENT else ComposerViewMode.PREVIEW,
+                        )
+                    },
+                    symbol = "eye",
+                    selected = viewMode == ComposerViewMode.PREVIEW,
+                ),
+                GlassAction(
+                    label = publishText,
+                    title = publishText,
                     onClick = onPublish,
-                )
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.card),
-            // The thread's bar height (2b), as 3c draws this one: a status line, two toggles and 发布.
-            expandedHeight = TopBarHeight,
-        )
+                    enabled = canPublish,
+                    prominent = true,
+                    loading = isPublishing,
+                ),
+            ),
+            containerColor = cardColor,
+            modifier = Modifier.fillMaxWidth().background(cardColor).windowInsetsPadding(barInsets).height(TopBarHeight),
+        ) {
+            TopAppBar(
+                windowInsets = barInsets,
+                title = {
+                    draftStatus?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            // The slot is what the two view toggles and 发布 leave, which in English or at a
+                            // large text size is less than the sentence; cut, it should say so.
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onClose, enabled = !isPublishing) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(Res.string.action_cancel),
+                            modifier = Modifier.size(TopBarIconSize),
+                        )
+                    }
+                },
+                actions = {
+                    ViewModeToggle(ComposerViewMode.COMPARE, PlazaIcons.VerticalSplit, viewMode, onViewModeChange)
+                    ViewModeToggle(ComposerViewMode.PREVIEW, PlazaIcons.Visibility, viewMode, onViewModeChange)
+                    PublishButton(
+                        isPublishing = isPublishing,
+                        enabled = canPublish,
+                        isEditing = isEditing,
+                        onClick = onPublish,
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = cardColor),
+                // The thread's bar height (2b), as 3c draws this one: a status line, two toggles and 发布.
+                expandedHeight = TopBarHeight,
+            )
+        }
     }
 }
 
@@ -521,6 +562,11 @@ private fun EditorContent(
     onPickImages: () -> Unit,
     onRemoveAttachment: (ImageAttachment) -> Unit,
     onRetryAttachment: (ImageAttachment) -> Unit,
+    onRetryFailedUploads: () -> Unit,
+    onPublish: () -> Unit,
+    onClearPublishError: () -> Unit,
+    onSignIn: () -> Unit,
+    onVerify: (String) -> Unit,
     onToolbarChange: (List<EditorAction>) -> Unit,
     onToolbarReset: () -> Unit,
     onCreateVote: (String, Boolean, Boolean, List<String>, () -> Unit) -> Unit,
@@ -562,6 +608,19 @@ private fun EditorContent(
             attachments = state.attachments,
             onRemove = onRemoveAttachment,
             onRetry = onRetryAttachment,
+        )
+        ComposerErrorBanner(
+            error = state.publishError,
+            detail = state.publishErrorDetail,
+            failedUploads = state.failedUploadCount,
+            uploadFailure = state.uploadFailure,
+            uploadErrorDetail = state.uploadErrorDetail,
+            onRetryPublish = onPublish,
+            onRetryUploads = onRetryFailedUploads,
+            onDismiss = onClearPublishError,
+            onSignIn = onSignIn,
+            onVerify = onVerify,
+            modifier = Modifier.readableWidth().padding(horizontal = PageMargin, vertical = Spacing.xs),
         )
         ComposerEditorBar(
             actions = state.toolbar.enabled,
@@ -756,8 +815,6 @@ private fun ComposerOptions(
     onBoardSelect: (Board) -> Unit,
     onPermissionSelect: (PostPermission) -> Unit,
 ) {
-    var boardMenuOpen by remember { mutableStateOf(false) }
-    var permissionMenuOpen by remember { mutableStateOf(false) }
     // The board is the one required field with no default, so it is called out only once there is
     // something to publish — an error outline on an untouched form is just noise.
     val boardMissing = state.boardSlug == null && state.hasContent
@@ -781,47 +838,79 @@ private fun ComposerOptions(
         // Not offered on an edit: `edit-discussion` takes no board, and moving a thread between
         // boards is a moderator action rather than something its author can do here.
         if (!state.isEditing) {
-            Box {
-                ComposerChip(
-                    label = state.boardTitle?.let { stringResource(Res.string.composer_board_target, it) }
-                        ?: stringResource(Res.string.composer_select_board),
-                    filled = state.boardTitle != null,
-                    error = boardMissing,
-                    onClick = { boardMenuOpen = true },
+            val boardLabel = state.boardTitle?.let { stringResource(Res.string.composer_board_target, it) }
+                ?: stringResource(Res.string.composer_select_board)
+            AdaptiveNativeMenu(
+                label = boardLabel,
+                actions = state.boards.map { board ->
+                    GlassMenuAction(
+                        label = board.title,
+                        onClick = { onBoardSelect(board) },
+                        selected = board.slug == state.boardSlug,
+                    )
+                },
+                cooperativeInScroll = true,
+                fallback = { expanded, onDismiss ->
+                    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+                        state.boards.forEach { board ->
+                            DropdownMenuItem(
+                                text = { Text(board.title) },
+                                onClick = {
+                                    onBoardSelect(board)
+                                    onDismiss()
+                                },
+                            )
+                        }
+                    }
+                },
+                trigger = { onClick ->
+                    ComposerChip(
+                        label = boardLabel,
+                        filled = state.boardTitle != null,
+                        error = boardMissing,
+                        onClick = onClick,
+                    )
+                },
+            )
+        }
+        val currentPermissionLabel = permissionLabel(state.permission)
+        val permissionChoices = state.permissionOptions.map { permission ->
+            permission to permissionLabel(permission)
+        }
+        AdaptiveNativeMenu(
+            label = currentPermissionLabel,
+            actions = permissionChoices.map { (permission, label) ->
+                GlassMenuAction(
+                    label = label,
+                    onClick = { onPermissionSelect(permission) },
+                    symbol = if (permission == PostPermission.PUBLIC) "globe" else "lock",
+                    selected = permission == state.permission,
                 )
-                DropdownMenu(expanded = boardMenuOpen, onDismissRequest = { boardMenuOpen = false }) {
-                    state.boards.forEach { board ->
+            },
+            cooperativeInScroll = true,
+            fallback = { expanded, onDismiss ->
+                DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+                    permissionChoices.forEach { (permission, label) ->
                         DropdownMenuItem(
-                            text = { Text(board.title) },
+                            text = { Text(label) },
                             onClick = {
-                                onBoardSelect(board)
-                                boardMenuOpen = false
+                                onPermissionSelect(permission)
+                                onDismiss()
                             },
                         )
                     }
                 }
-            }
-        }
-        Box {
-            ComposerChip(
-                label = permissionLabel(state.permission),
-                filled = false,
-                error = false,
-                leading = if (state.permission == PostPermission.PUBLIC) PlazaIcons.Public else Icons.Default.Lock,
-                onClick = { permissionMenuOpen = true },
-            )
-            DropdownMenu(expanded = permissionMenuOpen, onDismissRequest = { permissionMenuOpen = false }) {
-                state.permissionOptions.forEach { permission ->
-                    DropdownMenuItem(
-                        text = { Text(permissionLabel(permission)) },
-                        onClick = {
-                            onPermissionSelect(permission)
-                            permissionMenuOpen = false
-                        },
-                    )
-                }
-            }
-        }
+            },
+            trigger = { onClick ->
+                ComposerChip(
+                    label = currentPermissionLabel,
+                    filled = false,
+                    error = false,
+                    leading = if (state.permission == PostPermission.PUBLIC) PlazaIcons.Public else Icons.Default.Lock,
+                    onClick = onClick,
+                )
+            },
+        )
     }
 }
 
@@ -874,6 +963,10 @@ private fun ComposerChip(
 @Composable
 private fun PreviewContent(
     state: PostComposerUiState,
+    onRetryPublish: () -> Unit,
+    onClearPublishError: () -> Unit,
+    onSignIn: () -> Unit,
+    onVerify: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -882,6 +975,19 @@ private fun PreviewContent(
             .verticalScroll(rememberScrollState())
             .readableWidth(),
     ) {
+        ComposerErrorBanner(
+            error = state.publishError,
+            detail = state.publishErrorDetail,
+            failedUploads = 0,
+            uploadFailure = null,
+            uploadErrorDetail = null,
+            onRetryPublish = onRetryPublish,
+            onRetryUploads = {},
+            onDismiss = onClearPublishError,
+            onSignIn = onSignIn,
+            onVerify = onVerify,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+        )
         RuleReminderCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -916,47 +1022,67 @@ private fun DraftRecoveryDialog(
     val imageCount = remember(draft.body) { countImages(draft.body) }
     val board = draft.boardTitle ?: stringResource(Res.string.composer_select_board)
     val title = draft.title.ifBlank { stringResource(Res.string.composer_title_hint) }
-    AlertDialog(
-        onDismissRequest = {},
-        icon = { Icon(PlazaIcons.Drafts, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        title = { Text(stringResource(Res.string.composer_restore_title)) },
-        text = {
-            Text(
-                text = if (imageCount > 0) {
-                    stringResource(
-                        Res.string.composer_restore_body_images,
-                        formatTime(draft.savedAtMillis),
-                        board,
-                        title,
-                        imageCount,
-                    )
-                } else {
-                    stringResource(Res.string.composer_restore_body, formatTime(draft.savedAtMillis), board, title)
-                },
-            )
-        },
-        confirmButton = { Button(onClick = onContinue) { Text(stringResource(Res.string.composer_restore_continue)) } },
-        dismissButton = { TextButton(onClick = onDiscard) { Text(stringResource(Res.string.composer_restore_discard)) } },
-    )
+    val body = if (imageCount > 0) {
+        stringResource(
+            Res.string.composer_restore_body_images,
+            formatTime(draft.savedAtMillis),
+            board,
+            title,
+            imageCount,
+        )
+    } else {
+        stringResource(Res.string.composer_restore_body, formatTime(draft.savedAtMillis), board, title)
+    }
+    val dialogTitle = stringResource(Res.string.composer_restore_title)
+    val continueLabel = stringResource(Res.string.composer_restore_continue)
+    val discardLabel = stringResource(Res.string.composer_restore_discard)
+    AdaptiveConfirmDialog(
+        title = dialogTitle,
+        message = body,
+        confirmLabel = continueLabel,
+        dismissLabel = discardLabel,
+        onConfirm = onContinue,
+        onDismiss = onDiscard,
+        destructiveDismiss = true,
+        dismissIsCancel = false,
+    ) {
+        AlertDialog(
+            onDismissRequest = {},
+            icon = { Icon(PlazaIcons.Drafts, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text(dialogTitle) },
+            text = { Text(body) },
+            confirmButton = { Button(onClick = onContinue) { Text(continueLabel) } },
+            dismissButton = { TextButton(onClick = onDiscard) { Text(discardLabel) } },
+        )
+    }
 }
 
 @Composable
-private fun publishErrorMessage(error: SiteError, detail: String?): String {
-    val reason = when (error) {
-        SiteError.Network -> stringResource(Res.string.composer_publish_network_failed)
-
-        SiteError.LoginRequired -> stringResource(Res.string.composer_publish_login_required)
-
-        is SiteError.Cloudflare -> stringResource(Res.string.composer_publish_challenge)
-
-        is SiteError.Http -> {
-            val status = stringResource(Res.string.composer_publish_http, error.statusCode)
-            detail?.takeIf { it.isNotBlank() && it != error.toString() }?.let { "$status：$it" } ?: status
-        }
-
-        else -> detail?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.composer_publish_unknown)
+private fun DiscardEditConfirmDialog(
+    onConfirmDiscard: () -> Unit,
+    onKeepEditing: () -> Unit,
+) {
+    val title = stringResource(Res.string.composer_discard_edit_title)
+    val body = stringResource(Res.string.composer_discard_edit_body)
+    val confirmLabel = stringResource(Res.string.composer_discard_edit_confirm)
+    val dismissLabel = stringResource(Res.string.composer_continue_editing)
+    AdaptiveConfirmDialog(
+        title = title,
+        message = body,
+        confirmLabel = confirmLabel,
+        dismissLabel = dismissLabel,
+        onConfirm = onConfirmDiscard,
+        onDismiss = onKeepEditing,
+        destructiveConfirm = true,
+    ) {
+        AlertDialog(
+            onDismissRequest = onKeepEditing,
+            title = { Text(title) },
+            text = { Text(body) },
+            confirmButton = { TextButton(onClick = onConfirmDiscard) { Text(confirmLabel) } },
+            dismissButton = { TextButton(onClick = onKeepEditing) { Text(dismissLabel) } },
+        )
     }
-    return stringResource(Res.string.composer_publish_failed, reason)
 }
 
 @Composable

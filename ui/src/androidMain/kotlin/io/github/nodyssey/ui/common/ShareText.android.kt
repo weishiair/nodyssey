@@ -2,10 +2,13 @@ package io.github.nodyssey.ui.common
 
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalContext
 
 @Composable
-actual fun rememberShareText(): (text: String, chooserTitle: String?) -> Unit {
+actual fun rememberShareText(
+    anchorInWindow: () -> Rect?,
+): (text: String, chooserTitle: String?) -> Unit {
     val context = LocalContext.current
     return { text, chooserTitle ->
         val send =

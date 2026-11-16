@@ -6,6 +6,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +23,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,12 +52,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -62,37 +72,33 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.PickedImage
-import io.github.nodyssey.data.composer.UploadFailure
+import io.github.nodyssey.ui.common.NativePopGuardEffect
 import io.github.nodyssey.ui.common.describedAsLoading
-import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_preview
 import io.github.nodyssey.ui.resources.action_publish
-import io.github.nodyssey.ui.resources.action_retry
+import io.github.nodyssey.ui.resources.action_undo
 import io.github.nodyssey.ui.resources.composer_image_default_name
-import io.github.nodyssey.ui.resources.composer_publish_challenge
-import io.github.nodyssey.ui.resources.composer_publish_http
-import io.github.nodyssey.ui.resources.composer_publish_login_required
-import io.github.nodyssey.ui.resources.composer_publish_network_failed
 import io.github.nodyssey.ui.resources.composer_publishing
 import io.github.nodyssey.ui.resources.post_quote_prefix
 import io.github.nodyssey.ui.resources.post_quote_reply
+import io.github.nodyssey.ui.resources.post_reply_clear_draft
+import io.github.nodyssey.ui.resources.post_reply_draft_cleared
 import io.github.nodyssey.ui.resources.post_reply_draft_saved
 import io.github.nodyssey.ui.resources.post_reply_editor_hint
 import io.github.nodyssey.ui.resources.post_reply_editor_title
 import io.github.nodyssey.ui.resources.post_reply_editor_title_to_floor
 import io.github.nodyssey.ui.resources.post_reply_preview_title
 import io.github.nodyssey.ui.resources.post_reply_preview_title_floor
-import io.github.nodyssey.ui.resources.post_reply_publish_failed
 import io.github.nodyssey.ui.resources.post_reply_publish_unavailable
 import io.github.nodyssey.ui.resources.post_reply_quote_remove
 import io.github.nodyssey.ui.stardust.StardustReceiveComposeDialog
 import io.github.nodyssey.ui.vote.VoteComposeDialog
 import io.github.plaza.core.TimeFormat
-import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.AdaptiveGlassTopBar
 import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.InlineBanner
@@ -101,7 +107,7 @@ import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.QuotePreview
-import io.github.plaza.designsys.component.StatusAction
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.editor.ComposerEditorBar
 import io.github.plaza.designsys.editor.EditorAction
@@ -172,6 +178,8 @@ fun ReplyComposerHost(
     payeeUid: () -> Long?,
     onInsertReceiveCode: (Int, Long, String, Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onDiscardDraft: () -> Unit = {},
+    onUndoDiscard: () -> Unit = {},
 ) {
     // Above the early return on purpose: the host stays composed while the sheet is closed, so
     // this is the one place the recents survive both the emoji panel and the sheet being dismissed.
@@ -180,6 +188,7 @@ fun ReplyComposerHost(
     // recents are what outlive the dismissal, not a half-open drawer.
     LaunchedEffect(state.visible) { if (!state.visible) editorState.closePanels() }
     if (!state.visible || covered) return
+    NativePopGuardEffect(blocked = state.isPublishing && !state.previewing)
     // Hosted here rather than inside the editor sheet: it is a sheet too, and a sheet opened from
     // inside another sheet's content stacks two dialog windows for no reason. As siblings the wrench
     // panel simply covers the editor, which is what it should look like anyway.
@@ -239,6 +248,8 @@ fun ReplyComposerHost(
             onCustomize = { customizing = true },
             onInsertVote = { composingVote = true },
             onInsertStardust = { composingReceiveCode = true },
+            onDiscardDraft = onDiscardDraft,
+            onUndoDiscard = onUndoDiscard,
         )
     }
 
@@ -301,6 +312,8 @@ private fun ReplyEditorSheet(
     onCustomize: () -> Unit,
     onInsertVote: () -> Unit,
     onInsertStardust: () -> Unit,
+    onDiscardDraft: () -> Unit,
+    onUndoDiscard: () -> Unit,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val stickerPictures = rememberStickerPictures()
@@ -318,6 +331,10 @@ private fun ReplyEditorSheet(
     val asCard =
         with(density) {
             windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
+        }
+    val maxEditorHeight =
+        with(density) {
+            (windowSize.height.toDp() * 0.34f).coerceIn(120.dp, MAX_EDITOR_HEIGHT)
         }
     val dismiss = { if (!state.isPublishing) onDismiss() }
     val nativeGlass = LocalPlazaLayers.current.nativeGlass
@@ -352,6 +369,19 @@ private fun ReplyEditorSheet(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (bodyState.text.isNotBlank() || state.replyTo != null || state.savedAtMillis != null || state.attachments.isNotEmpty()) {
+                    IconButton(
+                        onClick = onDiscardDraft,
+                        enabled = !state.isPublishing,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(Res.string.post_reply_clear_draft),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
                 IconButton(
                     onClick = {
                         // The preview covers the sheet, so the IME has to be gone before it rises —
@@ -374,71 +404,92 @@ private fun ReplyEditorSheet(
                     onClick = onPublish,
                 )
             }
-            // The dismissible 回复 target (6d), recessed into the sheet (2c): it is a reference to
-            // something outside the reply, not part of it. Only 回复 gets one, because only 回复 is a
-            // property of the comment as a whole; a 引用 is text in the body, visible and editable
-            // there, and a chip would imply it could be dismissed the same way.
-            state.replyTo?.let { replyTo ->
-                QuotePreview(
-                    title = stringResource(Res.string.post_quote_reply, replyTo.author, "#${replyTo.floor}"),
-                    excerpt = replyTo.excerpt,
-                    leading = {
-                        Icon(
-                            PlazaIcons.FormatQuote,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    },
-                    inset = true,
-                    onRemove = onClearReplyTo,
-                    removeLabel = stringResource(Res.string.post_reply_quote_remove),
-                    modifier = Modifier.padding(horizontal = Spacing.md),
-                )
-            }
-            // The default container fills the width it was given, which is what this field needs:
-            // `readableWidth` centres what it wraps, so a decoration that measured to its content
-            // would centre a half-typed reply.
-            EditorTextField(
-                state = bodyState,
-                hint = stringResource(Res.string.post_reply_editor_hint),
-                textStyle = CommentBody.copy(color = MaterialTheme.colorScheme.onSurface),
-                hintStyle = CommentBody,
-                inlinePictures = stickerPictures,
+            Column(
                 modifier = Modifier
-                    .readableWidth()
-                    .heightIn(min = MIN_EDITOR_HEIGHT, max = MAX_EDITOR_HEIGHT)
-                    .focusRequester(bodyFocus)
-                    .padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.sm),
-            )
-            AttachmentTray(
-                attachments = state.attachments,
-                onRemove = onRemoveAttachment,
-                onRetry = onRetryAttachment,
-            )
-            // Under the text it describes rather than in the header (2c), where it used to crowd
-            // the title out of the one row that also carries 预览 and 发布.
-            state.savedAtMillis?.let {
-                Text(
-                    text = stringResource(Res.string.post_reply_draft_saved, formatTime(it)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm),
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                // The dismissible 回复 target (6d), recessed into the sheet (2c): it is a reference to
+                // something outside the reply, not part of it. Only 回复 gets one, because only 回复 is a
+                // property of the comment as a whole; a 引用 is text in the body, visible and editable
+                // there, and a chip would imply it could be dismissed the same way.
+                state.replyTo?.let { replyTo ->
+                    QuotePreview(
+                        title = stringResource(Res.string.post_quote_reply, replyTo.author, "#${replyTo.floor}"),
+                        excerpt = replyTo.excerpt,
+                        leading = {
+                            Icon(
+                                PlazaIcons.FormatQuote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                        inset = true,
+                        onRemove = onClearReplyTo,
+                        removeLabel = stringResource(Res.string.post_reply_quote_remove),
+                        modifier = Modifier.padding(horizontal = Spacing.md),
+                    )
+                }
+                // The default container fills the width it was given, which is what this field needs:
+                // `readableWidth` centres what it wraps, so a decoration that measured to its content
+                // would centre a half-typed reply.
+                EditorTextField(
+                    state = bodyState,
+                    hint = stringResource(Res.string.post_reply_editor_hint),
+                    textStyle = CommentBody.copy(color = MaterialTheme.colorScheme.onSurface),
+                    hintStyle = CommentBody,
+                    inlinePictures = stickerPictures,
+                    modifier = Modifier
+                        .readableWidth()
+                        .heightIn(min = MIN_EDITOR_HEIGHT, max = maxEditorHeight)
+                        .focusRequester(bodyFocus)
+                        .padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.sm),
+                )
+                AttachmentTray(
+                    attachments = state.attachments,
+                    onRemove = onRemoveAttachment,
+                    onRetry = onRetryAttachment,
+                )
+                // Under the text it describes rather than in the header (2c), where it used to crowd
+                // the title out of the one row that also carries 预览 and 发布.
+                state.savedAtMillis?.let {
+                    Text(
+                        text = stringResource(Res.string.post_reply_draft_saved, formatTime(it)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm),
+                    )
+                }
+                if (state.canUndoClear) {
+                    InlineBanner(
+                        text = stringResource(Res.string.post_reply_draft_cleared),
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                        action = {
+                            TextButton(onClick = onUndoDiscard, contentPadding = PaddingValues(horizontal = Spacing.md)) {
+                                Text(stringResource(Res.string.action_undo), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            }
+                        },
+                    )
+                }
+                ComposerErrorBanner(
+                    error = state.publishError,
+                    detail = state.publishErrorDetail,
+                    failedUploads = state.failedUploadCount,
+                    uploadFailure = state.uploadFailure,
+                    uploadErrorDetail = state.uploadErrorDetail,
+                    onRetryPublish = onPublish,
+                    onRetryUploads = onRetryFailedUploads,
+                    onDismiss = onClearError,
+                    onSignIn = onSignIn,
+                    onVerify = onVerify,
+                    fallbackErrorText = stringResource(Res.string.post_reply_publish_unavailable),
+                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs),
                 )
             }
-            ComposerErrorStrip(
-                error = state.publishError,
-                detail = state.publishErrorDetail,
-                failedUploads = state.failedUploadCount,
-                uploadFailure = state.uploadFailure,
-                uploadErrorDetail = state.uploadErrorDetail,
-                onRetryPublish = onPublish,
-                onRetryUploads = onRetryFailedUploads,
-                onDismiss = onClearError,
-                onSignIn = onSignIn,
-                onVerify = onVerify,
-                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs),
-            )
             ComposerEditorBar(
                 actions = state.toolbar.enabled,
                 bodyState = bodyState,
@@ -467,7 +518,14 @@ private fun ReplyEditorSheet(
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current
     if (asCard) {
-        Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Dialog(
+            onDismissRequest = dismiss,
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = !state.isPublishing,
+                dismissOnClickOutside = !state.isPublishing,
+            ),
+        ) {
             // The keyboard pushes the card up rather than covering its bottom, where 发布's strip is.
             Box(
                 modifier = Modifier.imePadding().padding(Spacing.lg),
@@ -494,13 +552,20 @@ private fun ReplyEditorSheet(
             }
         }
     } else {
+        val currentPublishing by rememberUpdatedState(state.isPublishing)
         ModalBottomSheet(
-            // Guarded like the close button and the BackHandler: while a publish is in flight, a swipe
-            // or scrim tap must not be the one dismiss path that still works.
+            // Guarded like the close button and the BackHandler: while a publish is in flight, a
+            // swipe, back press, or scrim tap must not hide the sheet before publish settles.
             onDismissRequest = dismiss,
             sheetState = rememberBottomSheetState(
                 initialValue = SheetValue.Hidden,
                 enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+                confirmValueChange = { target -> !currentPublishing || target != SheetValue.Hidden },
+            ),
+            sheetGesturesEnabled = !state.isPublishing,
+            properties = ModalBottomSheetProperties(
+                shouldDismissOnBackPress = !state.isPublishing,
+                shouldDismissOnClickOutside = !state.isPublishing,
             ),
             // A sheet of paper, like the post editor's page (2c): the editor is one card lifted over the
             // thread, and only its bar and the emoji panel under it recede.
@@ -526,38 +591,107 @@ private fun ReplyPreviewScreen(
     onSignIn: (() -> Unit)?,
     onVerify: ((String) -> Unit)?,
 ) {
+    val density = LocalDensity.current
+    val edgeWidthPx = with(density) { PREVIEW_SWIPE_EDGE_WIDTH.toPx() }
+    val triggerDistancePx = with(density) { PREVIEW_SWIPE_TRIGGER.toPx() }
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val previewTitle = state.replyTo?.let {
+        stringResource(Res.string.post_reply_preview_title_floor, it.floor)
+    } ?: stringResource(Res.string.post_reply_preview_title)
+    val publishText = stringResource(if (state.isPublishing) Res.string.composer_publishing else Res.string.action_publish)
     PlazaBackHandler(enabled = !state.isPublishing, onBack = onBack)
-    Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
-        Column {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = state.replyTo?.let {
-                            stringResource(Res.string.post_reply_preview_title_floor, it.floor)
-                        } ?: stringResource(Res.string.post_reply_preview_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontSize = 16.sp,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack, enabled = !state.isPublishing) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
+    NativePopGuardEffect(
+        blocked = true,
+        onBlockedAttempt = {
+            if (!state.isPublishing) onBack()
+        },
+    )
+    Surface(
+        color = surfaceColor,
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(state.isPublishing) {
+                if (state.isPublishing) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    if (down.position.x > edgeWidthPx) return@awaitEachGesture
+                    var totalDragX = 0f
+                    val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
+                        if (over > 0f) {
+                            totalDragX += over
+                            change.consume()
+                        }
+                    } ?: return@awaitEachGesture
+                    if (totalDragX >= triggerDistancePx) {
+                        onBack()
+                        return@awaitEachGesture
                     }
-                },
-                actions = {
-                    PublishReplyButton(
-                        isPublishing = state.isPublishing,
-                        enabled = state.canPublish,
-                        onClick = onPublish,
-                        modifier = Modifier.padding(end = Spacing.sm),
+                    var triggered = false
+                    horizontalDrag(drag.id) { change ->
+                        totalDragX += change.positionChange().x
+                        if (totalDragX >= triggerDistancePx && !triggered) {
+                            triggered = true
+                            change.consume()
+                            onBack()
+                        }
+                    }
+                }
+            },
+    ) {
+        Column {
+            ReadableTopBar { barInsets ->
+                AdaptiveGlassTopBar(
+                    title = previewTitle,
+                    titleAction = null,
+                    back = GlassAction(
+                        label = stringResource(Res.string.action_back),
+                        onClick = { if (!state.isPublishing) onBack() },
+                        symbol = "chevron.backward",
+                        enabled = !state.isPublishing,
+                    ),
+                    actions = listOf(
+                        GlassAction(
+                            label = publishText,
+                            title = publishText,
+                            onClick = onPublish,
+                            enabled = state.canPublish,
+                            prominent = true,
+                            loading = state.isPublishing,
+                        ),
+                    ),
+                    containerColor = surfaceColor,
+                    modifier = Modifier.fillMaxWidth().background(surfaceColor).windowInsetsPadding(barInsets).height(PREVIEW_TOP_BAR_HEIGHT),
+                ) {
+                    TopAppBar(
+                        windowInsets = barInsets,
+                        title = {
+                            Text(
+                                text = previewTitle,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontSize = 16.sp,
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onBack, enabled = !state.isPublishing) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(Res.string.action_back),
+                                )
+                            }
+                        },
+                        actions = {
+                            PublishReplyButton(
+                                isPublishing = state.isPublishing,
+                                enabled = state.canPublish,
+                                onClick = onPublish,
+                                modifier = Modifier.padding(end = Spacing.sm),
+                            )
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = surfaceColor),
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
-            ComposerErrorStrip(
+                }
+            }
+            ComposerErrorBanner(
                 error = state.publishError,
                 detail = state.publishErrorDetail,
                 failedUploads = 0,
@@ -568,6 +702,7 @@ private fun ReplyPreviewScreen(
                 onDismiss = onClearError,
                 onSignIn = onSignIn,
                 onVerify = onVerify,
+                fallbackErrorText = stringResource(Res.string.post_reply_publish_unavailable),
                 modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs),
             )
             Column(
@@ -592,72 +727,6 @@ private fun ReplyPreviewScreen(
             }
         }
     }
-}
-
-/**
- * Failures, inline.
- *
- * The post editor puts these on a Snackbar; the reply editor cannot, because its own sheet is a
- * separate window that a Snackbar would appear behind. Inline also keeps the message on screen
- * next to the text it is talking about, which for "草稿已保留" is the reassurance that matters.
- */
-@Composable
-private fun ComposerErrorStrip(
-    error: SiteError?,
-    detail: String?,
-    failedUploads: Int,
-    uploadFailure: UploadFailure?,
-    uploadErrorDetail: String?,
-    onRetryPublish: () -> Unit,
-    onRetryUploads: () -> Unit,
-    onDismiss: () -> Unit,
-    onSignIn: (() -> Unit)?,
-    onVerify: ((String) -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    val message = when {
-        error != null -> stringResource(Res.string.post_reply_publish_failed, replyErrorReason(error, detail))
-        failedUploads > 0 -> uploadFailureText(failedUploads, uploadFailure, uploadErrorDetail)
-        else -> return
-    }
-    // A refused publish keeps whatever the reader typed, so the button has to be the one that makes
-    // sending possible again — 重试 on a Cloudflare wall re-sent the same reply into the same wall,
-    // with the draft still sitting there and no way forward.
-    val action =
-        if (error != null) {
-            siteErrorRecovery(
-                error = error,
-                onVerify = onVerify?.let { verify ->
-                    { url: String ->
-                        onDismiss()
-                        verify(url)
-                    }
-                },
-                onSignIn = onSignIn?.let { signIn ->
-                    {
-                        onDismiss()
-                        signIn()
-                    }
-                },
-                onRetry = {
-                    onDismiss()
-                    onRetryPublish()
-                },
-            )
-        } else {
-            StatusAction(stringResource(Res.string.action_retry), onRetryUploads)
-        }
-    InlineBanner(
-        text = message,
-        modifier = modifier,
-        action = action?.let {
-            {
-                TextButton(onClick = it.onClick, contentPadding = PaddingValues(horizontal = Spacing.md)) {
-                    Text(it.label, color = MaterialTheme.colorScheme.onErrorContainer)
-                }
-            }
-        },
-    )
 }
 
 @Composable
@@ -724,31 +793,13 @@ private fun PublishReplyButton(
     }
 }
 
-@Composable
-private fun replyErrorReason(error: SiteError, detail: String?): String = when (error) {
-    SiteError.Network -> stringResource(Res.string.composer_publish_network_failed)
-
-    SiteError.LoginRequired -> stringResource(Res.string.composer_publish_login_required)
-
-    is SiteError.Cloudflare -> stringResource(Res.string.composer_publish_challenge)
-
-    // The site's own sentence beats a status code whenever it sent one: a rejected reply comes back
-    // as a 400 carrying "内容不能为空" or the duplicate-post refusal, and "服务器返回 HTTP 400"
-    // would tell the user nothing they can act on.
-    is SiteError.Http ->
-        detail?.takeIf { it.isNotBlank() }
-            ?: stringResource(Res.string.composer_publish_http, error.statusCode)
-
-    else -> detail?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.post_reply_publish_unavailable)
-}
-
-// `TimeFormat.clock` rather than `java.text.DateFormat`, which is not the only reason it changed:
-// the stamp is now 24-hour on every device instead of following the locale's short form. It is the
-// same `09:44` a message bubble already carries, and this is the app's only other one.
 private fun formatTime(timestamp: Long): String = TimeFormat.clock(timestamp)
 
 private val MIN_EDITOR_HEIGHT = 80.dp
 private val MAX_EDITOR_HEIGHT = 260.dp
+private val PREVIEW_TOP_BAR_HEIGHT = 48.dp
+private val PREVIEW_SWIPE_EDGE_WIDTH = 28.dp
+private val PREVIEW_SWIPE_TRIGGER = 48.dp
 private const val SLIDE_FRACTION = 6
 
 /** From here on, in both directions, the reply editor is a centred card rather than a bottom sheet. */

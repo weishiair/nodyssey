@@ -11,3 +11,5 @@ internal actual val platformGlassRenderer: GlassRenderer =
     } else {
         GlassRenderer.Opaque
     }
+
+internal actual val platformSupportsNativeChrome: Boolean = true

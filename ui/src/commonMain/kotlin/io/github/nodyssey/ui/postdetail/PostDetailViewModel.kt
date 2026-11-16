@@ -839,7 +839,14 @@ class PostDetailViewModel(
         updateState { it.copy(collectPending = true, collectFailure = null) }
         viewModelScope.launch {
             runCatchingExceptCancellation { repository.setCollected(postId, !current) }
-                .onSuccess { updateState { it.copy(collectPending = false) } }
+                .onSuccess {
+                    updateState {
+                        it.copy(
+                            collectPending = false,
+                            collectMessage = !current,
+                        )
+                    }
+                }
                 .onFailure { throwable ->
                     updateState {
                         it.copy(
@@ -865,6 +872,7 @@ class PostDetailViewModel(
         viewModelScope.launch {
             if (state.tracked == true) {
                 store.untrack(postId)
+                updateState { it.copy(trackMessage = TrackMessage.UNTRACKED) }
                 return@launch
             }
             val complete = state.hasContent && !state.hasNextPage && state.lastLoadedPage >= state.totalPages
@@ -884,6 +892,10 @@ class PostDetailViewModel(
 
     fun onTrackMessageShown() {
         updateState { it.copy(trackMessage = null) }
+    }
+
+    fun onCollectMessageShown() {
+        updateState { it.copy(collectMessage = null) }
     }
 
     /** The collection failure has been shown; stop holding it. */
@@ -1088,6 +1100,8 @@ data class PostDetailUiState(
     val isAwarded: Boolean = false,
     /** A collection toggle is in flight, so the star refuses a second tap until it lands. */
     val collectPending: Boolean = false,
+    /** Set when a collection toggle succeeds (true = collected, false = removed); held until shown. */
+    val collectMessage: Boolean? = null,
     /** A refused collection toggle, held until the screen has shown it once. */
     val collectFailure: ReactionFailure? = null,
     /** Whether 追踪新回复 is on for this thread; null where this build cannot follow threads. */
@@ -1184,7 +1198,7 @@ internal fun PostDetailUiState.readingView(): PostDetailUiState {
     )
 }
 
-enum class TrackMessage { TRACKED, FULL }
+enum class TrackMessage { TRACKED, UNTRACKED, FULL }
 
 /**
  * The highest floor number on the thread's last page, when that page is loaded — the one moment the

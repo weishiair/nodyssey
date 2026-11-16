@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
 package io.github.nodyssey.ui.common
 
 import androidx.compose.runtime.Composable
@@ -7,9 +9,11 @@ import androidx.compose.ui.graphics.asSkiaBitmap
 import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.core.toNSData
+import kotlinx.cinterop.useContents
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
+import platform.CoreGraphics.CGRectMake
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIImage
 import platform.UIKit.popoverPresentationController
@@ -34,7 +38,12 @@ actual fun rememberShareImage(dispatchers: AppDispatchers): suspend (image: Imag
                 val host = topmostViewController() ?: error("No controller to present from")
                 val sheet = UIActivityViewController(activityItems = listOf(picture), applicationActivities = null)
                 // The iPad presentation is a popover and needs an anchor; see `rememberShareText`.
-                sheet.popoverPresentationController?.sourceView = host.view
+                sheet.popoverPresentationController?.let { popover ->
+                    popover.sourceView = host.view
+                    popover.sourceRect = host.view.bounds.useContents {
+                        CGRectMake(size.width / 2.0, size.height / 2.0, 1.0, 1.0)
+                    }
+                }
                 host.presentViewController(sheet, animated = true, completion = null)
             }.isSuccess
         }

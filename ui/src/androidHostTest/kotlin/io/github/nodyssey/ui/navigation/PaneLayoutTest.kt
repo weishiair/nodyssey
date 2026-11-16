@@ -55,4 +55,11 @@ class PaneLayoutTest {
         val stack = listOf("settings", "list", "thread1", "thread2", "about", "list-space")
         assertEquals(stack.size, paneGroups(stack, expanded = true, ::kindOf).sumOf { it.size })
     }
+
+    @Test
+    fun `split popCheckIndices inspect rightmost details down to the list entry`() {
+        assertEquals(listOf(4, 3, 2), Split(listIndex = 2, detailCount = 2).popCheckIndices().toList())
+        assertEquals(listOf(0), Split(listIndex = 0, detailCount = 0).popCheckIndices().toList())
+        assertEquals(listOf(1), Single(index = 1).popCheckIndices().toList())
+    }
 }

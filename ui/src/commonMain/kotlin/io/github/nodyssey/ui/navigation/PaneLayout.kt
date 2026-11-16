@@ -60,3 +60,12 @@ internal fun <K> paneGroups(
     }
     return groups
 }
+
+/**
+ * Stack indices owned by this group in top-down order (topmost right-pane detail down to the list
+ * entry), so popping the outer group checks active detail pop guards before the list's own guard.
+ */
+internal fun PaneGroup.popCheckIndices(): IntProgression = when (this) {
+    is PaneGroup.Single -> index..index
+    is PaneGroup.Split -> (listIndex + detailCount) downTo listIndex
+}

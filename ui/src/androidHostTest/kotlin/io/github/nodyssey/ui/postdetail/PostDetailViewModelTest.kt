@@ -1579,6 +1579,37 @@ class PostDetailViewModelTest {
         }
 
     @Test
+    fun `collect success and untrack emit clear state messages until consumed`() =
+        runTest(dispatcher) {
+            remote.detailResult = { postId, page ->
+                FakePostRemoteDataSource.detail(postId, page, collected = false, collectionCount = 6)
+            }
+            val tracked = TrackedThreadStore(database.trackedThreadDao(), clock)
+            tracked.track(42, "thread 42", commentCount = 1)
+            val collecting = CollectingRepository(repository)
+            val vm =
+                PostDetailViewModel(
+                    postId = 42,
+                    repository = collecting,
+                    session = session,
+                    trackedThreads = tracked,
+                )
+            advanceUntilIdle()
+
+            vm.toggleCollect()
+            advanceUntilIdle()
+            assertEquals(true, vm.uiState.value.collectMessage)
+            vm.onCollectMessageShown()
+            assertNull(vm.uiState.value.collectMessage)
+
+            vm.toggleTrack()
+            advanceUntilIdle()
+            assertEquals(TrackMessage.UNTRACKED, vm.uiState.value.trackMessage)
+            vm.onTrackMessageShown()
+            assertNull(vm.uiState.value.trackMessage)
+        }
+
+    @Test
     fun `fetches the opening post author's level and joined days`() =
         runTest(dispatcher) {
             val profiles =

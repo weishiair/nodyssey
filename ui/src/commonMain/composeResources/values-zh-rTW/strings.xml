@@ -1858,4 +1858,16 @@
     <string name="about_open_releases">查看版本與下載</string>
     <string name="about_ios_update_hint">下載新版 IPA 後，請使用原有的簽章工具安裝。</string>
     <string name="notify_saved_alerts_section">已儲存的提醒規則</string>
+    <string name="action_undo">復原</string>
+    <string name="composer_new_title">寫新帖</string>
+    <string name="composer_edit_title">編輯內容</string>
+    <string name="composer_discard_edit_title">放棄未儲存的修改？</string>
+    <string name="composer_discard_edit_body">目前修改尚未儲存，離開後將遺失。</string>
+    <string name="composer_discard_edit_confirm">放棄修改</string>
+    <string name="composer_continue_editing">繼續編輯</string>
+    <string name="post_reply_clear_draft">清空草稿</string>
+    <string name="post_reply_draft_cleared">已清空回覆草稿</string>
+    <string name="post_collected_feedback">已加入收藏</string>
+    <string name="post_uncollected_feedback">已取消收藏</string>
+    <string name="post_untracked">已取消追蹤</string>
 </resources>

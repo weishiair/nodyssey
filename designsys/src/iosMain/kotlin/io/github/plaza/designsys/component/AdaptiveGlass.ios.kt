@@ -2,31 +2,43 @@
 
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.viewinterop.remeasureRequester
 import androidx.compose.ui.viewinterop.rememberUIKitInteropRemeasureRequester
+import io.github.plaza.designsys.nativeglass.plaza_configure_bar_item_style
 import io.github.plaza.designsys.nativeglass.plaza_glass_button_configuration
 import io.github.plaza.designsys.nativeglass.plaza_glass_effect
+import io.github.plaza.designsys.nativeglass.plaza_make_bar_spinner
+import io.github.plaza.designsys.nativeglass.plaza_make_subtitle_view
+import io.github.plaza.designsys.nativeglass.plaza_set_bar_item_selected
 import io.github.plaza.designsys.nativeglass.plaza_set_glass_capsule
+import io.github.plaza.designsys.nativeglass.plaza_update_subtitle_view
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.nativeGlass
+import platform.UIKit.NSForegroundColorAttributeName
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.NSLineBreakByTruncatingTail
 import platform.UIKit.UIAccessibilityAnnouncementNotification
 import platform.UIKit.UIAccessibilityPostNotification
 import platform.UIKit.UIAction
+import platform.UIKit.UIActivityIndicatorView
 import platform.UIKit.UIBarButtonItem
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
@@ -60,6 +72,12 @@ import platform.UIKit.labelColor
 // glass would sample an empty rectangle instead of the Compose content scrolling behind the button.
 private val NativeGlassInterop = UIKitInteropProperties(
     interactionMode = UIKitInteropInteractionMode.NonCooperative,
+    isNativeAccessibilityEnabled = true,
+    placedAsOverlay = true,
+)
+
+private val CooperativeOverlayInterop = UIKitInteropProperties(
+    interactionMode = UIKitInteropInteractionMode.Cooperative,
     isNativeAccessibilityEnabled = true,
     placedAsOverlay = true,
 )
@@ -121,67 +139,79 @@ actual fun AdaptiveGlassTopBar(
     back: GlassAction?,
     actions: List<GlassAction>,
     modifier: Modifier,
+    subtitle: String?,
+    containerColor: Color,
     fallback: @Composable () -> Unit,
 ) {
-    if (!LocalPlazaLayers.current.nativeGlass) {
+    val layers = LocalPlazaLayers.current
+    if (!layers.nativeChrome) {
         fallback()
         return
     }
     val dark = LocalPlazaDarkTheme.current
     val accent = MaterialTheme.colorScheme.primary
     val scale = LocalPlazaFontScale.current
-    val currentBack by rememberUpdatedState(back)
-    val currentActions by rememberUpdatedState(actions)
-    val currentTitleAction by rememberUpdatedState(titleAction)
     val foreground = MaterialTheme.colorScheme.onSurface
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val background = if (containerColor.isSpecified) containerColor else layers.page
+    val host = remember { NativeTopBarHost() }
     UIKitView(
-        factory = {
-            UINavigationBar().apply {
-                // Compose is not a UIScrollView, so automatic scroll-edge tracking cannot choose
-                // the background. Use the standard system material in both bar appearances.
-                val appearance = UINavigationBarAppearance().apply { configureWithDefaultBackground() }
-                standardAppearance = appearance
-                scrollEdgeAppearance = appearance
-            }
-        },
+        factory = { host.bar },
         modifier = modifier,
         properties = NativeGlassInterop,
-        update = { bar ->
-            bar.overrideUserInterfaceStyle = interfaceStyle(dark)
-            bar.tintColor = accent.toUIColor()
-            bar.titleTextAttributes = mapOf(
-                platform.UIKit.NSFontAttributeName to
-                    UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(17.0 * scale)),
+        update = {
+            host.update(
+                title = title,
+                subtitle = subtitle,
+                titleAction = titleAction,
+                back = back,
+                actions = actions,
+                accent = accent.toUIColor(),
+                foreground = foreground.toUIColor(),
+                mutedForeground = muted.toUIColor(),
+                background = background,
+                nativeGlass = layers.nativeGlass,
+                dark = dark,
+                scale = scale,
             )
-            val item = UINavigationItem(title = title)
-            item.leftBarButtonItem = back?.barItem { currentBack }
-            item.rightBarButtonItems = actions.asReversed().map { action ->
-                action.barItem { currentActions.firstOrNull { it.label == action.label } }
-            }
-            if (titleAction != null) {
-                item.titleView = UIButton.buttonWithConfiguration(
-                    UIButtonConfiguration.plainButtonConfiguration().apply {
-                        this.title = title
-                        baseForegroundColor = foreground.toUIColor()
-                        titleLineBreakMode = NSLineBreakByTruncatingTail
-                        titleTextAttributesTransformer = { attributes ->
-                            attributes.orEmpty() + (
-                                platform.UIKit.NSFontAttributeName to
-                                    UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(17.0 * scale))
-                                )
-                        }
-                    },
-                    UIAction.actionWithHandler { currentTitleAction?.onClick?.invoke() },
-                ).apply {
-                    accessibilityLabel = titleAction.label
-                    titleLabel?.numberOfLines = 1
-                    titleLabel?.lineBreakMode = NSLineBreakByTruncatingTail
-                    setContentCompressionResistancePriority(UILayoutPriorityDefaultLow, forAxis = UILayoutConstraintAxisHorizontal)
-                }
-            }
-            bar.setItems(listOf(item), animated = false)
         },
     )
+}
+
+@Composable
+actual fun AdaptiveNativeMenu(
+    label: String,
+    actions: List<GlassMenuAction>,
+    modifier: Modifier,
+    enabled: Boolean,
+    cooperativeInScroll: Boolean,
+    fallback: @Composable (expanded: Boolean, onDismiss: () -> Unit) -> Unit,
+    trigger: @Composable (onClick: () -> Unit) -> Unit,
+) {
+    if (!LocalPlazaLayers.current.nativeChrome) {
+        var expanded by remember { mutableStateOf(false) }
+        Box(modifier) {
+            trigger { if (enabled) expanded = true }
+            fallback(expanded && enabled) { expanded = false }
+        }
+        return
+    }
+    val dark = LocalPlazaDarkTheme.current
+    val host = remember { NativeMenuOverlayHost() }
+    val active = enabled && actions.isNotEmpty()
+    Box(modifier) {
+        Box(if (active) Modifier.clearAndSetSemantics {} else Modifier) {
+            trigger {}
+        }
+        if (active) {
+            UIKitView(
+                factory = { host.view },
+                modifier = Modifier.matchParentSize(),
+                properties = if (cooperativeInScroll) CooperativeOverlayInterop else NativeGlassInterop,
+                update = { host.update(label, actions, dark) },
+            )
+        }
+    }
 }
 
 @Composable
@@ -271,21 +301,293 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
             }
         }
         val currentState = state
-        view.menu = action.menu.takeIf { it.isNotEmpty() }?.let { menu ->
-            UIMenu.menuWithChildren(
-                menu.map { item ->
-                    item.uiAction {
-                        // The menu may still be open when an async operation disables or changes an item.
-                        currentState.action.takeIf { it.enabled && !it.loading }
-                            ?.menu?.firstOrNull { it.label == item.label && it.enabled }?.onClick?.invoke()
-                    }
-                },
-            )
+        val nextMenuSignature = action.menu.signatures()
+        if (nextMenuSignature != lastMenuSignature) {
+            lastMenuSignature = nextMenuSignature
+            view.menu = action.menu.takeIf { it.isNotEmpty() }?.let { menu ->
+                buildNativeMenu(menu) {
+                    // The menu may still be open when an async operation disables or changes an item.
+                    currentState.action.takeIf { it.enabled && !it.loading }?.menu.orEmpty()
+                }
+            }
         }
         view.showsMenuAsPrimaryAction = action.menu.isNotEmpty()
         view.titleLabel?.numberOfLines = 1
         view.subtitleLabel?.numberOfLines = 1
         view.invalidateIntrinsicContentSize()
+    }
+
+    private var lastMenuSignature: List<MenuActionSignature> = emptyList()
+}
+
+/** Keeps one UIBarButtonItem + UINavigationItem alive across recompositions so open menus are never interrupted. */
+internal class NativeTopBarHost {
+    val bar: UINavigationBar = UINavigationBar()
+    internal val item: UINavigationItem = UINavigationItem(title = "")
+    private var lastNativeGlass: Boolean? = null
+    private var lastBackground: Color? = null
+    private var lastDark: Boolean? = null
+
+    private var leftHost: NativeBarItemHost? = null
+    private var rightHosts: List<NativeBarItemHost> = emptyList()
+
+    private val titleActionState = NativeGlassActionState(GlassAction("", {}))
+    private var titleButton: UIButton? = null
+    private var subtitleView: UIStackView? = null
+
+    init {
+        bar.setItems(listOf(item), animated = false)
+    }
+
+    fun update(
+        title: String,
+        subtitle: String?,
+        titleAction: GlassAction?,
+        back: GlassAction?,
+        actions: List<GlassAction>,
+        accent: UIColor,
+        foreground: UIColor,
+        mutedForeground: UIColor,
+        background: Color,
+        nativeGlass: Boolean,
+        dark: Boolean,
+        scale: Float,
+    ) {
+        if (nativeGlass != lastNativeGlass || background != lastBackground || dark != lastDark) {
+            lastNativeGlass = nativeGlass
+            lastBackground = background
+            lastDark = dark
+            val appearance = UINavigationBarAppearance().apply {
+                if (nativeGlass) {
+                    // Compose is not a UIScrollView, so automatic scroll-edge tracking cannot choose
+                    // the background. Use the standard system material in both bar appearances.
+                    configureWithDefaultBackground()
+                } else {
+                    configureWithOpaqueBackground()
+                    backgroundColor = background.toUIColor()
+                    shadowColor = UIColor.clearColor
+                }
+            }
+            bar.standardAppearance = appearance
+            bar.scrollEdgeAppearance = appearance
+        }
+        bar.overrideUserInterfaceStyle = interfaceStyle(dark)
+        bar.tintColor = accent
+        val scaledTitleFont = UIFontMetrics.defaultMetrics.scaledFontForFont(
+            UIFont.systemFontOfSize(17.0 * scale, weight = platform.UIKit.UIFontWeightSemibold),
+        )
+        bar.titleTextAttributes = mapOf(
+            platform.UIKit.NSFontAttributeName to scaledTitleFont,
+            NSForegroundColorAttributeName to foreground,
+        )
+
+        updateTitle(
+            title = title,
+            subtitle = subtitle,
+            titleAction = titleAction,
+            foreground = foreground,
+            mutedForeground = mutedForeground,
+            scale = scale,
+        )
+        updateLeft(back = back, accent = accent, foreground = foreground, scale = scale)
+        updateRight(actions = actions, accent = accent, foreground = foreground, scale = scale)
+    }
+
+    private fun updateTitle(
+        title: String,
+        subtitle: String?,
+        titleAction: GlassAction?,
+        foreground: UIColor,
+        mutedForeground: UIColor,
+        scale: Float,
+    ) {
+        if (titleAction != null) {
+            item.title = title
+            titleActionState.action = titleAction
+            val button = titleButton ?: createTitleButton().also { titleButton = it }
+            button.accessibilityLabel = titleAction.label
+            button.configuration = UIButtonConfiguration.plainButtonConfiguration().apply {
+                this.title = title
+                baseForegroundColor = foreground
+                titleLineBreakMode = NSLineBreakByTruncatingTail
+                titleTextAttributesTransformer = { attributes ->
+                    attributes.orEmpty() + (
+                        platform.UIKit.NSFontAttributeName to
+                            UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(17.0 * scale))
+                        )
+                }
+            }
+            if (item.titleView !== button) item.titleView = button
+            return
+        }
+        if (subtitle != null) {
+            item.title = title
+            val stack = subtitleView ?: plaza_make_subtitle_view().also { subtitleView = it }
+            val titleFont = UIFontMetrics.defaultMetrics.scaledFontForFont(
+                UIFont.systemFontOfSize(15.0 * scale, weight = platform.UIKit.UIFontWeightSemibold),
+            )
+            val subtitleFont = UIFontMetrics.defaultMetrics.scaledFontForFont(
+                UIFont.systemFontOfSize(11.0 * scale),
+            )
+            plaza_update_subtitle_view(
+                stack = stack,
+                title = title,
+                subtitle = subtitle,
+                titleColor = foreground,
+                subtitleColor = mutedForeground,
+                titleFont = titleFont,
+                subtitleFont = subtitleFont,
+            )
+            if (item.titleView !== stack) item.titleView = stack
+            return
+        }
+        if (item.titleView != null) item.titleView = null
+        if (item.title != title) item.title = title
+    }
+
+    private fun createTitleButton(): UIButton {
+        val state = titleActionState
+        return UIButton.buttonWithConfiguration(
+            UIButtonConfiguration.plainButtonConfiguration(),
+            UIAction.actionWithHandler {
+                state.action.takeIf { it.enabled && !it.loading }?.onClick?.invoke()
+            },
+        ).apply {
+            titleLabel?.numberOfLines = 1
+            titleLabel?.lineBreakMode = NSLineBreakByTruncatingTail
+            setContentCompressionResistancePriority(UILayoutPriorityDefaultLow, forAxis = UILayoutConstraintAxisHorizontal)
+        }
+    }
+
+    private fun updateLeft(back: GlassAction?, accent: UIColor, foreground: UIColor, scale: Float) {
+        if (back == null) {
+            if (leftHost != null) {
+                leftHost = null
+                item.leftBarButtonItem = null
+            }
+            return
+        }
+        val existing = leftHost
+        if (existing != null && existing.canReuse(back)) {
+            existing.update(back, accent, foreground)
+        } else {
+            val host = NativeBarItemHost(back).also { it.update(back, accent, foreground) }
+            leftHost = host
+            item.leftBarButtonItem = host.barItem
+        }
+    }
+
+    private fun updateRight(actions: List<GlassAction>, accent: UIColor, foreground: UIColor, scale: Float) {
+        val reversed = actions.asReversed()
+        val reusable = rightHosts.size == reversed.size &&
+            rightHosts.zip(reversed).all { (host, action) -> host.canReuse(action) }
+        if (reusable) {
+            rightHosts.zip(reversed).forEach { (host, action) -> host.update(action, accent, foreground) }
+            return
+        }
+        rightHosts = reversed.map { action ->
+            NativeBarItemHost(action).also { it.update(action, accent, foreground) }
+        }
+        item.rightBarButtonItems = rightHosts.map { it.barItem }
+    }
+}
+
+private enum class BarItemKind { LOADING, MENU, PLAIN }
+
+private fun GlassAction.barItemKind(): BarItemKind = when {
+    loading -> BarItemKind.LOADING
+    menu.isNotEmpty() -> BarItemKind.MENU
+    else -> BarItemKind.PLAIN
+}
+
+private class NativeBarItemHost(initial: GlassAction) {
+    private val kind = initial.barItemKind()
+    private val state = NativeGlassActionState(initial)
+    private var spinner: UIActivityIndicatorView? = null
+    private var lastMenuSignature: List<MenuActionSignature> = emptyList()
+
+    val barItem: UIBarButtonItem = when (kind) {
+        BarItemKind.LOADING -> {
+            val indicator = plaza_make_bar_spinner(null)
+            spinner = indicator
+            UIBarButtonItem(customView = indicator)
+        }
+
+        BarItemKind.MENU ->
+            if (initial.symbol != null) {
+                UIBarButtonItem(image = UIImage.systemImageNamed(initial.symbol), menu = null)
+            } else {
+                UIBarButtonItem(title = initial.title ?: initial.label, menu = null)
+            }
+
+        BarItemKind.PLAIN ->
+            UIBarButtonItem(primaryAction = state.primaryAction())
+    }
+
+    fun canReuse(next: GlassAction): Boolean {
+        if (next.barItemKind() != kind) return false
+        if (kind == BarItemKind.MENU) {
+            return (next.symbol != null) == (state.action.symbol != null)
+        }
+        return true
+    }
+
+    fun update(action: GlassAction, accent: UIColor, foreground: UIColor) {
+        state.action = action
+        barItem.accessibilityLabel = action.label
+        when (kind) {
+            BarItemKind.LOADING -> {
+                spinner?.color = foreground
+            }
+
+            BarItemKind.MENU -> {
+                barItem.enabled = action.enabled
+                barItem.title = action.title
+                barItem.image = action.symbol?.let { UIImage.systemImageNamed(it) }
+                val signature = action.menu.signatures()
+                if (signature != lastMenuSignature) {
+                    lastMenuSignature = signature
+                    val currentState = state
+                    barItem.menu = buildNativeMenu(action.menu) {
+                        currentState.action.takeIf { it.enabled && !it.loading }?.menu.orEmpty()
+                    }
+                }
+            }
+
+            BarItemKind.PLAIN -> {
+                barItem.enabled = action.enabled
+                barItem.title = action.title
+                barItem.image = action.symbol?.let { UIImage.systemImageNamed(it) }
+                barItem.tintColor = if (action.enabled) accent else null
+                plaza_configure_bar_item_style(barItem, action.prominent)
+                plaza_set_bar_item_selected(barItem, action.selected)
+            }
+        }
+    }
+}
+
+internal class NativeMenuOverlayHost {
+    private var actions: List<GlassMenuAction> = emptyList()
+    private var lastSignature: List<MenuActionSignature> = emptyList()
+    val view: UIButton = UIButton.buttonWithConfiguration(
+        UIButtonConfiguration.plainButtonConfiguration(),
+        UIAction.actionWithHandler {},
+    ).apply {
+        showsMenuAsPrimaryAction = true
+    }
+
+    fun update(label: String, nextActions: List<GlassMenuAction>, dark: Boolean) {
+        actions = nextActions
+        view.overrideUserInterfaceStyle = interfaceStyle(dark)
+        view.accessibilityLabel = label
+        view.enabled = nextActions.isNotEmpty()
+        val signature = nextActions.signatures()
+        if (signature != lastSignature) {
+            lastSignature = signature
+            view.menu = nextActions.takeIf { it.isNotEmpty() }?.let { menu ->
+                buildNativeMenu(menu) { actions }
+            }
+        }
     }
 }
 
@@ -390,23 +692,26 @@ private fun pin(child: UIView, parent: UIView, inset: Double) {
     )
 }
 
-private fun GlassAction.barItem(current: () -> GlassAction?): UIBarButtonItem {
-    val nativeMenu = menu.takeIf { it.isNotEmpty() }?.let { items ->
-        UIMenu.menuWithChildren(
-            items.map { item ->
-                item.uiAction { current()?.menu?.firstOrNull { it.label == item.label && it.enabled }?.onClick?.invoke() }
-            },
-        )
-    }
-    return if (nativeMenu != null) {
-        UIBarButtonItem(image = symbol?.let { UIImage.systemImageNamed(it) }, menu = nativeMenu)
-    } else {
-        UIBarButtonItem(primaryAction = UIAction.actionWithTitle(label, symbol?.let { UIImage.systemImageNamed(it) }, null) { current()?.takeIf { it.enabled && !it.loading }?.onClick?.invoke() })
-    }.apply {
-        enabled = this@barItem.enabled
-        accessibilityLabel = label
-    }
-}
+private data class MenuActionSignature(
+    val label: String,
+    val symbol: String?,
+    val enabled: Boolean,
+    val selected: Boolean,
+)
+
+private fun List<GlassMenuAction>.signatures(): List<MenuActionSignature> =
+    map { MenuActionSignature(it.label, it.symbol, it.enabled, it.selected) }
+
+private fun buildNativeMenu(
+    items: List<GlassMenuAction>,
+    currentItems: () -> List<GlassMenuAction>,
+): UIMenu = UIMenu.menuWithChildren(
+    items.map { item ->
+        item.uiAction {
+            currentItems().firstOrNull { it.label == item.label && it.enabled }?.onClick?.invoke()
+        }
+    },
+)
 
 private fun GlassMenuAction.uiAction(onSelect: () -> Unit): UIAction =
     UIAction.actionWithTitle(label, symbol?.let { UIImage.systemImageNamed(it) }, null) { onSelect() }.apply {

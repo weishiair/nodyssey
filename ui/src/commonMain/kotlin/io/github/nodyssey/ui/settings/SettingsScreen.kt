@@ -585,14 +585,16 @@ fun SettingsScreen(
                     onCheckedChange = onShowAuthorAccountInfoChange,
                     trailing = { GroupedListItemSwitch(checked = state.settings.showAuthorAccountInfo) },
                 )
-                GroupedRow(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
-                    title = stringResource(Res.string.settings_predictive_back),
-                    subtitle = stringResource(Res.string.settings_predictive_back_hint),
-                    checked = state.settings.predictiveBack,
-                    onCheckedChange = onPredictiveBackChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.predictiveBack) },
-                )
+                if (platformHasPredictiveBack) {
+                    GroupedRow(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        title = stringResource(Res.string.settings_predictive_back),
+                        subtitle = stringResource(Res.string.settings_predictive_back_hint),
+                        checked = state.settings.predictiveBack,
+                        onCheckedChange = onPredictiveBackChange,
+                        trailing = { GroupedListItemSwitch(checked = state.settings.predictiveBack) },
+                    )
+                }
                 SearchHistoryLimitSetting(state.settings.searchHistoryLimit, onSearchHistoryLimitChange)
                 onClipboardPostPromptChange?.let { onChange ->
                     GroupedRow(

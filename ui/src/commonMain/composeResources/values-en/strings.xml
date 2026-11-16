@@ -1866,4 +1866,16 @@
     <string name="about_open_releases">Versions and downloads</string>
     <string name="about_ios_update_hint">Download the new IPA, then install it with the signing tool you already use.</string>
     <string name="notify_saved_alerts_section">Saved alert rules</string>
+    <string name="action_undo">Undo</string>
+    <string name="composer_new_title">New post</string>
+    <string name="composer_edit_title">Edit</string>
+    <string name="composer_discard_edit_title">Discard unsaved changes?</string>
+    <string name="composer_discard_edit_body">Your edits have not been saved and will be lost if you leave.</string>
+    <string name="composer_discard_edit_confirm">Discard</string>
+    <string name="composer_continue_editing">Keep editing</string>
+    <string name="post_reply_clear_draft">Clear draft</string>
+    <string name="post_reply_draft_cleared">Reply draft cleared</string>
+    <string name="post_collected_feedback">Added to bookmarks</string>
+    <string name="post_uncollected_feedback">Removed from bookmarks</string>
+    <string name="post_untracked">Stopped tracking</string>
 </resources>

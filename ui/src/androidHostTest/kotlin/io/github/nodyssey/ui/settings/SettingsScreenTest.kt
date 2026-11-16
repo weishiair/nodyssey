@@ -1,14 +1,21 @@
 package io.github.nodyssey.ui.settings
 
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import io.github.nodyssey.data.settings.UserSettings
+import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.settings_predictive_back
 import io.github.plaza.designsys.theme.PlazaTheme
+import org.jetbrains.compose.resources.stringResource
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -103,5 +110,42 @@ class SettingsScreenTest {
 
         composeRule.waitForIdle()
         assertTrue(appliedScale != null)
+    }
+
+    @Test
+    fun `predictive back toggle follows platform capability`() {
+        var predictiveBackLabel = ""
+        composeRule.setContent {
+            PlazaTheme {
+                predictiveBackLabel = stringResource(Res.string.settings_predictive_back)
+                SettingsScreen(
+                    state = SettingsUiState(UserSettings()),
+                    onBack = {},
+                    onOpenTheme = {},
+                    onThemeModeChange = {},
+                    onReadMarkStyleChange = {},
+                    onReadMarkColorChange = {},
+                    onOneHandModeChange = {},
+                    onFontScaleChange = {},
+                    onStickerUniformSizeChange = {},
+                    onStickerSizeChange = {},
+                    onImagesOnWifiOnlyChange = {},
+                    onReportFormatChange = {},
+                    onHomePageBarChange = {},
+                    onUpdateCheckOnLaunchChange = {},
+                    onUpdateDevChannelChange = {},
+                    onClearCache = {},
+                    appLinkHandlingEnabled = null,
+                    onOpenAppLinkSettings = {},
+                )
+            }
+        }
+
+        assertTrue(platformHasPredictiveBack)
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(predictiveBackLabel))
+        assertEquals(
+            1,
+            composeRule.onAllNodes(hasText(predictiveBackLabel)).fetchSemanticsNodes().size,
+        )
     }
 }

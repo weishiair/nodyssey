@@ -104,6 +104,7 @@ class ReplyComposerViewModel(
 
     private var saveJob: Job? = null
     private var publishJob: Job? = null
+    private var clearedDraft: Pair<String, FloorReference?>? = null
 
     init {
         settings?.settings
@@ -117,6 +118,7 @@ class ReplyComposerViewModel(
             .launchIn(viewModelScope)
         uploads.uploaded
             .onEach { attachment ->
+                if (uploads.attachments.value.none { it.id == attachment.id }) return@onEach
                 val markdown = attachment.markdown ?: return@onEach
                 // At the caret, as in the post composer — see [insertBlockAtCaret].
                 bodyState.editFromViewModel { insertBlockAtCaret(markdown) }
@@ -133,9 +135,17 @@ class ReplyComposerViewModel(
      * intent, and silently answering the previous floor would be worse than losing the old context.
      */
     fun open(replyTo: FloorReference? = null) {
+        clearedDraft = null
         viewModelScope.launch {
             restoreDraft()
-            _uiState.update { it.copy(visible = true, previewing = false, replyTo = replyTo ?: it.replyTo) }
+            _uiState.update {
+                it.copy(
+                    visible = true,
+                    previewing = false,
+                    replyTo = replyTo ?: it.replyTo,
+                    canUndoClear = false,
+                )
+            }
         }
     }
 
@@ -148,13 +158,14 @@ class ReplyComposerViewModel(
      * quotes kept beside the text could do none of that, and would have to invent an order for them.
      */
     fun quote(floor: FloorReference) {
+        clearedDraft = null
         viewModelScope.launch {
             restoreDraft()
             bodyState.editFromViewModel {
                 appendBlock(floor.toQuoteBlock(postId))
                 placeCursorAtEnd()
             }
-            _uiState.update { it.copy(visible = true, previewing = false) }
+            _uiState.update { it.copy(visible = true, previewing = false, canUndoClear = false) }
         }
     }
 
@@ -241,7 +252,52 @@ class ReplyComposerViewModel(
     }
 
     fun close() {
-        _uiState.update { it.copy(visible = false, previewing = false) }
+        clearedDraft = null
+        _uiState.update { it.copy(visible = false, previewing = false, canUndoClear = false) }
+    }
+
+    /** Clears the current reply draft, cancels active uploads, and keeps one undo snapshot when text or replyTo existed. */
+    fun discardDraft() {
+        val state = _uiState.value
+        if (state.isPublishing) return
+        val currentBody = bodyState.text.toString()
+        val hasDraftContent = currentBody.isNotBlank() || state.replyTo != null
+        if (!hasDraftContent && state.attachments.isEmpty()) return
+        clearedDraft = if (hasDraftContent) currentBody to state.replyTo else null
+        saveJob?.cancel()
+        uploads.clear()
+        bodyState.editFromViewModel { replace(0, length, "") }
+        _uiState.update {
+            it.copy(
+                body = "",
+                replyTo = null,
+                savedAtMillis = null,
+                attachments = emptyList(),
+                publishError = null,
+                publishErrorDetail = null,
+                canUndoClear = hasDraftContent,
+            )
+        }
+        viewModelScope.launch { repository.deleteDraft(postId) }
+    }
+
+    /** Restores the draft cleared by [discardDraft] and schedules autosave again. */
+    fun undoDiscardDraft() {
+        val snapshot = clearedDraft ?: return
+        clearedDraft = null
+        val (restoredBody, restoredReplyTo) = snapshot
+        bodyState.editFromViewModel {
+            replace(0, length, restoredBody)
+            placeCursorAtEnd()
+        }
+        _uiState.update {
+            it.copy(
+                body = restoredBody,
+                replyTo = restoredReplyTo,
+                canUndoClear = false,
+            )
+        }
+        scheduleSave()
     }
 
     fun clearReplyTo() = mutate { it.copy(replyTo = null) }
@@ -282,6 +338,7 @@ class ReplyComposerViewModel(
                 )
             }.onSuccess { floor ->
                 saveJob?.cancel()
+                clearedDraft = null
                 repository.deleteDraft(postId)
                 // The field is not part of the state object, so resetting the state alone would leave
                 // the just-published text sitting in the editor for the next floor to inherit.
@@ -306,7 +363,8 @@ class ReplyComposerViewModel(
     }
 
     private fun mutate(transform: (ReplyComposerUiState) -> ReplyComposerUiState) {
-        _uiState.update(transform)
+        clearedDraft = null
+        _uiState.update { transform(it).copy(canUndoClear = false) }
         scheduleSave()
     }
 
@@ -374,6 +432,7 @@ data class ReplyComposerUiState(
     /** The formatting strip's keys and the wrench panel's pool. Defaults until settings arrive. */
     val toolbar: ToolbarLayout = toolbarLayout(emptyList(), EditorActions.Reply),
     val voteCreation: VoteCreationState = VoteCreationState.Idle,
+    val canUndoClear: Boolean = false,
 ) {
     val failedUploadCount: Int get() = attachments.count { it.status == UploadStatus.FAILED }
 

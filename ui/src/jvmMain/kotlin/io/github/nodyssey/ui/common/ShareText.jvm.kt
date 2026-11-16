@@ -1,6 +1,7 @@
 package io.github.nodyssey.ui.common
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Rect
 
 /**
  * No share sheet on a desktop, and the honest fallback would be a clipboard copy — which is a
@@ -8,4 +9,6 @@ import androidx.compose.runtime.Composable
  * quietly doing something else.
  */
 @Composable
-actual fun rememberShareText(): (text: String, chooserTitle: String?) -> Unit = { _, _ -> }
+actual fun rememberShareText(
+    anchorInWindow: () -> Rect?,
+): (text: String, chooserTitle: String?) -> Unit = { _, _ -> }

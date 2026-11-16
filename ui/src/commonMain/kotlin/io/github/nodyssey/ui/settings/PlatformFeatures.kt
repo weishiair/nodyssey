@@ -8,3 +8,6 @@ internal expect val platformHasUpdateChecks: Boolean
 
 /** Whether this shell downloads and installs updates inside the app. */
 internal expect val platformHasInAppUpdates: Boolean
+
+/** Whether this shell uses Compose Navigation 3's predictive back transition setting. */
+internal expect val platformHasPredictiveBack: Boolean
