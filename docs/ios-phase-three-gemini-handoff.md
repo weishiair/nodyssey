@@ -14,7 +14,7 @@
 
 三项合并后的代码提交为 `3f05536f`。本次不合入 dev/main，不改版本或发布测试包。上述分支保留，后续开发从最新集成线创建各自子分支。
 
-Mac 已完成双 iOS 目标编译、原生及定向回归，以及设置、阅读和横屏的实际操作检查；完整设备与辅助功能验收仍有缺口。先读 [3A Mac 验证记录](ios-phase-three-mac-validation.md) 和 [首页横屏验证记录](ios-home-landscape-validation.md)。本次允许在补验 3A 可执行项目、修复已复现基线回归后推进 3B 候选；缺设备的验收项目仍保留为整体验收缺口，不据此宣称 3A 完整通过。3C 另行安排。三个 PR 的完整 GitHub CI 已启动，交付时仍在运行，结果在各 PR 的 Checks 查看。
+Mac 已完成双 iOS 目标编译、原生及定向回归，以及设置、阅读和横屏的实际操作检查；完整设备与辅助功能验收仍有缺口。先读 [3A Mac 验证记录](ios-phase-three-mac-validation.md) 和 [首页横屏验证记录](ios-home-landscape-validation.md)。本次允许在补验 3A 可执行项目、修复已复现基线回归后推进 3B 候选；缺设备的验收项目仍保留为整体验收缺口，不据此宣称 3A 完整通过。3C 另行安排。2026-11-17 收尾时，三个 PR 的完整 GitHub CI 均已成功；具体 run ID 见新的我的页任务书。后续改动仍需运行受影响检查。
 
 Mac 新 shell 先执行 `source ~/.nodyssey/env.sh`。桌面 `Nodyssey 3A Validation` 模拟器已安装三项组合 App：`/Users/a092/Developer/nodyssey-ios/build/ios-home-landscape/Nodyssey.app`；保留设备与 Device Hub 窗口。具体本机路径及旧工作区状态见 `~/.nodyssey/MAC_HANDOFF.md`。
 
