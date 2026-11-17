@@ -46,6 +46,7 @@ import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import org.jetbrains.compose.resources.stringResource
 
@@ -79,7 +80,7 @@ internal fun ThemePreviewCard(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         Surface(
-            modifier = Modifier.cardShadow(shape, layers.shadows).fillMaxWidth(),
+            modifier = Modifier.cardShadow(shape, layers.shadows && !layers.nativeChrome).fillMaxWidth(),
             color = layers.card,
             shape = shape,
             border = layers.cardBorderStroke,
