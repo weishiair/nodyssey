@@ -36,13 +36,20 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeChrome
+import kotlinx.cinterop.CValue
+import kotlinx.cinterop.readValue
+import platform.CoreGraphics.CGPoint
+import platform.CoreGraphics.CGRectZero
+import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.UIColor
+import platform.UIKit.UIEvent
 import platform.UIKit.UIFont
 import platform.UIKit.UIFontMetrics
 import platform.UIKit.UIFontWeightMedium
 import platform.UIKit.UISegmentedControl
 import platform.UIKit.UISlider
 import platform.UIKit.UISwitch
+import platform.UIKit.UIView
 import platform.UIKit.accessibilityLabel
 import platform.UIKit.accessibilityValue
 import platform.UIKit.isAccessibilityElement
@@ -56,6 +63,15 @@ private fun settingsControlInterop(accessibilityEnabled: Boolean): UIKitInteropP
 
 private val SettingsSliderInterop = settingsControlInterop(accessibilityEnabled = true)
 private val SettingsSegmentedInterop = settingsControlInterop(accessibilityEnabled = true)
+
+// Compose's InteropWrappingView clips to Auto Layout's alignment rect, while iOS 26+ UISwitch
+// extends ~2pt past its trailing alignment inset (63pt visual vs 61pt intrinsic). Wrapping in a
+// non-clipping host view keeps the right capsule edge and Liquid Glass highlights intact.
+private const val SWITCH_CONTAINER_HORIZONTAL_INSET = 6.0
+private const val SWITCH_CONTAINER_VERTICAL_INSET = 4.0
+
+private val SettingsSliderMaxWidth = 248.dp
+private val SettingsSliderHorizontalPadding = 24.dp
 
 @Composable
 actual fun AdaptiveNativeSwitch(
@@ -77,7 +93,7 @@ actual fun AdaptiveNativeSwitch(
     val remeasure = rememberUIKitInteropRemeasureRequester()
     val interop = remember(accessibilityEnabled) { settingsControlInterop(accessibilityEnabled) }
     UIKitView(
-        factory = { host.view },
+        factory = { host.containerView },
         modifier = modifier.defaultMinSize(minWidth = 51.dp, minHeight = 31.dp).remeasureRequester(remeasure),
         properties = interop,
         update = {
@@ -157,10 +173,13 @@ actual fun AdaptiveSlider(
     val accent = MaterialTheme.colorScheme.primary
     val host = remember { NativeSliderHost() }
     val remeasure = rememberUIKitInteropRemeasureRequester()
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = SettingsSliderHorizontalPadding),
+        contentAlignment = Alignment.Center,
+    ) {
         UIKitView(
             factory = { host.view },
-            modifier = modifier.widthIn(max = 352.dp).fillMaxWidth().padding(horizontal = 16.dp)
+            modifier = modifier.widthIn(max = SettingsSliderMaxWidth).fillMaxWidth()
                 .defaultMinSize(minHeight = 34.dp).remeasureRequester(remeasure),
             properties = SettingsSliderInterop,
             update = {
@@ -193,6 +212,52 @@ private class SwitchCallbackState {
     var onCheckedChange: (Boolean) -> Unit = {}
 }
 
+private class SwitchContainerView(
+    private val switchControl: UISwitch,
+) : UIView(frame = CGRectZero.readValue()) {
+    init {
+        clipsToBounds = false
+        backgroundColor = UIColor.clearColor
+        isAccessibilityElement = false
+        addSubview(switchControl)
+        switchControl.translatesAutoresizingMaskIntoConstraints = false
+        switchControl.clipsToBounds = false
+        NSLayoutConstraint.activateConstraints(
+            listOf(
+                switchControl.centerXAnchor.constraintEqualToAnchor(centerXAnchor),
+                switchControl.centerYAnchor.constraintEqualToAnchor(centerYAnchor),
+                switchControl.leadingAnchor.constraintGreaterThanOrEqualToAnchor(
+                    leadingAnchor,
+                    constant = SWITCH_CONTAINER_HORIZONTAL_INSET,
+                ),
+                trailingAnchor.constraintGreaterThanOrEqualToAnchor(
+                    switchControl.trailingAnchor,
+                    constant = SWITCH_CONTAINER_HORIZONTAL_INSET,
+                ),
+                switchControl.topAnchor.constraintGreaterThanOrEqualToAnchor(
+                    topAnchor,
+                    constant = SWITCH_CONTAINER_VERTICAL_INSET,
+                ),
+                bottomAnchor.constraintGreaterThanOrEqualToAnchor(
+                    switchControl.bottomAnchor,
+                    constant = SWITCH_CONTAINER_VERTICAL_INSET,
+                ),
+            ),
+        )
+    }
+
+    // GroupedSwitchRow yields touches inside containerView's bounds to UIKitView, so route taps
+    // landing in the outer inset margin straight to the switch when enabled.
+    override fun hitTest(point: CValue<CGPoint>, withEvent: UIEvent?): UIView? {
+        val target = super.hitTest(point, withEvent) ?: return null
+        return if (target === this) {
+            switchControl.takeIf { it.enabled && it.isUserInteractionEnabled() }
+        } else {
+            target
+        }
+    }
+}
+
 internal class NativeSettingsSwitchHost {
     private val state = SwitchCallbackState()
     val view: UISwitch = UISwitch().apply {
@@ -209,6 +274,7 @@ internal class NativeSettingsSwitchHost {
             }
         }
     }
+    val containerView: UIView = SwitchContainerView(view)
 
     fun update(
         checked: Boolean,
@@ -224,7 +290,10 @@ internal class NativeSettingsSwitchHost {
         state.checked = checked
         state.onCheckedChange = onCheckedChange
 
-        view.overrideUserInterfaceStyle = interfaceStyle(dark)
+        val style = interfaceStyle(dark)
+        containerView.overrideUserInterfaceStyle = style
+        containerView.isAccessibilityElement = false
+        view.overrideUserInterfaceStyle = style
         view.enabled = enabled
         plaza_switch_set_on_tint(view, accent)
         view.isAccessibilityElement = accessibilityEnabled
@@ -239,6 +308,7 @@ internal class NativeSettingsSwitchHost {
             }
         }
         view.invalidateIntrinsicContentSize()
+        containerView.invalidateIntrinsicContentSize()
     }
 
     fun dispose() {
