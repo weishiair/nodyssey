@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
@@ -19,6 +22,7 @@ import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.viewinterop.remeasureRequester
 import androidx.compose.ui.viewinterop.rememberUIKitInteropRemeasureRequester
 import io.github.plaza.designsys.nativeglass.plaza_control_add_value_changed_action
+import io.github.plaza.designsys.nativeglass.plaza_segmented_control_intrinsic_height
 import io.github.plaza.designsys.nativeglass.plaza_segmented_control_selected_index
 import io.github.plaza.designsys.nativeglass.plaza_segmented_control_set_appearance
 import io.github.plaza.designsys.nativeglass.plaza_segmented_control_set_segment_enabled
@@ -32,6 +36,8 @@ import io.github.plaza.designsys.nativeglass.plaza_slider_wire_events
 import io.github.plaza.designsys.nativeglass.plaza_switch_is_on
 import io.github.plaza.designsys.nativeglass.plaza_switch_set_on
 import io.github.plaza.designsys.nativeglass.plaza_switch_set_on_tint
+import io.github.plaza.designsys.nativeglass.plaza_text_height_for_font
+import io.github.plaza.designsys.nativeglass.plaza_text_width_for_font
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -134,12 +140,13 @@ actual fun AdaptiveSegmentedControl(
     }
     val dark = LocalPlazaDarkTheme.current
     val scale = LocalPlazaFontScale.current
+    val systemFontScale = LocalDensity.current.fontScale
     val backdrop = layers.card
     val host = remember { NativeSegmentedControlHost() }
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
         factory = { host.containerView },
-        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 32.dp).remeasureRequester(remeasure),
+        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = SegmentControlMinHeight).remeasureRequester(remeasure),
         properties = SettingsSegmentedInterop,
         update = {
             host.update(
@@ -151,12 +158,65 @@ actual fun AdaptiveSegmentedControl(
                 backdrop = backdrop.toUIColor(),
                 dark = dark,
                 scale = scale,
+                systemFontScale = systemFontScale,
                 onSelectIndex = onSelectIndex,
             )
             remeasure.requestRemeasure()
         },
         onRelease = { host.dispose() },
     )
+}
+
+@Composable
+internal actual fun rememberSegmentedControlMetrics(
+    labels: List<String>,
+    density: Density,
+    appFontScale: Float,
+    style: TextStyle,
+): SegmentedControlMetrics {
+    val probeControl = remember { UISegmentedControl() }
+    val liveSystemScale = LocalDensity.current.fontScale.coerceAtLeast(0.5f)
+    val syntheticScale = (density.fontScale / liveSystemScale).coerceAtLeast(1f)
+    val basePointSize =
+        if (style.fontSize.isSp) {
+            style.fontSize.value.toDouble()
+        } else {
+            (SegmentFontSize.value * appFontScale.coerceAtLeast(0.5f)).toDouble()
+        } * syntheticScale
+    return remember(labels, density.density, density.fontScale, basePointSize) {
+        val scaledFont =
+            UIFontMetrics.defaultMetrics.scaledFontForFont(
+                UIFont.systemFontOfSize(basePointSize, weight = UIFontWeightMedium),
+            )
+        if (labels.isNotEmpty()) {
+            plaza_segmented_control_set_segments(probeControl, labels)
+            plaza_segmented_control_set_appearance(
+                probeControl,
+                selectedTint = null,
+                selectedTextColor = null,
+                normalTextColor = null,
+                font = scaledFont,
+            )
+        }
+        val controlHeightPt =
+            maxOf(
+                SegmentControlMinHeight.value.toDouble(),
+                plaza_segmented_control_intrinsic_height(probeControl),
+            )
+        val scaleFactor = density.density
+        val widthsPx =
+            labels.map { text ->
+                (plaza_text_width_for_font(text, scaledFont) * scaleFactor).toFloat()
+            }
+        val maxTextHeightPt =
+            labels.maxOfOrNull { text -> plaza_text_height_for_font(text, scaledFont) } ?: 0.0
+        SegmentedControlMetrics(
+            labelWidthsPx = widthsPx,
+            labelHeightPx = (maxTextHeightPt * scaleFactor).toFloat(),
+            availableHeightPx = (controlHeightPt * scaleFactor).toFloat(),
+            verticalPaddingPx = with(density) { SegmentVerticalPadding.toPx() },
+        )
+    }
 }
 
 @Composable
@@ -375,6 +435,7 @@ internal class NativeSegmentedControlHost {
     private var lastLabels: List<String> = emptyList()
     private var lastEnabledFlags: List<Boolean> = emptyList()
     private var lastScale: Float = -1f
+    private var lastSystemFontScale: Float = -1f
 
     val view: UISegmentedControl = UISegmentedControl().apply {
         val currentState = this@NativeSegmentedControlHost.state
@@ -413,6 +474,7 @@ internal class NativeSegmentedControlHost {
         scale: Float,
         onSelectIndex: (Int) -> Unit,
         backdrop: UIColor = UIColor.clearColor,
+        systemFontScale: Float = 1f,
     ) {
         state.disposed = false
         state.enabled = enabled
@@ -433,11 +495,12 @@ internal class NativeSegmentedControlHost {
         view.enabled = enabled
         view.accessibilityLabel = label.takeIf { it.isNotEmpty() }
 
-        if (scale != lastScale) {
+        if (scale != lastScale || systemFontScale != lastSystemFontScale) {
             lastScale = scale
+            lastSystemFontScale = systemFontScale
             val font =
                 UIFontMetrics.defaultMetrics.scaledFontForFont(
-                    UIFont.systemFontOfSize(13.0 * scale, weight = UIFontWeightMedium),
+                    UIFont.systemFontOfSize(SegmentFontSize.value.toDouble() * scale, weight = UIFontWeightMedium),
                 )
             plaza_segmented_control_set_appearance(
                 view,

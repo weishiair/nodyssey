@@ -1,5 +1,6 @@
 #pragma once
 
+#include <math.h>
 #import <UIKit/UIKit.h>
 
 // Kotlin/Native strongly links an Objective-C class even behind an OS-version check. dyld would
@@ -241,6 +242,19 @@ static inline void plaza_segmented_control_set_appearance(
     }
     [control setTitleTextAttributes:(normalAttributes.count > 0 ? normalAttributes : nil) forState:UIControlStateNormal];
     [control setTitleTextAttributes:(selectedAttributes.count > 0 ? selectedAttributes : nil) forState:UIControlStateSelected];
+}
+
+static inline double plaza_segmented_control_intrinsic_height(UISegmentedControl * _Nonnull control) {
+    return (double)control.intrinsicContentSize.height;
+}
+
+static inline double plaza_text_width_for_font(NSString * _Nonnull text, UIFont * _Nonnull font) {
+    return ceil((double)[text sizeWithAttributes:@{NSFontAttributeName: font}].width);
+}
+
+static inline double plaza_text_height_for_font(NSString * _Nonnull text, UIFont * _Nonnull font) {
+    CGSize size = [text sizeWithAttributes:@{NSFontAttributeName: font}];
+    return ceil((double)MAX(size.height, font.lineHeight));
 }
 
 static inline void plaza_control_add_value_changed_action(

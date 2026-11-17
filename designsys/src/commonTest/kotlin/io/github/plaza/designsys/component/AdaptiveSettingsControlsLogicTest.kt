@@ -59,5 +59,26 @@ class AdaptiveSettingsControlsLogicTest {
                 segmentPaddingPx = 30f,
             ),
         )
+        // Two short labels fit horizontally inside a full row yet overflow the control's height.
+        assertFalse(
+            shouldUseSegmentedControl(
+                labelWidthsPx = listOf(60f, 60f),
+                availableWidthPx = 360f,
+                segmentPaddingPx = 30f,
+                labelHeightPx = 30f,
+                availableHeightPx = 33f,
+                verticalPaddingPx = 8f,
+            ),
+        )
+        assertTrue(
+            shouldUseSegmentedControl(
+                labelWidthsPx = listOf(60f, 60f),
+                availableWidthPx = 360f,
+                segmentPaddingPx = 30f,
+                labelHeightPx = 20f,
+                availableHeightPx = 32f,
+                verticalPaddingPx = 8f,
+            ),
+        )
     }
 }

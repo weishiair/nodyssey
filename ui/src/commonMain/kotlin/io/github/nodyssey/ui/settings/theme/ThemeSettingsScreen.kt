@@ -280,9 +280,10 @@ private enum class SeedSheetMode { NEW, EDIT }
  * never be picked is worse than one that was never offered.
  */
 @Composable
-private fun ColorSourceHeader(
+internal fun ColorSourceHeader(
     settings: UserSettings,
     onSelect: (ColorSource) -> Unit,
+    nativeChrome: Boolean = LocalPlazaLayers.current.nativeChrome,
 ) {
     val choices =
         buildList {
@@ -295,8 +296,7 @@ private fun ColorSourceHeader(
     val labels = choices.map { it.second }
     val selectedIndex = choices.indexOfFirst { it.first == settings.colorSource }
     val title = stringResource(Res.string.settings_color_source)
-    val layers = LocalPlazaLayers.current
-    if (!layers.nativeChrome) {
+    if (!nativeChrome) {
         Column(
             modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = 14.dp, bottom = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(10.dp),
