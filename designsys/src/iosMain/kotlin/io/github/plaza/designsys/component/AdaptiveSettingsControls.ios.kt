@@ -2,11 +2,15 @@
 
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
@@ -43,11 +47,11 @@ import platform.UIKit.accessibilityLabel
 import platform.UIKit.accessibilityValue
 import platform.UIKit.isAccessibilityElement
 
+// Scrolling controls stay below the Compose canvas so fixed headers cover rows that leave the viewport.
 private fun settingsControlInterop(accessibilityEnabled: Boolean): UIKitInteropProperties =
     UIKitInteropProperties(
         interactionMode = UIKitInteropInteractionMode.Cooperative(),
         isNativeAccessibilityEnabled = accessibilityEnabled,
-        placedAsOverlay = true,
     )
 
 private val SettingsSliderInterop = settingsControlInterop(accessibilityEnabled = true)
@@ -153,28 +157,31 @@ actual fun AdaptiveSlider(
     val accent = MaterialTheme.colorScheme.primary
     val host = remember { NativeSliderHost() }
     val remeasure = rememberUIKitInteropRemeasureRequester()
-    UIKitView(
-        factory = { host.view },
-        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 34.dp).remeasureRequester(remeasure),
-        properties = SettingsSliderInterop,
-        update = {
-            host.update(
-                value = value,
-                min = valueRange.start,
-                max = valueRange.endInclusive,
-                steps = steps,
-                enabled = enabled,
-                label = label,
-                valueDescription = valueDescription,
-                accent = accent.toUIColor(),
-                dark = dark,
-                onValueChange = onValueChange,
-                onValueChangeFinished = onValueChangeFinished,
-            )
-            remeasure.requestRemeasure()
-        },
-        onRelease = { host.dispose() },
-    )
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        UIKitView(
+            factory = { host.view },
+            modifier = modifier.widthIn(max = 352.dp).fillMaxWidth().padding(horizontal = 16.dp)
+                .defaultMinSize(minHeight = 34.dp).remeasureRequester(remeasure),
+            properties = SettingsSliderInterop,
+            update = {
+                host.update(
+                    value = value,
+                    min = valueRange.start,
+                    max = valueRange.endInclusive,
+                    steps = steps,
+                    enabled = enabled,
+                    label = label,
+                    valueDescription = valueDescription,
+                    accent = accent.toUIColor(),
+                    dark = dark,
+                    onValueChange = onValueChange,
+                    onValueChangeFinished = onValueChangeFinished,
+                )
+                remeasure.requestRemeasure()
+            },
+            onRelease = { host.dispose() },
+        )
+    }
 }
 
 // UIAction retains only these state objects (no UIView reference), avoiding ARC retain cycles.
@@ -189,7 +196,7 @@ private class SwitchCallbackState {
 internal class NativeSettingsSwitchHost {
     private val state = SwitchCallbackState()
     val view: UISwitch = UISwitch().apply {
-        val currentState = state
+        val currentState = this@NativeSettingsSwitchHost.state
         plaza_control_add_value_changed_action(this) { sender ->
             if (currentState.disposed || !currentState.enabled || currentState.isSyncing) {
                 return@plaza_control_add_value_changed_action
@@ -257,7 +264,7 @@ internal class NativeSegmentedControlHost {
     private var lastScale: Float = -1f
 
     val view: UISegmentedControl = UISegmentedControl().apply {
-        val currentState = state
+        val currentState = this@NativeSegmentedControlHost.state
         plaza_control_add_value_changed_action(this) { sender ->
             if (currentState.disposed || !currentState.enabled || currentState.isSyncing) {
                 return@plaza_control_add_value_changed_action
@@ -374,7 +381,7 @@ internal class NativeSliderHost {
     private val state = SliderCallbackState()
 
     val view: UISlider = UISlider().apply {
-        val currentState = state
+        val currentState = this@NativeSliderHost.state
         plaza_slider_wire_events(
             this,
             onTouchDown = { _ ->
@@ -384,6 +391,7 @@ internal class NativeSliderHost {
                 currentState.dragBaseline = currentState.lastDispatchedPreview
             },
             onValueChanged = { slider ->
+                if (slider == null) return@plaza_slider_wire_events
                 if (currentState.disposed || !currentState.enabled || currentState.isSyncing) return@plaza_slider_wire_events
                 val snapped = currentState.snap(plaza_slider_value(slider))
                 val tracking = currentState.isDragging || plaza_slider_is_tracking(slider)
@@ -414,6 +422,7 @@ internal class NativeSliderHost {
                 }
             },
             onTouchEnd = { slider ->
+                if (slider == null) return@plaza_slider_wire_events
                 if (currentState.disposed || !currentState.enabled || currentState.isSyncing) return@plaza_slider_wire_events
                 if (!currentState.hasActiveTouchSession && !currentState.isDragging) return@plaza_slider_wire_events
                 currentState.isDragging = false
@@ -435,6 +444,7 @@ internal class NativeSliderHost {
                 currentState.onValueChangeFinished()
             },
             onTouchCancel = { slider ->
+                if (slider == null) return@plaza_slider_wire_events
                 if (currentState.disposed || currentState.isSyncing) return@plaza_slider_wire_events
                 if (!currentState.hasActiveTouchSession && !currentState.isDragging) return@plaza_slider_wire_events
                 val baseline = currentState.dragBaseline
