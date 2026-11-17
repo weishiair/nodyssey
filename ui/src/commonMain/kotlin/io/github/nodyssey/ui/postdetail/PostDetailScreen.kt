@@ -482,6 +482,8 @@ fun PostDetailScreen(
     lotteryContent: @Composable () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
+    // UIKit already reserves space for its toolbar in this controller's bottom safe area.
+    val readingControlsHeight = if (usesNativeReadingToolbar()) 0.dp else 80.dp
     val pullToRefreshState = rememberPullToRefreshState()
     var isScrollbarDragging by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -779,7 +781,7 @@ fun PostDetailScreen(
                     snackbarHostState,
                     Modifier.padding(
                         bottom = if (state.hasContent && !replyOpen) {
-                            80.dp
+                            readingControlsHeight
                         } else {
                             0.dp
                         },
@@ -897,7 +899,7 @@ fun PostDetailScreen(
                                 isRefreshing = state.isRefreshingTail,
                                 onRefresh = onRefreshTail,
                                 enabled = state.hasContent && !state.hasNextPage && !state.isAppending && !state.isPrepending,
-                                indicatorBottomPadding = 80.dp + bottomInset,
+                                indicatorBottomPadding = readingControlsHeight + bottomInset,
                                 modifier = Modifier.fillMaxSize(),
                             ) {
                                 // Which thread a report on these floors came from, for 测评对比's basket;
@@ -1492,6 +1494,7 @@ private fun ThreadList(
     bottomInset: Dp = 0.dp,
 ) {
     val original = state.postReplyStyle == PostReplyStyle.ORIGINAL
+    val bottomPadding = bottomInset + if (usesNativeReadingToolbar()) 16.dp else 96.dp
     LazyColumn(
         // No bounce under pull-to-refresh, at either end of the thread; see the feed's list in
         // `PostListScreen`.
@@ -1500,9 +1503,9 @@ private fun ThreadList(
         contentPadding =
         if (original) {
             // The official page's own 8dp gutter; each floor adds its 10dp inset inside it.
-            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = topInset + Spacing.xs, bottom = 96.dp + bottomInset)
+            PaddingValues(start = LayerPageGutter, end = LayerPageGutter, top = topInset + Spacing.xs, bottom = bottomPadding)
         } else {
-            PaddingValues(top = topInset + Spacing.sm, bottom = 96.dp + bottomInset)
+            PaddingValues(top = topInset + Spacing.sm, bottom = bottomPadding)
         },
         modifier = modifier
             .fillMaxHeight()
