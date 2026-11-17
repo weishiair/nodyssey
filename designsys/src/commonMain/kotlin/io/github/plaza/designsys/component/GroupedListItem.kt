@@ -269,12 +269,15 @@ val GroupDividerInset = 16.dp
 @Composable
 fun GroupCard(
     modifier: Modifier = Modifier,
+    /** Passes through to [LayerCard]; false lets grouped settings cards rely on page/card contrast without shadow. */
+    elevated: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     LayerCard(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(0.dp),
         verticalArrangement = Arrangement.Top,
+        elevated = elevated,
     ) {
         CompositionLocalProvider(LocalInGroupCard provides true) { content() }
     }

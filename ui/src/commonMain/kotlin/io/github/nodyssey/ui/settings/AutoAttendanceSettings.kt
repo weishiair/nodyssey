@@ -21,8 +21,8 @@ import io.github.nodyssey.ui.resources.auto_attendance_sign_in
 import io.github.nodyssey.ui.resources.auto_attendance_status
 import io.github.nodyssey.ui.resources.auto_attendance_title
 import io.github.nodyssey.ui.resources.auto_attendance_verify
-import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
+import io.github.plaza.designsys.component.GroupedSwitchRow
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import org.jetbrains.compose.resources.stringResource
@@ -36,14 +36,13 @@ internal fun AutoAttendanceSettings(
 ) {
     SectionLabel(stringResource(Res.string.auto_attendance_title))
     SettingsGroup {
-        GroupedRow(
+        GroupedSwitchRow(
             icon = PlazaIcons.EventAvailable,
             title = stringResource(Res.string.auto_attendance_title),
             subtitle = stringResource(Res.string.auto_attendance_hint),
             first = true,
             checked = config.enabled,
             onCheckedChange = onEnabledChange,
-            trailing = { GroupedListItemSwitch(checked = config.enabled) },
         )
         val choices = listOf(
             AttendanceMode.RANDOM to stringResource(Res.string.auto_attendance_random),

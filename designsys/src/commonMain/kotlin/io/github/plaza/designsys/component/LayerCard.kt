@@ -62,6 +62,8 @@ fun LayerCard(
     selected: Boolean = false,
     /** Overrides the normal card fill for a row-specific state such as 已读标记. */
     containerColor: Color = Color.Unspecified,
+    /** False flattens card shadow for contexts that rely on surface contrast alone, such as iOS settings groups. */
+    elevated: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
@@ -75,7 +77,7 @@ fun LayerCard(
             },
         )
     val border = layers.cardBorderStroke
-    val shadowed = modifier.cardShadow(shape, layers.shadows)
+    val shadowed = modifier.cardShadow(shape, layers.shadows && elevated)
     val body: @Composable ColumnScope.() -> Unit = {
         Column(
             modifier = Modifier.fillMaxWidth().padding(contentPadding),

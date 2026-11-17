@@ -6,13 +6,18 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
+import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.settings_predictive_back
+import io.github.nodyssey.ui.resources.settings_read_mark
+import io.github.nodyssey.ui.resources.settings_read_mark_dim
+import io.github.nodyssey.ui.resources.settings_wifi_images
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.jetbrains.compose.resources.stringResource
 import org.junit.Assert.assertEquals
@@ -147,5 +152,79 @@ class SettingsScreenTest {
             1,
             composeRule.onAllNodes(hasText(predictiveBackLabel)).fetchSemanticsNodes().size,
         )
+    }
+
+    @Test
+    fun `wifi images switch row toggles exactly once on tap`() {
+        val changes = mutableListOf<Boolean>()
+        var wifiImagesLabel = ""
+        composeRule.setContent {
+            PlazaTheme {
+                wifiImagesLabel = stringResource(Res.string.settings_wifi_images)
+                SettingsScreen(
+                    state = SettingsUiState(UserSettings(imagesOnWifiOnly = false)),
+                    onBack = {},
+                    onOpenTheme = {},
+                    onThemeModeChange = {},
+                    onReadMarkStyleChange = {},
+                    onReadMarkColorChange = {},
+                    onOneHandModeChange = {},
+                    onFontScaleChange = {},
+                    onStickerUniformSizeChange = {},
+                    onStickerSizeChange = {},
+                    onImagesOnWifiOnlyChange = { changes += it },
+                    onReportFormatChange = {},
+                    onHomePageBarChange = {},
+                    onUpdateCheckOnLaunchChange = {},
+                    onUpdateDevChannelChange = {},
+                    onClearCache = {},
+                    appLinkHandlingEnabled = null,
+                    onOpenAppLinkSettings = {},
+                )
+            }
+        }
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(wifiImagesLabel))
+        composeRule.onNodeWithText(wifiImagesLabel).performClick()
+
+        assertEquals(listOf(true), changes)
+    }
+
+    @Test
+    fun `read mark menu preserves enum selection`() {
+        val selections = mutableListOf<ReadMarkStyle>()
+        var readMarkTitle = ""
+        var dimOptionLabel = ""
+        composeRule.setContent {
+            PlazaTheme {
+                readMarkTitle = stringResource(Res.string.settings_read_mark)
+                dimOptionLabel = stringResource(Res.string.settings_read_mark_dim)
+                SettingsScreen(
+                    state = SettingsUiState(UserSettings(readMarkStyle = ReadMarkStyle.BLOCK)),
+                    onBack = {},
+                    onOpenTheme = {},
+                    onThemeModeChange = {},
+                    onReadMarkStyleChange = { selections += it },
+                    onReadMarkColorChange = {},
+                    onOneHandModeChange = {},
+                    onFontScaleChange = {},
+                    onStickerUniformSizeChange = {},
+                    onStickerSizeChange = {},
+                    onImagesOnWifiOnlyChange = {},
+                    onReportFormatChange = {},
+                    onHomePageBarChange = {},
+                    onUpdateCheckOnLaunchChange = {},
+                    onUpdateDevChannelChange = {},
+                    onClearCache = {},
+                    appLinkHandlingEnabled = null,
+                    onOpenAppLinkSettings = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(readMarkTitle).performScrollTo().performClick()
+        composeRule.onNodeWithText(dimOptionLabel).performClick()
+
+        assertEquals(listOf(ReadMarkStyle.DIM), selections)
     }
 }
