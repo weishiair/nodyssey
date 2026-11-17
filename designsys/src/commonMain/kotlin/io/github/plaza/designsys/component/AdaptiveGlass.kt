@@ -18,6 +18,8 @@ data class GlassAction(
     val menu: List<GlassMenuAction> = emptyList(),
     /** Small native content for a dense header; the host still owns the touch-target size. */
     val compact: Boolean = false,
+    val badge: Boolean = false,
+    val badgeDescription: String? = null,
 )
 
 data class GlassMenuAction(

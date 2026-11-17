@@ -69,6 +69,58 @@ static inline void plaza_set_bar_item_selected(UIBarButtonItem * _Nonnull item, 
     }
 }
 
+static inline BOOL plaza_set_bar_item_indicator_badge(
+    UIBarButtonItem * _Nonnull item,
+    BOOL visible,
+    UIColor * _Nullable color
+) {
+    if (@available(iOS 26.0, *)) {
+        if (visible) {
+            UIBarButtonItemBadge *badge = [UIBarButtonItemBadge indicatorBadge];
+            if (color != nil) {
+                badge.backgroundColor = color;
+            }
+            item.badge = badge;
+        } else {
+            item.badge = nil;
+        }
+        return YES;
+    }
+    return NO;
+}
+
+static inline BOOL plaza_bar_item_has_badge(UIBarButtonItem * _Nonnull item) {
+    if (@available(iOS 26.0, *)) {
+        return item.badge != nil;
+    }
+    return NO;
+}
+
+static inline UIImage * _Nonnull plaza_badge_image(
+    UIImage * _Nonnull baseImage,
+    UIColor * _Nonnull tintColor,
+    UIColor * _Nonnull badgeColor
+) {
+    CGSize size = baseImage.size;
+    if (size.width <= 0.0 || size.height <= 0.0) {
+        size = CGSizeMake(22.0, 22.0);
+    }
+    CGFloat pad = 4.0;
+    CGSize canvas = CGSizeMake(size.width + pad, size.height + pad);
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+    format.opaque = NO;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:canvas format:format];
+    UIImage *rendered = [renderer imageWithActions:^(__unused UIGraphicsImageRendererContext * _Nonnull context) {
+        UIImage *tinted = [baseImage imageWithTintColor:tintColor renderingMode:UIImageRenderingModeAlwaysOriginal];
+        [tinted drawInRect:CGRectMake(0.0, pad * 0.5, size.width, size.height)];
+        CGFloat dot = 7.0;
+        CGRect dotRect = CGRectMake(canvas.width - dot, 0.0, dot, dot);
+        [badgeColor setFill];
+        [[UIBezierPath bezierPathWithOvalInRect:dotRect] fill];
+    }];
+    return [rendered imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+}
+
 static inline UIStackView * _Nonnull plaza_make_subtitle_view(void) {
     UILabel *titleLabel = [[UILabel alloc] init];
     titleLabel.tag = 1001;
