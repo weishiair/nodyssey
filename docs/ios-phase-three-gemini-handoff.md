@@ -1,6 +1,31 @@
 # Nodyssey iOS 阶段三：交给 Gemini 的开发任务书
 
-日期：2026-11-17。本文是后续开发安排；编写本文时尚未执行阶段三开发。
+更新：2026-11-17。Mac 已就绪，3A 设置候选及本轮修复已进入远端 iOS 集成线。下文保留原开发范围与验收要求，当前接续状态以本节和验证记录为准。
+
+## 当前从 iOS 集成线接续
+
+统一入口：`origin/codex/ios-experience-integration`。已通过 PR 合入：
+
+| 改动 | 功能分支提交 | PR |
+| --- | --- | --- |
+| 3A 设置与 Mac 修复、滑块收窄及滚动层级 | `daec81a5` | [#78](https://github.com/weishiair/nodyssey/pull/78) |
+| 阅读底栏与首页导航对齐 | `c4080b68` | [#79](https://github.com/weishiair/nodyssey/pull/79) |
+| 首页横屏发帖按钮裁切 | `7fd1a9c8` | [#80](https://github.com/weishiair/nodyssey/pull/80) |
+
+三项合并后的代码提交为 `3f05536f`。本次不合入 dev/main，不改版本或发布测试包。上述分支保留，后续开发从最新集成线创建各自子分支。
+
+Mac 已完成双 iOS 目标编译、原生及定向回归，以及设置、阅读和横屏的实际操作检查；完整设备与辅助功能验收仍有缺口。先读 [3A Mac 验证记录](ios-phase-three-mac-validation.md) 和 [首页横屏验证记录](ios-home-landscape-validation.md)，补齐 3A 剩余验收后再开始 3B／3C。三个 PR 的完整 GitHub CI 已启动，交付时仍在运行，结果在各 PR 的 Checks 查看。
+
+Mac 新 shell 先执行 `source ~/.nodyssey/env.sh`。桌面 `Nodyssey 3A Validation` 模拟器已安装三项组合 App：`/Users/a092/Developer/nodyssey-ios/build/ios-home-landscape/Nodyssey.app`；保留设备与 Device Hub 窗口。具体本机路径及旧工作区状态见 `~/.nodyssey/MAC_HANDOFF.md`。
+
+新克隆可执行：
+
+```bash
+git fetch origin
+git switch -c codex/ios-experience-integration --track origin/codex/ios-experience-integration
+```
+
+已有同名本地分支时，先检查 `git status`，再切换并 `git pull --ff-only`；不要覆盖尚未整理的工作区。
 
 ## 1. 本轮先完成设置路径，再改「我的」
 
@@ -8,13 +33,13 @@
 
 工作按下面的顺序串行推进，每批都交付可运行、可检查的结果：
 
-1. **3A：设置体验统一。现在就在现有机器开发，Mac 到位后完成平台编译和验收。**
+1. **3A：设置体验统一。实现与 Mac 核心验证已完成，先补齐剩余验收。**
 2. **3B：「我的」页的信息层级和视觉重量整理。3A 验收后再做。**
 3. **3C：把已验证的设置交互推广到其他设置二级页。**
 
 三批都完成，才称为「阶段三完成」。第一天完成 3A，不等于整个阶段三完成。
 
-当前 Gemini 尚无 Mac。Windows／Linux 可完成共享代码、Android／JVM 回退、页面接入、逻辑回归和共享页面渲染；UIKit 实现可以同步编写，但 iOS 编译、链接、原生控件触控和视觉验收留到 Mac。不要因为尚无 Mac 而停在计划阶段，也不能把共享代码测试通过写成 iOS 已验收。
+原任务按 Gemini 暂无 Mac 安排了 Windows／Linux 开发和 Mac 接续两步。Mac 现已可用，下文 W1–W3 与租机准备属于原执行顺序；继续工作时使用本节的当前集成线及验证记录，不重复环境安装或已经有效完成的检查。
 
 ### 已有成果与不能倒退的部分
 
