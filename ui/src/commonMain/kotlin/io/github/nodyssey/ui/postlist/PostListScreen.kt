@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -166,6 +167,7 @@ import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.flow.Flow
@@ -895,31 +897,43 @@ private fun FeedPageBar(
     onCreatePost: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.padding(Spacing.lg),
-        horizontalAlignment = Alignment.End,
-        // Separate the glass capsule from the FAB. Standard keys already carry 4dp touch slack.
-        verticalArrangement = Arrangement.spacedBy(if (LocalPlazaLayers.current.frostedGlass) Spacing.sm else Spacing.xs),
-    ) {
-        PageJumpRail(
-            expanded = expanded,
-            page = page,
-            totalPages = totalPages,
-            onPrevious = onScrollToTop,
-            onNext = onNext,
-            onPageClick = onPageClick,
-            previousEnabled = canScrollToTop,
-            previousLabel = Res.string.action_scroll_to_top,
-            previousIcon = PlazaIcons.VerticalAlignTop,
-            previousNativeSymbol = "arrow.up.to.line",
-        )
-        PlazaExtendedFab(
-            text = stringResource(Res.string.action_create_post),
-            icon = Icons.Default.Edit,
-            nativeSymbol = "square.and.pencil",
-            onClick = onCreatePost,
-            expanded = expanded,
-        )
+    val layers = LocalPlazaLayers.current
+    val gap = if (layers.frostedGlass) Spacing.sm else Spacing.xs
+    BoxWithConstraints(modifier.padding(Spacing.lg), contentAlignment = Alignment.BottomEnd) {
+        // Reserve the expanded stack even while scrolling collapses its keys, so scrolling never
+        // flips the layout. In a short iOS viewport a Column compresses the last child (the FAB).
+        val horizontal = layers.nativeGlass && maxHeight < Sizes.minTouchTarget * 3 + PlazaFabHeight + gap
+        val controls: @Composable () -> Unit = {
+            PageJumpRail(
+                expanded = expanded,
+                page = page,
+                totalPages = totalPages,
+                onPrevious = onScrollToTop,
+                onNext = onNext,
+                onPageClick = onPageClick,
+                previousEnabled = canScrollToTop,
+                previousLabel = Res.string.action_scroll_to_top,
+                previousIcon = PlazaIcons.VerticalAlignTop,
+                previousNativeSymbol = "arrow.up.to.line",
+                vertical = !horizontal,
+            )
+            PlazaExtendedFab(
+                text = stringResource(Res.string.action_create_post),
+                icon = Icons.Default.Edit,
+                nativeSymbol = "square.and.pencil",
+                onClick = onCreatePost,
+                expanded = expanded,
+            )
+        }
+        if (horizontal) {
+            Row(horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically) {
+                controls()
+            }
+        } else {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
+                controls()
+            }
+        }
     }
 }
 

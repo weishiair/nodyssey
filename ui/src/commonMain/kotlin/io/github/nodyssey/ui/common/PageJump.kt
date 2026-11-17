@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingToolbarDefaults
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -137,6 +138,7 @@ import org.jetbrains.compose.resources.stringResource
  * [page] is the page the reader is *looking at*, which on an appending list is not the last page
  * fetched — the caller derives it from whatever is at the top of the viewport.
  * The home feed overrides the upper key to return to the top, including within page one.
+ * [vertical] defaults to the existing rail; short windows can lay the same keys out horizontally.
  */
 @Composable
 fun PageJumpRail(
@@ -151,9 +153,10 @@ fun PageJumpRail(
     previousLabel: StringResource = Res.string.page_jump_previous,
     previousIcon: ImageVector = Icons.Default.KeyboardArrowUp,
     previousNativeSymbol: String = "chevron.up",
+    vertical: Boolean = true,
 ) {
-    if (LocalPlazaLayers.current.frostedGlass) {
-        GlassPageJumpRail(
+    if (LocalPlazaLayers.current.frostedGlass || !vertical) {
+        FloatingPageJumpRail(
             expanded = expanded,
             page = page,
             totalPages = totalPages,
@@ -165,6 +168,7 @@ fun PageJumpRail(
             previousLabel = previousLabel,
             previousIcon = previousIcon,
             previousNativeSymbol = previousNativeSymbol,
+            vertical = vertical,
         )
         return
     }
@@ -210,7 +214,7 @@ fun PageJumpRail(
 }
 
 @Composable
-private fun GlassPageJumpRail(
+private fun FloatingPageJumpRail(
     expanded: Boolean,
     page: Int,
     totalPages: Int,
@@ -222,6 +226,7 @@ private fun GlassPageJumpRail(
     previousLabel: StringResource,
     previousIcon: ImageVector,
     previousNativeSymbol: String,
+    vertical: Boolean,
 ) {
     val layers = LocalPlazaLayers.current
     val pageDescription = stringResource(Res.string.page_jump_page_of, page, totalPages)
@@ -242,34 +247,36 @@ private fun GlassPageJumpRail(
                 add(GlassAction(nextDescription, onNext, symbol = "chevron.down", enabled = page < totalPages))
             }
         },
-        modifier = modifier.width(56.dp),
-        vertical = true,
+        modifier = modifier.then(if (vertical) Modifier.width(56.dp) else Modifier.heightIn(min = 56.dp)),
+        vertical = vertical,
     ) {
-        VerticalFloatingToolbar(
-            expanded = expanded,
-            modifier = modifier.width(56.dp).glassChromeSurface(
-                layers = layers,
-                darkTheme = LocalPlazaDarkTheme.current,
-                shape = CircleShape,
-                backdrop = LocalLiquidGlassBackdrop.current,
-            ),
-            shape = CircleShape,
-            colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
-                toolbarContainerColor = Color.Transparent,
-                toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
-            contentPadding = PaddingValues(4.dp),
-            expandedShadowElevation = 0.dp,
-            collapsedShadowElevation = 0.dp,
-            trailingContent = {
-                IconButton(onClick = onPrevious, enabled = previousEnabled, modifier = Modifier.size(Sizes.minTouchTarget)) {
-                    Icon(previousIcon, contentDescription = stringResource(previousLabel))
-                }
-                IconButton(onClick = onNext, enabled = page < totalPages, modifier = Modifier.size(Sizes.minTouchTarget)) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
-                }
-            },
-        ) {
+        val toolbarModifier = modifier
+            .then(if (vertical) Modifier.width(56.dp) else Modifier.heightIn(min = 56.dp))
+            .then(
+                if (layers.frostedGlass) {
+                    Modifier.glassChromeSurface(
+                        layers = layers,
+                        darkTheme = LocalPlazaDarkTheme.current,
+                        shape = CircleShape,
+                        backdrop = LocalLiquidGlassBackdrop.current,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+        val colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
+            toolbarContainerColor = if (layers.frostedGlass) Color.Transparent else layers.raised,
+            toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val shortcuts: @Composable () -> Unit = {
+            IconButton(onClick = onPrevious, enabled = previousEnabled, modifier = Modifier.size(Sizes.minTouchTarget)) {
+                Icon(previousIcon, contentDescription = stringResource(previousLabel))
+            }
+            IconButton(onClick = onNext, enabled = page < totalPages, modifier = Modifier.size(Sizes.minTouchTarget)) {
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
+            }
+        }
+        val pageKey: @Composable () -> Unit = {
             IconButton(
                 onClick = onPageClick,
                 modifier = Modifier.size(Sizes.minTouchTarget)
@@ -277,6 +284,29 @@ private fun GlassPageJumpRail(
             ) {
                 Box(Modifier.clearAndSetSemantics {}) { PageNumber(page, totalPages) }
             }
+        }
+        if (vertical) {
+            VerticalFloatingToolbar(
+                expanded = expanded,
+                modifier = toolbarModifier,
+                shape = CircleShape,
+                colors = colors,
+                contentPadding = PaddingValues(4.dp),
+                expandedShadowElevation = 0.dp,
+                collapsedShadowElevation = 0.dp,
+                trailingContent = { shortcuts() },
+            ) { pageKey() }
+        } else {
+            HorizontalFloatingToolbar(
+                expanded = expanded,
+                modifier = toolbarModifier,
+                shape = CircleShape,
+                colors = colors,
+                contentPadding = PaddingValues(4.dp),
+                expandedShadowElevation = 0.dp,
+                collapsedShadowElevation = 0.dp,
+                trailingContent = { shortcuts() },
+            ) { pageKey() }
         }
     }
 }
