@@ -42,6 +42,7 @@ import platform.CoreGraphics.CGPoint
 import platform.CoreGraphics.CGRectZero
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.UIColor
+import platform.UIKit.UIControl
 import platform.UIKit.UIEvent
 import platform.UIKit.UIFont
 import platform.UIKit.UIFontMetrics
@@ -83,12 +84,14 @@ actual fun AdaptiveNativeSwitch(
     accessibilityEnabled: Boolean,
     fallback: @Composable () -> Unit,
 ) {
-    if (!LocalPlazaLayers.current.nativeChrome) {
+    val layers = LocalPlazaLayers.current
+    if (!layers.nativeChrome) {
         fallback()
         return
     }
     val dark = LocalPlazaDarkTheme.current
     val accent = MaterialTheme.colorScheme.primary
+    val backdrop = layers.card
     val host = remember { NativeSettingsSwitchHost() }
     val remeasure = rememberUIKitInteropRemeasureRequester()
     val interop = remember(accessibilityEnabled) { settingsControlInterop(accessibilityEnabled) }
@@ -103,6 +106,7 @@ actual fun AdaptiveNativeSwitch(
                 label = label,
                 accessibilityEnabled = accessibilityEnabled,
                 accent = accent.toUIColor(),
+                backdrop = backdrop.toUIColor(),
                 dark = dark,
                 onCheckedChange = onCheckedChange,
             )
@@ -123,16 +127,18 @@ actual fun AdaptiveSegmentedControl(
     label: String,
     fallback: @Composable () -> Unit,
 ) {
-    if (!LocalPlazaLayers.current.nativeChrome || labels.isEmpty()) {
+    val layers = LocalPlazaLayers.current
+    if (!layers.nativeChrome || labels.isEmpty()) {
         fallback()
         return
     }
     val dark = LocalPlazaDarkTheme.current
     val scale = LocalPlazaFontScale.current
+    val backdrop = layers.card
     val host = remember { NativeSegmentedControlHost() }
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
-        factory = { host.view },
+        factory = { host.containerView },
         modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 32.dp).remeasureRequester(remeasure),
         properties = SettingsSegmentedInterop,
         update = {
@@ -142,6 +148,7 @@ actual fun AdaptiveSegmentedControl(
                 enabled = enabled,
                 segmentEnabled = segmentEnabled,
                 label = label,
+                backdrop = backdrop.toUIColor(),
                 dark = dark,
                 scale = scale,
                 onSelectIndex = onSelectIndex,
@@ -165,12 +172,14 @@ actual fun AdaptiveSlider(
     valueDescription: String,
     fallback: @Composable () -> Unit,
 ) {
-    if (!LocalPlazaLayers.current.nativeChrome) {
+    val layers = LocalPlazaLayers.current
+    if (!layers.nativeChrome) {
         fallback()
         return
     }
     val dark = LocalPlazaDarkTheme.current
     val accent = MaterialTheme.colorScheme.primary
+    val backdrop = layers.card
     val host = remember { NativeSliderHost() }
     val remeasure = rememberUIKitInteropRemeasureRequester()
     Box(
@@ -178,7 +187,7 @@ actual fun AdaptiveSlider(
         contentAlignment = Alignment.Center,
     ) {
         UIKitView(
-            factory = { host.view },
+            factory = { host.containerView },
             modifier = modifier.widthIn(max = SettingsSliderMaxWidth).fillMaxWidth()
                 .defaultMinSize(minHeight = 34.dp).remeasureRequester(remeasure),
             properties = SettingsSliderInterop,
@@ -192,6 +201,7 @@ actual fun AdaptiveSlider(
                     label = label,
                     valueDescription = valueDescription,
                     accent = accent.toUIColor(),
+                    backdrop = backdrop.toUIColor(),
                     dark = dark,
                     onValueChange = onValueChange,
                     onValueChangeFinished = onValueChangeFinished,
@@ -212,50 +222,79 @@ private class SwitchCallbackState {
     var onCheckedChange: (Boolean) -> Unit = {}
 }
 
-private class SwitchContainerView(
-    private val switchControl: UISwitch,
+// Hosts a below-canvas UIKit control inside an opaque card backdrop so Compose's BlendMode.Clear
+// punch-through shows `layers.card` instead of ComposeContainerView's default black/white fill.
+private class SettingsControlContainerView(
+    private val control: UIControl,
+    horizontalInset: Double = 0.0,
+    verticalInset: Double = 0.0,
+    private val routeMarginTouchesToControl: Boolean = false,
 ) : UIView(frame = CGRectZero.readValue()) {
     init {
         clipsToBounds = false
         backgroundColor = UIColor.clearColor
         isAccessibilityElement = false
-        addSubview(switchControl)
-        switchControl.translatesAutoresizingMaskIntoConstraints = false
-        switchControl.clipsToBounds = false
-        NSLayoutConstraint.activateConstraints(
-            listOf(
-                switchControl.centerXAnchor.constraintEqualToAnchor(centerXAnchor),
-                switchControl.centerYAnchor.constraintEqualToAnchor(centerYAnchor),
-                switchControl.leadingAnchor.constraintGreaterThanOrEqualToAnchor(
-                    leadingAnchor,
-                    constant = SWITCH_CONTAINER_HORIZONTAL_INSET,
+        addSubview(control)
+        control.translatesAutoresizingMaskIntoConstraints = false
+        if (horizontalInset > 0.0 || verticalInset > 0.0) {
+            control.clipsToBounds = false
+            NSLayoutConstraint.activateConstraints(
+                listOf(
+                    control.centerXAnchor.constraintEqualToAnchor(centerXAnchor),
+                    control.centerYAnchor.constraintEqualToAnchor(centerYAnchor),
+                    control.leadingAnchor.constraintGreaterThanOrEqualToAnchor(
+                        leadingAnchor,
+                        constant = horizontalInset,
+                    ),
+                    trailingAnchor.constraintGreaterThanOrEqualToAnchor(
+                        control.trailingAnchor,
+                        constant = horizontalInset,
+                    ),
+                    control.topAnchor.constraintGreaterThanOrEqualToAnchor(
+                        topAnchor,
+                        constant = verticalInset,
+                    ),
+                    bottomAnchor.constraintGreaterThanOrEqualToAnchor(
+                        control.bottomAnchor,
+                        constant = verticalInset,
+                    ),
                 ),
-                trailingAnchor.constraintGreaterThanOrEqualToAnchor(
-                    switchControl.trailingAnchor,
-                    constant = SWITCH_CONTAINER_HORIZONTAL_INSET,
+            )
+        } else {
+            NSLayoutConstraint.activateConstraints(
+                listOf(
+                    control.leadingAnchor.constraintEqualToAnchor(leadingAnchor),
+                    trailingAnchor.constraintEqualToAnchor(control.trailingAnchor),
+                    control.topAnchor.constraintEqualToAnchor(topAnchor),
+                    bottomAnchor.constraintEqualToAnchor(control.bottomAnchor),
                 ),
-                switchControl.topAnchor.constraintGreaterThanOrEqualToAnchor(
-                    topAnchor,
-                    constant = SWITCH_CONTAINER_VERTICAL_INSET,
-                ),
-                bottomAnchor.constraintGreaterThanOrEqualToAnchor(
-                    switchControl.bottomAnchor,
-                    constant = SWITCH_CONTAINER_VERTICAL_INSET,
-                ),
-            ),
-        )
+            )
+        }
     }
 
     // GroupedSwitchRow yields touches inside containerView's bounds to UIKitView, so route taps
     // landing in the outer inset margin straight to the switch when enabled.
     override fun hitTest(point: CValue<CGPoint>, withEvent: UIEvent?): UIView? {
         val target = super.hitTest(point, withEvent) ?: return null
-        return if (target === this) {
-            switchControl.takeIf { it.enabled && it.isUserInteractionEnabled() }
+        return if (routeMarginTouchesToControl && target === this) {
+            control.takeIf { it.enabled && it.isUserInteractionEnabled() }
         } else {
             target
         }
     }
+}
+
+private fun syncControlBackdrop(
+    containerView: UIView,
+    control: UIView,
+    dark: Boolean,
+    backdrop: UIColor,
+) {
+    val style = interfaceStyle(dark)
+    containerView.overrideUserInterfaceStyle = style
+    containerView.backgroundColor = backdrop
+    containerView.isAccessibilityElement = false
+    control.overrideUserInterfaceStyle = style
 }
 
 internal class NativeSettingsSwitchHost {
@@ -274,7 +313,13 @@ internal class NativeSettingsSwitchHost {
             }
         }
     }
-    val containerView: UIView = SwitchContainerView(view)
+    val containerView: UIView =
+        SettingsControlContainerView(
+            control = view,
+            horizontalInset = SWITCH_CONTAINER_HORIZONTAL_INSET,
+            verticalInset = SWITCH_CONTAINER_VERTICAL_INSET,
+            routeMarginTouchesToControl = true,
+        )
 
     fun update(
         checked: Boolean,
@@ -284,16 +329,14 @@ internal class NativeSettingsSwitchHost {
         accent: UIColor,
         dark: Boolean,
         onCheckedChange: (Boolean) -> Unit,
+        backdrop: UIColor = UIColor.clearColor,
     ) {
         state.disposed = false
         state.enabled = enabled
         state.checked = checked
         state.onCheckedChange = onCheckedChange
 
-        val style = interfaceStyle(dark)
-        containerView.overrideUserInterfaceStyle = style
-        containerView.isAccessibilityElement = false
-        view.overrideUserInterfaceStyle = style
+        syncControlBackdrop(containerView = containerView, control = view, dark = dark, backdrop = backdrop)
         view.enabled = enabled
         plaza_switch_set_on_tint(view, accent)
         view.isAccessibilityElement = accessibilityEnabled
@@ -358,6 +401,8 @@ internal class NativeSegmentedControlHost {
         }
     }
 
+    val containerView: UIView = SettingsControlContainerView(control = view)
+
     fun update(
         labels: List<String>,
         selectedIndex: Int,
@@ -367,6 +412,7 @@ internal class NativeSegmentedControlHost {
         dark: Boolean,
         scale: Float,
         onSelectIndex: (Int) -> Unit,
+        backdrop: UIColor = UIColor.clearColor,
     ) {
         state.disposed = false
         state.enabled = enabled
@@ -383,7 +429,7 @@ internal class NativeSegmentedControlHost {
         val validSelection = if (selectedIndex in labels.indices) selectedIndex else -1
         state.selectedIndex = validSelection
 
-        view.overrideUserInterfaceStyle = interfaceStyle(dark)
+        syncControlBackdrop(containerView = containerView, control = view, dark = dark, backdrop = backdrop)
         view.enabled = enabled
         view.accessibilityLabel = label.takeIf { it.isNotEmpty() }
 
@@ -422,6 +468,7 @@ internal class NativeSegmentedControlHost {
             state.isSyncing = false
         }
         view.invalidateIntrinsicContentSize()
+        containerView.invalidateIntrinsicContentSize()
     }
 
     fun dispose() {
@@ -536,6 +583,8 @@ internal class NativeSliderHost {
         )
     }
 
+    val containerView: UIView = SettingsControlContainerView(control = view)
+
     fun update(
         value: Float,
         min: Float,
@@ -548,6 +597,7 @@ internal class NativeSliderHost {
         dark: Boolean,
         onValueChange: (Float) -> Unit,
         onValueChangeFinished: () -> Unit,
+        backdrop: UIColor = UIColor.clearColor,
     ) {
         val rangeChanged = state.min != min || state.max != max || state.steps != steps
         state.disposed = false
@@ -559,7 +609,7 @@ internal class NativeSliderHost {
         state.onValueChangeFinished = onValueChangeFinished
 
         val snappedInput = state.snap(value)
-        view.overrideUserInterfaceStyle = interfaceStyle(dark)
+        syncControlBackdrop(containerView = containerView, control = view, dark = dark, backdrop = backdrop)
         view.enabled = enabled
         view.accessibilityLabel = label.takeIf { it.isNotEmpty() }
         view.accessibilityValue = valueDescription.takeIf { it.isNotEmpty() }
@@ -594,6 +644,7 @@ internal class NativeSliderHost {
             state.isSyncing = false
         }
         view.invalidateIntrinsicContentSize()
+        containerView.invalidateIntrinsicContentSize()
     }
 
     fun dispose() {
