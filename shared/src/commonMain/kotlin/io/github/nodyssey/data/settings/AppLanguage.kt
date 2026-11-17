@@ -50,7 +50,7 @@ enum class AppLanguage(val tag: String?) {
  * both halves the day Compose Resources can alias one bundle to several qualifiers.
  */
 fun isTraditionalChineseTag(tag: String): Boolean {
-    val subtags = tag.split('-', '_').filter { it.isNotEmpty() }
+    val subtags = tag.substringBefore('@').split('-', '_').filter { it.isNotEmpty() }
     val language = subtags.firstOrNull() ?: return false
     if (!language.equals("zh", ignoreCase = true)) return false
     val rest = subtags.drop(1)
@@ -59,6 +59,27 @@ fun isTraditionalChineseTag(tag: String): Boolean {
     if (rest.any { it.equals("HANS", ignoreCase = true) }) return false
     if (rest.any { it.equals("HANT", ignoreCase = true) }) return true
     return rest.any { subtag -> TRADITIONAL_REGIONS.any { it.equals(subtag, ignoreCase = true) } }
+}
+
+/**
+ * Rewrites a leading Traditional Chinese BCP 47 tag (such as `zh-Hant`, `zh-Hant-HK`, `zh-HK`, or
+ * `zh-MO`) in an iOS preferred-languages list to `zh-TW` so Compose Resources resolves `values-zh-rTW`
+ * rather than falling back to the unqualified Simplified Chinese bundle.
+ *
+ * Non-traditional primary tags — including Simplified tags such as `zh-CN`, `zh-Hans-HK`, and `en`
+ * — and secondary tags after a non-traditional primary tag are returned untouched.
+ */
+fun normalizeIosPreferredLanguages(preferredLanguages: List<String>): List<String> {
+    val primary = preferredLanguages.firstOrNull() ?: return preferredLanguages
+    val canonicalTraditional = AppLanguage.TRADITIONAL_CHINESE.tag ?: return preferredLanguages
+    if (!isTraditionalChineseTag(primary)) return preferredLanguages
+    if (primary.equals(canonicalTraditional, ignoreCase = true)) return preferredLanguages
+    return buildList(preferredLanguages.size) {
+        add(canonicalTraditional)
+        preferredLanguages.drop(1).forEach { tag ->
+            if (!tag.equals(canonicalTraditional, ignoreCase = true)) add(tag)
+        }
+    }
 }
 
 /** The three regions whose Chinese is written in the traditional script. */
