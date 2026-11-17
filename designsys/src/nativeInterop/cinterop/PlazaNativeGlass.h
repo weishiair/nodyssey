@@ -148,3 +148,144 @@ static inline UIAlertController * _Nonnull plaza_present_confirm_alert(
     [host presentViewController:alert animated:YES completion:nil];
     return alert;
 }
+
+static inline BOOL plaza_switch_is_on(UISwitch * _Nonnull control) {
+    return control.on;
+}
+
+static inline void plaza_switch_set_on(UISwitch * _Nonnull control, BOOL on, BOOL animated) {
+    [control setOn:on animated:animated];
+}
+
+static inline void plaza_switch_set_on_tint(UISwitch * _Nonnull control, UIColor * _Nullable tint) {
+    control.onTintColor = tint;
+}
+
+static inline float plaza_slider_value(UISlider * _Nonnull slider) {
+    return slider.value;
+}
+
+static inline void plaza_slider_set_value(UISlider * _Nonnull slider, float value) {
+    slider.value = value;
+}
+
+static inline BOOL plaza_slider_is_tracking(UISlider * _Nonnull slider) {
+    return slider.tracking;
+}
+
+static inline void plaza_slider_configure(
+    UISlider * _Nonnull slider,
+    float minValue,
+    float maxValue,
+    UIColor * _Nullable minTint,
+    UIColor * _Nullable maxTint
+) {
+    slider.minimumValue = minValue;
+    slider.maximumValue = maxValue;
+    slider.continuous = YES;
+    slider.minimumTrackTintColor = minTint;
+    slider.maximumTrackTintColor = maxTint;
+}
+
+static inline void plaza_segmented_control_set_segments(
+    UISegmentedControl * _Nonnull control,
+    NSArray * _Nonnull titles
+) {
+    [control removeAllSegments];
+    NSUInteger count = titles.count;
+    for (NSUInteger index = 0; index < count; index++) {
+        id entry = [titles objectAtIndex:index];
+        NSString *title = [entry isKindOfClass:[NSString class]] ? (NSString *)entry : [entry description];
+        [control insertSegmentWithTitle:title atIndex:index animated:NO];
+    }
+}
+
+static inline int plaza_segmented_control_selected_index(UISegmentedControl * _Nonnull control) {
+    NSInteger index = control.selectedSegmentIndex;
+    return index == UISegmentedControlNoSegment ? -1 : (int)index;
+}
+
+static inline void plaza_segmented_control_set_selected_index(UISegmentedControl * _Nonnull control, int index) {
+    control.selectedSegmentIndex = index < 0 ? UISegmentedControlNoSegment : (NSInteger)index;
+}
+
+static inline void plaza_segmented_control_set_segment_enabled(
+    UISegmentedControl * _Nonnull control,
+    BOOL enabled,
+    int index
+) {
+    if (index >= 0 && (NSUInteger)index < control.numberOfSegments) {
+        [control setEnabled:enabled forSegmentAtIndex:(NSUInteger)index];
+    }
+}
+
+static inline void plaza_segmented_control_set_appearance(
+    UISegmentedControl * _Nonnull control,
+    UIColor * _Nullable selectedTint,
+    UIColor * _Nullable selectedTextColor,
+    UIColor * _Nullable normalTextColor,
+    UIFont * _Nullable font
+) {
+    control.selectedSegmentTintColor = selectedTint;
+    NSMutableDictionary *normalAttributes = [NSMutableDictionary dictionary];
+    NSMutableDictionary *selectedAttributes = [NSMutableDictionary dictionary];
+    if (normalTextColor != nil) {
+        normalAttributes[NSForegroundColorAttributeName] = normalTextColor;
+    }
+    if (selectedTextColor != nil) {
+        selectedAttributes[NSForegroundColorAttributeName] = selectedTextColor;
+    }
+    if (font != nil) {
+        normalAttributes[NSFontAttributeName] = font;
+        selectedAttributes[NSFontAttributeName] = font;
+    }
+    [control setTitleTextAttributes:(normalAttributes.count > 0 ? normalAttributes : nil) forState:UIControlStateNormal];
+    [control setTitleTextAttributes:(selectedAttributes.count > 0 ? selectedAttributes : nil) forState:UIControlStateSelected];
+}
+
+static inline void plaza_control_add_value_changed_action(
+    UIControl * _Nonnull control,
+    void (^ _Nonnull handler)(UIControl * _Nonnull sender)
+) {
+    __weak UIControl *weakControl = control;
+    [control addAction:[UIAction actionWithHandler:^(__unused UIAction * _Nonnull action) {
+        UIControl *strongControl = weakControl;
+        if (strongControl != nil) {
+            handler(strongControl);
+        }
+    }] forControlEvents:UIControlEventValueChanged];
+}
+
+static inline void plaza_slider_wire_events(
+    UISlider * _Nonnull slider,
+    void (^ _Nonnull onTouchDown)(UISlider * _Nonnull sender),
+    void (^ _Nonnull onValueChanged)(UISlider * _Nonnull sender),
+    void (^ _Nonnull onTouchEnd)(UISlider * _Nonnull sender),
+    void (^ _Nonnull onTouchCancel)(UISlider * _Nonnull sender)
+) {
+    __weak UISlider *weakSlider = slider;
+    [slider addAction:[UIAction actionWithHandler:^(__unused UIAction * _Nonnull action) {
+        UISlider *strongSlider = weakSlider;
+        if (strongSlider != nil) {
+            onTouchDown(strongSlider);
+        }
+    }] forControlEvents:UIControlEventTouchDown];
+    [slider addAction:[UIAction actionWithHandler:^(__unused UIAction * _Nonnull action) {
+        UISlider *strongSlider = weakSlider;
+        if (strongSlider != nil) {
+            onValueChanged(strongSlider);
+        }
+    }] forControlEvents:UIControlEventValueChanged];
+    [slider addAction:[UIAction actionWithHandler:^(__unused UIAction * _Nonnull action) {
+        UISlider *strongSlider = weakSlider;
+        if (strongSlider != nil) {
+            onTouchEnd(strongSlider);
+        }
+    }] forControlEvents:(UIControlEventTouchUpInside | UIControlEventTouchUpOutside)];
+    [slider addAction:[UIAction actionWithHandler:^(__unused UIAction * _Nonnull action) {
+        UISlider *strongSlider = weakSlider;
+        if (strongSlider != nil) {
+            onTouchCancel(strongSlider);
+        }
+    }] forControlEvents:UIControlEventTouchCancel];
+}

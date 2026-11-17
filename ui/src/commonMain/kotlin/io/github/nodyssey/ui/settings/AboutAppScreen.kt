@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -31,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,6 +41,7 @@ import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.rememberFileSizeLabel
 import io.github.nodyssey.ui.common.rememberShareText
 import io.github.nodyssey.ui.common.siteName
+import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.about_app_telegram_group
 import io.github.nodyssey.ui.resources.about_app_telegram_group_hint
@@ -103,7 +103,6 @@ import io.github.plaza.core.update.UpdateFailure
 import io.github.plaza.core.update.releaseNotesText
 import io.github.plaza.designsys.component.IconBadge
 import io.github.plaza.designsys.component.LayerCard
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionNote
@@ -114,6 +113,7 @@ import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.floatShadow
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -173,31 +173,28 @@ fun AboutAppScreen(
     inAppUpdatesSupported: Boolean = platformHasInAppUpdates,
     updateChecksSupported: Boolean = platformHasUpdateChecks,
 ) {
+    val layers = LocalPlazaLayers.current
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
+        modifier = if (layers.nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = settingsPageColor(),
         topBar = {
-            OneHandTopAppBar(
+            SettingsTopBar(
                 title = stringResource(Res.string.about_title),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backContentDescription = stringResource(Res.string.action_back),
+                appBarState = appBarState,
             )
         },
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding)
+                .padding(padding.withoutBottom())
                 .fillMaxSize()
+                .then(if (layers.nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
+                .padding(settingsScrollPadding(padding)),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             AppIdentity(
@@ -332,7 +329,7 @@ private fun AppIdentity(
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         Surface(
-            modifier = Modifier.size(88.dp).floatShadow(MaterialTheme.shapes.extraLarge, LocalPlazaLayers.current.shadows),
+            modifier = Modifier.size(88.dp).floatShadow(MaterialTheme.shapes.extraLarge, LocalPlazaLayers.current.shadows && !LocalPlazaLayers.current.nativeChrome),
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -434,7 +431,10 @@ private fun UpdateCard(
     onOpenRelease: () -> Unit,
     inAppUpdatesSupported: Boolean,
 ) {
-    LayerCard(modifier = Modifier.fillMaxWidth()) {
+    LayerCard(
+        modifier = Modifier.fillMaxWidth(),
+        elevated = !LocalPlazaLayers.current.nativeChrome,
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

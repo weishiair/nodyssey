@@ -13,8 +13,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -27,6 +25,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,6 +53,7 @@ import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.rememberDisplayRefreshRates
 import io.github.nodyssey.ui.common.rememberFileSizeLabel
+import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.doh_paused_for_proxy
@@ -161,10 +161,9 @@ import io.github.nodyssey.ui.settings.theme.themeSummary
 import io.github.nodyssey.ui.sticker.LocalStickerLibrary
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
-import io.github.plaza.designsys.component.ChoiceSegments
-import io.github.plaza.designsys.component.GroupedListItemSwitch
+import io.github.plaza.designsys.component.AdaptiveSlider
 import io.github.plaza.designsys.component.GroupedRow
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.GroupedSwitchRow
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
@@ -176,6 +175,7 @@ import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.PostBody
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -314,32 +314,29 @@ fun SettingsScreen(
     var searchAvatarSize by remember(state.settings.searchAvatarSize) {
         mutableFloatStateOf(state.settings.searchAvatarSize.toFloat())
     }
+    val layers = LocalPlazaLayers.current
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
+        modifier = if (layers.nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = settingsPageColor(),
         topBar = {
-            OneHandTopAppBar(
+            SettingsTopBar(
                 title = stringResource(Res.string.settings_title),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backContentDescription = stringResource(Res.string.action_back),
+                appBarState = appBarState,
             )
         },
     ) { padding ->
         Column(
             modifier =
             Modifier
-                .padding(padding)
+                .padding(padding.withoutBottom())
                 .fillMaxSize()
+                .then(if (layers.nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
+                .padding(settingsScrollPadding(padding)),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             SectionLabel(stringResource(Res.string.settings_appearance))
@@ -348,18 +345,11 @@ fun SettingsScreen(
                 // 主题's own screen. It is not that it fits the group better — it is that it is
                 // reached far more often than the rest of the theme put together, and a control
                 // people use daily does not belong two screens deep behind one they set once.
-                SettingsBlock(
-                    title = stringResource(Res.string.settings_theme_mode),
-                    top = true,
-                    // 墨水屏模式 forces light; see the row below it.
+                ThemeModeSettingSection(
+                    selected = state.settings.themeMode,
+                    onSelected = onThemeModeChange,
                     enabled = !state.settings.einkMode,
-                ) {
-                    ConnectedThemeButtons(
-                        selected = state.settings.themeMode,
-                        onSelected = onThemeModeChange,
-                        enabled = !state.settings.einkMode,
-                    )
-                }
+                )
                 // 配色来源, the preset grid, 我的主题 and 色彩风格 are behind this row: four controls
                 // and a live preview card is more than a group of eight can carry, and every one of
                 // them changes the screen it is read on. The row says what they add up to — the
@@ -383,6 +373,7 @@ fun SettingsScreen(
                 // 已读标记 — how a thread that has been opened is drawn in the three lists that carry
                 // read state. A menu rather than rows of their own: four answers, no live preview
                 // needed to tell them apart, and the list itself is one tap away.
+                val readMarkLabel = readMarkStyleLabel(state.settings.readMarkStyle)
                 SettingsMenuRow(
                     icon = PlazaIcons.DoneAll,
                     title = stringResource(Res.string.settings_read_mark),
@@ -390,6 +381,7 @@ fun SettingsScreen(
                     choices = ReadMarkStyle.entries.map { it to readMarkStyleLabel(it) },
                     selected = state.settings.readMarkStyle,
                     onSelect = onReadMarkStyleChange,
+                    value = if (layers.nativeChrome) readMarkLabel else null,
                 )
                 // 标记颜色 exists only while something is painted: 仅标题变灰 adds no colour at all and
                 // 不标记 less, so a colour row under either of them would set something that cannot
@@ -402,13 +394,12 @@ fun SettingsScreen(
                 }
                 // Under 主题 rather than above it: it overrides 明暗 and replaces 主题, and the two
                 // it greys out read first, the way a master switch reads after what it governs.
-                GroupedRow(
+                GroupedSwitchRow(
                     icon = PlazaIcons.Contrast,
                     title = stringResource(Res.string.settings_eink),
                     subtitle = stringResource(Res.string.settings_eink_hint),
                     checked = state.settings.einkMode,
                     onCheckedChange = onEinkModeChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.einkMode) },
                 )
                 supportedRefreshRates?.let { supported ->
                     DisplayRefreshRateSetting(
@@ -422,18 +413,19 @@ fun SettingsScreen(
                 // whether the title should come down to the thumb is a fact about the hand holding
                 // the phone, and it does not change between 收藏 and 设置.
                 if (LocalOneHandModeAvailable.current) {
-                    GroupedRow(
+                    GroupedSwitchRow(
                         icon = PlazaIcons.PanTool,
                         title = stringResource(Res.string.settings_one_hand),
                         subtitle = stringResource(Res.string.settings_one_hand_hint),
                         checked = state.settings.oneHandMode,
                         onCheckedChange = onOneHandModeChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.oneHandMode) },
                     )
                 }
+                val bodySizeTitle = stringResource(Res.string.settings_body_size)
+                val bodySizeReading = bodyFontSize.roundToInt().toString()
                 SettingsBlock(
-                    title = stringResource(Res.string.settings_body_size),
-                    value = bodyFontSize.roundToInt().toString(),
+                    title = bodySizeTitle,
+                    value = bodySizeReading,
                 ) {
                     SettingsSlider(
                         value = bodyFontSize,
@@ -445,6 +437,8 @@ fun SettingsScreen(
                         // Slider `steps` counts only the interior stops. 14..24sp therefore has
                         // nine interior stops and ten 1sp intervals.
                         steps = BODY_FONT_SIZE_STEPS,
+                        label = bodySizeTitle,
+                        valueDescription = bodySizeReading,
                         modifier = Modifier.testTag(BODY_FONT_SIZE_SLIDER_TAG),
                     )
                     // Set at the size being dragged rather than the size stored, and at the body's
@@ -459,18 +453,19 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                GroupedRow(
+                GroupedSwitchRow(
                     icon = PlazaIcons.Mood,
                     title = stringResource(Res.string.settings_sticker_uniform),
                     subtitle = stringResource(Res.string.settings_sticker_uniform_hint),
                     checked = state.settings.stickerUniformSize,
                     onCheckedChange = onStickerUniformSizeChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.stickerUniformSize) },
                 )
                 if (state.settings.stickerUniformSize) {
+                    val stickerTitle = stringResource(Res.string.settings_sticker_size)
+                    val stickerReading = stickerSize.roundToInt().toString()
                     SettingsBlock(
-                        title = stringResource(Res.string.settings_sticker_size),
-                        value = stickerSize.roundToInt().toString(),
+                        title = stickerTitle,
+                        value = stickerReading,
                     ) {
                         SettingsSlider(
                             value = stickerSize,
@@ -481,6 +476,8 @@ fun SettingsScreen(
                             // stops. Finer than that is a difference nobody can see on a
                             // picture this small.
                             steps = STICKER_SIZE_STEPS,
+                            label = stickerTitle,
+                            valueDescription = stickerReading,
                             modifier = Modifier.testTag(STICKER_SIZE_SLIDER_TAG),
                         )
                         StickerSizePreview(sizeSp = stickerSize.roundToInt())
@@ -488,18 +485,19 @@ fun SettingsScreen(
                 }
                 // A result list is read by scanning, and a face is found before a name is — but every
                 // dp of face is a dp the title does not get, so the trade is the reader's to make.
-                GroupedRow(
+                GroupedSwitchRow(
                     icon = PlazaIcons.PersonSearch,
                     title = stringResource(Res.string.settings_search_avatar),
                     subtitle = stringResource(Res.string.settings_search_avatar_hint),
                     checked = state.settings.showSearchAvatar,
                     onCheckedChange = onSearchAvatarChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.showSearchAvatar) },
                 )
                 if (state.settings.showSearchAvatar) {
+                    val avatarTitle = stringResource(Res.string.settings_search_avatar_size)
+                    val avatarReading = searchAvatarSize.roundToInt().toString()
                     SettingsBlock(
-                        title = stringResource(Res.string.settings_search_avatar_size),
-                        value = searchAvatarSize.roundToInt().toString(),
+                        title = avatarTitle,
+                        value = avatarReading,
                     ) {
                         SettingsSlider(
                             value = searchAvatarSize,
@@ -509,6 +507,8 @@ fun SettingsScreen(
                             // 20..44dp in 1dp stops: the whole range is two and a half lines of
                             // type wide, so a coarser step would make the slider a switch.
                             steps = SEARCH_AVATAR_SIZE_STEPS,
+                            label = avatarTitle,
+                            valueDescription = avatarReading,
                             modifier = Modifier.testTag(SEARCH_AVATAR_SLIDER_TAG),
                         )
                         SearchAvatarPreview(sizeDp = searchAvatarSize.roundToInt())
@@ -541,69 +541,55 @@ fun SettingsScreen(
                         onClick = onOpenAppLinkSettings,
                     )
                 }
-                SettingsBlock(
+                ReportFormatSettingSection(
+                    selected = state.settings.reportFormat,
+                    onSelected = onReportFormatChange,
                     // The group's first card when the platform has no App Links notion to show —
                     // 站外链接 used to hold that place and no longer exists; see `ExternalLinks`.
                     top = appLinkHandlingEnabled == null,
-                    title = stringResource(Res.string.settings_report_format),
-                ) {
-                    ConnectedReportFormatButtons(
-                        selected = state.settings.reportFormat,
-                        onSelected = onReportFormatChange,
-                    )
-                }
-                GroupedRow(
+                )
+                GroupedSwitchRow(
                     icon = PlazaIcons.LastPage,
                     title = stringResource(Res.string.settings_home_page_bar),
                     subtitle = stringResource(Res.string.settings_home_page_bar_hint),
                     checked = state.settings.homePageBar,
                     onCheckedChange = onHomePageBarChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.homePageBar) },
                 )
-                GroupedRow(
+                GroupedSwitchRow(
                     icon = PlazaIcons.PushPin,
                     title = stringResource(Res.string.settings_show_home_pinned_posts),
                     subtitle = stringResource(Res.string.settings_show_home_pinned_posts_hint),
                     checked = state.settings.showHomePinnedPosts,
                     onCheckedChange = onShowHomePinnedPostsChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.showHomePinnedPosts) },
                 )
-                SettingsBlock(
-                    title = stringResource(Res.string.settings_post_reply_style),
-                    subtitle = stringResource(Res.string.settings_post_reply_style_hint),
-                ) {
-                    ConnectedPostReplyStyleButtons(
-                        selected = state.settings.postReplyStyle,
-                        onSelected = onPostReplyStyleChange,
-                    )
-                }
-                GroupedRow(
+                PostReplyStyleSettingSection(
+                    selected = state.settings.postReplyStyle,
+                    onSelected = onPostReplyStyleChange,
+                )
+                GroupedSwitchRow(
                     icon = PlazaIcons.EventAvailable,
                     title = stringResource(Res.string.settings_show_author_account_info),
                     subtitle = stringResource(Res.string.settings_show_author_account_info_hint),
                     checked = state.settings.showAuthorAccountInfo,
                     onCheckedChange = onShowAuthorAccountInfoChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.showAuthorAccountInfo) },
                 )
                 if (platformHasPredictiveBack) {
-                    GroupedRow(
+                    GroupedSwitchRow(
                         icon = Icons.AutoMirrored.Filled.ArrowBack,
                         title = stringResource(Res.string.settings_predictive_back),
                         subtitle = stringResource(Res.string.settings_predictive_back_hint),
                         checked = state.settings.predictiveBack,
                         onCheckedChange = onPredictiveBackChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.predictiveBack) },
                     )
                 }
                 SearchHistoryLimitSetting(state.settings.searchHistoryLimit, onSearchHistoryLimitChange)
                 onClipboardPostPromptChange?.let { onChange ->
-                    GroupedRow(
+                    GroupedSwitchRow(
                         icon = PlazaIcons.ContentPaste,
                         title = stringResource(Res.string.settings_clipboard_post),
                         subtitle = stringResource(Res.string.settings_clipboard_post_hint),
                         checked = state.settings.clipboardPostPrompt,
                         onCheckedChange = onChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.clipboardPostPrompt) },
                     )
                 }
                 GroupedRow(
@@ -617,13 +603,12 @@ fun SettingsScreen(
                     },
                     onClick = onOpenBlockKeywords,
                 )
-                GroupedRow(
+                GroupedSwitchRow(
                     icon = PlazaIcons.Wifi,
                     title = stringResource(Res.string.settings_wifi_images),
                     subtitle = stringResource(Res.string.settings_wifi_images_hint),
                     checked = state.settings.imagesOnWifiOnly,
                     onCheckedChange = onImagesOnWifiOnlyChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.imagesOnWifiOnly) },
                 )
                 GroupedRow(
                     title = stringResource(Res.string.imagehost_title),
@@ -730,20 +715,18 @@ fun SettingsScreen(
                     trailing = { if (state.updateVersionName != null) UpdateDot() },
                 )
                 if (updateChecksSupported) {
-                    GroupedRow(
+                    GroupedSwitchRow(
                         icon = PlazaIcons.Update,
                         title = stringResource(Res.string.settings_update_on_launch),
                         checked = state.settings.updateCheckOnLaunch,
                         onCheckedChange = onUpdateCheckOnLaunchChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.updateCheckOnLaunch) },
                     )
-                    GroupedRow(
+                    GroupedSwitchRow(
                         icon = PlazaIcons.Science,
                         title = stringResource(Res.string.settings_update_dev_channel),
                         subtitle = stringResource(Res.string.settings_update_dev_channel_hint),
                         checked = state.settings.updateDevChannel,
                         onCheckedChange = onUpdateDevChannelChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.updateDevChannel) },
                     )
                 }
                 GroupedRow(
@@ -811,16 +794,29 @@ private fun SettingsSlider(
     onValueChangeFinished: () -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
+    label: String,
+    valueDescription: String,
     modifier: Modifier = Modifier,
 ) {
-    Slider(
+    AdaptiveSlider(
         value = value,
         onValueChange = onValueChange,
-        onValueChangeFinished = onValueChangeFinished,
         valueRange = valueRange,
         steps = steps,
+        onValueChangeFinished = onValueChangeFinished,
         modifier = modifier,
-    )
+        label = label,
+        valueDescription = valueDescription,
+    ) {
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            onValueChangeFinished = onValueChangeFinished,
+            valueRange = valueRange,
+            steps = steps,
+            modifier = modifier,
+        )
+    }
 }
 
 /**
@@ -942,39 +938,44 @@ private fun readMarkStyleLabel(style: ReadMarkStyle): String =
  * The one part of 主题 that did not move onto 主题's own screen — see the group above for why.
  */
 @Composable
-private fun ConnectedThemeButtons(
+private fun ThemeModeSettingSection(
     selected: ThemeMode,
     onSelected: (ThemeMode) -> Unit,
     enabled: Boolean = true,
 ) {
-    val choices =
+    SettingsChoiceSection(
+        title = stringResource(Res.string.settings_theme_mode),
+        choices =
         listOf(
             ThemeMode.SYSTEM to stringResource(Res.string.settings_theme_system),
             ThemeMode.LIGHT to stringResource(Res.string.settings_theme_light),
             ThemeMode.DARK to stringResource(Res.string.settings_theme_dark),
-        )
-    ChoiceSegments(
-        labels = choices.map { it.second },
-        selectedIndex = choices.indexOfFirst { it.first == selected },
-        onSelect = { onSelected(choices[it].first) },
+        ),
+        selected = selected,
+        onSelect = onSelected,
+        icon = PlazaIcons.Contrast,
+        top = true,
         enabled = enabled,
     )
 }
 
 @Composable
-private fun ConnectedReportFormatButtons(
+private fun ReportFormatSettingSection(
     selected: ReportFormat,
     onSelected: (ReportFormat) -> Unit,
+    top: Boolean = false,
 ) {
-    val choices =
+    SettingsChoiceSection(
+        title = stringResource(Res.string.settings_report_format),
+        choices =
         listOf(
             ReportFormat.SOURCE to stringResource(Res.string.settings_report_format_source),
             ReportFormat.ADAPTED to stringResource(Res.string.settings_report_format_adapted),
-        )
-    ChoiceSegments(
-        labels = choices.map { it.second },
-        selectedIndex = choices.indexOfFirst { it.first == selected },
-        onSelect = { onSelected(choices[it].first) },
+        ),
+        selected = selected,
+        onSelect = onSelected,
+        icon = PlazaIcons.Checklist,
+        top = top,
     )
 }
 
@@ -983,20 +984,22 @@ private fun ConnectedReportFormatButtons(
  * then the upstream thread layout. [PostReplyStyle.CARDS] is still the default.
  */
 @Composable
-private fun ConnectedPostReplyStyleButtons(
+private fun PostReplyStyleSettingSection(
     selected: PostReplyStyle,
     onSelected: (PostReplyStyle) -> Unit,
 ) {
-    val choices =
+    SettingsChoiceSection(
+        title = stringResource(Res.string.settings_post_reply_style),
+        subtitle = stringResource(Res.string.settings_post_reply_style_hint),
+        choices =
         listOf(
             PostReplyStyle.FLAT to stringResource(Res.string.settings_post_reply_style_flat),
             PostReplyStyle.CARDS to stringResource(Res.string.settings_post_reply_style_cards),
             PostReplyStyle.ORIGINAL to stringResource(Res.string.settings_post_reply_style_original),
-        )
-    ChoiceSegments(
-        labels = choices.map { it.second },
-        selectedIndex = choices.indexOfFirst { it.first == selected },
-        onSelect = { onSelected(choices[it].first) },
+        ),
+        selected = selected,
+        onSelect = onSelected,
+        icon = PlazaIcons.Forum,
     )
 }
 
@@ -1083,6 +1086,7 @@ private fun SearchAvatarPreview(sizeDp: Int) {
             onClick = {},
             avatarSize = sizeDp.dp,
             modifier = Modifier.padding(Spacing.md),
+            elevated = !LocalPlazaLayers.current.nativeChrome,
         )
     }
 }

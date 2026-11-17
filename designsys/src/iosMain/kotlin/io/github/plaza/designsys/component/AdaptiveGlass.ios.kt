@@ -208,7 +208,8 @@ actual fun AdaptiveNativeMenu(
                 factory = { host.view },
                 modifier = Modifier.matchParentSize(),
                 properties = if (cooperativeInScroll) CooperativeOverlayInterop else NativeGlassInterop,
-                update = { host.update(label, actions, dark) },
+                update = { host.update(label, actions, dark, enabled = active) },
+                onRelease = { host.dispose() },
             )
         }
     }
@@ -566,8 +567,14 @@ private class NativeBarItemHost(initial: GlassAction) {
     }
 }
 
+// UIMenu/UIAction retain this state, which owns no UIView; capturing the host would form an ARC cycle.
+private class MenuOverlayState(
+    var actions: List<GlassMenuAction> = emptyList(),
+    var enabled: Boolean = true,
+)
+
 internal class NativeMenuOverlayHost {
-    private var actions: List<GlassMenuAction> = emptyList()
+    private val state = MenuOverlayState()
     private var lastSignature: List<MenuActionSignature> = emptyList()
     val view: UIButton = UIButton.buttonWithConfiguration(
         UIButtonConfiguration.plainButtonConfiguration(),
@@ -576,18 +583,30 @@ internal class NativeMenuOverlayHost {
         showsMenuAsPrimaryAction = true
     }
 
-    fun update(label: String, nextActions: List<GlassMenuAction>, dark: Boolean) {
-        actions = nextActions
+    fun update(
+        label: String,
+        nextActions: List<GlassMenuAction>,
+        dark: Boolean,
+        enabled: Boolean = true,
+    ) {
+        state.enabled = enabled
+        state.actions = nextActions
         view.overrideUserInterfaceStyle = interfaceStyle(dark)
         view.accessibilityLabel = label
-        view.enabled = nextActions.isNotEmpty()
+        view.enabled = enabled && nextActions.isNotEmpty()
         val signature = nextActions.signatures()
         if (signature != lastSignature) {
             lastSignature = signature
+            val currentState = state
             view.menu = nextActions.takeIf { it.isNotEmpty() }?.let { menu ->
-                buildNativeMenu(menu) { actions }
+                buildNativeMenu(menu) { if (currentState.enabled) currentState.actions else emptyList() }
             }
         }
+    }
+
+    fun dispose() {
+        state.enabled = false
+        state.actions = emptyList()
     }
 }
 
@@ -702,13 +721,24 @@ private data class MenuActionSignature(
 private fun List<GlassMenuAction>.signatures(): List<MenuActionSignature> =
     map { MenuActionSignature(it.label, it.symbol, it.enabled, it.selected) }
 
+internal fun resolveNativeMenuAction(
+    current: List<GlassMenuAction>,
+    index: Int,
+    label: String,
+): GlassMenuAction? {
+    val target =
+        current.getOrNull(index)?.takeIf { it.label == label }
+            ?: current.firstOrNull { it.label == label }
+    return target?.takeIf { it.enabled }
+}
+
 private fun buildNativeMenu(
     items: List<GlassMenuAction>,
     currentItems: () -> List<GlassMenuAction>,
 ): UIMenu = UIMenu.menuWithChildren(
-    items.map { item ->
+    items.mapIndexed { index, item ->
         item.uiAction {
-            currentItems().firstOrNull { it.label == item.label && it.enabled }?.onClick?.invoke()
+            resolveNativeMenuAction(currentItems(), index, item.label)?.onClick?.invoke()
         }
     },
 )
@@ -719,7 +749,8 @@ private fun GlassMenuAction.uiAction(onSelect: () -> Unit): UIAction =
         state = if (selected) UIMenuElementState.UIMenuElementStateOn else UIMenuElementState.UIMenuElementStateOff
     }
 
-private fun Color.toUIColor(): UIColor = UIColor(red = red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = alpha.toDouble())
+internal fun Color.toUIColor(): UIColor =
+    UIColor(red = red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = alpha.toDouble())
 
-private fun interfaceStyle(dark: Boolean): UIUserInterfaceStyle =
+internal fun interfaceStyle(dark: Boolean): UIUserInterfaceStyle =
     if (dark) UIUserInterfaceStyle.UIUserInterfaceStyleDark else UIUserInterfaceStyle.UIUserInterfaceStyleLight

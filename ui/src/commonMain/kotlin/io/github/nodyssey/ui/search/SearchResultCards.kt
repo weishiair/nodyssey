@@ -98,6 +98,7 @@ internal fun SearchPostCard(
     avatarSize: Dp? = null,
     /** Null for the appearance settings' sample, which is not a navigation source. */
     origin: String? = null,
+    elevated: Boolean = true,
 ) {
     val summary = post.summary
     LayerCard(
@@ -107,6 +108,7 @@ internal fun SearchPostCard(
         containerColor = readMarkCardColor(post.isRead),
         shape = MaterialTheme.shapes.large,
         contentPadding = ResultCardPadding,
+        elevated = elevated,
     ) {
         if (avatarSize == null) {
             CardText(post, summary, highlight, origin, Modifier.fillMaxWidth())

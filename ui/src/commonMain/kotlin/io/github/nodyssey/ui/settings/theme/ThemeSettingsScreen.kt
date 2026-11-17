@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -18,15 +19,13 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,9 +39,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,6 +56,7 @@ import io.github.nodyssey.data.settings.SavedTheme
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.common.longPressToEdit
+import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
@@ -78,18 +80,21 @@ import io.github.nodyssey.ui.resources.settings_theme_preview
 import io.github.nodyssey.ui.settings.SettingsGroup
 import io.github.nodyssey.ui.settings.SettingsItemGap
 import io.github.nodyssey.ui.settings.SettingsMenuRow
-import io.github.nodyssey.ui.settings.SettingsPagePadding
+import io.github.nodyssey.ui.settings.SettingsTopBar
+import io.github.nodyssey.ui.settings.settingsPageColor
+import io.github.nodyssey.ui.settings.settingsScrollPadding
+import io.github.plaza.designsys.component.AdaptiveSegmentedControl
 import io.github.plaza.designsys.component.ChoiceSegments
-import io.github.plaza.designsys.component.GroupedListItemSwitch
-import io.github.plaza.designsys.component.GroupedRow
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.GroupedSwitchRow
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.groupedRowTitleStyle
+import io.github.plaza.designsys.component.rememberFitsSegmentedControl
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -152,33 +157,30 @@ fun ThemeSettingsScreen(
     // name. 编辑 edits the seed in use, and a saved theme edited there is saved over, not beside.
     var sheet by remember { mutableStateOf<SeedSheetMode?>(null) }
     var renaming by remember { mutableStateOf<SavedTheme?>(null) }
+    val layers = LocalPlazaLayers.current
     val appBarState = rememberOneHandAppBarState()
 
     Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
+        modifier = if (layers.nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = settingsPageColor(),
         topBar = {
-            OneHandTopAppBar(
+            SettingsTopBar(
                 title = stringResource(Res.string.settings_theme),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backContentDescription = stringResource(Res.string.action_back),
+                appBarState = appBarState,
             )
         },
     ) { padding ->
         Column(
             modifier =
             Modifier
-                .padding(padding)
+                .padding(padding.withoutBottom())
                 .fillMaxSize()
+                .then(if (layers.nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
+                .padding(settingsScrollPadding(padding)),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             SettingsGroup {
@@ -290,16 +292,60 @@ private fun ColorSourceHeader(
             }
             add(ColorSource.CUSTOM to stringResource(Res.string.settings_color_source_custom))
         }
-    Column(
-        modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = 14.dp, bottom = Spacing.sm),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(stringResource(Res.string.settings_color_source), style = groupedRowTitleStyle())
-        ChoiceSegments(
-            labels = choices.map { it.second },
-            selectedIndex = choices.indexOfFirst { it.first == settings.colorSource },
-            onSelect = { onSelect(choices[it].first) },
-        )
+    val labels = choices.map { it.second }
+    val selectedIndex = choices.indexOfFirst { it.first == settings.colorSource }
+    val title = stringResource(Res.string.settings_color_source)
+    val layers = LocalPlazaLayers.current
+    if (!layers.nativeChrome) {
+        Column(
+            modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = 14.dp, bottom = Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(title, style = groupedRowTitleStyle())
+            ChoiceSegments(
+                labels = labels,
+                selectedIndex = selectedIndex,
+                onSelect = { onSelect(choices[it].first) },
+            )
+        }
+        return
+    }
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val availableWidth = (maxWidth - Spacing.lg * 2).coerceAtLeast(0.dp)
+        if (rememberFitsSegmentedControl(labels = labels, availableWidth = availableWidth, density = density)) {
+            Column(
+                modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = 14.dp, bottom = Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(title, style = groupedRowTitleStyle())
+                AdaptiveSegmentedControl(
+                    labels = labels,
+                    selectedIndex = selectedIndex,
+                    onSelectIndex = { onSelect(choices[it].first) },
+                    label = title,
+                ) {
+                    ChoiceSegments(
+                        labels = labels,
+                        selectedIndex = selectedIndex,
+                        onSelect = { onSelect(choices[it].first) },
+                    )
+                }
+            }
+        } else {
+            SettingsMenuRow(
+                icon = PlazaIcons.Palette,
+                title = title,
+                subtitle = null,
+                choices = choices,
+                selected = settings.colorSource,
+                onSelect = onSelect,
+                first = true,
+                last = false,
+                menuIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                value = choices.getOrNull(selectedIndex)?.second,
+            )
+        }
     }
 }
 
@@ -538,20 +584,15 @@ private fun FrostedGlassRow(
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    GroupedRow(
+    GroupedSwitchRow(
         icon = PlazaIcons.Palette,
         title = stringResource(Res.string.settings_frosted_glass),
         subtitle = stringResource(Res.string.settings_frosted_glass_hint),
         checked = checked,
+        switchChecked = checked && enabled,
         onCheckedChange = onCheckedChange,
         enabled = enabled,
         last = true,
-        trailing = {
-            GroupedListItemSwitch(
-                checked = checked && enabled,
-                enabled = enabled,
-            )
-        },
     )
 }
 

@@ -8,7 +8,6 @@ import platform.UIKit.UIControlEventPrimaryActionTriggered
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -89,9 +88,11 @@ class NativeGlassButtonHostTest {
             scale = 1f,
         )
 
-        assertSame(initialItem, host.bar.topItem)
+        // UIKit getters may return a fresh Kotlin wrapper for the same Objective-C object.
+        // NSObject equality preserves the native identity check across that bridge.
+        assertEquals(initialItem, host.bar.topItem)
         assertEquals(initialRightItems, host.item.rightBarButtonItems)
-        assertSame(initialMoreMenu, host.item.rightBarButtonItems?.firstOrNull())
+        assertEquals(initialMoreMenu, host.item.rightBarButtonItems?.firstOrNull())
         assertTrue(host.item.titleView != null)
     }
 }

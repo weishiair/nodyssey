@@ -58,8 +58,7 @@ import io.github.nodyssey.ui.resources.settings_wallpaper_unreadable_hint
 import io.github.nodyssey.ui.settings.SettingsGroup
 import io.github.nodyssey.ui.settings.SettingsItemGap
 import io.github.nodyssey.ui.settings.SettingsPagePadding
-import io.github.plaza.designsys.component.GroupedListItemSwitch
-import io.github.plaza.designsys.component.GroupedRow
+import io.github.plaza.designsys.component.GroupedSwitchRow
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
@@ -222,7 +221,7 @@ internal fun DynamicColorContent(
         }
 
         Column {
-            GroupedRow(
+            GroupedSwitchRow(
                 title = stringResource(Res.string.settings_wallpaper_system_palette),
                 subtitle =
                 stringResource(
@@ -234,22 +233,16 @@ internal fun DynamicColorContent(
                     osVersionName(),
                 ),
                 checked = settings.wallpaperSystemPalette,
+                switchChecked = settings.wallpaperSystemPalette && palette.systemPaletteAvailable,
                 onCheckedChange = onSystemPaletteChange,
                 enabled = palette.systemPaletteAvailable,
-                trailing = {
-                    GroupedListItemSwitch(
-                        checked = settings.wallpaperSystemPalette && palette.systemPaletteAvailable,
-                        enabled = palette.systemPaletteAvailable,
-                    )
-                },
             )
-            GroupedRow(
+            GroupedSwitchRow(
                 title = stringResource(Res.string.settings_wallpaper_auto_update),
                 subtitle = stringResource(Res.string.settings_wallpaper_auto_update_hint),
                 checked = settings.wallpaperAutoUpdate,
                 onCheckedChange = onAutoUpdateChange,
                 last = true,
-                trailing = { GroupedListItemSwitch(checked = settings.wallpaperAutoUpdate) },
             )
         }
     }

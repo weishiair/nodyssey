@@ -12,9 +12,13 @@ import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SavedTheme
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
+import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.settings_frosted_glass
 import io.github.plaza.designsys.theme.PlazaTheme
+import org.jetbrains.compose.resources.stringResource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -82,6 +86,36 @@ class ThemeSettingsScreenTest {
         composeRule.onNodeWithText("新建").performScrollTo().performClick()
 
         composeRule.onAllNodes(hasSetTextAction() and hasText("海雾")).assertCountEquals(0)
+    }
+
+    @Test
+    fun `frosted glass switch does not emit changes while eink mode disables it`() {
+        val toggles = mutableListOf<Boolean>()
+        var frostedGlassLabel = ""
+        composeRule.setContent {
+            frostedGlassLabel = stringResource(Res.string.settings_frosted_glass)
+            PlazaTheme(einkMode = true, frostedGlass = true) {
+                ThemeSettingsScreen(
+                    settings =
+                    UserSettings(
+                        seedColor = SettingsRepository.DEFAULT_SEED_COLOR,
+                        einkMode = true,
+                        frostedGlass = true,
+                    ),
+                    onBack = {},
+                    onColorSourceChange = {},
+                    onPresetSelected = {},
+                    onCustomSeedSelected = {},
+                    onPaletteStyleChange = {},
+                    onSaveTheme = { _, _ -> },
+                    onDeleteTheme = {},
+                    onFrostedGlassChange = { toggles += it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(frostedGlassLabel).performScrollTo().performClick()
+        assertTrue(toggles.isEmpty())
     }
 
     private fun setScreen(
