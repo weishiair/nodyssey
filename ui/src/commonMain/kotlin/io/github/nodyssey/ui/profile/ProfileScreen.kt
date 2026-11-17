@@ -1,5 +1,6 @@
 package io.github.nodyssey.ui.profile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,9 @@ import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -62,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -70,6 +76,7 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -145,6 +152,9 @@ import io.github.nodyssey.ui.resources.profile_tile_theme
 import io.github.nodyssey.ui.resources.profile_tile_topics
 import io.github.nodyssey.ui.resources.profile_tools
 import io.github.nodyssey.ui.resources.settings_title
+import io.github.nodyssey.ui.resources.update_dot_description
+import io.github.plaza.designsys.component.AdaptiveGlassTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -164,6 +174,7 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.floatShadow
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -290,8 +301,11 @@ fun ProfileScreen(
         // only honest retry is the one that asks again.
         onRetry = onAttendance,
     )
+    val useNativeChrome = LocalPlazaLayers.current.nativeChrome
+    val pageColor = if (useNativeChrome) profilePageColor() else MaterialTheme.colorScheme.background
     Scaffold(
         modifier = modifier,
+        containerColor = pageColor,
         // Both states get the same bar: a gear and nothing else. 2b and 9f open straight onto the
         // account card with no title over it — the tab bar already says 我的 — and the signed-out
         // screen, which used to carry 设置 as a row because it had no bar, now reaches it the same way
@@ -300,20 +314,22 @@ fun ProfileScreen(
             // Over the content's own column — one 640dp column, or the two-column page's 1040 — so the gear
             // sits above the edge of what it belongs to rather than in the window's corner.
             BoxWithConstraints {
-                ReadableTopBar(
-                    maxContentWidth = if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) PROFILE_TWO_COLUMN_MAX_WIDTH else Sizes.readableContentWidth,
-                ) { barInsets ->
-                    TopAppBar(
-                        windowInsets = barInsets,
-                        title = {},
-                        actions = { SettingsAction(hasAppUpdate = hasAppUpdate, onClick = destinations.settings) },
-                        colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.background,
-                            scrolledContainerColor = MaterialTheme.colorScheme.background,
-                        ),
-                    )
-                }
+                val layoutDirection = LocalLayoutDirection.current
+                val topInsets = TopAppBarDefaults.windowInsets.asPaddingValues()
+                val safeHorizontal =
+                    topInsets.calculateStartPadding(layoutDirection) + topInsets.calculateEndPadding(layoutDirection)
+                val contentWidth = (maxWidth - safeHorizontal).coerceAtLeast(0.dp)
+                val maxContentWidth =
+                    if (contentWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {
+                        PROFILE_TWO_COLUMN_MAX_WIDTH
+                    } else {
+                        Sizes.readableContentWidth
+                    }
+                ProfileTopBar(
+                    maxContentWidth = maxContentWidth,
+                    hasAppUpdate = hasAppUpdate,
+                    onSettings = destinations.settings,
+                )
             }
         },
         snackbarHost = {
@@ -324,19 +340,34 @@ fun ProfileScreen(
         },
     ) { padding ->
         if (!state.isSignedIn) {
-            SignedOutProfile(
-                onSignIn = onSignIn,
-                destinations = destinations,
-                hasUnreadLotteryResults = hasUnreadLotteryResults,
-                hasUnreadMail = hasUnreadMail,
-                modifier = Modifier.padding(padding),
-            )
+            if (useNativeChrome) {
+                IosSignedOutProfile(
+                    onSignIn = onSignIn,
+                    destinations = destinations,
+                    hasUnreadLotteryResults = hasUnreadLotteryResults,
+                    hasUnreadMail = hasUnreadMail,
+                    scaffoldPadding = padding,
+                )
+            } else {
+                SignedOutProfile(
+                    onSignIn = onSignIn,
+                    destinations = destinations,
+                    hasUnreadLotteryResults = hasUnreadLotteryResults,
+                    hasUnreadMail = hasUnreadMail,
+                    modifier = Modifier.padding(padding),
+                )
+            }
             return@Scaffold
         }
 
         if (!state.hasProfile && (state.isLoading || state.error != null)) {
             Column(
-                modifier = Modifier.padding(padding).fillMaxSize(),
+                modifier =
+                Modifier
+                    .padding(padding.withoutBottom())
+                    .padding(bottom = padding.bottomWithFloatingBar())
+                    .fillMaxSize()
+                    .readableWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (state.isLoading) {
@@ -357,6 +388,19 @@ fun ProfileScreen(
                     }
                 }
             }
+            return@Scaffold
+        }
+
+        if (useNativeChrome) {
+            IosProfileSignedInContent(
+                state = state,
+                destinations = destinations,
+                hasUnreadLotteryResults = hasUnreadLotteryResults,
+                hasUnreadMail = hasUnreadMail,
+                onAttendance = onAttendance,
+                onAttendanceBoard = onAttendanceBoard,
+                scaffoldPadding = padding,
+            )
             return@Scaffold
         }
 
@@ -444,6 +488,57 @@ fun ProfileScreen(
             onDismiss = onDismissAttendanceBoard,
             selfUid = state.uid,
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfileTopBar(
+    maxContentWidth: Dp,
+    hasAppUpdate: Boolean,
+    onSettings: () -> Unit,
+) {
+    val layers = LocalPlazaLayers.current
+    val settingsLabel = stringResource(Res.string.settings_title)
+    val updateDescription = if (hasAppUpdate) stringResource(Res.string.update_dot_description) else null
+    val pageColor = profilePageColor()
+    ReadableTopBar(maxContentWidth = maxContentWidth) { barInsets ->
+        if (layers.nativeChrome) {
+            AdaptiveGlassTopBar(
+                title = "",
+                titleAction = null,
+                back = null,
+                actions =
+                listOf(
+                    GlassAction(
+                        label = settingsLabel,
+                        onClick = onSettings,
+                        symbol = "gearshape",
+                        badge = hasAppUpdate,
+                        badgeDescription = updateDescription,
+                    ),
+                ),
+                containerColor = pageColor,
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(pageColor)
+                    .windowInsetsPadding(barInsets)
+                    .height(ProfileTopBarHeight),
+                fallback = {},
+            )
+        } else {
+            TopAppBar(
+                windowInsets = barInsets,
+                title = {},
+                actions = { SettingsAction(hasAppUpdate = hasAppUpdate, onClick = onSettings) },
+                colors =
+                TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background,
+                ),
+            )
+        }
     }
 }
 
@@ -601,21 +696,7 @@ private fun IdentityRow(
                 onSwitchAccount?.let { AccountSwitchButton(onClick = it) }
             }
             Text(
-                text = when {
-                    // uid is only ever set from a loaded profile, so its absence is the
-                    // signed-in-but-still-loading window the session line covers.
-                    state.uid == null -> stringResource(Res.string.profile_session_active, siteName)
-
-                    state.registeredYear != null && state.registeredMonth != null ->
-                        stringResource(
-                            Res.string.profile_member_since,
-                            state.registeredYear,
-                            state.registeredMonth,
-                            state.uid,
-                        )
-
-                    else -> stringResource(Res.string.profile_member_uid, state.uid)
-                },
+                text = memberSubtitle(state),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -631,9 +712,27 @@ private fun IdentityRow(
     }
 }
 
+@Composable
+internal fun memberSubtitle(state: ProfileUiState): String =
+    when {
+        // uid is only ever set from a loaded profile, so its absence is the
+        // signed-in-but-still-loading window the session line covers.
+        state.uid == null -> stringResource(Res.string.profile_session_active, siteName)
+
+        state.registeredYear != null && state.registeredMonth != null ->
+            stringResource(
+                Res.string.profile_member_since,
+                state.registeredYear,
+                state.registeredMonth,
+                state.uid,
+            )
+
+        else -> stringResource(Res.string.profile_member_uid, state.uid)
+    }
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AccountSwitchButton(onClick: () -> Unit) {
+internal fun AccountSwitchButton(onClick: () -> Unit) {
     val height = ButtonDefaults.ExtraSmallContainerHeight
     val description = stringResource(Res.string.accounts_title)
     FilledTonalButton(
@@ -744,12 +843,12 @@ private fun AttendanceBanner(
 }
 
 /** One group of tiles; [title] names it for the lazy key, not on screen. */
-private data class ProfileSection(
+internal data class ProfileSection(
     val title: StringResource,
     val tiles: List<ProfileTile>,
 )
 
-private data class ProfileTile(
+internal data class ProfileTile(
     val label: StringResource,
     val icon: ImageVector,
     val onClick: () -> Unit,
@@ -816,13 +915,13 @@ private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryR
 private const val PROFILE_GRID_COLUMNS = 4
 
 /** From here 我的 is two columns; Material's expanded width, where Android draws two panes too. */
-private val PROFILE_TWO_COLUMN_MIN_WIDTH = 840.dp
+internal val PROFILE_TWO_COLUMN_MIN_WIDTH = 840.dp
 
 /** The two columns together stop growing here, centred, so a 13-inch landscape window is not all gap. */
-private val PROFILE_TWO_COLUMN_MAX_WIDTH = 1040.dp
+internal val PROFILE_TWO_COLUMN_MAX_WIDTH = 1040.dp
 
 /** The account column's share of the row; the grid gets the rest. */
-private const val PROFILE_ACCOUNT_COLUMN_WEIGHT = 0.42f
+internal const val PROFILE_ACCOUNT_COLUMN_WEIGHT = 0.42f
 
 /**
  * One card of tiles, four to a row.
@@ -1085,7 +1184,7 @@ private fun SignedOutBenefit(
     }
 }
 
-private const val UNKNOWN = "—"
+internal const val UNKNOWN = "—"
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "n1 我的 · 分区图标直达")
 @Composable
