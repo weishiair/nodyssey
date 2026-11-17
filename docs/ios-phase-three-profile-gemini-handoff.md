@@ -1,6 +1,6 @@
 # Nodyssey iOS 3B：我的页开发任务书
 
-日期：2026-11-17。交给 Gemini 执行。先完成 3A 的基线检查与当前环境可执行的验收，再开发 3B「我的」页；3C 二级设置另开一批。
+更新：2026-11-17。Gemini 负责 3B 开发、自检和问题修复；Mac Codex 负责 3A 收尾及 3B 独立验收。具体验收职责见 [Mac Codex 验收任务书](ios-mac-codex-acceptance.md)。3C 二级设置另开一批。
 
 ## 1. 交付目标：账号、签到和常用入口更容易找到
 
@@ -12,7 +12,7 @@
 
 ## 2. 当前基线与已完成的部分
 
-统一集成线：`origin/codex/ios-experience-integration`。编写任务书时最新提交为 `75edf0ee`，三项组合代码为 `3f05536f`。
+统一集成线：`origin/codex/ios-experience-integration`。分支最初从 `75edf0ee` 建立，三项组合代码为 `3f05536f`；现已正常 merge 集成线的新提交 `323b7dc9`，包含设置开关右边缘裁切及滑块宽度修复。此修复由其他开发者提交，旧 CI 与截图不自动覆盖它，Mac Codex 按新基线验收。
 
 | 已有内容 | 证据与保留要求 |
 | --- | --- |
@@ -33,7 +33,8 @@
 | 用途 | 路径 |
 | --- | --- |
 | Windows 本任务工作区 | `C:/Users/weishi/.codex/worktrees/ios-phase-three-profile/nodyssey` |
-| Mac 本任务工作区 | `/Users/a092/Developer/nodyssey-ios-profile` |
+| Mac Gemini 开发工作区 | `/Users/a092/Developer/nodyssey-ios-profile` |
+| Mac Codex 独立 3A 验收工作区 | `/Users/a092/Developer/nodyssey-ios-acceptance`，固定 `323b7dc9` |
 | Mac 已有集成线工作区 | `/Users/a092/Developer/nodyssey-ios-integration` |
 | Mac 环境与当前运行设备说明 | `~/.nodyssey/MAC_HANDOFF.md` |
 
@@ -48,13 +49,21 @@ git switch --track -c codex/ios-phase-three-profile origin/codex/ios-phase-three
 
 同名本地分支已存在时先检查工作区，再切换并 `git pull --ff-only`。Mac 上本任务工作区若已准备好，直接进入它；不要在其他功能工作区切换分支。集成线有后续变化时先检查关系，再将其正常 merge 到功能分支，保留本任务书，不 rebase 或 force-push 共享分支。
 
+职责分开执行：
+
+- **Gemini：**实现 B1–B6、检查实际页面、执行开发自检，提交并推送完整候选 SHA／PR；修复验收发现的问题。
+- **Mac Codex：**在独立工作区固定提交，完成 3A 剩余验收和 3B 代码／平台验收，提供证据与问题清单；不修改应用源码或 Gemini 的目录。
+- **用户：**下发启动指令、转交候选和问题清单，并在 iPhone 确认实际体验；本聊天的 Codex 负责后续集成判断。
+
+Mac Codex 可立即验收 3A。Gemini 可在独立开发目录推进 3B；若收到影响开发基线的明确回归，先修复该回归。3B 发布候选后，Mac Codex 再固定到该 SHA 验收；测试期间不自动更新源码。两者不共用模拟器，不同时进行重型 Native 链接。
+
 将本任务书交给 Gemini 作为实施指令时，交付范围为：完成本节限定的开发与验证、按逻辑提交、推送同名功能分支，并创建目标为 **`codex/ios-experience-integration`** 的 PR，供 Codex 审核。PR 合并、进入 dev/main、改版本、发布 IPA／APK 另行处理。
 
 3A 收尾中发现的设置／阅读／首页回归，继续用各自修复分支或新的单一目的修复分支提交到 iOS 集成线；不要夹带进 3B 的页面提交。保留 `.ai_memory/`、安装包、其他人的改动和正在使用的模拟器。
 
-## 4. 第一步：确认 3A 基线与剩余验收
+## 4. Mac Codex 的第一步：验收 3A 基线
 
-先在当前组合 App 上执行尚未完成且环境可执行的项目，已有同候选的有效记录可以复用：
+本节由 Mac Codex 按独立验收任务书执行，固定 `323b7dc9`，从该候选构建并使用自己的设备。已有同候选的有效记录可以复用：
 
 1. 玻璃开启与关闭、浅色与深色下，设置／主题／关于往返、开关、滑块预览和结束提交正常；滚出视口的原生控件不盖住标题。
 2. iPad 及较窄窗口下无双顶栏、返回错位或控件裁切；用实际可用宽度检查，不能仅运行手机横屏替代。
@@ -63,9 +72,9 @@ git switch --track -c codex/ios-phase-three-profile origin/codex/ios-phase-three
 5. 旧系统环境可用时执行 iOS 16–18 回退；不具备 runtime／设备时，列明系统、缺少的资源和待执行项目，不宣称这项已通过。
 6. 保留阅读楼层跳转、回复开关、草稿取消／保留、横竖屏及返回首页等现有路径；只补未覆盖或受新改动影响的操作。
 
-先解决已复现的基线回归，再开展 3B。缺设备的项目保留为整体验收缺口，不以重复当前系统测试替代；可继续独立的入口盘点和 3B 候选开发，最终验收仍需补齐。此次允许推进 3B 候选，不代表 3A 的全部验收已完成。
+Mac Codex 将已复现的基线回归交给用户转交 Gemini 或原修复负责人。缺设备的项目保留为整体验收缺口，不以重复当前系统测试替代；Gemini 可推进独立的 3B 候选开发，但应先解决影响其基线的明确回归。最终验收仍需补齐缺口。
 
-输出一份简短的 3A 收尾记录，列出本次补验、修复及真实缺口，链接原验证记录。
+Mac Codex 输出 3A 收尾报告，列出固定候选、补验结果、发现的问题及真实缺口，链接原验证记录。Gemini 自检不替代这份独立报告。
 
 ## 5. 3B 的布局方向已选定
 
@@ -173,15 +182,15 @@ iPad 保留账号／签到与目的地两区域的宽屏能力，列表使用合
 
 ## 8. 开发顺序与检查
 
-### M0：基线与原貌
+### M0：Gemini 核对基线与原貌
 
-核对分支与 CI，按第 4 节补验 3A。记录改造前的真实 iOS 已登录／游客画面及 Android 对照，列出第 6 节入口位置与条件。无登录资料时先用仓库外的合成数据驱动画面，不索取 Cookie 或修改生产账号状态。
+核对分支与 CI，确认已包含 `323b7dc9`；第 4 节正式补验由 Mac Codex 独立执行。记录改造前的真实 iOS 已登录／游客画面及 Android 对照，列出第 6 节入口位置与条件。无登录资料时先用仓库外的合成数据驱动画面，不索取 Cookie 或修改生产账号状态。
 
 ### M1：完成一条可用的 iOS 我的页
 
 按 B1–B6 完成账号、资产、签到与分组入口，随后完成游客和加载／错误状态。先做可运行页面和真实接线，保留 Android 分支；不交付空组件或静态假状态页面。
 
-### M2：编译、回归与查看实际效果
+### M2：Gemini 完成开发自检
 
 共享检查：
 
@@ -194,7 +203,7 @@ git diff --check
 
 渲染位于 `ui/build/outputs/renders/`，实际打开检查 Android 对照。渲染只是查看工具，不新增像素、颜色、尺寸、间距、文案或截图金图断言；新测试只覆盖真实的行为分支和逻辑错误，不写回调透传测试。
 
-Mac 检查：
+Mac 可用时，Gemini 也需完成基本编译与运行自检；下列命令和有效日志交给 Mac Codex 复用，正式平台验收仍由后者执行：
 
 ```bash
 source ~/.nodyssey/env.sh
@@ -204,9 +213,9 @@ bash .github/scripts/build-ios-simulator.sh "build/ios-profile-$(date +%Y%m%d-%H
 
 使用新输出目录，避免已有 App 被嵌套复制。新增或修改 UIKit host 时跑受影响原生测试；用仓库脚本启动专用测试设备，不关闭用户正在观看的 `Nodyssey 3A Validation`。其他 CI 门禁按 `AGENTS.md` 和 `.github/workflows/ci.yml` 执行，现有同候选的有效证据不重复跑；结束停止本轮 Gradle daemons。
 
-### M3：实际操作和提交评审
+### M3：Mac Codex 独立验收
 
-在真实模拟器里完成下表，检查画面和可操作性；共享渲染不能作为 iOS 验收。
+Gemini 自检后提交并推送候选、基线 SHA、PR 和日志。Mac Codex 在独立工作区固定该 SHA，在真实模拟器里执行下表，并独立检查画面和可操作性；共享渲染不能作为 iOS 验收。Gemini 仍须在交付前检查自己改动页面的关键操作和画面，不能以有独立验收为由省略自检。
 
 | 场景 | 验收动作 |
 | --- | --- |
@@ -227,16 +236,24 @@ bash .github/scripts/build-ios-simulator.sh "build/ios-profile-$(date +%Y%m%d-%H
 
 3B 完成需要：真实页面接线、完整入口清单、Android 回退保留、必要编译与回归通过、实际 iOS 画面和关键操作已检查。缺少必要证据时交付候选并写明缺口，不把整个阶段三写成完成。
 
-交付时提供：
+Gemini 交付开发候选时提供：
 
 1. 功能分支、基线、提交与 PR；说明实际完成的 B1–B6。
 2. 改造前后的 iOS 已登录／游客截图，至少一个宽屏画面，及 Android 对照；附系统、设备和主题条件。输出放仓库外，不提交构建产物或认证数据。
 3. 逐项入口清单及检查结论，特别列出可空 accounts、游客 tools、邮件／抽奖未读和更新提示。
 4. 实际执行命令、结果和日志路径；给出可运行模拟器 App 的路径及来源提交，有工作区 diff 时明确写出。
-5. 3A 收尾记录与尚缺设备的验收条件，3B 的真实失败／缺口及下一步。3C 尚未开发，另开任务。
+5. 自检发现的问题、未执行项目及原因；注明等待 Mac Codex 独立验收。3A 收尾报告和最终 3B 验收报告由 Mac Codex 提供，3C 另开任务。
+
+Mac Codex 按 [独立验收任务书](ios-mac-codex-acceptance.md) 交付固定候选的报告、证据和问题清单，用户转交 Gemini 修复后提交新 SHA，再按影响范围复验。无权限或设备的项目保留为缺口，不修改生产代码来让验收变绿。
 
 提交按逻辑拆分，例如 iOS 已登录布局、游客与边界状态、必要相邻修复；测试和资源随对应功能提交。显式 stage 本次文件，推送到 `origin/codex/ios-phase-three-profile`，PR base 为 `codex/ios-experience-integration`，不自行合并或出测试包。
 
-## 10. 可直接交给 Gemini 的指令
+## 10. 分别下发给两方的指令
 
-> 请按 `docs/ios-phase-three-profile-gemini-handoff.md` 执行 Nodyssey iOS 3B。使用已准备的 `codex/ios-phase-three-profile` 分支，先检查 3A 基线并补验当前环境能执行的项目，修复已复现回归，缺设备的项目准确保留。随后完成「我的」页的 iOS 账号／资产、签到、分组入口、游客及边界状态，逐项保留原目的地、显示条件和恢复路径，Android／JVM 保持原状。Mac 环境已就绪，先读 `~/.nodyssey/MAC_HANDOFF.md`；实际编译、运行并查看 iOS 画面，不能只交共享截图。按任务书开发、验证、提交，推送同名功能分支并提交面向 `codex/ios-experience-integration` 的 PR，交给 Codex 审核；不要合并、发布或开展 3C。
+**给 Gemini：**
+
+> 请在 `codex/ios-phase-three-profile` 按 `docs/ios-phase-three-profile-gemini-handoff.md` 开发 3B「我的」页，接续已同步的 `323b7dc9` 基线。你负责实现、自检和验收问题修复，Mac Codex 负责独立验收。保留全部入口、业务状态和 Android／JVM 行为，实际检查自己改动的页面，按任务书完成编译与定向自检；提交并推送完整候选 SHA、基线 SHA、PR 和日志，PR 目标为 `codex/ios-experience-integration`，交给用户转交 Mac Codex。不要修改验收工作区、自行合并、发布或开展 3C。
+
+**给 Mac Codex：**
+
+> 先读 `docs/ios-mac-codex-acceptance.md`，现在验收固定的 3A 基线 `323b7dc96be49ed72fadb281afde784772726b45`。Gemini 交付 3B 完整候选 SHA／PR 后，再在独立 worktree 验收 3B。使用自己的模拟器，不修改应用源码或 Gemini 的目录；按候选输出报告、日志、截图和真实缺口，问题交给用户转交 Gemini 修复。完整启动指令见独立验收任务书第 7 节。

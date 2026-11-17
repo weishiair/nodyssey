@@ -1,6 +1,6 @@
 # Nodyssey iOS 阶段三：交给 Gemini 的开发任务书
 
-更新：2026-11-17。Mac 已就绪，3A 设置候选及本轮修复已进入远端 iOS 集成线。下一批 3B 的完整实施说明见 [我的页开发任务书](ios-phase-three-profile-gemini-handoff.md)，开发分支为 `codex/ios-phase-three-profile`，目前仅准备任务书，尚未实施页面改造。下文保留原 3A 开发范围与验收要求。
+更新：2026-11-17。Mac 已就绪，3A 设置候选及本轮修复已进入远端 iOS 集成线。下一批采用 Gemini 开发自检、Mac Codex 独立验收的分工：[开发任务书](ios-phase-three-profile-gemini-handoff.md)、[独立验收任务书](ios-mac-codex-acceptance.md)。开发分支为 `codex/ios-phase-three-profile`，目前仅准备任务书，尚未实施页面改造。下文保留原 3A 开发范围与验收要求。
 
 ## 当前从 iOS 集成线接续
 
@@ -14,7 +14,7 @@
 
 三项合并后的代码提交为 `3f05536f`。本次不合入 dev/main，不改版本或发布测试包。上述分支保留，后续开发从最新集成线创建各自子分支。
 
-Mac 已完成双 iOS 目标编译、原生及定向回归，以及设置、阅读和横屏的实际操作检查；完整设备与辅助功能验收仍有缺口。先读 [3A Mac 验证记录](ios-phase-three-mac-validation.md) 和 [首页横屏验证记录](ios-home-landscape-validation.md)。本次允许在补验 3A 可执行项目、修复已复现基线回归后推进 3B 候选；缺设备的验收项目仍保留为整体验收缺口，不据此宣称 3A 完整通过。3C 另行安排。2026-11-17 收尾时，三个 PR 的完整 GitHub CI 均已成功；具体 run ID 见新的我的页任务书。后续改动仍需运行受影响检查。
+Mac 已完成双 iOS 目标编译、原生及定向回归，以及设置、阅读和横屏的实际操作检查；完整设备与辅助功能验收仍有缺口。先读 [3A Mac 验证记录](ios-phase-three-mac-validation.md) 和 [首页横屏验证记录](ios-home-landscape-validation.md)。Mac Codex 先验收当前集成线 `323b7dc9`，Gemini 在独立工作区推进 3B 候选并修复影响基线的明确回归；缺设备的验收项目仍保留为整体验收缺口，不据此宣称 3A 完整通过。3C 另行安排。2026-11-17 收尾时，三个 PR 的完整 GitHub CI 均已成功；具体 run ID 见新的我的页任务书。后续改动仍需运行受影响检查。
 
 Mac 新 shell 先执行 `source ~/.nodyssey/env.sh`。桌面 `Nodyssey 3A Validation` 模拟器已安装三项组合 App：`/Users/a092/Developer/nodyssey-ios/build/ios-home-landscape/Nodyssey.app`；保留设备与 Device Hub 窗口。具体本机路径及旧工作区状态见 `~/.nodyssey/MAC_HANDOFF.md`。
 
@@ -422,7 +422,7 @@ CI 的 Android 设备／压缩构建设备门禁按原工作流执行；若需�
 
 ### 3B：「我的」页，单独评审
 
-3A 候选及本轮修复已合回 iOS 集成线。`codex/ios-phase-three-profile` 已从集成线 `75edf0ee` 建立并准备任务书，后续接手该分支；完整范围、入口清单、3A 前置检查与 Mac 验收见 [我的页开发任务书](ios-phase-three-profile-gemini-handoff.md)。主要入口：`ui/src/commonMain/kotlin/io/github/nodyssey/ui/profile/ProfileScreen.kt`。
+3A 候选及本轮修复已合回 iOS 集成线。`codex/ios-phase-three-profile` 最初从集成线 `75edf0ee` 建立，现已同步 `323b7dc9` 并准备开发／验收任务书，后续接手该分支；完整范围、入口清单、3A 前置检查与 Mac 验收见 [我的页开发任务书](ios-phase-three-profile-gemini-handoff.md)。主要入口：`ui/src/commonMain/kotlin/io/github/nodyssey/ui/profile/ProfileScreen.kt`。
 
 - 首层突出账号、签到状态和常用入口；资产信息减轻色块，不删鸡腿／星辰、等级、额度等数据。
 - 常用入口与低频工具分开；减少重复卡片和密集宫格，保留全部现有导航目的地。
@@ -442,6 +442,8 @@ CI 的 Android 设备／压缩构建设备门禁按原工作流执行；若需�
 - 不因控件适配改变网络配置、请求路由或 Cookie／WebView 安全边界。
 - 分享扩展、后台通知、诊断和崩溃采集继续作为独立目标，不加入阶段三。
 
-## 10. 可直接附给 Gemini 的启动指令
+## 10. 下一批分别下发开发与验收指令
 
-> 请阅读 `docs/ios-phase-three-profile-gemini-handoff.md`，使用已准备的 `codex/ios-phase-three-profile` 分支，先完成 3A 基线检查与可执行的剩余验收，再开发 3B「我的」页候选。Mac 已就绪，读取 `~/.nodyssey/MAC_HANDOFF.md` 后接续现有环境。保留全部入口、条件与业务恢复路径，Android／JVM 保持原状。按新任务书开发、验证、提交并推送同名功能分支，PR 目标为 `codex/ios-experience-integration`，交给 Codex 审核；不自行合并、出包或开展 3C。
+Gemini 按 [3B 开发任务书](ios-phase-three-profile-gemini-handoff.md) 实现、自检、提交并推送候选，PR 目标为 `codex/ios-experience-integration`。Mac Codex 按 [独立验收任务书](ios-mac-codex-acceptance.md) 在固定提交和独立工作区上验收；先完成 3A，收到用户提供的 3B 完整 SHA／PR 后再验收 3B。各自完整启动指令见对应任务书末尾。
+
+验收问题由用户转交 Gemini 修复，再交付新 SHA 复验；不自行跨聊天发消息、合并、发布或开展 3C。Mac 当前环境和目录见 `~/.nodyssey/MAC_HANDOFF.md`。
