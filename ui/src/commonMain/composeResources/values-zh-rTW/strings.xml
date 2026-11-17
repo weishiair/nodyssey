@@ -1505,6 +1505,7 @@
     <string name="keywords_remove">刪除 %1$s</string>
     <string name="keywords_block_footer">標題含這些詞的帖子不出現在首頁、版塊和搜尋裡。只存在這台手機上，不隨帳號走；「臨時顯示被屏蔽內容」打開時也會一併顯示。</string>
     <string name="keywords_alert_footer">背景檢查通知時順便看一眼最新發佈的帖子，標題含這些詞就推送一條通知。只存在這台手機上。</string>
+    <string name="keywords_alert_footer_no_polling">僅儲存在本機。目前版本暫不支援背景輪詢檢查與自動推播通知。</string>
     <string name="block_title">封鎖</string>
     <string name="block_tab_users">使用者</string>
     <string name="block_tab_titles">標題</string>
@@ -1518,7 +1519,8 @@
     <string name="notify_tracked_threads">追蹤新回覆</string>
     <string name="notify_app_alerts_footer">這兩項看的是公開列表，不登入也能用。追帖只看「最新回覆」排序的前兩頁：一個檢查週期內被頂出前兩頁的帖子會漏掉提醒，你在首頁隱藏的版塊裡的帖子也追不到。</string>
     <string name="tracked_threads_title">追蹤的帖子</string>
-    <string name="tracked_threads_empty">還沒有追蹤的帖子。在帖子右上角的選單裡點「追蹤新回覆」。</string>
+    <string name="tracked_threads_empty_title">還沒有追蹤的帖子</string>
+    <string name="tracked_threads_empty_body">在帖子右上角的選單裡點「追蹤新回覆」。</string>
     <string name="tracked_threads_untrack">取消追蹤 %1$s</string>
     <string name="post_track_thread">追蹤新回覆</string>
     <string name="post_untrack_thread">取消追蹤</string>

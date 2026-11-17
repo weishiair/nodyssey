@@ -7,8 +7,14 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
+import io.github.nodyssey.data.TrackedThread
+import io.github.nodyssey.data.TrackedThreadStore
 import io.github.nodyssey.data.settings.UserSettings
+import io.github.nodyssey.model.TitleKeywordKind
 import io.github.nodyssey.ui.settings.NotificationSettingsScreen
+import io.github.nodyssey.ui.settings.TitleKeywordsScreen
+import io.github.nodyssey.ui.settings.TitleKeywordsUiState
+import io.github.nodyssey.ui.settings.TrackedThreadsScreen
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Before
 import org.junit.Rule
@@ -86,5 +92,94 @@ class NotificationSettingsScreenRenderTest {
         composeRule.waitForIdle()
 
         captureScreenRoboImage(filePath = "build/outputs/renders/notification-frequency-light.png")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun `alert keywords populated without background polling in light`() {
+        composeRule.setContent {
+            PlazaTheme(darkTheme = false) {
+                TitleKeywordsScreen(
+                    state = TitleKeywordsUiState(
+                        kind = TitleKeywordKind.ALERT,
+                        keywords = listOf("racknerd", "香港优化线路优惠", "rn"),
+                        input = "dmit",
+                    ),
+                    onBack = {},
+                    onInputChange = {},
+                    onAdd = {},
+                    onRemove = {},
+                    backgroundPollingSupported = false,
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("title-keywords-alert-light")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun `alert keywords empty without background polling in dark`() {
+        composeRule.setContent {
+            PlazaTheme(darkTheme = true) {
+                TitleKeywordsScreen(
+                    state = TitleKeywordsUiState(kind = TitleKeywordKind.ALERT),
+                    onBack = {},
+                    onInputChange = {},
+                    onAdd = {},
+                    onRemove = {},
+                    backgroundPollingSupported = false,
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("title-keywords-empty-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun `tracked threads populated in light`() {
+        composeRule.setContent {
+            PlazaTheme(darkTheme = false) {
+                TrackedThreadsScreen(
+                    threads = listOf(
+                        TrackedThread(
+                            postId = 1L,
+                            title = "NodeSeek 夜间线路测评与延迟对比汇总",
+                            lastKnownCount = 42,
+                            authorName = "tester",
+                            categoryTitle = "测评",
+                            categorySlug = "review",
+                        ),
+                        TrackedThread(
+                            postId = 2L,
+                            title = "刚追踪的新帖子（回复数未知）",
+                            lastKnownCount = TrackedThreadStore.UNKNOWN_COUNT,
+                            authorName = "alice",
+                            categoryTitle = "技术",
+                            categorySlug = "tech",
+                        ),
+                    ),
+                    onBack = {},
+                    onOpenThread = {},
+                    onUntrack = {},
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("tracked-threads-light")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun `tracked threads empty in dark`() {
+        composeRule.setContent {
+            PlazaTheme(darkTheme = true) {
+                TrackedThreadsScreen(
+                    threads = emptyList(),
+                    onBack = {},
+                    onOpenThread = {},
+                    onUntrack = {},
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("tracked-threads-empty-dark")
     }
 }

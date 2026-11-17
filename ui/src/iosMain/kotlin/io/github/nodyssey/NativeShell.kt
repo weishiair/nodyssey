@@ -1105,7 +1105,8 @@ private fun NavKey.makesRoomForKeyboard(): Boolean =
         this is MessageThreadKey ||
         this is DohSettingsKey ||
         this is StickerAddKey ||
-        this is ThemeSettingsKey
+        this is ThemeSettingsKey ||
+        this is TitleKeywordsKey
 
 /**
  * Safari, which is what the platform `UriHandler` is on this side — the same one `BrowserLinks.ios`

@@ -12,12 +12,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -28,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.keywords_alert_title
@@ -80,15 +81,16 @@ import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.IconBadge
 import io.github.plaza.designsys.component.LayerCard
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.groupedListItemColors
 import io.github.plaza.designsys.component.groupedRowTitleStyle
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
+import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -160,33 +162,30 @@ fun NotificationSettingsScreen(
     backgroundPollingSupported: Boolean = platformHasBackgroundNotificationPolling,
 ) {
     val enabled = settings.notificationsEnabled
+    val layers = LocalPlazaLayers.current
     val appBarState = rememberOneHandAppBarState()
     var frequencySheet by remember { mutableStateOf(false) }
     Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
+        modifier = if (layers.nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = settingsPageColor(),
         topBar = {
-            OneHandTopAppBar(
+            SettingsTopBar(
                 title = stringResource(Res.string.notify_settings_title),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backContentDescription = stringResource(Res.string.action_back),
+                appBarState = appBarState,
             )
         },
     ) { padding ->
         Column(
             modifier =
             Modifier
-                .padding(padding)
+                .padding(padding.withoutBottom())
                 .fillMaxSize()
+                .then(if (layers.nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
+                .padding(settingsScrollPadding(padding)),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             if (backgroundPollingSupported) {
@@ -346,12 +345,14 @@ fun NotificationSettingsScreen(
                 SectionLabel(stringResource(Res.string.notify_saved_alerts_section))
                 SettingsGroup {
                     GroupedRow(
+                        icon = if (layers.nativeChrome) Icons.Default.Notifications else null,
                         title = stringResource(Res.string.keywords_alert_title),
                         subtitle = countSummary(alertCounts.keywords),
                         first = true,
                         onClick = onOpenAlertKeywords,
                     )
                     GroupedRow(
+                        icon = if (layers.nativeChrome) PlazaIcons.Forum else null,
                         title = stringResource(Res.string.tracked_threads_title),
                         subtitle = countSummary(alertCounts.trackedThreads),
                         last = true,
@@ -361,8 +362,23 @@ fun NotificationSettingsScreen(
             }
 
             // The Telegram pointer stays active regardless of the master switch: the site's own
-            // channel is the alternative to polling, not part of it.
-            TelegramCard(onClick = onOpenTelegram)
+            // channel is the alternative to polling, not part of it. On iOS it settles into a
+            // quiet grouped row while Android, JVM and e-ink keep the highlighted card.
+            if (layers.nativeChrome) {
+                SettingsGroup {
+                    GroupedRow(
+                        icon = Icons.AutoMirrored.Filled.Send,
+                        title = stringResource(Res.string.notify_telegram_title),
+                        subtitle = stringResource(Res.string.notify_telegram_body),
+                        value = stringResource(Res.string.notify_telegram_action),
+                        first = true,
+                        last = true,
+                        onClick = onOpenTelegram,
+                    )
+                }
+            } else {
+                TelegramCard(onClick = onOpenTelegram)
+            }
         }
     }
 

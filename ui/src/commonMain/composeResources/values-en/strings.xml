@@ -1513,6 +1513,7 @@
     <string name="keywords_remove">Remove %1$s</string>
     <string name="keywords_block_footer">Threads whose titles contain these words are hidden from the home feed, boards and search. Kept on this device only, not on your account. Show blocked content reveals them too.</string>
     <string name="keywords_alert_footer">Each background check also looks at the newest threads and notifies you when a title contains one of these words. Kept on this device only.</string>
+    <string name="keywords_alert_footer_no_polling">Kept on this device only. This build does not check for new threads or push alerts in the background.</string>
     <string name="block_title">Block</string>
     <string name="block_tab_users">Users</string>
     <string name="block_tab_titles">Titles</string>
@@ -1526,7 +1527,8 @@
     <string name="notify_tracked_threads">Followed threads</string>
     <string name="notify_app_alerts_footer">These read public lists, so they work signed out. Followed threads are checked on the first two pages sorted by latest reply: a thread pushed past them within one check interval is missed, and threads in boards you hid from the home feed cannot be followed.</string>
     <string name="tracked_threads_title">Followed threads</string>
-    <string name="tracked_threads_empty">No followed threads. Use Follow new replies in a thread’s menu.</string>
+    <string name="tracked_threads_empty_title">No followed threads</string>
+    <string name="tracked_threads_empty_body">Use Follow new replies in a thread’s menu.</string>
     <string name="tracked_threads_untrack">Unfollow %1$s</string>
     <string name="post_track_thread">Follow new replies</string>
     <string name="post_untrack_thread">Unfollow</string>
