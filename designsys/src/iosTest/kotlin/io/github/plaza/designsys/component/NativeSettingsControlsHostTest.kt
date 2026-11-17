@@ -7,15 +7,22 @@ import io.github.plaza.designsys.nativeglass.plaza_slider_set_value
 import io.github.plaza.designsys.nativeglass.plaza_slider_value
 import io.github.plaza.designsys.nativeglass.plaza_switch_is_on
 import io.github.plaza.designsys.nativeglass.plaza_switch_set_on
+import kotlinx.cinterop.readValue
+import kotlinx.cinterop.useContents
+import platform.CoreGraphics.CGPointMake
+import platform.CoreGraphics.CGRectContainsRect
+import platform.CoreGraphics.CGRectMake
 import platform.UIKit.UIColor
 import platform.UIKit.UIControlEventTouchCancel
 import platform.UIKit.UIControlEventTouchDown
 import platform.UIKit.UIControlEventTouchUpInside
 import platform.UIKit.UIControlEventValueChanged
+import platform.UIKit.UILayoutFittingCompressedSize
 import platform.UIKit.isAccessibilityElement
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -71,6 +78,49 @@ class NativeSettingsControlsHostTest {
         host.dispose()
         host.view.sendActionsForControlEvents(UIControlEventValueChanged)
         assertEquals(listOf("second:false"), changes)
+    }
+
+    @Test
+    fun `switch container leaves unclipped margin around visual switch and forwards margin hits`() {
+        val host = NativeSettingsSwitchHost()
+        host.update(
+            checked = true,
+            enabled = true,
+            label = "Uniform stickers",
+            accessibilityEnabled = false,
+            accent = UIColor.blueColor,
+            dark = false,
+            onCheckedChange = {},
+        )
+
+        val container = host.containerView
+        assertFalse(container.clipsToBounds)
+        assertFalse(host.view.clipsToBounds)
+        assertFalse(container.isAccessibilityElement)
+
+        val fittingSize = container.systemLayoutSizeFittingSize(UILayoutFittingCompressedSize.readValue())
+        val (containerWidth, containerHeight) = fittingSize.useContents { width to height }
+        container.setFrame(CGRectMake(0.0, 0.0, containerWidth, containerHeight))
+        container.layoutIfNeeded()
+
+        assertTrue(CGRectContainsRect(container.bounds, host.view.frame))
+        val trailingMargin = host.view.frame.useContents { containerWidth - (origin.x + size.width) }
+        val leadingMargin = host.view.frame.useContents { origin.x }
+        assertTrue(leadingMargin > 0.0)
+        assertTrue(trailingMargin > 0.0)
+
+        // Tapping in the padding inset forwards to the UISwitch when enabled, and ignores when disabled.
+        assertNotNull(container.hitTest(CGPointMake(1.0, containerHeight / 2.0), withEvent = null))
+        host.update(
+            checked = true,
+            enabled = false,
+            label = "Uniform stickers",
+            accessibilityEnabled = false,
+            accent = UIColor.blueColor,
+            dark = false,
+            onCheckedChange = {},
+        )
+        assertNull(container.hitTest(CGPointMake(1.0, containerHeight / 2.0), withEvent = null))
     }
 
     @Test
