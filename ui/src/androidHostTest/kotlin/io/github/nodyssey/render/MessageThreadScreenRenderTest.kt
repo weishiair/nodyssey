@@ -168,8 +168,9 @@ class MessageThreadScreenRenderTest {
             listOf(
                 bubble("1", false, "看到你那篇 NAS 帖子了，想问下你东京那台跑回国是什么线路？", "2026-09-22 21:30:00"),
                 bubble("2", true, "软银直连，晚高峰也还行。你是打算放什么业务？", "2026-09-22 21:34:00"),
-                bubble("3", false, "主要是拉国内的备份，大概每天 20G 左右", "2026-09-23 10:41:00"),
-                bubble("4", false, "那条 CN2 线路晚高峰丢包大概 3%，我截图给你看", "2026-09-23 10:48:00"),
+                bubble("3", false, "主要是拉国内的备份，配置在 [NAS 经验帖](/post-42-2)", "2026-09-23 10:41:00"),
+                bubble("4", false, "也可以看这里：https://example.com/network。", "2026-09-23 10:48:00")
+                    .copy(isMarkdown = false),
                 bubble("5", true, "20G 的话软银够用，我把 iperf 的结果整理一下发你", "2026-09-23 10:52:00", SendStatus.SENDING),
                 bubble("6", true, "顺便问下你用的是哪家的 Btrfs 快照脚本？", "2026-09-23 10:52:30", SendStatus.FAILED),
             )
