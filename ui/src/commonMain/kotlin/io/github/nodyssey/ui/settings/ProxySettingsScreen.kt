@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -177,7 +178,7 @@ internal fun ProxySettingsContent(
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
         modifier = if (nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
-        containerColor = settingsPageColor(),
+        containerColor = if (nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
             SettingsTopBar(
@@ -188,17 +189,16 @@ internal fun ProxySettingsContent(
             )
         },
     ) { padding ->
-        val contentInset = padding.withoutBottom()
+        val contentInset = if (nativeChrome) padding.withoutBottom() else padding
         Column(
             modifier = Modifier
                 .padding(contentInset)
-                .consumeWindowInsets(contentInset)
-                .imePadding()
+                .then(if (nativeChrome) Modifier.consumeWindowInsets(contentInset).imePadding() else Modifier)
                 .fillMaxSize()
                 .then(if (nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(settingsScrollPadding(padding)),
+                .padding(if (nativeChrome) settingsScrollPadding(padding) else SettingsPagePadding),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             SettingsGroup {

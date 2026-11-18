@@ -257,7 +257,7 @@ internal fun DohSettingsContent(
     val active = state.enabled && !state.pausedForProxy
     Scaffold(
         modifier = if (nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
-        containerColor = settingsPageColor(),
+        containerColor = if (nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
             SettingsTopBar(
@@ -270,12 +270,12 @@ internal fun DohSettingsContent(
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding.withoutBottom())
+                .padding(if (nativeChrome) padding.withoutBottom() else padding)
                 .fillMaxSize()
                 .then(if (nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(settingsScrollPadding(padding)),
+                .padding(if (nativeChrome) settingsScrollPadding(padding) else SettingsPagePadding),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             SettingsGroup {
@@ -664,6 +664,7 @@ internal fun DohServerSheet(
     onDismiss: () -> Unit,
 ) {
     val preset = draft.preset
+    val nativeChrome = LocalPlazaLayers.current.nativeChrome
     PlazaSheet(
         onDismiss = onDismiss,
         // Straight to full height: two text fields and a row of buttons, and a half-open state would
@@ -680,18 +681,20 @@ internal fun DohServerSheet(
             server == null -> stringResource(Res.string.doh_provider_custom_hint)
             else -> null
         },
-        action = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) }
+        action = if (nativeChrome) {
+            { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } }
+        } else {
+            null
         },
     ) {
+        val sheetPadding = Modifier.padding(horizontal = Spacing.xl).padding(bottom = Spacing.xl)
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.xl)
-                .padding(bottom = Spacing.xl),
+            modifier = if (nativeChrome) {
+                Modifier.fillMaxWidth().navigationBarsPadding().imePadding()
+                    .verticalScroll(rememberScrollState()).then(sheetPadding)
+            } else {
+                sheetPadding.navigationBarsPadding().imePadding()
+            },
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             if (preset == null) {

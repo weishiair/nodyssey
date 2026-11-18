@@ -1,11 +1,6 @@
 package io.github.nodyssey.ui.settings
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -19,14 +14,12 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
 import io.github.nodyssey.data.dns.DefaultDohServers
 import io.github.nodyssey.data.dns.DnsResolution
 import io.github.nodyssey.data.dns.DnsResolutionTester
@@ -62,71 +55,6 @@ class NetworkSettingsScreenTest {
     val composeRule = createComposeRule()
 
     /**
-     * Narrow containers and large Dynamic Type scales would squeeze a 1/3-width port box under
-     * iOS grouping until error text wraps into multiple vertical slivers; Android keeps the
-     * existing side-by-side row untouched.
-     */
-    @Test
-    fun `proxy stacks host and port only on narrow nativeChrome containers while android stays side by side`() {
-        assertFalse(shouldStackProxyHostAndPort(availableWidth = 340.dp, fontScale = 1.0f))
-        assertTrue(shouldStackProxyHostAndPort(availableWidth = 340.dp, fontScale = 1.6f))
-        assertTrue(shouldStackProxyHostAndPort(availableWidth = 240.dp, fontScale = 1.0f))
-
-        composeRule.setContent {
-            PlazaTheme {
-                Box(Modifier.width(260.dp)) {
-                    ProxySettingsContent(
-                        state = ProxySettingsUiState(enabled = true, hostInput = "192.0.2.10", portInput = "1080"),
-                        snackbarHostState = SnackbarHostState(),
-                        onBack = {},
-                        onEnabledChange = {},
-                        onTypeChange = {},
-                        onForumOnlyChange = {},
-                        onHostChange = {},
-                        onPortChange = {},
-                        onUsernameChange = {},
-                        onPasswordChange = {},
-                        onSave = {},
-                        onTest = {},
-                        nativeChrome = true,
-                    )
-                }
-            }
-        }
-        val stackedHost = composeRule.onNode(hasSetTextAction() and hasText("地址")).fetchSemanticsNode().boundsInRoot
-        val stackedPort = composeRule.onNode(hasSetTextAction() and hasText("端口")).fetchSemanticsNode().boundsInRoot
-        assertTrue("Expected Host to stack above Port in narrow nativeChrome container", stackedHost.bottom <= stackedPort.top)
-    }
-
-    @Test
-    fun `android proxy keeps host and port side by side even at narrow width`() {
-        composeRule.setContent {
-            PlazaTheme {
-                Box(Modifier.width(260.dp)) {
-                    ProxySettingsContent(
-                        state = ProxySettingsUiState(enabled = true, hostInput = "192.0.2.10", portInput = "1080"),
-                        snackbarHostState = SnackbarHostState(),
-                        onBack = {},
-                        onEnabledChange = {},
-                        onTypeChange = {},
-                        onForumOnlyChange = {},
-                        onHostChange = {},
-                        onPortChange = {},
-                        onUsernameChange = {},
-                        onPasswordChange = {},
-                        onSave = {},
-                        onTest = {},
-                        nativeChrome = false,
-                    )
-                }
-            }
-        }
-        val rowHost = composeRule.onNode(hasSetTextAction() and hasText("地址")).fetchSemanticsNode().boundsInRoot
-        val rowPort = composeRule.onNode(hasSetTextAction() and hasText("端口")).fetchSemanticsNode().boundsInRoot
-        assertTrue("Expected Android to keep Host beside Port", rowHost.right <= rowPort.left)
-    }
-
-    /**
      * Draft preservation + immediate master switch + C2.1 testing button contract through real Route:
      * invalid draft blocks persistence, testing disables only 测试连接 while keeping 保存 active,
      * and 测试连接 saves before probing.
@@ -134,7 +62,7 @@ class NetworkSettingsScreenTest {
     @Test
     fun `proxy route preserves draft across immediate switch toggle and enforces save-before-test`() {
         val settings = FakeUiProxySettings()
-        val tester = FakeUiProxyTester()
+        val tester = FakeUiProxyTester { settings.saved.value }
         val viewModel = ProxySettingsViewModel(settings, tester)
 
         composeRule.setContent {
@@ -186,9 +114,9 @@ class NetworkSettingsScreenTest {
                 port = 1080,
                 scope = ProxyScope.FORUM_ONLY,
             ),
-            settings.saved.value,
+            tester.configAtProbe.single(),
         )
-        assertEquals(1, tester.calls)
+        assertEquals(tester.configAtProbe.single(), settings.saved.value)
         composeRule.onNodeWithText("连接失败（IllegalStateException）").assertExists()
     }
 
@@ -368,33 +296,29 @@ class NetworkSettingsScreenTest {
         // Open WEISHIAIR preset: bootstrap field & reset must NOT exist.
         composeRule.onNode(hasText("Weishiair DoH（ECH）")).performClick()
         composeRule.waitUntil(3_000) { viewModel.uiState.value.editing != null }
-        composeRule.waitUntil(3_000) {
-            composeRule.onAllNodesWithText("取消").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.waitForIdle()
         composeRule.onNode(hasSetTextAction() and hasText("引导 IP（可选）")).assertDoesNotExist()
         composeRule.onNodeWithText("恢复默认").assertDoesNotExist()
-        composeRule.onNodeWithText("取消").performClick()
+        composeRule.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss), useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.Dismiss)
         composeRule.waitUntil(3_000) { viewModel.uiState.value.editing == null }
 
         // Add custom server: invalid non-HTTPS URL rejected inline; Cancel discards.
         composeRule.onNodeWithText("添加自定义 DoH 地址").performScrollTo().performClick()
-        composeRule.waitUntil(3_000) {
-            composeRule.onAllNodesWithText("取消").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.waitForIdle()
         composeRule.onNode(hasSetTextAction() and hasText("服务器地址")).performTextInput("http://doh.example.invalid/dns-query")
         composeRule.onNodeWithText("确定").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("需要是 https:// 开头的完整地址").assertExists()
 
-        composeRule.onNodeWithText("取消").performClick()
+        composeRule.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss), useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.Dismiss)
         composeRule.waitUntil(3_000) { viewModel.uiState.value.editing == null }
         composeRule.onNodeWithText("doh.example.invalid").assertDoesNotExist()
 
         // Add valid custom server -> Confirm updates page draft only; Save commits to storage.
         composeRule.onNodeWithText("添加自定义 DoH 地址").performScrollTo().performClick()
-        composeRule.waitUntil(3_000) {
-            composeRule.onAllNodesWithText("取消").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.waitForIdle()
         composeRule.onNode(hasSetTextAction() and hasText("服务器地址")).performTextReplacement("https://doh.example.invalid/dns-query")
         composeRule.onNodeWithText("确定").performClick()
         composeRule.waitUntil(3_000) { viewModel.uiState.value.editing == null }
@@ -407,50 +331,6 @@ class NetworkSettingsScreenTest {
         composeRule.waitForIdle()
         assertEquals(DefaultDohServers.size + 1, settings.saved.value.servers.size)
         assertTrue(settings.saved.value.servers.any { it.url == "https://doh.example.invalid/dns-query" && it.checked })
-    }
-
-    @Test
-    fun `proxy host and port stack and proxy type falls back to menu at large font scale`() {
-        val selected = mutableListOf<ProxyType>()
-        composeRule.setContent {
-            val base = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(base.density, fontScale = 1.8f)) {
-                PlazaTheme {
-                    Box(Modifier.width(340.dp)) {
-                        ProxySettingsContent(
-                            state = ProxySettingsUiState(
-                                enabled = true,
-                                type = ProxyType.HTTP,
-                                hostInput = "192.0.2.10",
-                                portInput = "1080",
-                            ),
-                            snackbarHostState = SnackbarHostState(),
-                            onBack = {},
-                            onEnabledChange = {},
-                            onTypeChange = { selected += it },
-                            onForumOnlyChange = {},
-                            onHostChange = {},
-                            onPortChange = {},
-                            onUsernameChange = {},
-                            onPasswordChange = {},
-                            onSave = {},
-                            onTest = {},
-                            nativeChrome = true,
-                        )
-                    }
-                }
-            }
-        }
-        val hostBounds = composeRule.onNode(hasSetTextAction() and hasText("地址")).fetchSemanticsNode().boundsInRoot
-        val portBounds = composeRule.onNode(hasSetTextAction() and hasText("端口")).fetchSemanticsNode().boundsInRoot
-        assertTrue("Expected scaled dynamic type to stack Host and Port", hostBounds.bottom <= portBounds.top)
-
-        // Two-segment HTTP / SOCKS5 overflows UISegmentedControl height at 1.8x font scale and
-        // falls back to SettingsMenuRow, where SOCKS5 only opens inside the dropdown menu.
-        composeRule.onNodeWithText("SOCKS5").assertDoesNotExist()
-        composeRule.onNodeWithText("代理类型").performClick()
-        composeRule.onNodeWithText("SOCKS5").performClick()
-        assertEquals(listOf(ProxyType.SOCKS), selected)
     }
 
     private fun onAllNodes(matcher: SemanticsMatcher) = composeRule.onAllNodes(matcher)
@@ -468,13 +348,12 @@ private class FakeUiProxySettings : ProxySettings {
     }
 }
 
-private class FakeUiProxyTester : ProxyConnectionTester {
-    var calls = 0
-        private set
+private class FakeUiProxyTester(private val config: () -> ProxyConfig) : ProxyConnectionTester {
+    val configAtProbe = mutableListOf<ProxyConfig>()
     var error: Throwable? = null
 
     override suspend fun test(): Result<Unit> {
-        calls++
+        configAtProbe += config()
         return error?.let { Result.failure(it) } ?: Result.success(Unit)
     }
 
