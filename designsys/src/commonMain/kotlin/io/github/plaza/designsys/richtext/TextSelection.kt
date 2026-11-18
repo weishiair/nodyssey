@@ -90,6 +90,9 @@ private class TextSelectionRegistry {
 /** Null outside [DismissTextSelectionOnTap]: a body there keeps the container's own behaviour. */
 private val LocalTextSelectionRegistry = staticCompositionLocalOf<TextSelectionRegistry?> { null }
 
+/** Null when a caller owns long press itself, such as a direct-message bubble. */
+internal val LocalRichSelectionState = staticCompositionLocalOf<SelectionState?> { null }
+
 private fun SelectionState.hasSelection(): Boolean = selectedTexts.any { it.isNotEmpty() }
 
 /**
@@ -126,7 +129,10 @@ internal fun RichSelectionContainer(
             val toolbar = remember(platformToolbar, state) {
                 platformToolbar?.let { SteadySelectionToolbar(it, state) }
             }
-            CompositionLocalProvider(LocalTextContextMenuToolbarProvider provides toolbar) {
+            CompositionLocalProvider(
+                LocalTextContextMenuToolbarProvider provides toolbar,
+                LocalRichSelectionState provides state,
+            ) {
                 SelectionContainer(state = state, content = content)
             }
         }

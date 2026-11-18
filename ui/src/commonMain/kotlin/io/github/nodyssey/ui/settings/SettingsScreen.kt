@@ -65,6 +65,7 @@ import io.github.nodyssey.ui.resources.keywords_summary_count
 import io.github.nodyssey.ui.resources.keywords_summary_none
 import io.github.nodyssey.ui.resources.notify_master_title
 import io.github.nodyssey.ui.resources.notify_settings_title
+import io.github.nodyssey.ui.resources.profile_tile_notifications
 import io.github.nodyssey.ui.resources.proxy_type_http
 import io.github.nodyssey.ui.resources.proxy_type_socks
 import io.github.nodyssey.ui.resources.settings_about
@@ -98,6 +99,7 @@ import io.github.nodyssey.ui.resources.settings_network
 import io.github.nodyssey.ui.resources.settings_network_check_entry
 import io.github.nodyssey.ui.resources.settings_notify_summary_every
 import io.github.nodyssey.ui.resources.settings_notify_summary_quiet
+import io.github.nodyssey.ui.resources.settings_notify_summary_unavailable
 import io.github.nodyssey.ui.resources.settings_one_hand
 import io.github.nodyssey.ui.resources.settings_one_hand_hint
 import io.github.nodyssey.ui.resources.settings_post_reply_style
@@ -297,6 +299,8 @@ fun SettingsScreen(
     onAutoAttendanceModeChange: (AttendanceMode) -> Unit = {},
     onSearchAvatarChange: (Boolean) -> Unit = {},
     onSearchAvatarSizeChange: (Int) -> Unit = {},
+    backgroundPollingSupported: Boolean = platformHasBackgroundNotificationPolling,
+    updateChecksSupported: Boolean = platformHasUpdateChecks,
 ) {
     var bodyFontSize by remember(state.settings.fontScale) {
         mutableFloatStateOf(fontScaleToBodySize(state.settings.fontScale))
@@ -668,8 +672,8 @@ fun SettingsScreen(
             SectionLabel(stringResource(Res.string.notify_settings_title))
             SettingsGroup {
                 GroupedRow(
-                    title = stringResource(Res.string.notify_master_title),
-                    subtitle = notificationSummary(state.settings),
+                    title = stringResource(if (backgroundPollingSupported) Res.string.notify_master_title else Res.string.profile_tile_notifications),
+                    subtitle = notificationSummary(state.settings, backgroundPollingSupported),
                     first = true,
                     last = true,
                     onClick = onOpenNotifications,
@@ -723,21 +727,23 @@ fun SettingsScreen(
                     icon = Icons.Default.Info,
                     trailing = { if (state.updateVersionName != null) UpdateDot() },
                 )
-                GroupedRow(
-                    icon = PlazaIcons.Update,
-                    title = stringResource(Res.string.settings_update_on_launch),
-                    checked = state.settings.updateCheckOnLaunch,
-                    onCheckedChange = onUpdateCheckOnLaunchChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.updateCheckOnLaunch) },
-                )
-                GroupedRow(
-                    icon = PlazaIcons.Science,
-                    title = stringResource(Res.string.settings_update_dev_channel),
-                    subtitle = stringResource(Res.string.settings_update_dev_channel_hint),
-                    checked = state.settings.updateDevChannel,
-                    onCheckedChange = onUpdateDevChannelChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.updateDevChannel) },
-                )
+                if (updateChecksSupported) {
+                    GroupedRow(
+                        icon = PlazaIcons.Update,
+                        title = stringResource(Res.string.settings_update_on_launch),
+                        checked = state.settings.updateCheckOnLaunch,
+                        onCheckedChange = onUpdateCheckOnLaunchChange,
+                        trailing = { GroupedListItemSwitch(checked = state.settings.updateCheckOnLaunch) },
+                    )
+                    GroupedRow(
+                        icon = PlazaIcons.Science,
+                        title = stringResource(Res.string.settings_update_dev_channel),
+                        subtitle = stringResource(Res.string.settings_update_dev_channel_hint),
+                        checked = state.settings.updateDevChannel,
+                        onCheckedChange = onUpdateDevChannelChange,
+                        trailing = { GroupedListItemSwitch(checked = state.settings.updateDevChannel) },
+                    )
+                }
                 GroupedRow(
                     icon = PlazaIcons.Gavel,
                     title = stringResource(Res.string.settings_licenses),
@@ -858,7 +864,8 @@ private const val SUBTITLE_SEPARATOR = " · "
  * answers on that screen that change what a reader should expect to see, and when.
  */
 @Composable
-private fun notificationSummary(settings: UserSettings): String {
+private fun notificationSummary(settings: UserSettings, backgroundPollingSupported: Boolean): String {
+    if (!backgroundPollingSupported) return stringResource(Res.string.settings_notify_summary_unavailable)
     if (!settings.notificationsEnabled) return stringResource(Res.string.settings_entry_off)
     val every =
         stringResource(

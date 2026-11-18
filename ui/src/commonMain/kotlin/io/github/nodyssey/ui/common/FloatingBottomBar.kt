@@ -9,17 +9,80 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.nodyssey.data.settings.BottomBarPosition
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeGlass
 
 /** Navigation and the smaller reading controls sit on the same vertical centre line. */
 internal val FloatingBottomBarBandHeight = 58.dp
-internal val FloatingBottomBarTopGap = 8.dp
-internal val FloatingBottomBarBottomGap = 16.dp
+private val FloatingBottomBarTopGap = 8.dp
+private val HomeIndicatorClearance = 13.dp
+
+internal val LocalBottomBarPosition = compositionLocalOf { BottomBarPosition.MEDIUM }
+internal val LocalFixedBottomBarHeight = compositionLocalOf<Dp?> { null }
+internal val LocalBottomBarSafeAreaOverlap = staticCompositionLocalOf { 0.dp }
+internal val LocalKeepBottomBarVisibleOnScroll = staticCompositionLocalOf { false }
+
+private val BottomBarPosition.bottomGap
+    get() = when (this) {
+        BottomBarPosition.LOW -> 0.dp
+        BottomBarPosition.MEDIUM -> 10.dp
+        BottomBarPosition.HIGH -> 20.dp
+    }
+
+internal val BottomBarPosition.bottomBarClearance
+    get() = FloatingBottomBarTopGap + FloatingBottomBarBandHeight + bottomGap
+
+@Composable
+internal fun bottomBarInset(safeBottom: Dp): Dp {
+    val minimumInset = minOf(safeBottom, HomeIndicatorClearance)
+    return (safeBottom - LocalBottomBarSafeAreaOverlap.current).coerceAtLeast(minimumInset)
+}
+
+/** Additional space above the safe area already reserved by the page. */
+@Composable
+internal fun bottomBarClearance(): Dp {
+    val safeBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
+    val overlap = safeBottom - bottomBarInset(safeBottom)
+    val fixedHeight = LocalFixedBottomBarHeight.current
+    val bandClearance = if (fixedHeight == null) {
+        LocalBottomBarPosition.current.bottomBarClearance
+    } else {
+        FloatingBottomBarTopGap + fixedHeight
+    }
+    return bandClearance - overlap
+}
+
+/** Places the navigation and reading controls on the same center line. */
+@Composable
+internal fun BottomBarBand(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val fixedHeight = LocalFixedBottomBarHeight.current
+    Box(
+        modifier = modifier
+            .padding(top = FloatingBottomBarTopGap, bottom = if (fixedHeight == null) LocalBottomBarPosition.current.bottomGap else 0.dp)
+            .height(fixedHeight ?: FloatingBottomBarBandHeight),
+        contentAlignment = Alignment.Center,
+        content = content,
+    )
+}
 
 /** The whole bar enters from below, without changing the arrangement of its controls. */
 @Composable

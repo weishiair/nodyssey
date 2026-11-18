@@ -29,12 +29,12 @@ interface UpdateCheckStore {
 }
 
 /**
- * 应用内更新 — the whole of it: ask GitHub, hold the answer, fetch the APK.
+ * Checks published versions and holds the shared update and reminder state.
  *
  * One instance per process, held by the container rather than by a ViewModel, because a download has
  * to survive leaving the 关于 screen and a badge has to be readable from 设置 and 我的 at the same
- * time. Handing the APK to the system installer is [ApkInstaller]'s job; this only reports what came
- * back from it.
+ * time. Android also downloads APKs and reports installer outcomes. iOS opens the release page
+ * and leaves IPA installation to the user's signing tool.
  */
 interface AppUpdateRepository {
     val state: StateFlow<AppUpdateState>
@@ -65,7 +65,7 @@ interface AppUpdateRepository {
      */
     fun checkOnLaunch()
 
-    /** 下载并安装 from the reminder: closes it and starts the download. */
+    /** Accepts the reminder; Android also starts its APK download. */
     fun acceptLaunchReminder()
 
     /** 稍后: closes the reminder and remembers the version, so no later launch raises it again. */

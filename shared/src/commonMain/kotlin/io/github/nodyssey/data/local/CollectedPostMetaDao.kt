@@ -42,7 +42,7 @@ interface CollectedPostMetaDao {
         nowMillis: Long,
     ) {
         if (rows.isEmpty()) return
-        val stored = find(rows.map { it.postId }).associateBy { it.postId }
+        val stored = rows.chunked(500).flatMap { chunk -> find(chunk.map { it.postId }) }.associateBy { it.postId }
         upsert(
             rows.map { fresh ->
                 val old = stored[fresh.postId]
@@ -85,6 +85,22 @@ interface CollectedPostMetaDao {
     ) {
         remember(rows, nowMillis)
         replaceOrder(rows.map { it.postId })
+    }
+
+    @Query("SELECT postId FROM collected_post_meta WHERE listedOrder IS NOT NULL ORDER BY listedOrder ASC")
+    suspend fun listedIds(): List<Long>
+
+    @Transaction
+    suspend fun mergeCollectionPrefix(
+        rows: List<CollectedPostMetaEntity>,
+        nowMillis: Long,
+    ) {
+        if (rows.isEmpty()) return
+        val prefix = rows.map { it.postId }.distinct()
+        val prefixIds = prefix.toSet()
+        val tail = listedIds().filterNot { it in prefixIds }
+        remember(rows, nowMillis)
+        (prefix + tail).forEachIndexed { index, postId -> setOrder(postId, index) }
     }
 
     /**

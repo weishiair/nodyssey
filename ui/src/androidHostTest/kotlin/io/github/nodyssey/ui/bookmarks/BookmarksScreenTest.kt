@@ -74,6 +74,7 @@ class BookmarksScreenTest {
                     onPostClick = onPostClick,
                     onOpenBrowser = {},
                     onRetry = {},
+                    onLoadMore = {},
                     onSignIn = {},
                     onVerify = {},
                     onFilter = {},

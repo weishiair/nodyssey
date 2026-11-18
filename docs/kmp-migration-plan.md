@@ -1417,7 +1417,7 @@ has no actual declaration」**——和那个块上方注释预言的一字不�
 
 | | 为什么 |
 |---|---|
-| `ApkInstaller` / `AppUpdateRepository` | **不是缺口。**旁加载和查 GitHub Releases 是 Android 对「新版本从哪来」的答案；这个平台的答案是 App Store，而 App 不被允许绕过它。`NoAppUpdates` 永远停在 idle，那正是 Android 上「今天没有新版本」的同一个状态 |
+| `ApkInstaller` / `AppUpdateRepository` | **2026-11-16 已补版本检查与提醒。**当前 iOS 分发的是未签名 IPA；`ExternalAppUpdateRepository` 从 Pages 的 IPA 清单检查新版，支持启动提醒、手动检查与测试通道。下载入口打开发布页，安装交给用户的签名工具，`NoApkInstaller` 不执行 APK 安装 |
 | `ImageHostRepository.upload` | **是缺口，D3c 已还。**六家图床的客户端当时在 `:app` 里，写的是 `OkHttpClient` 而不是 `HttpTransport`，连托盘那个进度环读的回调都是 OkHttp 的形状。但**设置那半是好的**——`DataStoreImageHostSettings` 在 `commonMain`，所以选哪家、密钥存哪、六家之间怎么切，在 iOS 上和 Android 一模一样，只有上传本身抛 `ImageHostError.Unsupported` |
 | `OfflineWorkScheduler` | **是缺口，且已排期。**D4 的 `BGTaskScheduler`。这不等于离线阅读关着：`RoomOfflineLibrary` 在前台自己抽干队列，缺的是退到后台之后继续 |
 

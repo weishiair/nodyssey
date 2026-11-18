@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.nodyssey.data.BookmarksSync
 import io.github.nodyssey.data.CollectedPostMeta
 import io.github.nodyssey.data.CollectedPostMetaStore
 import io.github.nodyssey.data.OfflineLibrary
@@ -13,8 +14,6 @@ import io.github.nodyssey.data.OfflineSettings
 import io.github.nodyssey.data.OfflineState
 import io.github.nodyssey.data.OfflineUsage
 import io.github.nodyssey.data.PostRepository
-import io.github.nodyssey.data.SpacePost
-import io.github.nodyssey.data.UserSpaceRepository
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.postlist.toSiteError
 import io.github.plaza.core.net.SiteError
@@ -72,13 +71,7 @@ data class BookmarksUiState(
     val isSyncing: Boolean = true,
     /** Why the last walk failed, or null. Non-null *with* [entries] is the offline case, not a dead end. */
     val error: SiteError? = null,
-    /**
-     * True when the collection ran past [BookmarksViewModel.MAX_PAGES] and the counts are a floor.
-     *
-     * A fact about the walk rather than about the list, so it is not stored with it: a session that
-     * opens onto the stored list has not walked anything yet and says nothing until it has. At 20
-     * pages of an endpoint that answers in dozens, that is a claim about accounts that do not exist.
-     */
+    /** True when the latest batch stopped before the end of the site's list. */
     val truncated: Boolean = false,
     val filter: BookmarkFilter = BookmarkFilter.ALL,
     val sort: BookmarkSort = BookmarkSort.SITE,
@@ -171,27 +164,9 @@ private val OfflineState.downloadRank: Int
             is OfflineState.Downloaded -> 4
         }
 
-/**
- * 收藏 — the signed-in user's, as its own screen (board i1).
- *
- * The whole list in one shot rather than through Paging, which is what the design asks for without
- * saying so: 「全部 12 / 已下载 5 / 有新回复 3」, 全选, and 「全部下载 · 7 篇」 are all statements about the
- * *whole* collection, and a paged list can only ever count the pages it happens to have. Bounded by
- * [MAX_PAGES] so a pathological account cannot turn the screen into an unbounded fetch; when that
- * bound bites, [BookmarksUiState.truncated] says so instead of the counts quietly being wrong.
- *
- * Local-first, and on this screen that is not a nicety. 收藏 is the way into downloaded threads, so
- * a version of it that could only be drawn from a fresh response made the download feature useless
- * in exactly the situation it exists for: the network is gone, the thread is on the disk, and the
- * list in front of it is an error page. So the rows come from [CollectedPostMetaStore], which every
- * successful walk writes the whole collection into, and the walk on top of it is a *refresh* — it
- * replaces the list when it succeeds and says so quietly when it does not.
- *
- * The site publishes nobody else's collections, so there is no uid here — this screen is only ever
- * about the signed-in account.
- */
+/** Draws the current collection from disk while [BookmarksSync] updates it in the background. */
 class BookmarksViewModel(
-    private val spaceRepository: UserSpaceRepository,
+    private val sync: BookmarksSync,
     private val postRepository: PostRepository,
     private val offline: OfflineLibrary,
     private val collectedMeta: CollectedPostMetaStore,
@@ -199,20 +174,30 @@ class BookmarksViewModel(
     private val _uiState = MutableStateFlow(BookmarksUiState(offlineAvailable = offline.isAvailable))
     val uiState: StateFlow<BookmarksUiState> = _uiState.asStateFlow()
 
-    private var loadJob: Job? = null
     private var estimateJob: Job? = null
 
     init {
-        load(refresh = false)
         // Two sources, rebuilt rather than folded together: the stored collection and what this
         // device has downloaded of it change independently, and a row patched in place would end up
         // depending on which of the two happened to land last.
         viewModelScope.launch {
-            combine(collectedMeta.observeCollection(), offline.states) { collection, states ->
-                collection.map { meta ->
+            sync.refreshIfNeeded()
+            combine(collectedMeta.observeCollection(), offline.states, sync.status) { collection, states, status ->
+                val entries = collection.map { meta ->
                     meta.toEntry(offline = states[meta.postId] ?: OfflineState.NotDownloaded)
                 }
-            }.collect { entries -> _uiState.update { it.copy(entries = entries) } }
+                entries to status
+            }.collect { (entries, status) ->
+                _uiState.update { state ->
+                    state.copy(
+                        entries = entries,
+                        isSyncing = status.syncing,
+                        error = status.error,
+                        truncated = status.hasMore,
+                        selection = state.selection?.intersect(entries.map { it.postId }.toSet()),
+                    )
+                }
+            }
         }
         viewModelScope.launch {
             combine(offline.usage, offline.settings, ::Pair).collect { (usage, settings) ->
@@ -221,9 +206,17 @@ class BookmarksViewModel(
         }
     }
 
-    fun refresh() = load(refresh = true)
+    fun refreshIfNeeded() {
+        viewModelScope.launch { sync.refreshIfNeeded() }
+    }
 
-    fun retry() = load(refresh = false)
+    fun refresh() {
+        viewModelScope.launch { sync.refresh() }
+    }
+
+    fun loadMore() {
+        viewModelScope.launch { sync.loadMore() }
+    }
 
     fun setFilter(filter: BookmarkFilter) {
         _uiState.update { it.copy(filter = filter) }
@@ -318,6 +311,7 @@ class BookmarksViewModel(
         // The list as it stands, kept for the refusal below — the removal is about to change it.
         val before = _uiState.value.entries.map { it.postId }
         viewModelScope.launch {
+            sync.invalidate()
             val ids = target.map { it.postId }.toSet()
             // Straight into the store, because that is what the list is drawn from now. Only the
             // list marks come off; the details stay, so 撤销 does not have to carry them back.
@@ -335,7 +329,7 @@ class BookmarksViewModel(
                 // when the refusal *was* that it could not be — where a removal left on disk would
                 // otherwise outlive the screen, the session and the reader's memory of doing it.
                 collectedMeta.relist(before)
-                load(refresh = true)
+                sync.refresh()
             }
             onDone(target, failure)
         }
@@ -347,7 +341,7 @@ class BookmarksViewModel(
             entries.forEach { entry ->
                 runCatchingExceptCancellation { postRepository.setCollected(entry.postId, collected = true) }
             }
-            load(refresh = true)
+            sync.refresh()
         }
     }
 
@@ -385,82 +379,12 @@ class BookmarksViewModel(
         viewModelScope.launch { offline.clearAll() }
     }
 
-    // --- loading ------------------------------------------------------------------------------
-
-    /**
-     * Walks the endpoint and hands the result to the store, which is what the screen reads.
-     *
-     * [refresh] no longer decides whether a spinner is drawn — [BookmarksUiState.isLoading] works
-     * that out from whether there is anything to draw instead — and is kept only because a manual
-     * retry and the trip into the screen are the same request.
-     */
-    private fun load(refresh: Boolean) {
-        loadJob?.cancel()
-        loadJob =
-            viewModelScope.launch {
-                _uiState.update { it.copy(isSyncing = true, error = null) }
-                runCatchingExceptCancellation { loadAllPages() }
-                    .onSuccess { (posts, truncated) ->
-                        // The whole walk, wholesale: this is both what the endpoint said about each
-                        // thread — which it will not reliably say again, see [CollectedPostMetaStore]
-                        // — and the list itself, which is what 收藏 draws from with the network off.
-                        collectedMeta.rememberCollection(posts.map(SpacePost::toKnownMeta))
-                        // What the site says each thread's reply count is *now* — the only half of
-                        // 「离线版落后 N 条回复」 a stored copy cannot work out for itself. This screen
-                        // is holding both numbers already, so it hands them over rather than leaving
-                        // the library to go and ask for what the app was just given.
-                        offline.noteReplyCounts(posts.mapNotNull { post -> post.commentCount?.let { post.postId to it } }.toMap())
-                        _uiState.update { state ->
-                            state.copy(
-                                isSyncing = false,
-                                error = null,
-                                truncated = truncated,
-                                // A thread removed on another device must not stay ticked.
-                                selection =
-                                state.selection?.intersect(posts.map { it.postId }.toSet()),
-                            )
-                        }
-                    }.onFailure { throwable ->
-                        // The rows stay. What failed is the refresh, and the screen has a line for
-                        // saying so — replacing a readable list with a retry button would take the
-                        // downloaded threads away at the one moment they are the only ones worth
-                        // anything.
-                        _uiState.update { it.copy(isSyncing = false, error = throwable.toSiteError()) }
-                    }
-            }
-    }
-
-    /**
-     * Walks the collection endpoint to its end, or to [MAX_PAGES].
-     *
-     * A page that comes back empty ends the walk even when the payload claims another one: the
-     * endpoint's `hasNext` is a guess when the response carries no paging metadata (see
-     * `UserSpaceRepository`), and trusting it alone is what turns a missing field into 20 requests.
-     */
-    private suspend fun loadAllPages(): Pair<List<SpacePost>, Boolean> {
-        val all = mutableListOf<SpacePost>()
-        var page = 1
-        while (page <= MAX_PAGES) {
-            val result = spaceRepository.collections(page)
-            all += result.items
-            if (!result.hasNextPage || result.items.isEmpty()) return all to false
-            page++
-        }
-        return all to true
-    }
-
     companion object {
-        /**
-         * The walk's bound. At the endpoint's own page size this is several thousand collected
-         * threads — far past any real account, and the point is only that the number exists.
-         */
-        const val MAX_PAGES = 20
-
         fun factory(container: AppContainer): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
                     BookmarksViewModel(
-                        spaceRepository = container.userSpaceRepository,
+                        sync = container.bookmarksSync,
                         postRepository = container.postRepository,
                         offline = container.offlineLibrary,
                         collectedMeta = container.collectedPostMetaStore,
@@ -494,16 +418,4 @@ private fun CollectedPostMeta.toEntry(offline: OfflineState) =
         commentCount = commentCount,
         createdAtText = createdAtText,
         offline = offline,
-    )
-
-/** What one row of the site's answer is worth writing down. */
-private fun SpacePost.toKnownMeta() =
-    CollectedPostMeta(
-        postId = postId,
-        title = title,
-        categoryTitle = categoryTitle,
-        categorySlug = categorySlug,
-        authorName = authorName,
-        commentCount = commentCount,
-        createdAtText = createdAtText,
     )

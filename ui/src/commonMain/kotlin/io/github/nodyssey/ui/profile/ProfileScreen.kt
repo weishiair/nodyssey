@@ -62,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -70,6 +71,7 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -81,10 +83,13 @@ import io.github.nodyssey.ui.common.AttendanceBoardDialog
 import io.github.nodyssey.ui.common.AttendanceModeDialog
 import io.github.nodyssey.ui.common.LevelProgressLine
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.TabContentMaxWidth
 import io.github.nodyssey.ui.common.UpdateDot
+import io.github.nodyssey.ui.common.WideTabMinWidth
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteName
@@ -145,6 +150,7 @@ import io.github.nodyssey.ui.resources.profile_tile_theme
 import io.github.nodyssey.ui.resources.profile_tile_topics
 import io.github.nodyssey.ui.resources.profile_tools
 import io.github.nodyssey.ui.resources.settings_title
+import io.github.nodyssey.ui.resources.tab_profile
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -164,7 +170,6 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.floatShadow
-import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -276,6 +281,8 @@ fun ProfileScreen(
     onRetryAttendanceBoard: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val isIosPad = LocalIosPad.current
+    val allowTwoColumns = !isIosPad || LocalWindowInfo.current.containerSize.let { it.width > it.height }
     // The sign-in request now runs on this screen, so its refusals have to land here too — and
     // through [SiteErrorSnackbar], because a bare sentence is the wrong answer to a wall: 领鸡腿
     // refused with 需要确认一下你不是机器人 and nothing to press left the reader knowing what was
@@ -292,20 +299,15 @@ fun ProfileScreen(
     )
     Scaffold(
         modifier = modifier,
-        // Both states get the same bar: a gear and nothing else. 2b and 9f open straight onto the
-        // account card with no title over it — the tab bar already says 我的 — and the signed-out
-        // screen, which used to carry 设置 as a row because it had no bar, now reaches it the same way
-        // the signed-in one does.
         topBar = {
-            // Over the content's own column — one 640dp column, or the two-column page's 1040 — so the gear
-            // sits above the edge of what it belongs to rather than in the window's corner.
             BoxWithConstraints {
+                val showTitle = isIosPad && maxWidth >= WideTabMinWidth
                 ReadableTopBar(
-                    maxContentWidth = if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) PROFILE_TWO_COLUMN_MAX_WIDTH else Sizes.readableContentWidth,
+                    maxContentWidth = profileContentWidth(maxWidth, isIosPad, allowTwoColumns),
                 ) { barInsets ->
                     TopAppBar(
                         windowInsets = barInsets,
-                        title = {},
+                        title = { if (showTitle) Text(stringResource(Res.string.tab_profile)) },
                         actions = { SettingsAction(hasAppUpdate = hasAppUpdate, onClick = destinations.settings) },
                         colors =
                         TopAppBarDefaults.topAppBarColors(
@@ -329,6 +331,7 @@ fun ProfileScreen(
                 destinations = destinations,
                 hasUnreadLotteryResults = hasUnreadLotteryResults,
                 hasUnreadMail = hasUnreadMail,
+                allowTwoColumns = allowTwoColumns,
                 modifier = Modifier.padding(padding),
             )
             return@Scaffold
@@ -375,7 +378,8 @@ fun ProfileScreen(
         val bottom = Spacing.lg + padding.bottomWithFloatingBar()
         // Under the bottom bar rather than stopping at it — see [withoutBottom].
         BoxWithConstraints(Modifier.padding(padding.withoutBottom()).fillMaxSize()) {
-            if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {
+            val contentWidth = profileContentWidth(maxWidth, isIosPad, allowTwoColumns)
+            if (allowTwoColumns && maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {
                 /*
                  * A tablet's width. One 640dp column down the middle of it left two empty margins
                  * as wide as the column itself, so the page splits instead: who you are on the left,
@@ -387,7 +391,7 @@ fun ProfileScreen(
                     Modifier
                         .fillMaxSize()
                         .wrapContentWidth(Alignment.CenterHorizontally)
-                        .widthIn(max = PROFILE_TWO_COLUMN_MAX_WIDTH)
+                        .widthIn(max = contentWidth)
                         .padding(horizontal = LayerPageGutter),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
@@ -414,7 +418,7 @@ fun ProfileScreen(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().readableWidth(),
+                    modifier = Modifier.fillMaxSize().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = contentWidth),
                     contentPadding = PaddingValues(start = LayerPageGutter, end = LayerPageGutter, bottom = bottom),
                     verticalArrangement = Arrangement.spacedBy(LayerCardGap),
                 ) {
@@ -821,6 +825,13 @@ private val PROFILE_TWO_COLUMN_MIN_WIDTH = 840.dp
 /** The two columns together stop growing here, centred, so a 13-inch landscape window is not all gap. */
 private val PROFILE_TWO_COLUMN_MAX_WIDTH = 1040.dp
 
+private fun profileContentWidth(availableWidth: Dp, isIosPad: Boolean, allowTwoColumns: Boolean): Dp =
+    when {
+        isIosPad && availableWidth >= WideTabMinWidth -> minOf(TabContentMaxWidth, availableWidth - Spacing.lg * 2)
+        allowTwoColumns && availableWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH -> PROFILE_TWO_COLUMN_MAX_WIDTH
+        else -> Sizes.readableContentWidth
+    }
+
 /** The account column's share of the row; the grid gets the rest. */
 private const val PROFILE_ACCOUNT_COLUMN_WEIGHT = 0.42f
 
@@ -835,13 +846,14 @@ private const val PROFILE_ACCOUNT_COLUMN_WEIGHT = 0.42f
  * the nearest pixel on its own, so on a card whose width in pixels leaves 2 or 3 over a multiple of
  * four, four tiles come to more than the row and the fourth wraps — three to a row with a hole on the
  * right, on some phones and not others. [Grid] shares the `fr` tracks out so they sum to the width,
- * and a short last row stays on the columns of the rows above it without filler.
+ * and a short last row stays on the columns of the rows above it without filler. Explicit zero
+ * track minima keep a long label from widening its column and squeezing its neighbours.
  */
 @Composable
 private fun ProfileGridCard(tiles: List<ProfileTile>) {
     LayerCard(contentPadding = PaddingValues(Spacing.xs), verticalArrangement = Arrangement.Top) {
         Grid(
-            config = { repeat(PROFILE_GRID_COLUMNS) { column(1.fr) } },
+            config = { repeat(PROFILE_GRID_COLUMNS) { column(minmax(0.dp, 1.fr)) } },
             modifier = Modifier.fillMaxWidth(),
         ) {
             // A cell hands its item loose constraints; the tile fills it so the whole quarter is the target.
@@ -880,8 +892,10 @@ private fun ProfileGridTile(
         }
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, lineBreak = LineBreak.Heading),
             textAlign = TextAlign.Center,
+            // Every caption reserves the same two lines, including the longer mail label.
+            minLines = 2,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
@@ -898,6 +912,7 @@ private fun SignedOutProfile(
     destinations: ProfileDestinations,
     hasUnreadLotteryResults: Boolean,
     hasUnreadMail: Boolean,
+    allowTwoColumns: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val welcome: @Composable () -> Unit = {
@@ -986,7 +1001,8 @@ private fun SignedOutProfile(
         }
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
-        if (maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {
+        val contentWidth = profileContentWidth(maxWidth, LocalIosPad.current, allowTwoColumns)
+        if (allowTwoColumns && maxWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH) {
             // The signed-in page's split, for the same reason: why to sign in on the left, what a
             // guest can already use on the right.
             Row(
@@ -994,7 +1010,7 @@ private fun SignedOutProfile(
                 Modifier
                     .fillMaxSize()
                     .wrapContentWidth(Alignment.CenterHorizontally)
-                    .widthIn(max = PROFILE_TWO_COLUMN_MAX_WIDTH)
+                    .widthIn(max = contentWidth)
                     .padding(horizontal = LayerPageGutter),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             ) {
@@ -1022,7 +1038,7 @@ private fun SignedOutProfile(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().readableWidth(),
+                modifier = Modifier.fillMaxSize().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = contentWidth),
                 contentPadding = PaddingValues(start = LayerPageGutter, end = LayerPageGutter, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {

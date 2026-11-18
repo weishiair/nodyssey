@@ -70,7 +70,17 @@ class PaneRoleTest {
     @Test
     fun `the thread beside the feed has nothing to go back to`() {
         val thread = PostDetailKey(1)
-        assertTrue(listOf(PostListKey, thread).sitsBesideList(thread))
+        assertTrue(listOf(PostListKey, thread).hidesDetailBackButton(thread))
+    }
+
+    @Test
+    fun `the first iPad detail can close a split opened from a tab root`() {
+        val thread = PostDetailKey(1)
+        val message = MessageThreadKey(2, "reader")
+
+        assertFalse(listOf(PostListKey, thread).hidesDetailBackButton(thread, isIosPad = true))
+        assertFalse(listOf(NotificationsKey, message).hidesDetailBackButton(message, isIosPad = true))
+        assertTrue(listOf(PostListKey, SearchKey(), thread).hidesDetailBackButton(thread, isIosPad = true))
     }
 
     /** It covers the first thread in the same half of the window, so it keeps its arrow. */
@@ -79,14 +89,14 @@ class PaneRoleTest {
         val first = PostDetailKey(1)
         val second = PostDetailKey(2)
         val stack = listOf(PostListKey, first, second)
-        assertTrue(stack.sitsBesideList(first))
-        assertFalse(stack.sitsBesideList(second))
+        assertTrue(stack.hidesDetailBackButton(first))
+        assertFalse(stack.hidesDetailBackButton(second))
     }
 
     @Test
     fun `a thread from tracked threads is not beside a list`() {
         val thread = PostDetailKey(1)
-        assertFalse(listOf(ProfileKey, TrackedThreadsKey, thread).sitsBesideList(thread))
+        assertFalse(listOf(ProfileKey, TrackedThreadsKey, thread).hidesDetailBackButton(thread))
     }
 
     @Test
@@ -132,7 +142,7 @@ class PaneRoleTest {
     fun `my own lists of threads sit beside what they open`() {
         listOf(MyTopicsKey, MyCommentsKey, BookmarksKey, ReadHistoryKey).forEach { list ->
             val thread = PostDetailKey(1)
-            assertTrue(listOf(ProfileKey, list, thread).sitsBesideList(thread))
+            assertTrue(listOf(ProfileKey, list, thread).hidesDetailBackButton(thread))
         }
     }
 

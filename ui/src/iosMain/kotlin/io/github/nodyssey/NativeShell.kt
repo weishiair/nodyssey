@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.SnackbarDuration
@@ -26,10 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.uikit.OnFocusBehavior
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
@@ -41,16 +45,25 @@ import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.ClipboardPost
 import io.github.nodyssey.ui.common.IosClipboardPostReader
+import io.github.nodyssey.ui.common.LocalBottomBarSafeAreaOverlap
+import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
+import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.LocalIosPad
+import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
+import io.github.nodyssey.ui.common.bottomBarClearance
 import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
 import io.github.nodyssey.ui.composer.PendingComposerShare
+import io.github.nodyssey.ui.navigation.BottomNavigationBand
+import io.github.nodyssey.ui.navigation.BottomNavigationTabs
 import io.github.nodyssey.ui.navigation.PaneGroup
 import io.github.nodyssey.ui.navigation.PaneKind
 import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
+import io.github.nodyssey.ui.navigation.supportsIosListDetail
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
 import io.github.nodyssey.ui.postlist.HomeFeedStates
@@ -61,12 +74,18 @@ import io.github.nodyssey.ui.resources.about_site
 import io.github.nodyssey.ui.resources.app_name
 import io.github.nodyssey.ui.resources.clipboard_post_open
 import io.github.nodyssey.ui.resources.clipboard_post_prompt
+import io.github.nodyssey.ui.settings.UpdateReminderDialog
+import io.github.nodyssey.ui.settings.UpdateReminderViewModel
 import io.github.nodyssey.ui.settings.rememberAppLinkHandlingEnabled
 import io.github.nodyssey.ui.settings.rememberAppLinkSettingsLauncher
 import io.github.plaza.core.runCatchingExceptCancellation
+import io.github.plaza.designsys.component.NativeGlassTab
+import io.github.plaza.designsys.component.NativeGlassTabBar
 import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeGlassAvailable
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.useContents
@@ -99,6 +118,7 @@ import platform.UIKit.UITabBarController
 import platform.UIKit.UITabBarControllerDelegateProtocol
 import platform.UIKit.UITabBarItem
 import platform.UIKit.UIUserInterfaceIdiomPad
+import platform.UIKit.UIUserInterfaceSizeClassCompact
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIViewController
 import platform.UIKit.addChildViewController
@@ -113,13 +133,10 @@ import platform.darwin.NSObject
 import kotlin.coroutines.resume
 
 /**
- * The iOS app: a system tab bar and a system navigation stack per tab, with one Compose screen in
- * each pushed controller.
- *
- * What this buys over the single `ComposeUIViewController` the app used to be is everything iOS
- * draws for a native app and Compose can only imitate — the Liquid Glass tab bar, the push and pop
- * transitions, the edge swipe and iOS 26's swipe-anywhere back, all of it behaving the way every
- * other app on the phone does.
+ * The iOS app: one system navigation stack per tab, with one Compose screen in each pushed
+ * controller. UIKit owns push/pop transitions, the edge swipe and iOS 26's swipe-anywhere back.
+ * UIKit also lays out the system tabs on older iOS versions and regular-width iPads. Floating
+ * tabs live inside each root page and share a user-selected baseline with the thread actions.
  *
  * **The back stacks are still the truth.** Every screen navigates the way it does on Android, with
  * `backStack.add` and `removeLastOrNull` on the [NavBackStack] its entry was built against — no entry
@@ -233,12 +250,12 @@ private class ShellStrings(
 private class NativeShell(
     private val container: AppContainer,
     initialSettings: UserSettings,
-    strings: ShellStrings,
+    private val strings: ShellStrings,
 ) {
     private val scope = MainScope()
 
     /** The newest settings, so a screen pushed later starts in today's colours rather than launch's. */
-    private var settings: UserSettings = initialSettings
+    private var settings: UserSettings by mutableStateOf(initialSettings)
 
     /**
      * What `MainNavigation` keeps in its own composition, kept here because no composition here
@@ -248,6 +265,8 @@ private class NativeShell(
     private val shellStore = ViewModelStore()
     private val notificationsViewModel: NotificationsViewModel =
         ViewModelProvider.create(shellStore, NotificationsViewModel.factory(container))[NotificationsViewModel::class]
+    private val updateReminderViewModel: UpdateReminderViewModel =
+        ViewModelProvider.create(shellStore, UpdateReminderViewModel.factory(container))[UpdateReminderViewModel::class]
     private val homeFeedStates = HomeFeedStates()
     private val pendingComposerShare = PendingComposerShare()
     private val pendingAttendance = PendingAttendance()
@@ -266,7 +285,17 @@ private class NativeShell(
         }
 
     private var listDetailExpanded by mutableStateOf(false)
-    val root: UITabBarController = ShellTabBarController(onWidth = ::onWindowWidth)
+    private var compactPadTabs by mutableStateOf(false)
+    private var fixedBottomBarHeight by mutableStateOf(49.dp.takeUnless { nativeGlassAvailable })
+
+    private val systemTabs = if (isPad || !nativeGlassAvailable) {
+        ShellTabBarController(onLayout = ::onSystemTabLayout)
+    } else {
+        null
+    }
+    private val bottomTabs = if (systemTabs == null) BottomTabHost() else null
+    val root: UIViewController = systemTabs ?: checkNotNull(bottomTabs)
+    private var selectedTab = TopLevelDestination.HOME
 
     private val navigationControllers: Map<TopLevelDestination, UINavigationController> =
         TopLevelDestination.entries.associateWith { destination ->
@@ -401,8 +430,11 @@ private class NativeShell(
                 }
             }
         }
-        root.delegate = tabBarDelegate
-        root.setViewControllers(TopLevelDestination.entries.map { navigationControllers.getValue(it) }, animated = false)
+        systemTabs?.let { tabs ->
+            tabs.delegate = tabBarDelegate
+            tabs.setViewControllers(TopLevelDestination.entries.map { navigationControllers.getValue(it) }, animated = false)
+        }
+        bottomTabs?.show(navigationControllers.getValue(selectedTab))
         TopLevelDestination.entries.forEach { destination ->
             val navigationController = navigationControllers.getValue(destination)
             navigationController.delegate = navigationDelegates.getValue(destination)
@@ -457,8 +489,12 @@ private class NativeShell(
                 },
             ) {
                 NodysseyChrome(container, settings) {
-                    DeviceLocals {
+                    DeviceLocals(fixedBottomBarHeight) {
+                        val showsBottomTabs = (systemTabs == null || compactPadTabs) && key == destination.key
+                        val barClearance = if (showsBottomTabs) bottomBarClearance() else 0.dp
                         CompositionLocalProvider(
+                            LocalFloatingBottomBarHeight provides barClearance,
+                            LocalKeepBottomBarVisibleOnScroll provides showsBottomTabs,
                             // The page's own store rather than the controller's default one, so that a
                             // view model lives exactly as long as its entry is on the stack — see
                             // [flushReleases] — and not as long as UIKit keeps the controller around.
@@ -470,11 +506,28 @@ private class NativeShell(
                         ) {
                             Box(Modifier.fillMaxSize()) {
                                 entry.Content()
+                                if (showsBottomTabs) {
+                                    BottomTabs(destination, Modifier.align(Alignment.BottomCenter))
+                                }
                                 ClipboardPostSnackbarOverlay(
+                                    modifier = Modifier.padding(bottom = barClearance),
                                     active = activePage == page,
                                     offer = clipboardOffer,
                                     onHandled = ::handleClipboardOffer,
                                 )
+                                val reminder by updateReminderViewModel.launchReminder.collectAsStateWithLifecycle()
+                                if (activePage == page && settings.onboardingSeen && onboarding == null) {
+                                    reminder?.let { release ->
+                                        UpdateReminderDialog(
+                                            release = release,
+                                            onDownload = {
+                                                updateReminderViewModel.acceptReminder()
+                                                SafariUriHandler.openUri(release.htmlUrl)
+                                            },
+                                            onPostpone = updateReminderViewModel::postponeReminder,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -484,10 +537,34 @@ private class NativeShell(
         return page
     }
 
+    @Composable
+    private fun BottomTabs(current: TopLevelDestination, modifier: Modifier) {
+        val unread by notificationsViewModel.uiState.collectAsStateWithLifecycle()
+        val onSelect: (TopLevelDestination) -> Unit = { onBottomTabSelected(it, current) }
+        BottomNavigationBand(modifier) {
+            if (LocalPlazaLayers.current.nativeGlass) {
+                NativeGlassTabBar(
+                    tabs = TopLevelDestination.entries.map { tab ->
+                        NativeGlassTab(
+                            label = strings.tabTitles.getValue(tab),
+                            symbol = if (tab == current) "${tab.symbol}.fill" else tab.symbol,
+                            selected = tab == current,
+                            badge = unread.counts.all.takeIf { it > 0 && tab == TopLevelDestination.NOTIFICATIONS },
+                            onClick = { onSelect(tab) },
+                        )
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                BottomNavigationTabs(current, onSelect, unread.counts.all)
+            }
+        }
+    }
+
     /**
      * Hands [destination]'s navigation controller the screens its stack now calls for.
      *
-     * [relayout] is a change of window width rather than of the stack: the same pages, grouped
+     * [relayout] is a change of window size rather than of the stack: the same pages, grouped
      * again without a navigation animation. It must still wait for UIKit's transition: a rotation
      * animates the existing Compose scenes, which cannot be moved to another container mid-flight.
      */
@@ -521,7 +598,11 @@ private class NativeShell(
         val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
         val layout = paneGroups(keys, listDetailExpanded, ::paneKindOf)
         val onScreen = navigationController.view.window != null
-        val animated = onScreen && !needsRelayout
+        // The tab's list controller moves between navigation stacks when the first detail opens or
+        // closes. As on resize, UIKit must finish that transfer before drawing the reused page.
+        val wasRootSplit = groups.getValue(destination).firstOrNull() is PaneGroup.Split
+        val isRootSplit = layout.firstOrNull() is PaneGroup.Split
+        val animated = onScreen && !needsRelayout && wasRootSplit == isRootSplit
 
         syncing = true
         try {
@@ -537,7 +618,9 @@ private class NativeShell(
                         // The tab bar belongs to the tab roots, as on Android: a thread or a settings
                         // page pushed over 首页 is full-screen.
                         is PaneGroup.Single ->
-                            pages[group.index].controller.also { it.hidesBottomBarWhenPushed = group.index > 0 }
+                            pages[group.index].controller.also {
+                                it.hidesBottomBarWhenPushed = !nativeGlassAvailable && group.index > 0
+                            }
 
                         // A pair keeps it, since the list it was opened from is still on screen.
                         is PaneGroup.Split ->
@@ -564,19 +647,26 @@ private class NativeShell(
      * iPad's tab bar floats at the top, and `hidesBottomBarWhenPushed` does not reach it: an image, a
      * web page or 设置 pushed over a tab would sit under 首页 / 通知 / 我的. So on iPad the shell
      * hides it for the screens the iPhone hides it for — anything full-window above a tab root —
-     * and keeps it over a pair, whose list is still the tab's own screen.
+     * and keeps it over a pair, whose list is still the tab's own screen. In compact iPad windows,
+     * the pages draw their own bottom tabs at the selected height.
      */
     @OptIn(ExperimentalForeignApi::class)
     private fun updateTabBar() {
-        if (!isPad || !root.respondsToSelector(NSSelectorFromString("setTabBarHidden:animated:"))) return
-        val destination = TopLevelDestination.entries.getOrNull(root.selectedIndex.toInt()) ?: return
-        val top = groups.getValue(destination).lastOrNull()
-        val hidden = top is PaneGroup.Single && top.index > 0
-        if (root.tabBarHidden != hidden) root.setTabBarHidden(hidden, animated = root.view.window != null)
+        val tabs = systemTabs ?: return
+        if (!isPad || !tabs.respondsToSelector(NSSelectorFromString("setTabBarHidden:animated:"))) return
+        val top = groups.getValue(selectedTab).lastOrNull()
+        val hidden = compactPadTabs || (top is PaneGroup.Single && top.index > 0)
+        if (tabs.tabBarHidden != hidden) tabs.setTabBarHidden(hidden, animated = tabs.view.window != null)
     }
 
-    private fun onWindowWidth(width: Double) {
-        val expanded = isPad && width >= LIST_DETAIL_MIN_WIDTH
+    private fun onSystemTabLayout(width: Double, height: Double, compact: Boolean, bottomBarHeight: Double?) {
+        val floatingTabs = nativeGlassAvailable && compact
+        if (compactPadTabs != floatingTabs) {
+            compactPadTabs = floatingTabs
+            updateTabBar()
+        }
+        if (!nativeGlassAvailable && bottomBarHeight != null) fixedBottomBarHeight = bottomBarHeight.dp
+        val expanded = isPad && supportsIosListDetail(width, height)
         if (expanded == listDetailExpanded) return
         listDetailExpanded = expanded
         TopLevelDestination.entries.forEach { sync(it, relayout = true) }
@@ -622,7 +712,7 @@ private class NativeShell(
         private val placeholder =
             ComposeUIViewController {
                 NodysseyChrome(container, settings) {
-                    DeviceLocals {
+                    DeviceLocals(fixedBottomBarHeight) {
                         // On the page colour, as every screen's `Scaffold` is; Android's pane scaffold
                         // paints it there, and here nothing else would.
                         Box(Modifier.fillMaxSize().background(LocalPlazaLayers.current.page)) {
@@ -711,7 +801,7 @@ private class NativeShell(
         }
     }
 
-    private var onboarding: UIViewController? = null
+    private var onboarding by mutableStateOf<UIViewController?>(null)
 
     /**
      * 新手引导, presented over the tabs rather than drawn over them.
@@ -728,7 +818,7 @@ private class NativeShell(
         val controller =
             ComposeUIViewController {
                 NodysseyChrome(container, settings) {
-                    DeviceLocals {
+                    DeviceLocals(fixedBottomBarHeight) {
                         OnboardingScreen(
                             onFinish = { scope.launch { container.settingsRepository.setOnboardingSeen(true) } },
                             appLinksEnabled = rememberAppLinkHandlingEnabled(),
@@ -745,20 +835,23 @@ private class NativeShell(
 
     private fun dismissOnboarding() {
         val controller = onboarding ?: return
-        onboarding = null
-        controller.dismissViewControllerAnimated(true, completion = null)
-        checkClipboardPost()
+        controller.dismissViewControllerAnimated(true) {
+            onboarding = null
+            checkClipboardPost()
+        }
     }
 
     private fun observeNotifications() {
-        scope.launch {
-            notificationsViewModel.uiState
-                .map { it.counts.all }
-                .distinctUntilChanged()
-                .collect { unread ->
-                    navigationControllers.getValue(TopLevelDestination.NOTIFICATIONS).tabBarItem.badgeValue =
-                        unread.takeIf { it > 0 }?.toString()
-                }
+        if (systemTabs != null) {
+            scope.launch {
+                notificationsViewModel.uiState
+                    .map { it.counts.all }
+                    .distinctUntilChanged()
+                    .collect { unread ->
+                        navigationControllers.getValue(TopLevelDestination.NOTIFICATIONS).tabBarItem.badgeValue =
+                            unread.takeIf { it > 0 }?.toString()
+                    }
+            }
         }
         // The Android root refreshes the badge on every resume, because a count grown stale overnight
         // is most visibly wrong the moment the app comes back. This is that resume.
@@ -774,13 +867,32 @@ private class NativeShell(
     }
 
     private fun selectTab(destination: TopLevelDestination) {
-        root.selectedIndex = destination.ordinal.toULong()
+        selectedTab = destination
+        systemTabs?.selectedIndex = destination.ordinal.toULong()
+        bottomTabs?.show(navigationControllers.getValue(destination))
+        updateTabBar()
         refreshActivePage()
     }
 
+    private fun onBottomTabSelected(destination: TopLevelDestination, current: TopLevelDestination) {
+        if (destination == current) {
+            val stack = stacks.getValue(destination)
+            if (stack.size > 1) stack.subList(1, stack.size).clear() else reselectTab(destination)
+        } else {
+            selectTab(destination)
+        }
+    }
+
+    private fun reselectTab(destination: TopLevelDestination) {
+        when (destination) {
+            TopLevelDestination.HOME -> homeReselectRequests++
+            TopLevelDestination.NOTIFICATIONS -> notificationsScrollToTopRequests++
+            TopLevelDestination.PROFILE -> Unit
+        }
+    }
+
     private fun refreshActivePage() {
-        val destination = TopLevelDestination.entries.getOrNull(root.selectedIndex.toInt()) ?: return
-        activePage = mirrors.getValue(destination).views.lastOrNull()
+        activePage = mirrors.getValue(selectedTab).views.lastOrNull()
     }
 
     private fun checkClipboardPost() {
@@ -806,9 +918,7 @@ private class NativeShell(
         if (clipboardOffer != offer) return
         clipboardOffer = null
         if (open) {
-            val destination = TopLevelDestination.entries.getOrNull(root.selectedIndex.toInt())
-                ?: TopLevelDestination.HOME
-            stacks.getValue(destination).add(PostDetailKey(offer.postId, page = offer.page))
+            stacks.getValue(selectedTab).add(PostDetailKey(offer.postId, page = offer.page))
         }
     }
 
@@ -832,13 +942,8 @@ private class NativeShell(
             if (shouldSelectViewController == tabBarController.selectedViewController &&
                 stacks.getValue(destination).size == 1
             ) {
-                when (destination) {
-                    TopLevelDestination.HOME -> homeReselectRequests++
-                    TopLevelDestination.NOTIFICATIONS -> notificationsScrollToTopRequests++
-                    TopLevelDestination.PROFILE -> Unit
-                }
+                reselectTab(destination)
             }
-            scope.launch { updateTabBar() }
             return true
         }
 
@@ -847,6 +952,8 @@ private class NativeShell(
             tabBarController: UITabBarController,
             didSelectViewController: UIViewController,
         ) {
+            selectedTab = destinationOf(didSelectViewController) ?: return
+            updateTabBar()
             refreshActivePage()
         }
     }
@@ -862,6 +969,7 @@ private class NativeShell(
          * already agree and nothing is written. A swipe that was let go of halfway lands here too,
          * with nothing popped.
          */
+        @ObjCSignatureOverride
         override fun navigationController(
             navigationController: UINavigationController,
             didShowViewController: UIViewController,
@@ -885,6 +993,7 @@ private class NativeShell(
          * stack loses that one. Only the pair on top of its tab can be swiped, so the entries it
          * stands for are the last ones on the stack.
          */
+        @ObjCSignatureOverride
         override fun navigationController(
             navigationController: UINavigationController,
             didShowViewController: UIViewController,
@@ -937,17 +1046,25 @@ private class NativeShell(
 }
 
 /**
- * The tab controller, reporting its width on every layout: what [NativeShell] decides one pane or two
- * by. Its own bounds rather than the screen's, because in Split View and Stage Manager the window is
- * not the screen.
+ * Reports the window size and size class after layout so the shell can choose its panes and keep
+ * an adjustable bottom bar in compact iPad windows.
  */
 @OptIn(ExperimentalForeignApi::class)
 private class ShellTabBarController(
-    private val onWidth: (Double) -> Unit,
+    onLayout: (width: Double, height: Double, compact: Boolean, bottomBarHeight: Double?) -> Unit,
 ) : UITabBarController(nibName = null, bundle = null) {
     private val layoutUpdates = WindowLayoutDispatcher(
         post = { update -> NSOperationQueue.mainQueue.addOperationWithBlock { update() } },
-        onLayout = { onWidth(view.bounds.useContents { size.width }) },
+        onLayout = {
+            view.bounds.useContents {
+                onLayout(
+                    size.width,
+                    size.height,
+                    traitCollection.horizontalSizeClass == UIUserInterfaceSizeClassCompact,
+                    legacyBottomBarHeight(),
+                )
+            }
+        },
     )
 
     override fun viewDidLayoutSubviews() {
@@ -961,6 +1078,37 @@ private class ShellTabBarController(
             }
         }
     }
+
+    // Ignore the hidden bar's offscreen frame and keep the last visible height while reading.
+    private fun legacyBottomBarHeight(): Double? {
+        if (nativeGlassAvailable || tabBar.hidden) return null
+        val bottom = view.bounds.useContents { size.height }
+        return tabBar.frame.useContents {
+            val height = size.height - view.safeAreaInsets.useContents { this.bottom }
+            height.takeIf { it > 0 && origin.y + size.height <= bottom }
+        }
+    }
+}
+
+/** Hosts the selected UIKit stack while leaving its full window safe area available to Compose. */
+@OptIn(ExperimentalForeignApi::class)
+private class BottomTabHost : UIViewController(nibName = null, bundle = null) {
+    private var selected: UIViewController? = null
+
+    fun show(controller: UIViewController) {
+        if (selected == controller) return
+        selected?.let { previous ->
+            previous.willMoveToParentViewController(null)
+            previous.view.removeFromSuperview()
+            previous.removeFromParentViewController()
+        }
+        addChildViewController(controller)
+        controller.view.setFrame(view.bounds)
+        controller.view.autoresizingMask = platform.UIKit.UIViewAutoresizingFlexibleWidth or platform.UIKit.UIViewAutoresizingFlexibleHeight
+        view.addSubview(controller.view)
+        controller.didMoveToParentViewController(this)
+        selected = controller
+    }
 }
 
 /**
@@ -969,35 +1117,37 @@ private class ShellTabBarController(
  */
 private val isPad: Boolean = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad
 
-/** What only the device can say, for every composition the shell makes; see [LocalOneHandModeAvailable]. */
+/** Lets the middle preset match UIKit's original floating tab bar above the home indicator. */
+private val FloatingTabSafeAreaOverlap = 21.dp
+
 @Composable
 private fun DeviceLocals(
+    fixedBottomBarHeight: Dp?,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Box(modifier) {
-        if (isPad) {
-            CompositionLocalProvider(
-                LocalOneHandMode provides false,
-                LocalOneHandModeAvailable provides false,
-                content = content,
-            )
-        } else {
-            content()
+    CompositionLocalProvider(
+        LocalFixedBottomBarHeight provides fixedBottomBarHeight,
+        LocalBottomBarSafeAreaOverlap provides if (nativeGlassAvailable) FloatingTabSafeAreaOverlap else 0.dp,
+    ) {
+        Box(modifier) {
+            if (isPad) {
+                CompositionLocalProvider(
+                    LocalIosPad provides true,
+                    LocalOneHandMode provides false,
+                    LocalOneHandModeAvailable provides false,
+                    content = content,
+                )
+            } else {
+                content()
+            }
         }
     }
 }
 
-/**
- * Where Android's `calculatePaneScaffoldDirective` starts drawing two panes: Material's expanded
- * width class. An iPad in landscape and the larger ones in portrait are past it; an 11-inch or
- * smaller iPad in portrait, and half of one in Split View, keep one screen at a time.
- */
-private const val LIST_DETAIL_MIN_WIDTH = 840.0
-
 private fun paneKindOf(key: NavKey): PaneKind =
     when (paneRoleOf(key)) {
-        PaneRole.LIST -> PaneKind.LIST
+        PaneRole.LIST -> if (key.opensSplitOnSelection()) PaneKind.LIST_WHEN_DETAIL else PaneKind.LIST
         PaneRole.DETAIL -> PaneKind.DETAIL
         null -> PaneKind.NONE
     }
@@ -1052,6 +1202,7 @@ private object SafariUriHandler : UriHandler {
 
 @Composable
 private fun BoxScope.ClipboardPostSnackbarOverlay(
+    modifier: Modifier,
     active: Boolean,
     offer: ClipboardPost?,
     onHandled: (ClipboardPost, open: Boolean) -> Unit,
@@ -1074,6 +1225,7 @@ private fun BoxScope.ClipboardPostSnackbarOverlay(
         hostState = snackbarHostState,
         modifier = Modifier
             .align(Alignment.BottomCenter)
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+            .then(modifier),
     )
 }

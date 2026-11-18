@@ -6,6 +6,10 @@ Release。普通功能分支不会自动占用 Mac，仍可在 Codemagic 手动�
 IPA**，无需 GitHub 发布凭据；该手动工作流保留原有的 Rust 和 macOS Native 测试，不额外要求
 模拟器回归通过。自动回归与标签发布则运行完整的 iOS 模拟器测试。
 
+IPA 上传完成后，两条发布路径发送 `ios-package-published` 仓库事件，刷新 Pages 上的 `ios.json`；
+iOS 客户端从该清单检查新版。事件使用现有的 Contents 写权限，接收工作流必须已合入默认分支。
+也可手动运行 **App update manifests** 并选择 `platform=ios`，补发已有 IPA 的清单。
+
 工作流使用 M2 Mac、JDK 21、Xcode 26.6，最长运行 120 分钟。它会验证 ARM 宿主、版本、应用
 标识和真机及模拟器二进制的 SDK；iOS SDK 必须至少为 26，才能使用系统液态玻璃底栏。Rust
 工具链由 `native/ios-network/rust-toolchain.toml` 固定。多平台项目的 Android 插件在配置时

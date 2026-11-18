@@ -173,6 +173,9 @@ import io.github.nodyssey.ui.resources.messages_thread_joined_days
 import io.github.nodyssey.ui.resources.notification_time_pair
 import io.github.nodyssey.ui.richtext.PostRichContent
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.core.richtext.InlineNode
+import io.github.plaza.core.richtext.RichNode
+import io.github.plaza.core.richtext.linkifyPlainText
 import io.github.plaza.core.richtext.parseMarkdown
 import io.github.plaza.designsys.component.BadgeChip
 import io.github.plaza.designsys.component.BadgeTone
@@ -725,7 +728,7 @@ private fun MessageInfoSheet(
 private fun MessageBubbles(
     state: MessageThreadUiState,
     topClearance: Dp,
-    onOpenBrowser: (String) -> Unit,
+    onLinkClick: (String) -> Unit,
     onRetrySend: (String) -> Unit,
     onQuote: (MessageBubble) -> Unit,
     onDismissFailed: (String) -> Unit,
@@ -791,7 +794,7 @@ private fun MessageBubbles(
                         MessageBubbleRow(
                             message = row.message,
                             showDeliveryStatus = row.message.id == latestOutgoingId,
-                            onOpenBrowser = onOpenBrowser,
+                            onLinkClick = onLinkClick,
                             onRetrySend = { onRetrySend(row.message.id) },
                             onQuote = { onQuote(row.message) },
                             onDismissFailed = { onDismissFailed(row.message.id) },
@@ -872,7 +875,7 @@ private fun DayDivider(label: String) {
 private fun MessageBubbleRow(
     message: MessageBubble,
     showDeliveryStatus: Boolean,
-    onOpenBrowser: (String) -> Unit,
+    onLinkClick: (String) -> Unit,
     onRetrySend: () -> Unit,
     onQuote: () -> Unit,
     onDismissFailed: () -> Unit,
@@ -924,25 +927,31 @@ private fun MessageBubbleRow(
                         },
                     )
                 val contentModifier = if (message.status == SendStatus.FAILED) Modifier.alpha(FAILED_ALPHA) else Modifier
-                if (message.isMarkdown) {
+                val nodes = remember(message.content, message.isMarkdown) {
+                    if (message.isMarkdown) {
+                        // The API returns the typed source, including unexpanded sticker shortcodes.
+                        parseMarkdown(message.content, linkify = true, shortcode = NodeSeekStickers::urlFor)
+                    } else {
+                        val inlines = linkifyPlainText(message.content)
+                        if (inlines.any { it is InlineNode.Link }) listOf(RichNode.Paragraph(inlines)) else emptyList()
+                    }
+                }
+                if (nodes.isEmpty() && !message.isMarkdown) {
+                    Text(message.content, style = textStyle, modifier = contentModifier)
+                } else {
                     PostRichContent(
-                        // With the resolver, because 私信 arrive as the source that was typed: the
-                        // server expands `:ac01:` in its own renderer and hands the API the shortcode
-                        // untouched. Without it the emoji panel could send a sticker the thread then
-                        // showed back as six characters of punctuation.
-                        nodes = parseMarkdown(message.content, NodeSeekStickers::urlFor),
-                        onLinkClick = onOpenBrowser,
-                        onImageClick = onOpenBrowser,
+                        nodes = nodes,
+                        onLinkClick = { url ->
+                            // Markdown destinations can be site-relative; the content router takes absolute URLs.
+                            if (url.startsWith('/')) NodeSeekSite.absoluteUrl(url)?.let(onLinkClick) else onLinkClick(url)
+                        },
+                        onImageClick = onLinkClick,
                         textStyle = textStyle,
-                        // The long press belongs to the menu below. Left selectable, the renderer's own
-                        // `SelectionContainer` would take it first and only on the Markdown bubbles —
-                        // which is how a conversation came to offer 复制 on one side and nothing on the
-                        // other, the sender's MD switch deciding it without anyone having chosen that.
+                        // The long press belongs to the bubble's copy/quote menu, not text selection.
                         selectable = false,
+                        onLinkLongClick = { menuOpen = true },
                         modifier = contentModifier,
                     )
-                } else {
-                    Text(message.content, style = textStyle, modifier = contentModifier)
                 }
                 BubbleMenu(
                     expanded = menuOpen,

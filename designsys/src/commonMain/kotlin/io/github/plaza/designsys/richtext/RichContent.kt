@@ -37,6 +37,7 @@ import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -103,7 +104,6 @@ import io.github.plaza.designsys.component.WrapCellImage
 import io.github.plaza.designsys.component.WrapTable
 import io.github.plaza.designsys.component.asSpecTable
 import io.github.plaza.designsys.component.imageLoadFailureText
-import io.github.plaza.designsys.component.prefetchLinksOnPress
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberTerminalText
 import io.github.plaza.designsys.component.specTableFits
@@ -235,6 +235,8 @@ fun RichContent(
      * bubbles while the plain ones did nothing was exactly the asymmetry that menu exists to end.
      */
     selectable: Boolean = true,
+    /** Lets a host with its own long-press actions handle a press on a link as well. */
+    onLinkLongClick: (() -> Unit)? = null,
 ) {
     // Reading upgrades happen here, at the display seam, so the same styles stay safe to reuse in
     // editors — see `TextStyle.asProse` for why an editor must never inherit them.
@@ -254,10 +256,12 @@ fun RichContent(
     }
     // The container is what a selection needs, so it goes away entirely rather than being told to
     // select nothing — `DisableSelection` inside one would still leave the gesture detector there.
-    if (selectable) {
-        RichSelectionContainer(modifier = modifier) { blocks(Modifier) }
-    } else {
-        blocks(modifier)
+    CompositionLocalProvider(LocalRichLinkLongClick provides onLinkLongClick) {
+        if (selectable) {
+            RichSelectionContainer(modifier = modifier) { blocks(Modifier) }
+        } else {
+            blocks(modifier)
+        }
     }
 }
 
@@ -402,6 +406,8 @@ private fun RichBlock(
             )
 
         is RichNode.BlockImage -> BlockImage(node = node, onImageClick = onImageClick, onLinkClick = onLinkClick)
+
+        is RichNode.EmbeddedMedia -> EmbeddedMediaCard(node = node, onLinkClick = onLinkClick)
 
         is RichNode.CodeBlock -> codeBlockContent(node)
 
@@ -1519,16 +1525,13 @@ private fun InlineText(
         }
 
     var textLayoutResult by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
-    Text(
+    RichLinkText(
         text = text,
         style = style.fitStickers(stickerBoxes.values, density),
         inlineContent = stickerContent,
         onTextLayout = { textLayoutResult = it },
-        // `prefetchLinksOnPress` before the link handling, not after: the browser is told which page
-        // is coming while the finger is still down, and `LinkAnnotation` only ever reports the
-        // release.
         modifier =
-        Modifier.prefetchLinksOnPress(text) { textLayoutResult }.drawBehind {
+        Modifier.drawBehind {
             val layout = textLayoutResult ?: return@drawBehind
             val chipHeight = QUOTE_HEIGHT.toPx()
             val labelCenter = QUOTE_LABEL_CENTER.toPx()

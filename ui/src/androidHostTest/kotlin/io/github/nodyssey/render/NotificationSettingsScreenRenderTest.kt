@@ -30,7 +30,7 @@ class NotificationSettingsScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean) {
+    private fun Screen(darkTheme: Boolean, backgroundPollingSupported: Boolean = true) {
         PlazaTheme(darkTheme = darkTheme) {
             NotificationSettingsScreen(
                 settings = UserSettings(notificationsEnabled = true, notificationQuietHours = true),
@@ -42,6 +42,8 @@ class NotificationSettingsScreenRenderTest {
                 onNotifyInteractionsChange = {},
                 onNotifyMessagesChange = {},
                 onOpenTelegram = {},
+                onOpenLottery = {},
+                backgroundPollingSupported = backgroundPollingSupported,
             )
         }
     }
@@ -58,6 +60,20 @@ class NotificationSettingsScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("notification-settings-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun `available iOS reminders in light`() {
+        composeRule.setContent { Screen(darkTheme = false, backgroundPollingSupported = false) }
+        composeRule.onRoot().captureRender("ios-notification-settings-light")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun `available iOS reminders in dark`() {
+        composeRule.setContent { Screen(darkTheme = true, backgroundPollingSupported = false) }
+        composeRule.onRoot().captureRender("ios-notification-settings-dark")
     }
 
     /** 检查频率's sheet (6d2), a window of its own — hence the screen capture. */

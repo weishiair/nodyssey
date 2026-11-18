@@ -1,8 +1,7 @@
 package io.github.nodyssey.data.offline
 
 import coil3.intercept.Interceptor
-import coil3.memory.MemoryCache
-import coil3.request.ImageResult
+import io.github.plaza.designsys.image.StoredImageInterceptor
 
 /**
  * Draws a downloaded picture from disk instead of asking for it again.
@@ -15,19 +14,4 @@ import coil3.request.ImageResult
  * picture two entries — one under the URL from before it was downloaded, one under the file — and
  * halve the cache for every image in a stored thread.
  */
-class OfflineImageInterceptor(
-    private val files: AndroidOfflineFileStore,
-) : Interceptor {
-    override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
-        val url = chain.request.data.toString()
-        if (!url.startsWith("http://") && !url.startsWith("https://")) return chain.proceed()
-        val file = files.fileOf(url) ?: return chain.proceed()
-        val request =
-            chain.request
-                .newBuilder()
-                .data(file)
-                .memoryCacheKey(MemoryCache.Key(url))
-                .build()
-        return chain.withRequest(request).proceed()
-    }
-}
+class OfflineImageInterceptor(files: AndroidOfflineFileStore) : Interceptor by StoredImageInterceptor(files::fileOf)

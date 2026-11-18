@@ -12,7 +12,11 @@ import coil3.network.NetworkResponseBody
 import coil3.network.cachecontrol.CacheControlCacheStrategy
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.plaza.core.net.AppleEchResponse
+import io.github.plaza.designsys.image.ImageNetworkPolicyInterceptor
 import io.github.plaza.designsys.image.LongLivedImageCacheStrategy
+import io.github.plaza.designsys.image.NetworkCachePolicyClient
+import io.github.plaza.designsys.image.StoredImageInterceptor
+import kotlinx.coroutines.flow.Flow
 import okio.Buffer
 import okio.Path.Companion.toPath
 
@@ -32,14 +36,18 @@ import okio.Path.Companion.toPath
 @OptIn(coil3.annotation.ExperimentalCoilApi::class)
 internal fun nodysseyImageLoader(
     context: PlatformContext,
+    offlineFiles: IosOfflineFileStore,
+    imagesOnWifiOnly: Flow<Boolean>,
     fetch: suspend (String) -> AppleEchResponse?,
 ): ImageLoader =
     ImageLoader
         .Builder(context)
         .components {
+            add(StoredImageInterceptor(offlineFiles::pathOf))
+            add(ImageNetworkPolicyInterceptor(imagesOnWifiOnly, IosImageNetworkMonitor()::hasUnmeteredNetwork))
             add(
                 NetworkFetcher.Factory(
-                    networkClient = { UrlSessionNetworkClient(fetch) },
+                    networkClient = { NetworkCachePolicyClient(UrlSessionNetworkClient(fetch)) },
                     // Not the default one, and `NodysseyApp.kt` in `:app` gives the argument at
                     // length: Coil's default strategy hands back the cached response whenever there
                     // is one and never asks the server about it. That is invisible for an attachment

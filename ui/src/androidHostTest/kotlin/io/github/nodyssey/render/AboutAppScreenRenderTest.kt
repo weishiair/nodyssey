@@ -1,9 +1,13 @@
 package io.github.nodyssey.render
 
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import io.github.nodyssey.ui.settings.AboutAppScreen
 import io.github.nodyssey.ui.settings.AboutAppUiState
+import io.github.nodyssey.ui.settings.UpdateReminderDialog
 import io.github.plaza.core.update.AppRelease
 import io.github.plaza.core.update.AppUpdateState
 import io.github.plaza.core.update.UpdateCheck
@@ -28,14 +32,14 @@ class AboutAppScreenRenderTest {
     @Before
     fun onlyWhenRendering() = assumeRendering()
 
-    private fun screen(darkTheme: Boolean) {
+    private fun screen(darkTheme: Boolean, inAppUpdatesSupported: Boolean = true) {
         val release =
             AppRelease(
                 versionName = "1.3.0",
                 tag = "v1.3.0",
                 notes = "### 新增\n- 轻盈层叠的新界面",
-                downloadUrl = "https://example.invalid/nodyssey-v1.3.0.apk",
-                assetName = "nodyssey-v1.3.0.apk",
+                downloadUrl = "https://example.invalid/nodyssey-v1.3.0.${if (inAppUpdatesSupported) "apk" else "ipa"}",
+                assetName = "nodyssey-v1.3.0.${if (inAppUpdatesSupported) "apk" else "ipa"}",
                 sizeBytes = 12_600_000,
                 htmlUrl = "https://example.invalid/releases",
             )
@@ -49,7 +53,7 @@ class AboutAppScreenRenderTest {
                         update =
                         AppUpdateState(
                             check = UpdateCheck.Available(release),
-                            download = UpdateDownload.Running(downloadedBytes = 7_800_000, totalBytes = 12_600_000),
+                            download = if (inAppUpdatesSupported) UpdateDownload.Running(downloadedBytes = 7_800_000, totalBytes = 12_600_000) else UpdateDownload.Idle,
                         ),
                     ),
                     onBack = {},
@@ -64,6 +68,7 @@ class AboutAppScreenRenderTest {
                     onOpenUri = {},
                     onExportCrashReport = {},
                     onClearCrashReport = {},
+                    inAppUpdatesSupported = inAppUpdatesSupported,
                 )
             }
         }
@@ -80,4 +85,39 @@ class AboutAppScreenRenderTest {
         screen(darkTheme = true)
         composeRule.onRoot().captureRender("about-dark")
     }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1100dp")
+    fun `iOS release download entry in light`() {
+        screen(darkTheme = false, inAppUpdatesSupported = false)
+        composeRule.onRoot().captureRender("ios-about-light")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h1100dp")
+    fun `iOS release download entry in dark`() {
+        screen(darkTheme = true, inAppUpdatesSupported = false)
+        composeRule.onRoot().captureRender("ios-about-dark")
+    }
+
+    private fun reminder(darkTheme: Boolean) {
+        composeRule.setContent {
+            PlazaTheme(darkTheme = darkTheme) {
+                UpdateReminderDialog(
+                    release = AppRelease("1.3.12", "v1.3.12", "### 改进\n- 修复离线图片读取\n- 支持新版本提醒", "https://example.invalid/new.ipa", "new.ipa", 12_600_000, "https://example.invalid/releases"),
+                    onDownload = {},
+                    onPostpone = {},
+                    modifier = Modifier.testTag("ios-update-reminder"),
+                    inAppUpdatesSupported = false,
+                )
+            }
+        }
+        composeRule.onNodeWithTag("ios-update-reminder").captureRender("ios-update-reminder-${if (darkTheme) "dark" else "light"}")
+    }
+
+    @Test
+    fun `iOS reminder in light`() = reminder(darkTheme = false)
+
+    @Test
+    fun `iOS reminder in dark`() = reminder(darkTheme = true)
 }

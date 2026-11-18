@@ -43,11 +43,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.nodyssey.ui.common.FloatingBottomBarBandHeight
-import io.github.nodyssey.ui.common.FloatingBottomBarBottomGap
-import io.github.nodyssey.ui.common.FloatingBottomBarTopGap
+import io.github.nodyssey.ui.common.BottomBarBand
 import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.page_jump_go
 import io.github.nodyssey.ui.resources.page_jump_latest
@@ -83,16 +82,17 @@ internal fun ThreadReadingControls(
     visible: Boolean = true,
     bottomInset: Dp = 0.dp,
 ) {
+    val inset = bottomBarInset(bottomInset)
     if (LocalPlazaLayers.current.frostedGlass) {
         val visibility = remember { MutableTransitionState(false) }
         visibility.targetState = visible
         FloatingBottomBarVisibility(visibleState = visibility, modifier = modifier) {
             // Include the safe area in the sliding content so the row starts below the screen,
             // not partly visible in the home-indicator area before its entrance.
-            ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, Modifier.padding(bottom = bottomInset))
+            ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, Modifier.padding(bottom = inset))
         }
     } else if (visible) {
-        ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, modifier.padding(bottom = bottomInset))
+        ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, modifier.padding(bottom = inset))
     }
 }
 
@@ -113,14 +113,7 @@ private fun ThreadReadingControlsRow(
     } else {
         stringResource(Res.string.post_floor_position, currentFloor)
     }
-    Box(
-        modifier.fillMaxWidth().padding(
-            start = 12.dp,
-            end = 12.dp,
-            top = if (layers.frostedGlass) FloatingBottomBarTopGap else 10.dp,
-            bottom = if (layers.frostedGlass) FloatingBottomBarBottomGap else 10.dp,
-        ).heightIn(min = if (layers.frostedGlass) FloatingBottomBarBandHeight else 48.dp),
-    ) {
+    BottomBarBand(modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Box(
             Modifier.fillMaxWidth().padding(horizontal = 60.dp).align(Alignment.Center),
             contentAlignment = Alignment.Center,

@@ -17,6 +17,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.Locale
 
 /**
  * 我的 in both themes — a signed-in account with its level, tenure and balances. See
@@ -95,6 +96,19 @@ class ProfileScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("profile-dark")
+    }
+
+    @Test
+    @Config(qualifiers = "en-w360dp-h1000dp")
+    fun `the profile in English`() {
+        val previousLocale = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.ENGLISH)
+            composeRule.setContent { Screen(darkTheme = false) }
+            composeRule.onRoot().captureRender("profile-english")
+        } finally {
+            Locale.setDefault(previousLocale)
+        }
     }
 
     @Test

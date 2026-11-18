@@ -381,6 +381,7 @@ class PostDetailCacheTest {
                 {"type":"qref","name":"n","floor":"#3","url":"https://example.invalid/p-1"},{"type":"br"}]},
               {"type":"h","level":2,"inlines":[]},
               {"type":"img","url":"https://example.invalid/i.png","alt":null},
+              {"type":"media","url":"https://example.invalid/player"},
               {"type":"vote","voteId":2871},
               {"type":"code","code":"ls","language":"sh"},
               {"type":"quote","children":[]},
@@ -399,6 +400,7 @@ class PostDetailCacheTest {
                 RichNode.Paragraph::class,
                 RichNode.Heading::class,
                 RichNode.BlockImage::class,
+                RichNode.EmbeddedMedia::class,
                 RichNode.VotePlaceholder::class,
                 RichNode.CodeBlock::class,
                 RichNode.Quote::class,
@@ -431,6 +433,7 @@ class PostDetailCacheTest {
                 listOf(
                     RichNode.Heading(level = 2, inlines = emptyList()),
                     RichNode.CodeBlock("println(1)", language = "kotlin"),
+                    RichNode.EmbeddedMedia("https://player.example.com/embed/1", "Clip"),
                     RichNode.Divider,
                     RichNode.Table(
                         cells =

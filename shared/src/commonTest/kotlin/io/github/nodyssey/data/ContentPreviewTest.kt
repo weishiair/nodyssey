@@ -14,6 +14,14 @@ import kotlin.test.assertTrue
  */
 class ContentPreviewTest {
     @Test
+    fun `a media-only body retains its link in the preview`() {
+        assertEquals(
+            listOf(PreviewPart.Text("https://player.bilibili.com/player.html?autoplay=0&high_quality=1&bvid=BV1kMWz6CESY&page=1")),
+            contentPreview(io.github.nodyssey.core.html.Fixtures.load("post-1054065-1-media.html")),
+        )
+    }
+
+    @Test
     fun `nothing to preview stays nothing`() {
         assertEquals(emptyList(), contentPreview(null))
         assertEquals(emptyList(), contentPreview("   "))

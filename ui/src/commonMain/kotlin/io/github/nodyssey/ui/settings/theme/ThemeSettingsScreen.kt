@@ -49,11 +49,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.nodyssey.data.settings.BottomBarPosition
 import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SavedTheme
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
+import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.longPressToEdit
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -62,6 +64,10 @@ import io.github.nodyssey.ui.resources.action_delete
 import io.github.nodyssey.ui.resources.action_done
 import io.github.nodyssey.ui.resources.action_new
 import io.github.nodyssey.ui.resources.action_rename
+import io.github.nodyssey.ui.resources.settings_bottom_bar_position
+import io.github.nodyssey.ui.resources.settings_bottom_bar_position_high
+import io.github.nodyssey.ui.resources.settings_bottom_bar_position_low
+import io.github.nodyssey.ui.resources.settings_bottom_bar_position_medium
 import io.github.nodyssey.ui.resources.settings_color_source
 import io.github.nodyssey.ui.resources.settings_color_source_custom
 import io.github.nodyssey.ui.resources.settings_color_source_preset
@@ -113,6 +119,7 @@ fun ThemeSettingsRoute(
         onWallpaperSystemPaletteChange = viewModel::setWallpaperSystemPalette,
         onWallpaperAutoUpdateChange = viewModel::setWallpaperAutoUpdate,
         onFrostedGlassChange = viewModel::setFrostedGlass,
+        onBottomBarPositionChange = viewModel::setBottomBarPosition,
         modifier = modifier,
     )
 }
@@ -146,6 +153,7 @@ fun ThemeSettingsScreen(
     onWallpaperSystemPaletteChange: (Boolean) -> Unit = {},
     onWallpaperAutoUpdateChange: (Boolean) -> Unit = {},
     onFrostedGlassChange: (Boolean) -> Unit = {},
+    onBottomBarPositionChange: (BottomBarPosition) -> Unit = {},
 ) {
     // Which way into the colour sheet: 新建 starts a theme from nothing, so it opens with no name —
     // prefilled with the theme in use, saving under a new colour made a second theme of the same
@@ -224,11 +232,24 @@ fun ThemeSettingsScreen(
                     onSelect = onPaletteStyleChange,
                     enabled = activePreset(settings)?.hasFixedColors != true,
                 )
+                val adjustableBottomBar = LocalFixedBottomBarHeight.current == null
                 FrostedGlassRow(
                     checked = settings.frostedGlass,
                     enabled = !settings.einkMode,
                     onCheckedChange = onFrostedGlassChange,
+                    last = !adjustableBottomBar,
                 )
+                if (adjustableBottomBar) {
+                    SettingsMenuRow(
+                        icon = PlazaIcons.VerticalAlignBottom,
+                        title = stringResource(Res.string.settings_bottom_bar_position),
+                        subtitle = stringResource(settings.bottomBarPosition.label),
+                        choices = BottomBarPosition.entries.map { it to stringResource(it.label) },
+                        selected = settings.bottomBarPosition,
+                        onSelect = onBottomBarPositionChange,
+                        last = true,
+                    )
+                }
             }
 
             SectionLabel(stringResource(Res.string.settings_theme_preview))
@@ -532,11 +553,19 @@ private fun PaletteStyleRow(
     )
 }
 
+private val BottomBarPosition.label
+    get() = when (this) {
+        BottomBarPosition.LOW -> Res.string.settings_bottom_bar_position_low
+        BottomBarPosition.MEDIUM -> Res.string.settings_bottom_bar_position_medium
+        BottomBarPosition.HIGH -> Res.string.settings_bottom_bar_position_high
+    }
+
 @Composable
 private fun FrostedGlassRow(
     checked: Boolean,
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    last: Boolean,
 ) {
     GroupedRow(
         icon = PlazaIcons.Palette,
@@ -545,7 +574,7 @@ private fun FrostedGlassRow(
         checked = checked,
         onCheckedChange = onCheckedChange,
         enabled = enabled,
-        last = true,
+        last = last,
         trailing = {
             GroupedListItemSwitch(
                 checked = checked && enabled,

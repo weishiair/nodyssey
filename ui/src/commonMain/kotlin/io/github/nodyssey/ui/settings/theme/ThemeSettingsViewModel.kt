@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.nodyssey.data.settings.BottomBarPosition
 import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SettingsRepository
@@ -91,6 +92,10 @@ class ThemeSettingsViewModel(
 
     fun setFrostedGlass(value: Boolean) {
         viewModelScope.launch { settings.setFrostedGlass(value) }
+    }
+
+    fun setBottomBarPosition(position: BottomBarPosition) {
+        viewModelScope.launch { settings.setBottomBarPosition(position) }
     }
 
     /** 保存为我的主题, and the rename that reuses it — see `SettingsRepository.saveTheme`. */

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -1104,9 +1105,20 @@ private fun AdvancedSearchSheet(
                         }
                         if (remaining.isNotEmpty()) {
                             LayerDivider(startInset = 0.dp)
-                            BoardChipFlow {
+                            // Shared tracks keep short names and the incomplete last row aligned.
+                            Grid(
+                                config = {
+                                    repeat(4) { column(minmax(0.dp, 1.fr)) }
+                                    gap(Spacing.sm)
+                                },
+                                modifier = Modifier.fillMaxWidth().selectableGroup(),
+                            ) {
                                 remaining.forEach { board ->
-                                    BoardChip(board.title, selected = board.slug == pickedBoard) {
+                                    BoardChip(
+                                        board.title,
+                                        selected = board.slug == pickedBoard,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
                                         pickedBoard = board.slug
                                     }
                                 }
@@ -1162,6 +1174,7 @@ private fun BoardChipFlow(content: @Composable () -> Unit) {
 private fun BoardChip(
     title: String,
     selected: Boolean,
+    modifier: Modifier = Modifier,
     onSelect: () -> Unit,
 ) {
     FilterChip(
@@ -1169,7 +1182,8 @@ private fun BoardChip(
         onClick = onSelect,
         label = { Text(title, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium) },
         shape = PlazaChipDefaults.shape,
-        modifier = Modifier.height(PlazaChipDefaults.Height),
+        modifier = modifier.height(PlazaChipDefaults.Height),
+        horizontalArrangement = Arrangement.Center,
         // Inside the sheet's card, so the inset tone: the raised one is the card's own white.
         colors = PlazaChipDefaults.filterChipColors(inCard = true),
         border = PlazaChipDefaults.border(selected),

@@ -32,13 +32,15 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -70,8 +73,10 @@ import io.github.nodyssey.data.NotificationCounts
 import io.github.nodyssey.data.NotificationSource
 import io.github.nodyssey.data.NotificationTab
 import io.github.nodyssey.data.UserSearchResult
+import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.SignedOutState
 import io.github.nodyssey.ui.common.SiteErrorState
+import io.github.nodyssey.ui.common.TabScaffold
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.rememberTabPagerState
 import io.github.nodyssey.ui.common.webViewUrl
@@ -107,6 +112,7 @@ import io.github.plaza.designsys.component.StatusView
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.UnderlineTabRow
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.groupedListItemColors
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -312,39 +318,43 @@ fun NotificationsScreen(
     // It used to lift as one piece, title and tabs together, and in dark that repainted the whole
     // top of the screen a step lighter, which read as the screen changing colour rather than depth.
     val layers = LocalPlazaLayers.current
+    val title = stringResource(Res.string.tab_notifications)
+    val markAllRead: @Composable () -> Unit = {
+        TextButton(onClick = onMarkAllRead, enabled = state.hasUnread) {
+            Icon(PlazaIcons.DoneAll, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+            Text(
+                stringResource(Res.string.notifications_mark_all_read),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            )
+        }
+    }
 
-    Scaffold(
+    TabScaffold(
         modifier = modifier,
-        topBar = {
-            // `readableWidth` stays on the header itself: the content column below is constrained
-            // the same way, and a full-bleed bar over a centred list is the one thing this screen
-            // has never done.
-            Column(Modifier.readableWidth()) {
-                OneHandTopAppBar(
-                    title = stringResource(Res.string.tab_notifications),
-                    state = appBarState,
-                    liftOnScroll = false,
-                    blankAccessory =
-                    if (showOneHandTip) {
-                        { OneHandTip(onOpenSettings = onOpenSettings, onDismiss = onDismissOneHandTip) }
-                    } else {
-                        null
-                    },
-                    actions = {
-                        TextButton(onClick = onMarkAllRead, enabled = state.hasUnread) {
-                            Icon(
-                                PlazaIcons.DoneAll,
-                                contentDescription = null,
-                                modifier = Modifier.size(ButtonDefaults.IconSize),
-                            )
-                            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                            Text(
-                                stringResource(Res.string.notifications_mark_all_read),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            )
-                        }
-                    },
-                )
+        enabled = LocalIosPad.current,
+        topBar = { wide ->
+            Column(if (wide) Modifier.fillMaxWidth() else Modifier.readableWidth()) {
+                if (wide) {
+                    TopAppBar(
+                        title = { Text(title) },
+                        actions = { if (state.isSignedIn) markAllRead() },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = layers.page),
+                    )
+                } else {
+                    OneHandTopAppBar(
+                        title = title,
+                        state = appBarState,
+                        liftOnScroll = false,
+                        blankAccessory =
+                        if (showOneHandTip) {
+                            { OneHandTip(onOpenSettings = onOpenSettings, onDismiss = onDismissOneHandTip) }
+                        } else {
+                            null
+                        },
+                        actions = { markAllRead() },
+                    )
+                }
                 /*
                  * Tabs rather than filter chips: the groups are pages, and a tab row is the control
                  * that says so — the indicator
@@ -355,23 +365,24 @@ fun NotificationsScreen(
                  * Drawn over an opaque strip of the page's colour, so rows scrolling up under the
                  * header do not show through between the tabs.
                  */
-                Surface(color = layers.page) {
-                    GroupTabs(
-                        tabs = tabs,
-                        currentPage = pagerState.currentPage,
-                        counts = state.counts,
-                        onTabChange = onTabChange,
-                    )
+                if (!wide || state.isSignedIn) {
+                    Surface(color = layers.page) {
+                        GroupTabs(
+                            tabs = tabs,
+                            currentPage = pagerState.currentPage,
+                            counts = state.counts,
+                            onTabChange = onTabChange,
+                        )
+                    }
                 }
             }
         },
-    ) { padding ->
+    ) { padding, wide ->
         // Both lists run on under the bottom bar and take its height as content padding — see
         // [withoutBottom].
         val bottomInset = padding.bottomWithFloatingBar()
-        Box(
-            modifier = Modifier.padding(padding.withoutBottom()).fillMaxSize().readableWidth(),
-        ) {
+        val contentModifier = Modifier.padding(padding.withoutBottom()).fillMaxSize()
+        Box(if (wide) contentModifier else contentModifier.readableWidth()) {
             when {
                 // Signing in is not one of the groups: with no session there is nothing to swipe
                 // between, and a pager over two empty lists would say so twice.
@@ -637,6 +648,8 @@ internal fun notificationRows(
         }
 }
 
+internal val LocalSelectedInteractionId = compositionLocalOf<String?> { null }
+
 /**
  * One interaction: who, what, where, when — and a dot while it is unread (5a).
  *
@@ -653,10 +666,15 @@ private fun NotificationRow(
     onClick: () -> Unit,
 ) {
     val sentenceStyle = MaterialTheme.typography.bodySmall
+    val selected = LocalSelectedInteractionId.current?.let { it == item.id }
     GroupedListItem(
         first = first,
         last = last,
         enabled = item.postId != null,
+        selected = selected,
+        colors = groupedListItemColors(
+            containerColor = if (selected == true) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        ),
         onClick = onClick,
         verticalAlignment = Alignment.Top,
         contentPadding = NotificationRowPadding,

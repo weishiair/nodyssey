@@ -3,6 +3,7 @@ package io.github.nodyssey.di
 import io.github.nodyssey.data.AppCacheStore
 import io.github.nodyssey.data.AssetsRepository
 import io.github.nodyssey.data.AwardRepository
+import io.github.nodyssey.data.BookmarksSync
 import io.github.nodyssey.data.CategoryRepository
 import io.github.nodyssey.data.CollectedPostMetaStore
 import io.github.nodyssey.data.CommunityRepository
@@ -137,6 +138,7 @@ interface AppContainer {
      * repository. See [CollectedPostMetaStore] for why the app has to remember any of this.
      */
     val collectedPostMetaStore: CollectedPostMetaStore
+    val bookmarksSync: BookmarksSync
     val automaticAttendance: AutomaticAttendance? get() = null
     val assetsRepository: AssetsRepository
     val creditRepository: CreditRepository

@@ -18,6 +18,9 @@ spec.loader.exec_module(publisher)
 
 class PublishCodemagicIosTest(unittest.TestCase):
     def setUp(self):
+        environment = patch.dict(os.environ, {"GH_REPO": "owner/app"})
+        environment.start()
+        self.addCleanup(environment.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.output = Path(self.directory.name) / "build" / "ios-unsigned"
@@ -72,6 +75,21 @@ class PublishCodemagicIosTest(unittest.TestCase):
         notes = (self.output / "github-release" / "release-notes-with-ios.md").read_text(encoding="utf-8")
         self.assertIn(publisher.MARKER, notes)
         self.assertIn("01234567", notes)
+        self.assertEqual(("api", "--method", "POST", "repos/owner/app/dispatches", "-f", "event_type=ios-package-published"), calls[-1])
+
+    def test_failed_ipa_upload_cannot_publish_an_update_inventory(self):
+        calls = []
+
+        def gh(*args, **_):
+            calls.append(args)
+            if args[:2] == ("release", "upload"):
+                raise RuntimeError("upload failed")
+            return types.SimpleNamespace(returncode=0, stdout="")
+
+        with patch.object(publisher, "gh", side_effect=gh):
+            with self.assertRaisesRegex(RuntimeError, "upload failed"):
+                publisher.publish("v1.2.3-ios-test.1", "1.2.3-ios-test.1", self.directory.name)
+        self.assertFalse(any(call[0] == "api" for call in calls))
 
     def test_existing_ios_release_note_is_not_appended_twice(self):
         calls = []

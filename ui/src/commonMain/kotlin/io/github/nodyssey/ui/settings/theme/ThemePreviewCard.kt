@@ -28,7 +28,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.nodyssey.ui.navigation.GlassBottomNavigationBar
+import io.github.nodyssey.ui.common.FloatingBottomBarBandHeight
+import io.github.nodyssey.ui.navigation.BottomNavigationTabs
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.settings_theme_preview_accent
@@ -159,11 +160,9 @@ internal fun ThemePreviewCard(modifier: Modifier = Modifier) {
                     }
                 }
                 CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
-                    GlassBottomNavigationBar(
-                        current = TopLevelDestination.HOME,
-                        onSelect = {},
-                        modifier = Modifier.align(Alignment.Center),
-                    )
+                    Box(Modifier.align(Alignment.Center).fillMaxWidth().height(FloatingBottomBarBandHeight)) {
+                        BottomNavigationTabs(current = TopLevelDestination.HOME, onSelect = {}, unreadCount = 0)
+                    }
                 }
             }
         }

@@ -32,7 +32,6 @@ import io.github.nodyssey.di.DefaultAppContainer
 import io.github.nodyssey.image.AvifImageDecoder
 import io.github.nodyssey.image.EinkAwareCrossfade
 import io.github.nodyssey.image.ImageCallRouter
-import io.github.nodyssey.image.ImageNetworkPolicyInterceptor
 import io.github.nodyssey.notifications.NotificationChannels
 import io.github.nodyssey.notifications.NotificationPollScheduler
 import io.github.nodyssey.platform.CompatSvgParser
@@ -40,6 +39,7 @@ import io.github.nodyssey.platform.hasValidatedUnmeteredNetwork
 import io.github.nodyssey.ui.settings.AndroidActiveSite
 import io.github.nodyssey.ui.settings.AndroidAppLanguage
 import io.github.plaza.core.runCatchingExceptCancellation
+import io.github.plaza.designsys.image.ImageNetworkPolicyInterceptor
 import io.github.plaza.designsys.image.LongLivedImageCacheStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

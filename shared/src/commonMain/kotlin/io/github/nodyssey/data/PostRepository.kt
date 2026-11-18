@@ -299,6 +299,10 @@ interface PostRepository {
         collected: Boolean,
     )
 
+    /** Writes the OP's reply pin and returns the accepted state. A subsequent read loads page 1. */
+    suspend fun setCommentPinned(postId: Long, commentId: Long, pinned: Boolean): Boolean =
+        throw SiteException(SiteError.NotWired)
+
     /** Threads this device has opened, most recent first. Local only — the site keeps no such list. */
     fun readHistory(): Flow<List<ReadHistoryEntry>>
 
@@ -383,6 +387,8 @@ class OfflineFirstPostRepository(
     private val collectedMeta: CollectedPostMetaStore? = null,
     private val historyAccounts: ReadingHistoryAccounts = ReadingHistoryAccounts(database),
     private val showHomePinnedPosts: Flow<Boolean> = flowOf(true),
+    private val pins: PostPinWriter? = null,
+    private val onCollectionChanged: suspend () -> Unit = {},
 ) : PostRepository {
     override fun feed(
         categorySlug: String?,
@@ -797,12 +803,20 @@ class OfflineFirstPostRepository(
 
     override suspend fun freeChickenLegs(): FreeChickenLegs? = reactions?.freeChickenLegs()
 
+    override suspend fun setCommentPinned(postId: Long, commentId: Long, pinned: Boolean): Boolean {
+        val writer = pins ?: throw SiteException(SiteError.NotWired)
+        val accepted = writer.setPinned(postId, commentId, pinned)
+        database.postDetailDao().updateCommentPin(postId, commentId, accepted)
+        return accepted
+    }
+
     override suspend fun setCollected(
         postId: Long,
         collected: Boolean,
     ) {
         val writer = collections ?: throw SiteException(SiteError.NotWired)
         val outcome = writer.setCollected(postId = postId, collected = collected)
+        onCollectionChanged()
         // The site's echo, not the request: see [CollectionOutcome.collected].
         database.postDetailDao().updateCollection(postId, outcome.collected, outcome.postCollectionCount)
         if (outcome.collected) {

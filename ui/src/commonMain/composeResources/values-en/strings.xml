@@ -1314,7 +1314,8 @@
     <string name="bookmarks_sort_replies">Most replies</string>
     <string name="bookmarks_sort_pending">Not downloaded first</string>
     <string name="bookmarks_stale">%1$s — this is the list from the last sync</string>
-    <string name="bookmarks_truncated">Too many bookmarks to read past page %1$d; the counts below cover what was read</string>
+    <string name="bookmarks_truncated">Bookmarks are not fully synced. Counts reflect the current list.</string>
+    <string name="bookmarks_load_more">Load more</string>
     <string name="bookmarks_empty_title">Nothing bookmarked</string>
     <string name="bookmarks_empty_body">The star at the top of a post puts it here. Bookmarks are per post — the site offers no folders and no notes.</string>
     <string name="bookmarks_empty_filter_title">Nothing under this filter</string>
@@ -1849,6 +1850,25 @@
     <string name="mail_read_status">Read</string>
     <string name="mail_unread_status">Unread</string>
     <string name="mail_recipient_address">To: %1$s</string>
+    <string name="settings_bottom_bar_position">Bottom bar position</string>
+    <string name="settings_bottom_bar_position_low">Low</string>
+    <string name="settings_bottom_bar_position_medium">Medium</string>
+    <string name="settings_bottom_bar_position_high">High</string>
     <string name="settings_frosted_glass">Frosted glass chrome</string>
     <string name="settings_frosted_glass_hint">Floating translucent bottom bar and specular rims; post cards stay solid for reading contrast</string>
+
+    <string name="post_pin_action">Pin comment</string>
+    <string name="post_pin_body">Spend 5 chicken legs to pin this comment to the first page of the thread.</string>
+    <string name="post_pin_confirm">Pin (5 chicken legs)</string>
+    <string name="post_pin_success">Comment pinned</string>
+    <string name="post_unpin_action">Unpin comment</string>
+    <string name="post_unpin_body">This comment will return to its floor order.</string>
+    <string name="post_unpin_success">Comment unpinned</string>
+    <string name="notify_background_unavailable_title">Background message alerts are not available yet</string>
+    <string name="notify_background_unavailable_body">This build does not send background alerts for interactions, private messages, mail, keywords, or tracked threads. You can still view forum messages in the app.</string>
+    <string name="notify_lottery_hint">Manage draw reminders and result notifications</string>
+    <string name="settings_notify_summary_unavailable">View available reminders</string>
+    <string name="about_open_releases">Versions and downloads</string>
+    <string name="about_ios_update_hint">Download the new IPA, then install it with the signing tool you already use.</string>
+    <string name="notify_saved_alerts_section">Saved alert rules</string>
 </resources>

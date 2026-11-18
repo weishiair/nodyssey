@@ -9,6 +9,14 @@ import org.junit.Test
 
 /** 复制正文 copies the whole floor, not the excerpt the panel's head shows. */
 class FloorTextTest {
+    @Test
+    fun `copying a media-only post retains its playable link`() {
+        val nodes = listOf(RichNode.EmbeddedMedia("https://player.example.com/embed/1", "Clip"))
+
+        assertTrue(nodes.hasCopyableText())
+        assertEquals("Clip\nhttps://player.example.com/embed/1", nodes.copyableText())
+    }
+
     private fun paragraph(vararg inlines: InlineNode) = RichNode.Paragraph(inlines.toList())
 
     private fun text(value: String) = InlineNode.Text(value)

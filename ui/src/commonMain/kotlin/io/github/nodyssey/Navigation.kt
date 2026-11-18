@@ -3,6 +3,7 @@ package io.github.nodyssey
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,10 +69,13 @@ import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
+import io.github.nodyssey.ui.common.LocalBottomBarPosition
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.ThreadSharedTransition
 import io.github.nodyssey.ui.common.appName
+import io.github.nodyssey.ui.common.bottomBarClearance
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.common.contentSwipeBack
@@ -82,8 +87,7 @@ import io.github.nodyssey.ui.composer.ComposerShare
 import io.github.nodyssey.ui.composer.PendingComposerShare
 import io.github.nodyssey.ui.login.WebViewGoal
 import io.github.nodyssey.ui.mail.MailMonitorViewModel
-import io.github.nodyssey.ui.navigation.FloatingGlassBarClearance
-import io.github.nodyssey.ui.navigation.GlassBottomNavigationBar
+import io.github.nodyssey.ui.navigation.FloatingBottomNavigationBar
 import io.github.nodyssey.ui.navigation.NodysseyNavigationItems
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
@@ -267,6 +271,14 @@ fun MainNavigation(
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
     val currentPredictiveBack by rememberUpdatedState(navigationSettings.predictiveBack)
+    val layers = LocalPlazaLayers.current
+    val defaultSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(windowAdaptiveInfo)
+    val isBottomBarLayout =
+        defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
+            defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
+            defaultSuiteType == NavigationSuiteType.NavigationBar
+    val bottomBarClearance = LocalBottomBarPosition.current.bottomBarClearance
+    val currentBottomBarClearance by rememberUpdatedState(if (isBottomBarLayout) bottomBarClearance else 0.dp)
     val listDetailSceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
 
@@ -489,6 +501,13 @@ fun MainNavigation(
      *
      * Three `remember` calls rather than a loop, for the same reason the stacks above are written out.
      */
+    val entryFloatingBottomBarHeight: (NavKey) -> Dp = { key ->
+        if (TopLevelDestination.forKey(key) != null) {
+            currentBottomBarClearance
+        } else {
+            0.dp
+        }
+    }
     val homeProvider =
         remember {
             stackScopedEntryProvider(
@@ -496,6 +515,7 @@ fun MainNavigation(
                 destinationProvider(homeStack, dependencies),
                 backStack = homeStack,
                 predictiveBack = { currentPredictiveBack },
+                floatingBottomBarHeight = entryFloatingBottomBarHeight,
             )
         }
     val notificationsProvider =
@@ -505,6 +525,7 @@ fun MainNavigation(
                 destinationProvider(notificationsStack, dependencies),
                 backStack = notificationsStack,
                 predictiveBack = { currentPredictiveBack },
+                floatingBottomBarHeight = entryFloatingBottomBarHeight,
             )
         }
     val profileProvider =
@@ -514,6 +535,7 @@ fun MainNavigation(
                 destinationProvider(profileStack, dependencies),
                 backStack = profileStack,
                 predictiveBack = { currentPredictiveBack },
+                floatingBottomBarHeight = entryFloatingBottomBarHeight,
             )
         }
 
@@ -593,13 +615,6 @@ fun MainNavigation(
         )
     }
 
-    val layers = LocalPlazaLayers.current
-    val defaultSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(windowAdaptiveInfo)
-    val isBottomBarLayout =
-        defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
-            defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
-            defaultSuiteType == NavigationSuiteType.NavigationBar
-    val useFloatingGlassBar = layers.backdropGlass && isBottomBarLayout
     val onSelectTab: (TopLevelDestination) -> Unit = { destination ->
         // Re-selecting a tab takes its list back to the start — 首页 reloads on the way,
         // since the one thing a reader taps 首页 for while already on 首页 is 新帖. Only
@@ -625,26 +640,21 @@ fun MainNavigation(
             )
         },
         modifier = modifier,
-        navigationSuiteType = if (useFloatingGlassBar) NavigationSuiteType.None else defaultSuiteType,
-        // The bar is a card like any other — white on the grey page — and the rail beside a wide
-        // layout sits flush with the page, since it has no content under it to lift off.
-        navigationSuiteColors =
-        NavigationSuiteDefaults.colors(
-            shortNavigationBarContainerColor = layers.card,
-            navigationBarContainerColor = layers.card,
-            navigationRailContainerColor = layers.page,
-        ),
+        navigationSuiteType = if (isBottomBarLayout) NavigationSuiteType.None else defaultSuiteType,
+        navigationSuiteColors = NavigationSuiteDefaults.colors(navigationRailContainerColor = layers.page),
         state = navigationSuiteState,
     ) {
-        val glassBarVisibility = remember { MutableTransitionState(useFloatingGlassBar && showNavigationSuite) }
-        glassBarVisibility.targetState = useFloatingGlassBar && showNavigationSuite
+        val bottomBarVisibility = remember { MutableTransitionState(isBottomBarLayout && showNavigationSuite) }
+        bottomBarVisibility.targetState = isBottomBarLayout && showNavigationSuite
         var composedNotices by remember { mutableIntStateOf(0) }
         // Keep capture through both exit animations. SnackbarHost may draw an outgoing notice
         // after currentSnackbarData clears, or overlap it with the next notice in the queue.
         val navBackdrop = rememberLiquidGlassBackdrop(
             layers.page,
-            enabled = glassBarVisibility.currentState || glassBarVisibility.targetState || !glassBarVisibility.isIdle ||
-                clipboardSnackbar.currentSnackbarData != null || composedNotices > 0,
+            enabled = layers.backdropGlass && (
+                bottomBarVisibility.currentState || bottomBarVisibility.targetState || !bottomBarVisibility.isIdle ||
+                    clipboardSnackbar.currentSnackbarData != null || composedNotices > 0
+                ),
         )
         Box(Modifier.fillMaxSize()) {
             SharedTransitionLayout(
@@ -686,11 +696,11 @@ fun MainNavigation(
                 CompositionLocalProvider(
                     // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
                     LocalOpenNetworkCheck provides { openNetworkCheck() },
+                    LocalKeepBottomBarVisibleOnScroll provides (touchExploration || isListDetailExpanded),
                     // 测评对比 from any report card's 对比 (n), onto whichever tab the card is in.
                     LocalOpenReportCompare provides { openReportCompare() },
                     // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
                     LocalStickerNavigation provides stickerNavigation,
-                    LocalFloatingBottomBarHeight provides if (useFloatingGlassBar && atTabRoot) FloatingGlassBarClearance else 0.dp,
                 ) {
                     val navigateBack: () -> Unit = {
                         if (backStack.size > 1) {
@@ -712,12 +722,10 @@ fun MainNavigation(
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
                 FloatingBottomBarVisibility(
-                    visibleState = glassBarVisibility,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+                    visibleState = bottomBarVisibility,
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 ) {
-                    GlassBottomNavigationBar(
+                    FloatingBottomNavigationBar(
                         current = currentTab,
                         onSelect = onSelectTab,
                         unreadCount = notificationsState.counts.all,
@@ -725,12 +733,17 @@ fun MainNavigation(
                 }
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
+                val clipboardSnackbarBottomClearance by animateDpAsState(
+                    targetValue = if (isBottomBarLayout && showNavigationSuite) bottomBarClearance else 0.dp,
+                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                    label = "clipboardSnackbarBottomClearance",
+                )
                 SnackbarHost(
                     hostState = clipboardSnackbar,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-                        .padding(bottom = if (useFloatingGlassBar && showNavigationSuite) FloatingGlassBarClearance else 0.dp),
+                        .padding(bottom = clipboardSnackbarBottomClearance.coerceAtLeast(0.dp)),
                 ) { data ->
                     DisposableEffect(data) {
                         composedNotices++
@@ -960,23 +973,25 @@ internal fun List<NavKey>.showsListPane(): Boolean =
         .any { paneRoleOf(it) == PaneRole.LIST }
 
 /**
- * Whether [key] is the detail drawn directly beside a list, which is the one detail with nothing of
- * its own to go back to: what is under it is already on screen.
- *
- * A detail opened from another detail is not. It covers the one before it in the same half of the
- * window, and without an arrow the only way back to that one would be a gesture nobody can see.
+ * A first detail next to a list can hide its back button when the list already has an empty pane
+ * of its own. An iPad tab root expands only on selection, so the first detail keeps the button
+ * that closes the split and brings the list back to full width.
  *
  * By identity, as the stack hands each entry its own key and an equal key further down is a
  * different page. Only meaningful once the window is wide enough for two panes.
  */
-internal fun List<NavKey>.sitsBesideList(key: NavKey): Boolean {
+internal fun List<NavKey>.hidesDetailBackButton(key: NavKey, isIosPad: Boolean = false): Boolean {
     val index = indexOfLast { it === key }
-    return index > 0 && paneRoleOf(this[index - 1]) == PaneRole.LIST
+    val list = getOrNull(index - 1)
+    return paneRoleOf(list) == PaneRole.LIST && !(isIosPad && list.opensSplitOnSelection())
 }
+
+/** iPad tab roots fill the window until the reader selects something to open beside them. */
+internal fun NavKey?.opensSplitOnSelection(): Boolean = this == PostListKey || this == NotificationsKey
 
 /**
  * The detail on screen beside [list] on a wide window — the last of the details directly above it —
- * or null when nothing has been opened from it yet. By identity, as [sitsBesideList] is.
+ * or null when nothing has been opened from it yet. By identity, as [hidesDetailBackButton] is.
  */
 internal fun List<NavKey>.detailBeside(list: NavKey): NavKey? {
     val index = indexOfFirst { it === list }
@@ -993,7 +1008,7 @@ internal fun List<NavKey>.detailBeside(list: NavKey): NavKey? {
  * nothing. On a narrow window it is the ordinary push, where Back to the list is the point.
  *
  * Only a list's own rows open this way. A thread opened from a link inside another still goes on
- * top of it, beside the same list, and keeps its arrow back — see [sitsBesideList].
+ * top of it, beside the same list, and keeps its arrow back — see [hidesDetailBackButton].
  */
 internal fun MutableList<NavKey>.openFromList(
     list: NavKey,
@@ -1072,6 +1087,10 @@ internal fun stackScopedEntryProvider(
     provider: (NavKey) -> NavEntry<NavKey>,
     backStack: List<NavKey>,
     predictiveBack: () -> Boolean = { true },
+    // Scope floating bar clearance to each entry rather than the active route: when a tab root
+    // exits beneath an entering thread or child screen, its FAB and page rail must keep their
+    // bottom clearance instead of dropping onto the retracting navigation bar on frame zero.
+    floatingBottomBarHeight: (NavKey) -> Dp = { 0.dp },
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val entry = provider(key)
     val transition = entry.metadata[NavDisplay.TransitionKey]
@@ -1094,7 +1113,11 @@ internal fun stackScopedEntryProvider(
         // scene interrupted mid-entrance. Omit removed content so it cannot intercept input; remove
         // this guard when NavDisplay can finish an interrupted non-animated pop immediately.
         if (predictiveBack() || backStack.any { it === key }) {
-            if (key is PostDetailKey) ThreadSharedTransition { entry.Content() } else entry.Content()
+            CompositionLocalProvider(
+                LocalFloatingBottomBarHeight provides floatingBottomBarHeight(key),
+            ) {
+                if (key is PostDetailKey) ThreadSharedTransition { entry.Content() } else entry.Content()
+            }
         }
     }
 }

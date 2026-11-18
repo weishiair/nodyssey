@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.nodyssey.data.settings.BottomBarPosition
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.bottomBarClearance
 import io.github.plaza.designsys.theme.PlazaTheme
 
 /** Keep the real navigation overlay in pointer tests: semantics clicks bypass its hit targets. */
@@ -23,10 +25,10 @@ internal fun FloatingGlassTestContent(
 ) {
     PlazaTheme(darkTheme = darkTheme, frostedGlass = true) {
         Box(Modifier.fillMaxSize()) {
-            CompositionLocalProvider(LocalFloatingBottomBarHeight provides FloatingGlassBarClearance) {
+            CompositionLocalProvider(LocalFloatingBottomBarHeight provides BottomBarPosition.MEDIUM.bottomBarClearance) {
                 content()
             }
-            GlassBottomNavigationBar(
+            FloatingBottomNavigationBar(
                 current = current,
                 onSelect = {},
                 modifier = Modifier.align(Alignment.BottomCenter)
