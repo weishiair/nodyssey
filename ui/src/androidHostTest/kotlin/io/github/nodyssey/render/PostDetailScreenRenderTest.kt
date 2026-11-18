@@ -18,6 +18,7 @@ import io.github.nodyssey.data.ReadingPosition
 import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.model.PostContent
 import io.github.nodyssey.model.PostReactions
+import io.github.nodyssey.ui.postdetail.CommentPinConfirmation
 import io.github.nodyssey.ui.postdetail.PostDetailScreen
 import io.github.nodyssey.ui.postdetail.PostDetailUiState
 import io.github.nodyssey.ui.postdetail.ReplyAuthorInfo
@@ -84,6 +85,26 @@ class PostDetailScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("post-detail-dark")
+    }
+
+    @Test
+    fun `an embedded video in dark`() {
+        val state = STATE.copy(
+            title = "武状元黄乞儿",
+            body = BODY.copy(
+                authorName = "tiao",
+                categoryTitle = "日常",
+                nodes = listOf(
+                    RichNode.EmbeddedMedia(
+                        "https://player.bilibili.com/player.html?autoplay=0&high_quality=1&bvid=BV1kMWz6CESY&page=1",
+                    ),
+                ),
+            ),
+            isAwarded = false,
+        )
+        composeRule.setContent { Screen(darkTheme = true, state = state) }
+
+        composeRule.onRoot().captureRender("post-detail-embedded-video-dark")
     }
 
     /** A 置顶 floor: the site lifts it above the rest and marks it with a pin beside its number. */
@@ -406,6 +427,31 @@ class PostDetailScreenRenderTest {
 
     @Test
     fun `the floor panel in dark`() = floorPanel(darkTheme = true)
+
+    @Test
+    fun `the OP pin action in the floor panel`() {
+        val state = SHORT_STATE.copy(comments = COMMENTS.map { it.copy(canPin = true) })
+        composeRule.setContent { Screen(darkTheme = false, state = state) }
+        composeRule.onAllNodesWithContentDescription("楼层操作")[1].performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+        captureWindows("post-detail-pin-menu")
+    }
+
+    @Test
+    fun `the paid pin confirmation in light`() {
+        composeRule.setContent {
+            Screen(darkTheme = false, state = SHORT_STATE.copy(pinConfirmation = CommentPinConfirmation(1001, true)))
+        }
+        captureWindows("post-detail-pin-confirm")
+    }
+
+    @Test
+    fun `the unpin confirmation in dark`() {
+        composeRule.setContent {
+            Screen(darkTheme = true, state = SHORT_STATE.copy(pinConfirmation = CommentPinConfirmation(1001, false)))
+        }
+        captureWindows("post-detail-unpin-confirm-dark")
+    }
 
     /** The floor-jump sheet, opened from the floating reading position. */
     @Test

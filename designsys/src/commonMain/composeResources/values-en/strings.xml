@@ -39,6 +39,7 @@
 
     <string name="richtext_image_loading">Loading image…</string>
     <string name="richtext_image_label">Image</string>
+    <string name="richtext_embedded_media_title">Embedded media</string>
     <string name="richtext_image_view_full">Tap to see the full image</string>
     <string name="richtext_image_load_failed">Image failed to load</string>
     <string name="richtext_image_failed_challenge">The image host wants a human check the app cannot pass (HTTP %1$d)</string>
@@ -50,6 +51,10 @@
     <string name="richtext_action_open_in_browser">Open in browser</string>
     <string name="richtext_code_copied">Code copied</string>
     <string name="richtext_action_copy">Copy</string>
+    <string name="richtext_action_copy_link">Copy link</string>
+    <string name="richtext_action_copy_text">Copy text</string>
+    <string name="richtext_link_copied">Link copied</string>
+    <string name="richtext_text_copied">Text copied</string>
     <string name="richtext_quote_reply">@%1$s %2$s</string>
     <string name="richtext_sticker_description">Sticker</string>
     <string name="richtext_sticker_fallback">[Sticker]</string>

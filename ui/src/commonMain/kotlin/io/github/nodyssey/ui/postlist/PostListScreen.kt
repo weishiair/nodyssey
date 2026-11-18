@@ -1,5 +1,6 @@
 package io.github.nodyssey.ui.postlist
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -570,6 +571,16 @@ fun PostListScreen(
     }
 
     val feedBackdrop = rememberLiquidGlassBackdrop(LocalPlazaLayers.current.page)
+    val floatingBottomBarHeight = LocalFloatingBottomBarHeight.current
+    // Track the retracting/reappearing floating navigation bar with the same spatial spec so
+    // scroll-collapsing the controls never drops them ahead of the bar itself.
+    val animatedBottomBarClearance by animateDpAsState(
+        targetValue = if (!navigationBarHidden || (showPageBar && showPageSheet)) floatingBottomBarHeight else 0.dp,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "feedFloatingBarClearance",
+    )
+    // Expressive spatial springs overshoot past 0.dp on retraction; clamp before passing to padding.
+    val safeBottomBarClearance = animatedBottomBarClearance.coerceAtLeast(0.dp)
 
     Scaffold(
         modifier = modifier,
@@ -579,7 +590,7 @@ fun PostListScreen(
                     snackbarHostState,
                     // Scaffold already lifts this above its FAB. With a page rail, that FAB lives in
                     // the content instead, so only this path needs the floating navigation clearance.
-                    modifier = Modifier.padding(bottom = if (showPageBar) LocalFloatingBottomBarHeight.current else 0.dp),
+                    modifier = Modifier.padding(bottom = if (showPageBar) safeBottomBarClearance else 0.dp),
                 )
             }
         },
@@ -620,19 +631,20 @@ fun PostListScreen(
             // and it is the arrangement the thread already ships with its 回复 button.
             if (!showPageBar) {
                 CompositionLocalProvider(LocalLiquidGlassBackdrop provides feedBackdrop) {
-                    // Follow the same sticky direction state as the navigation bar. Stopping cannot
-                    // briefly flip this value, so the built-in extended-FAB animation gets one stable
-                    // target.
-                    PlazaExtendedFab(
-                        text = stringResource(Res.string.action_create_post),
-                        icon = Icons.Default.Edit,
-                        nativeSymbol = "square.and.pencil",
-                        onClick = onCreatePost,
-                        expanded = !navigationBarHidden,
-                        modifier = Modifier.padding(
-                            bottom = if (!navigationBarHidden) LocalFloatingBottomBarHeight.current else 0.dp,
-                        ),
-                    )
+                    // Wrap spacing outside PlazaExtendedFab (whose modifier reaches both the glass
+                    // button and inner ExtendedFloatingActionButton), following the animated bar clearance.
+                    Box(modifier = Modifier.padding(bottom = safeBottomBarClearance)) {
+                        // Follow the same sticky direction state as the navigation bar. Stopping cannot
+                        // briefly flip this value, so the built-in extended-FAB animation gets one stable
+                        // target.
+                        PlazaExtendedFab(
+                            text = stringResource(Res.string.action_create_post),
+                            icon = Icons.Default.Edit,
+                            nativeSymbol = "square.and.pencil",
+                            onClick = onCreatePost,
+                            expanded = !navigationBarHidden,
+                        )
+                    }
                 }
             }
         },
@@ -640,8 +652,7 @@ fun PostListScreen(
         // The list runs on under the bottom bar and takes the bar's height as content padding — see
         // [withoutBottom].
         val bottomInset = padding.bottomWithFloatingBar()
-        val activeBarInset =
-            if (!navigationBarHidden || showPageSheet) bottomInset else padding.calculateBottomPadding()
+        val activeBarInset = padding.calculateBottomPadding() + safeBottomBarClearance
         Box(
             Modifier
                 .padding(padding.withoutBottom())

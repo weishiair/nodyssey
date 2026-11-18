@@ -18,6 +18,13 @@ package io.github.plaza.core.richtext
 fun parseMarkdown(
     markdown: String,
     shortcode: (String) -> String? = { null },
+): List<RichNode> = parseMarkdown(markdown, linkify = false, shortcode = shortcode)
+
+/** [linkify] makes bare web URLs tappable in contexts such as chat, where pasting one is enough. */
+fun parseMarkdown(
+    markdown: String,
+    linkify: Boolean,
+    shortcode: (String) -> String? = { null },
 ): List<RichNode> {
     val lines = markdown.lines()
     val result = mutableListOf<RichNode>()
@@ -41,7 +48,7 @@ fun parseMarkdown(
             HEADING.matches(line) -> {
                 val match = requireNotNull(HEADING.matchEntire(line))
                 val level = match.groupValues[1].length
-                result += splitImages(parseInlines(match.groupValues[2], shortcode)) { RichNode.Heading(level, it) }
+                result += splitImages(parseInlines(match.groupValues[2], shortcode, linkify = linkify)) { RichNode.Heading(level, it) }
                 index++
             }
 
@@ -55,7 +62,7 @@ fun parseMarkdown(
                 while (index < lines.size && lines[index].startsWith(">")) {
                     quoted += lines[index++].removePrefix(">").removePrefix(" ")
                 }
-                result += RichNode.Quote(parseMarkdown(quoted.joinToString("\n"), shortcode))
+                result += RichNode.Quote(parseMarkdown(quoted.joinToString("\n"), linkify, shortcode))
             }
 
             UNORDERED_LIST.matches(line) || ORDERED_LIST.matches(line) -> {
@@ -67,18 +74,18 @@ fun parseMarkdown(
                     // Parsed as a document rather than as a paragraph: the site's own readmes write
                     // `- #### 支持ipv6转发`, and a list item that only ever holds inlines shows the
                     // hashes.
-                    items += parseMarkdown(text, shortcode)
+                    items += parseMarkdown(text, linkify, shortcode)
                     index++
                 }
                 result += RichNode.ListBlock(ordered = ordered, items = items)
             }
 
             isTableStart(lines, index) -> {
-                val cells = mutableListOf(tableCells(line).map { parseInlines(it, shortcode) })
+                val cells = mutableListOf(tableCells(line).map { parseInlines(it, shortcode, linkify = linkify) })
                 // The header's underline carries only the alignment, which this table does not draw.
                 index += 2
                 while (index < lines.size && lines[index].isNotBlank() && lines[index].contains('|')) {
-                    cells += tableCells(lines[index]).map { parseInlines(it, shortcode) }
+                    cells += tableCells(lines[index]).map { parseInlines(it, shortcode, linkify = linkify) }
                     index++
                 }
                 result += RichNode.Table(cells)
@@ -98,7 +105,7 @@ fun parseMarkdown(
                 val inlines = mutableListOf<InlineNode>()
                 paragraph.forEachIndexed { lineIndex, value ->
                     if (lineIndex > 0) inlines += InlineNode.LineBreak
-                    inlines += parseInlines(value, shortcode)
+                    inlines += parseInlines(value, shortcode, linkify = linkify)
                 }
                 result += splitImages(inlines, RichNode::Paragraph)
             }
@@ -302,6 +309,7 @@ private fun parseInlines(
     text: String,
     shortcode: (String) -> String?,
     style: InlineStyle = InlineStyle(),
+    linkify: Boolean = false,
 ): List<InlineNode> {
     val result = mutableListOf<InlineNode>()
     val pending = StringBuilder()
@@ -382,6 +390,13 @@ private fun parseInlines(
             }
 
             else -> {
+                val url = if (linkify) webUrlAt(text, index) else null
+                if (url != null) {
+                    flush()
+                    result += InlineNode.Link(text = url, url = url, style = style)
+                    index += url.length
+                    continue
+                }
                 val emphasis = emphasisAt(text, index)
                 if (emphasis == null) {
                     pending.append(char)
@@ -393,6 +408,7 @@ private fun parseInlines(
                             text.substring(index + emphasis.delimiter.length, emphasis.close),
                             shortcode,
                             emphasis.style(style),
+                            linkify = linkify,
                         )
                     index = emphasis.close + emphasis.delimiter.length
                 }

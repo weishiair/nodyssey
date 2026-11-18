@@ -835,13 +835,14 @@ private const val PROFILE_ACCOUNT_COLUMN_WEIGHT = 0.42f
  * the nearest pixel on its own, so on a card whose width in pixels leaves 2 or 3 over a multiple of
  * four, four tiles come to more than the row and the fourth wraps — three to a row with a hole on the
  * right, on some phones and not others. [Grid] shares the `fr` tracks out so they sum to the width,
- * and a short last row stays on the columns of the rows above it without filler.
+ * and a short last row stays on the columns of the rows above it without filler. Explicit zero
+ * track minima keep a long label from widening its column and squeezing its neighbours.
  */
 @Composable
 private fun ProfileGridCard(tiles: List<ProfileTile>) {
     LayerCard(contentPadding = PaddingValues(Spacing.xs), verticalArrangement = Arrangement.Top) {
         Grid(
-            config = { repeat(PROFILE_GRID_COLUMNS) { column(1.fr) } },
+            config = { repeat(PROFILE_GRID_COLUMNS) { column(minmax(0.dp, 1.fr)) } },
             modifier = Modifier.fillMaxWidth(),
         ) {
             // A cell hands its item loose constraints; the tile fills it so the whole quarter is the target.
@@ -880,8 +881,10 @@ private fun ProfileGridTile(
         }
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, lineBreak = LineBreak.Heading),
             textAlign = TextAlign.Center,
+            // Every caption reserves the same two lines, including the longer mail label.
+            minLines = 2,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )

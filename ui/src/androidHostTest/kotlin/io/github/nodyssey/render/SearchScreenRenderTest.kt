@@ -177,6 +177,14 @@ class SearchScreenRenderTest {
                 Board("info", "情报", null),
                 Board("review", "测评", null),
                 Board("trade", "交易", null),
+                Board("carpool", "拼车", null),
+                Board("promotion", "推广", null),
+                Board("life", "生活", null),
+                Board("dev", "Dev", null),
+                Board("photo-share", "贴图", null),
+                Board("expose", "曝光", null),
+                Board("inside", "内版", null),
+                Board("sandbox", "沙盒", null),
             )
 
         val SETUP =

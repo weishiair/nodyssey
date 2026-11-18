@@ -11,6 +11,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -25,6 +26,7 @@ class AccountRequestGate {
     private var paused = false
     private val revision = MutableStateFlow(0L)
     val epoch: Long get() = revision.value
+    internal val epochs = revision.asStateFlow()
 
     fun guard(transport: HttpTransport): HttpTransport = object : HttpTransport {
         override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse = this@AccountRequestGate.run {

@@ -3,6 +3,7 @@ package io.github.nodyssey.ui.bookmarks
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,7 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -34,6 +34,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +54,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.OfflineFailure
@@ -61,7 +64,6 @@ import io.github.nodyssey.data.OfflineState
 import io.github.nodyssey.data.OfflineUsage
 import io.github.nodyssey.ui.account.formatBytes
 import io.github.nodyssey.ui.common.SiteErrorState
-import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.shortMessage
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.common.snackbarDuration
@@ -78,6 +80,7 @@ import io.github.nodyssey.ui.resources.bookmarks_empty_search_body
 import io.github.nodyssey.ui.resources.bookmarks_empty_search_title
 import io.github.nodyssey.ui.resources.bookmarks_empty_title
 import io.github.nodyssey.ui.resources.bookmarks_exit_selection
+import io.github.nodyssey.ui.resources.bookmarks_load_more
 import io.github.nodyssey.ui.resources.bookmarks_remove_failed
 import io.github.nodyssey.ui.resources.bookmarks_removed
 import io.github.nodyssey.ui.resources.bookmarks_search
@@ -109,7 +112,6 @@ import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Sizes
-import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.StatusShapes
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.readableWidth
@@ -128,6 +130,7 @@ fun BookmarksRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshIfNeeded() }
     BookmarksScreen(
         state = state,
         onBack = onBack,
@@ -135,7 +138,8 @@ fun BookmarksRoute(
         onOpenBrowser = onOpenBrowser,
         onSignIn = onSignIn,
         onVerify = onVerify,
-        onRetry = viewModel::retry,
+        onRetry = viewModel::refresh,
+        onLoadMore = viewModel::loadMore,
         onFilter = viewModel::setFilter,
         onSort = viewModel::setSort,
         onSearching = viewModel::setSearching,
@@ -181,6 +185,7 @@ fun BookmarksScreen(
     onPostClick: (Long) -> Unit,
     onOpenBrowser: (String) -> Unit,
     onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
     onSignIn: () -> Unit,
     /** Clears a Cloudflare challenge on the site's own page, then comes back here. */
     onVerify: (String) -> Unit,
@@ -327,7 +332,28 @@ fun BookmarksScreen(
                         )
                     }
                 }
-                Box(Modifier.weight(1f)) {
+                if (state.truncated) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = LayerPageGutter),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.bookmarks_truncated),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = onLoadMore, enabled = !state.isSyncing) {
+                            Text(stringResource(Res.string.bookmarks_load_more))
+                        }
+                    }
+                }
+                PullToRefreshBox(
+                    isRefreshing = state.isSyncing && state.entries.isNotEmpty(),
+                    onRefresh = onRetry,
+                    enabled = !state.inSelection && !state.isSyncing,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                ) {
                     BookmarkList(
                         state = state,
                         onPostClick = onPostClick,
@@ -343,13 +369,6 @@ fun BookmarksScreen(
                         onVerify = onVerify,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    // The whole point of reading the list off disk is that the walk behind it is no
-                    // longer something to wait for — so it gets a hairline at the top of the rows
-                    // instead of the screen. Overlaid rather than laid out, because a strip that
-                    // appears and disappears on every load would shove the list 4dp each way.
-                    if (state.isSyncing && state.entries.isNotEmpty()) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).describedAsLoading())
-                    }
                 }
             }
             if (state.inSelection) {
@@ -425,17 +444,6 @@ private fun BookmarkList(
                 // the same height, so one number covers the list in either mode.
                 contentPadding = PaddingValues(start = LayerPageGutter, end = LayerPageGutter, bottom = FLOATING_CLEARANCE),
             ) {
-                if (state.truncated) {
-                    item(key = "truncated") {
-                        Text(
-                            text =
-                            stringResource(Res.string.bookmarks_truncated, BookmarksViewModel.MAX_PAGES),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.sm),
-                        )
-                    }
-                }
                 // One white card, spread over the items — see [groupSlice].
                 itemsIndexed(visible, key = { _, entry -> entry.postId }) { index, entry ->
                     BookmarkRow(
@@ -797,6 +805,7 @@ private fun BookmarksPreviewHost(
             onPostClick = {},
             onOpenBrowser = {},
             onRetry = {},
+            onLoadMore = {},
             onSignIn = {},
             onVerify = {},
             onFilter = {},

@@ -97,6 +97,7 @@ class NetworkUserSpaceRepository(
             referer = NodeSeekSite.BASE_URL + "/",
             page = page,
             arrayNames = arrayOf("collections", "collectionList", "list", "data"),
+            collectionSnapshot = true,
             map = JsonObject::toSpacePost,
         )
 
@@ -105,6 +106,7 @@ class NetworkUserSpaceRepository(
         referer: String,
         page: Int,
         arrayNames: Array<String>,
+        collectionSnapshot: Boolean = false,
         map: (JsonObject) -> T?,
     ): SpacePage<T> {
         val body = jsonSource.getJson(path = path, referer = referer)
@@ -117,10 +119,13 @@ class NetworkUserSpaceRepository(
             // payload shape wrong, and pretending that is an empty list would hide the mismatch.
             if (rows == null) throw SiteException(SiteError.Unparsable)
             val items = rows.mapNotNull(map)
+            // Collection sync can discard cached membership when it reaches the end. A row we
+            // could not parse is not evidence that the thread was removed from the collection.
+            if (collectionSnapshot && items.size != rows.size) throw SiteException(SiteError.Unparsable)
             SpacePage(
                 items = items,
                 page = page,
-                hasNextPage = (root as? JsonObject)?.hasNextPage(page, rows.size) ?: false,
+                hasNextPage = (root as? JsonObject)?.hasNextPage(page, rows.size) ?: (collectionSnapshot && rows.isNotEmpty()),
             )
         }
     }

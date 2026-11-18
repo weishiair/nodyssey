@@ -1568,7 +1568,8 @@
     <string name="bookmarks_sort_replies">回复最多</string>
     <string name="bookmarks_sort_pending">未下载优先</string>
     <string name="bookmarks_stale">%1$s，这是上次同步的列表</string>
-    <string name="bookmarks_truncated">收藏太多，只读到前 %1$d 页，下面的计数按已读到的算</string>
+    <string name="bookmarks_truncated">收藏尚未同步完，计数按当前列表计算</string>
+    <string name="bookmarks_load_more">继续加载</string>
     <string name="bookmarks_empty_title">还没有收藏</string>
     <string name="bookmarks_empty_body">帖子右上角的星标会把它收进这里，收藏是帖子级的，站点不提供分组和备注。</string>
     <string name="bookmarks_empty_filter_title">这个筛选下没有帖子</string>
@@ -2129,4 +2130,13 @@
     <string name="mail_recipient_address">收件地址：%1$s</string>
     <string name="settings_frosted_glass">毛玻璃质感</string>
     <string name="settings_frosted_glass_hint">悬浮胶囊底栏与顶栏半透明高光；帖子卡片保持纯色以确保阅读对比度</string>
+
+    <!-- 楼主置顶评论：网站单次收取 5 个鸡腿，与免费投喂额度无关。 -->
+    <string name="post_pin_action">置顶评论</string>
+    <string name="post_pin_body">将消耗 5 个鸡腿，把这条评论置顶到帖子第一页。</string>
+    <string name="post_pin_confirm">置顶（5 鸡腿）</string>
+    <string name="post_pin_success">已置顶评论</string>
+    <string name="post_unpin_action">取消置顶</string>
+    <string name="post_unpin_body">这条评论将恢复按楼层排序。</string>
+    <string name="post_unpin_success">已取消置顶</string>
 </resources>

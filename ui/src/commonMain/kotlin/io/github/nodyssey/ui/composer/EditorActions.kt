@@ -13,10 +13,9 @@ import io.github.plaza.designsys.editor.EditorAction
  *   *inserted* — a new picture, one already on the image host, a sticker, an @ — ahead of the
  *   formatting keys, the commonest first. (Boards 1d and 2c moved the formatting keys to a 格式
  *   card, "先写，后排版"; on 2026-10-08 the strip came back.)
- * - [Message] is the shortest, and only that: every key is available through its wrench, images
- *   included — `message/send` carries `content` as Markdown and the thread renders images in it.
- *   The image host's key is on it by default (asked for, 2026-10-08); the photo picker is not, and
- *   stays one wrench away.
+ * - [Message] keeps a compact set of common actions, with both the photo picker and the image host
+ *   on it by default. Every other key is available through its wrench — `message/send` carries
+ *   `content` as Markdown and the thread renders images in it.
  *   No preview, because a message renders into a bubble the moment it is sent; getting it wrong
  *   costs a second message, not a deleted topic.
  * - [Signature] omits images and quotes because NodeSeek's own helper text says signatures support
@@ -46,6 +45,7 @@ object EditorActions {
 
     val Message =
         listOf(
+            EditorAction.IMAGE,
             EditorAction.BOLD,
             EditorAction.CODE,
             EditorAction.LINK,

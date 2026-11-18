@@ -1307,7 +1307,8 @@
     <string name="bookmarks_sort_replies">回覆最多</string>
     <string name="bookmarks_sort_pending">未下載優先</string>
     <string name="bookmarks_stale">%1$s，這是上次同步的清單</string>
-    <string name="bookmarks_truncated">收藏太多，只讀到前 %1$d 頁，下面的計數按已讀到的算</string>
+    <string name="bookmarks_truncated">收藏尚未同步完，計數按目前清單計算</string>
+    <string name="bookmarks_load_more">繼續載入</string>
     <string name="bookmarks_empty_title">還沒有收藏</string>
     <string name="bookmarks_empty_body">文章右上角的星標會把它收進這裡，收藏是文章層級的，站台不提供分組和備註。</string>
     <string name="bookmarks_empty_filter_title">這個篩選下沒有文章</string>
@@ -1843,4 +1844,12 @@
     <string name="mail_recipient_address">收件地址：%1$s</string>
     <string name="settings_frosted_glass">毛玻璃質感</string>
     <string name="settings_frosted_glass_hint">懸浮膠囊底欄與頂欄半透明高光；貼文卡片保持純色以確保閱讀對比度</string>
+
+    <string name="post_pin_action">置頂評論</string>
+    <string name="post_pin_body">將消耗 5 個雞腿，把這條評論置頂到帖子第一頁。</string>
+    <string name="post_pin_confirm">置頂（5 雞腿）</string>
+    <string name="post_pin_success">已置頂評論</string>
+    <string name="post_unpin_action">取消置頂</string>
+    <string name="post_unpin_body">這條評論將恢復按樓層排序。</string>
+    <string name="post_unpin_success">已取消置頂</string>
 </resources>

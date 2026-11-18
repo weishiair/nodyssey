@@ -3,6 +3,7 @@
 @file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 
 import com.android.build.api.withAndroid
+import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest
 
 plugins {
     id("plaza.kmp.library")
@@ -163,6 +164,13 @@ kotlin {
             implementation(libs.androidx.core.ktx)
         }
     }
+}
+
+// UIKit pattern detection needs the simulator's pasteboard service. Kotlin 2.4's default
+// standalone mode starts no system services; use a booted simulator instead.
+tasks.withType<KotlinNativeSimulatorTest>().configureEach {
+    standalone.set(false)
+    device.set(providers.gradleProperty("nodyssey.iosTestDevice").orElse("booted"))
 }
 
 /*

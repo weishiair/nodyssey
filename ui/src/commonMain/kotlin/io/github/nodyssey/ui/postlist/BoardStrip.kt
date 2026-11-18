@@ -79,6 +79,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,6 +101,7 @@ import io.github.nodyssey.ui.resources.board_parked_title
 import io.github.nodyssey.ui.resources.board_restore
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaChipDefaults
+import io.github.plaza.designsys.component.fadingEndEdge
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
@@ -261,11 +263,14 @@ internal fun BoardStrip(
                     onTogglePark = ::togglePark,
                 )
             } else {
+                val eink = LocalEinkMode.current
                 Row(Modifier.fillMaxWidth()) {
                     LazyRow(
                         state = rowState,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(start = Spacing.md, end = Spacing.xs),
+                        modifier = Modifier
+                            .weight(1f)
+                            .then(if (eink) Modifier else Modifier.fadingEndEdge(rowState, length = COLLAPSED_FADE_WIDTH)),
+                        contentPadding = PaddingValues(start = Spacing.md),
                         horizontalArrangement = Arrangement.spacedBy(PillGap),
                     ) {
                         items(count = boards.size, key = { boards[it].slug ?: FRONT_PAGE_KEY }) { index ->
@@ -277,7 +282,7 @@ internal fun BoardStrip(
                             )
                         }
                     }
-                    // The scrolling row stops where the toggle starts, rather than running under it.
+                    // Keep the scrolling row clear of the toggle by the same PillGap between pills.
                     Spacer(Modifier.width(ToggleSlotWidth))
                 }
             }
@@ -592,6 +597,7 @@ private fun ExpandedBoards(
                                     selected = slot.board.slug == selectedSlug,
                                     // 综合 is not a board and cannot be taken off, so it gets no ×.
                                     editing = editing && !slot.locked,
+                                    fillWidth = true,
                                     onClick = {
                                         when {
                                             !editing -> onBoardClick(slot.board.slug)
@@ -630,16 +636,11 @@ private fun ExpandedBoards(
 }
 
 /**
- * Pills wrapped onto as many lines as they need, with [firstRowInset] kept clear at the end of the
- * first line only.
+ * Uniform-column grid of pills, keeping the first row clear of [firstRowInset] on the trailing side.
  *
- * `FlowRow` cannot express that, and the difference is the whole reason this exists: the expand
- * toggle shares a line with the first row of pills, so reserving its width by putting it in a `Row`
- * beside the flow narrowed *every* line and left a tall empty gutter down the right of the block. One
- * line gives way to the toggle; the rest run the full width.
- *
- * Deliberately minimal — no alignment, no `maxLines`. The lines are [PillGap] apart, the same as
- * the pills along one: a pill is laid out at its painted height, so without it the lines would touch.
+ * Unlike a variable-width flow where short labels such as `Dev` pull an entire row out of vertical
+ * alignment and leave ragged right gutters, every column uses the same width derived from the widest
+ * pill's intrinsic width so rows and columns line up cleanly with the header above.
  */
 @Composable
 private fun BoardFlow(
@@ -649,42 +650,76 @@ private fun BoardFlow(
     content: @Composable () -> Unit,
 ) {
     Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val width = constraints.maxWidth
+        if (measurables.isEmpty()) return@Layout layout(width, 0) {}
+
         val gap = horizontalGap.roundToPx()
         val lineGap = PillGap.roundToPx()
-        val width = constraints.maxWidth
-        val inset = firstRowInset.roundToPx()
-        val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+        val reserve = firstRowInset.roundToPx()
+        val pillHeightPx = PillHeight.roundToPx()
 
-        val rows = mutableListOf<List<Placeable>>()
-        var row = mutableListOf<Placeable>()
-        var rowWidth = 0
-        placeables.forEach { placeable ->
-            // Only the first line has to leave room for the toggle sitting on it.
-            val limit = if (rows.isEmpty()) width - inset else width
-            val extended = if (row.isEmpty()) placeable.width else rowWidth + gap + placeable.width
-            // A pill that does not fit even on a line of its own still has to go somewhere, so an
-            // empty row always accepts one rather than looping forever looking for a wider line.
-            if (row.isNotEmpty() && extended > limit) {
-                rows += row
-                row = mutableListOf(placeable)
-                rowWidth = placeable.width
+        val maxNaturalWidth = measurables.maxOf { it.maxIntrinsicWidth(pillHeightPx) }.coerceIn(1, width.coerceAtLeast(1))
+        val columns = ((width + gap) / (maxNaturalWidth + gap)).coerceAtLeast(1)
+
+        fun colStart(col: Int): Int = ((width + gap) * col) / columns
+        fun colEnd(col: Int): Int = colStart(col + 1) - gap
+
+        val row1Limit = (width - reserve).coerceAtLeast(1)
+        val row1Cols =
+            if (reserve <= 0) {
+                columns
             } else {
-                row += placeable
-                rowWidth = extended
+                var fit = 0
+                while (fit < columns && colEnd(fit) <= row1Limit) {
+                    fit++
+                }
+                fit.coerceAtLeast(1)
+            }
+
+        data class PlacedCell(val placeable: Placeable, val x: Int, val row: Int)
+
+        val placed =
+            measurables.mapIndexed { index, measurable ->
+                val row: Int
+                val col: Int
+                if (index < row1Cols) {
+                    row = 0
+                    col = index
+                } else {
+                    val shifted = index - row1Cols
+                    row = 1 + shifted / columns
+                    col = shifted % columns
+                }
+                val x = colStart(col)
+                val rawWidth = colEnd(col) - x
+                val cellWidth =
+                    if (row == 0 && reserve > 0 && row1Cols == 1 && colEnd(0) > row1Limit) {
+                        row1Limit
+                    } else {
+                        rawWidth
+                    }.coerceAtLeast(1)
+                val placeable = measurable.measure(constraints.copy(minWidth = cellWidth, maxWidth = cellWidth, minHeight = 0))
+                PlacedCell(placeable, x, row)
+            }
+
+        val rowCount = placed.maxOf { it.row } + 1
+        val rowHeights = IntArray(rowCount)
+        placed.forEach { cell ->
+            if (cell.placeable.height > rowHeights[cell.row]) {
+                rowHeights[cell.row] = cell.placeable.height
             }
         }
-        if (row.isNotEmpty()) rows += row
+        val rowTops = IntArray(rowCount)
+        var y = 0
+        for (r in 0 until rowCount) {
+            rowTops[r] = y
+            y += rowHeights[r] + lineGap
+        }
+        val height = (y - lineGap).coerceAtLeast(0)
 
-        val height = rows.sumOf { line -> line.maxOf { it.height } } + lineGap * (rows.size - 1).coerceAtLeast(0)
         layout(width, height) {
-            var y = 0
-            rows.forEach { line ->
-                var x = 0
-                line.forEach { placeable ->
-                    placeable.place(x, y)
-                    x += placeable.width + gap
-                }
-                y += line.maxOf { it.height } + lineGap
+            placed.forEach { cell ->
+                cell.placeable.place(cell.x, rowTops[cell.row])
             }
         }
     }
@@ -705,6 +740,7 @@ private fun BoardPill(
     selected: Boolean,
     onClick: () -> Unit,
     editing: Boolean = false,
+    fillWidth: Boolean = false,
 ) {
     val colors =
         if (board.slug == null) {
@@ -724,11 +760,19 @@ private fun BoardPill(
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(text = board.title, style = pillLabelStyle(selected), maxLines = 1) },
+        label = {
+            Text(
+                text = board.title,
+                style = pillLabelStyle(selected),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
         // A chip reads as "select this"; while editing its tap does something else, and TalkBack says
         // what. A null action keeps the chip's own, and only names it.
         modifier =
         Modifier
+            .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
             .height(PillHeight)
             .then(if (editing) Modifier.semantics { onClick(label = parkLabel, action = null) } else Modifier),
         trailingIcon =
@@ -763,6 +807,8 @@ private fun BoardPill(
         shape = PillShape,
         colors = colors,
         border = PlazaChipDefaults.border(selected),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.CenterHorizontally),
+        contentPadding = PaddingValues(horizontal = PILL_HORIZONTAL_PADDING),
     )
 }
 
@@ -825,6 +871,8 @@ private fun ParkedBoardChip(
                 leadingIconContentColor = muted,
             ),
             border = null,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.CenterHorizontally),
+            contentPadding = PaddingValues(horizontal = PILL_HORIZONTAL_PADDING),
         )
     }
 }
@@ -883,10 +931,11 @@ internal fun List<BoardSlot>.reorderedFor(
 /** 综合 has no slug, and a list key has to be something. */
 internal const val FRONT_PAGE_KEY = "front"
 
-private val ToggleWidth = 32.dp
+/** Matches [SortButton] directly above so both rows share the same right-hand control column. */
+private val ToggleWidth = 40.dp
 
-/** Where the toggle stops short of the display edge. */
-private val ToggleEndInset = Spacing.sm
+/** Matches [SearchPill] + [SortButton] horizontal padding so the strip lines up on both edges. */
+private val ToggleEndInset = Spacing.md
 
 private val ToggleIconSize = 18.dp
 
@@ -903,11 +952,15 @@ private val PillShape
 
 private val PillGap = 6.dp
 
+private val PILL_HORIZONTAL_PADDING = Spacing.sm
+
 private val PILL_LABEL_SIZE = 13.sp
 private val PILL_LABEL_LINE_HEIGHT = 18.sp
 
-/** The toggle plus the end inset it is drawn against — the width the first row of pills gives up. */
-private val ToggleSlotWidth = ToggleWidth + ToggleEndInset
+/** The toggle, its end inset and [PillGap] so the scrolling row never kisses the toggle button. */
+private val ToggleSlotWidth = ToggleWidth + ToggleEndInset + PillGap
+
+private val COLLAPSED_FADE_WIDTH = 10.dp
 
 private val PILL_ICON_SIZE = 16.dp
 

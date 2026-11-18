@@ -6,6 +6,7 @@ import com.fleeksoft.ksoup.nodes.TextNode
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.StardustReceiveMarkup
 import io.github.plaza.core.ansi.AnsiDecoder
+import io.github.plaza.core.net.WebUrl
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.InlineStyle
 import io.github.plaza.core.richtext.RichNode
@@ -13,7 +14,7 @@ import io.github.plaza.core.richtext.RichNode
 /**
  * Turns the HTML inside `article.post-content` into a block/inline tree the Compose renderer can
  * draw natively. NodeSeek renders Markdown server-side, so the tag vocabulary is small and stable:
- * paragraphs, images, links, code, quotes, lists and tables.
+ * paragraphs, images, embedded media, links, code, quotes, lists and tables.
  */
 object RichContentParser {
 
@@ -103,6 +104,8 @@ object RichContentParser {
 
         "img" -> if (isSticker(element)) null else listOf(blockImage(element))
 
+        "iframe", "video" -> listOfNotNull(embeddedMedia(element))
+
         // An app marker that was not wrapped in a paragraph — the markdown renderer usually wraps it,
         // but a body that is nothing but the marker leaves it hanging directly off the article.
         "a" -> element.appMarker()?.let(::listOf)
@@ -134,7 +137,7 @@ object RichContentParser {
     }
 
     /**
-     * The element's children as alternating runs of inline content and the blocks — images, app
+     * The element's children as alternating runs of inline content and the blocks — images, media, app
      * markers — that have to stand on their own. [run] wraps each inline run in the block the
      * element itself is.
      */
@@ -152,11 +155,18 @@ object RichContentParser {
             // Checked before the image, because an app marker is an anchor and `blockImageElement`
             // accepts `<a><img></a>` — an unlucky marker containing an image would be read as one.
             val marker = child.appMarker()
-            val image = if (marker == null) child.blockImageElement() else null
+            val media = (child as? Element)?.takeIf { it.tagName() == "iframe" || it.tagName() == "video" }
+                ?.let(::embeddedMedia)
+            val image = if (marker == null && media == null) child.blockImageElement() else null
             when {
                 marker != null -> {
                     flushInlineNodes()
                     blocks += marker
+                }
+
+                media != null -> {
+                    flushInlineNodes()
+                    blocks += media
                 }
 
                 image != null -> {
@@ -211,12 +221,39 @@ object RichContentParser {
         val element = this as? Element ?: return null
         if (element.tagName() == "img") return element.takeUnless(::isSticker)
         if (element.text().isNotBlank()) return null
+        // A wrapper containing both a player and a picture is not just an image link.
+        if (element.selectFirst(Selectors.CONTENT_MEDIA) != null) return null
         return element.select("img").singleOrNull()?.takeUnless(::isSticker)
     }
 
     private fun blockImage(element: Element): RichNode {
         val url = NodeSeekSite.absoluteUrl(element.attr("src")).orEmpty()
         return RichNode.BlockImage(url = url, alt = element.attr("alt").ifBlank { null })
+    }
+
+    /**
+     * post-1054065 contains only a Bilibili iframe, whose whitespace children are not its content.
+     * Keep the source rather than the executable markup. A video may put its URL on a child source.
+     */
+    private fun embeddedMedia(element: Element): RichNode.EmbeddedMedia? {
+        val sources = listOf(element.attr("src")) +
+            if (element.tagName() == "video") element.select(Selectors.CONTENT_MEDIA_SOURCE).map { it.attr("src") } else emptyList()
+        val url = sources.firstNotNullOfOrNull(::mediaUrl) ?: return null
+        return RichNode.EmbeddedMedia(url, element.attr("title").trim().ifBlank { null })
+    }
+
+    private fun mediaUrl(source: String): String? {
+        val raw = source.trim().takeIf(String::isNotEmpty) ?: return null
+        // absoluteUrl treats unknown schemes as relative paths; reject those before resolving.
+        val absolute = if (raw.startsWith("//") || ':' !in raw.substringBefore('/').substringBefore('?').substringBefore('#')) {
+            NodeSeekSite.absoluteUrl(raw)
+        } else {
+            raw
+        } ?: return null
+        val parsed = WebUrl.parse(absolute) ?: return null
+        return absolute.takeIf {
+            parsed.scheme in setOf("http", "https") && parsed.host != null && parsed.userInfo == null
+        }
     }
 
     /**
@@ -334,6 +371,12 @@ object RichContentParser {
 
                 is Element -> when (node.tagName()) {
                     "br" -> result += InlineNode.LineBreak
+
+                    // A table cell or formatting wrapper cannot hold a media card. Keep a link
+                    // there rather than silently losing the media in the inline-only path.
+                    "iframe", "video" -> embeddedMedia(node)?.let {
+                        result += InlineNode.Link(text = it.title ?: it.url, url = it.url, style = style)
+                    }
 
                     "strong", "b" -> result += parseInlines(node.childNodes(), style.copy(bold = true))
 

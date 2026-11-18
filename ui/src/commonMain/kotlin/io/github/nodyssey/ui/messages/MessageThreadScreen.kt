@@ -18,12 +18,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -175,6 +173,9 @@ import io.github.nodyssey.ui.resources.messages_thread_joined_days
 import io.github.nodyssey.ui.resources.notification_time_pair
 import io.github.nodyssey.ui.richtext.PostRichContent
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.core.richtext.InlineNode
+import io.github.plaza.core.richtext.RichNode
+import io.github.plaza.core.richtext.linkifyPlainText
 import io.github.plaza.core.richtext.parseMarkdown
 import io.github.plaza.designsys.component.BadgeChip
 import io.github.plaza.designsys.component.BadgeTone
@@ -205,6 +206,7 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
+import io.github.plaza.designsys.theme.paddingWithKeyboard
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -310,8 +312,10 @@ fun MessageThreadScreen(
     ) { padding ->
         // The bar floats, so its height is not taken off the top of the body: the thread runs up
         // underneath it and only the list's own content padding keeps the oldest message clear.
-        // The bottom is taken as `paddingWithKeyboard` takes it, for the reason given there.
+        // The bottom inset and IME padding sit inside [MessageComposer]'s surface so its background
+        // fills the home-indicator area rather than leaving an empty strip below the bar.
         val topClearance = padding.calculateTopPadding()
+        val bottomInset = padding.calculateBottomPadding()
         val direction = LocalLayoutDirection.current
         val showScamBanner =
             state.userName != MessageConversation.SYSTEM_NAME &&
@@ -320,16 +324,12 @@ fun MessageThreadScreen(
         val effectiveTopClearance = if (showScamBanner) 0.dp else topClearance
         Column(
             Modifier
-                // The sides as well as the bottom: `consumeWindowInsets` below takes all of
-                // [padding], so a side the body does not pad here is padded by nothing — and in
-                // landscape with three-button navigation that side is the navigation bar, over the
-                // send key.
+                // Keep horizontal safe-area / side navigation bar insets clear of the thread and
+                // composer controls; the bottom inset is handled inside [MessageComposer].
                 .padding(
                     start = padding.calculateStartPadding(direction),
                     end = padding.calculateEndPadding(direction),
-                    bottom = padding.calculateBottomPadding(),
-                ).consumeWindowInsets(padding)
-                .imePadding()
+                )
                 .fillMaxSize(),
         ) {
             if (showScamBanner) {
@@ -415,6 +415,7 @@ fun MessageThreadScreen(
                 draftState = draftState,
                 state = state,
                 editorState = editorState,
+                bottomInset = bottomInset,
                 onSend = onSend,
                 onRemoveQuote = onRemoveQuote,
                 onPickImages = onPickImages,
@@ -727,7 +728,7 @@ private fun MessageInfoSheet(
 private fun MessageBubbles(
     state: MessageThreadUiState,
     topClearance: Dp,
-    onOpenBrowser: (String) -> Unit,
+    onLinkClick: (String) -> Unit,
     onRetrySend: (String) -> Unit,
     onQuote: (MessageBubble) -> Unit,
     onDismissFailed: (String) -> Unit,
@@ -793,7 +794,7 @@ private fun MessageBubbles(
                         MessageBubbleRow(
                             message = row.message,
                             showDeliveryStatus = row.message.id == latestOutgoingId,
-                            onOpenBrowser = onOpenBrowser,
+                            onLinkClick = onLinkClick,
                             onRetrySend = { onRetrySend(row.message.id) },
                             onQuote = { onQuote(row.message) },
                             onDismissFailed = { onDismissFailed(row.message.id) },
@@ -874,7 +875,7 @@ private fun DayDivider(label: String) {
 private fun MessageBubbleRow(
     message: MessageBubble,
     showDeliveryStatus: Boolean,
-    onOpenBrowser: (String) -> Unit,
+    onLinkClick: (String) -> Unit,
     onRetrySend: () -> Unit,
     onQuote: () -> Unit,
     onDismissFailed: () -> Unit,
@@ -926,25 +927,31 @@ private fun MessageBubbleRow(
                         },
                     )
                 val contentModifier = if (message.status == SendStatus.FAILED) Modifier.alpha(FAILED_ALPHA) else Modifier
-                if (message.isMarkdown) {
+                val nodes = remember(message.content, message.isMarkdown) {
+                    if (message.isMarkdown) {
+                        // The API returns the typed source, including unexpanded sticker shortcodes.
+                        parseMarkdown(message.content, linkify = true, shortcode = NodeSeekStickers::urlFor)
+                    } else {
+                        val inlines = linkifyPlainText(message.content)
+                        if (inlines.any { it is InlineNode.Link }) listOf(RichNode.Paragraph(inlines)) else emptyList()
+                    }
+                }
+                if (nodes.isEmpty() && !message.isMarkdown) {
+                    Text(message.content, style = textStyle, modifier = contentModifier)
+                } else {
                     PostRichContent(
-                        // With the resolver, because 私信 arrive as the source that was typed: the
-                        // server expands `:ac01:` in its own renderer and hands the API the shortcode
-                        // untouched. Without it the emoji panel could send a sticker the thread then
-                        // showed back as six characters of punctuation.
-                        nodes = parseMarkdown(message.content, NodeSeekStickers::urlFor),
-                        onLinkClick = onOpenBrowser,
-                        onImageClick = onOpenBrowser,
+                        nodes = nodes,
+                        onLinkClick = { url ->
+                            // Markdown destinations can be site-relative; the content router takes absolute URLs.
+                            if (url.startsWith('/')) NodeSeekSite.absoluteUrl(url)?.let(onLinkClick) else onLinkClick(url)
+                        },
+                        onImageClick = onLinkClick,
                         textStyle = textStyle,
-                        // The long press belongs to the menu below. Left selectable, the renderer's own
-                        // `SelectionContainer` would take it first and only on the Markdown bubbles —
-                        // which is how a conversation came to offer 复制 on one side and nothing on the
-                        // other, the sender's MD switch deciding it without anyone having chosen that.
+                        // The long press belongs to the bubble's copy/quote menu, not text selection.
                         selectable = false,
+                        onLinkLongClick = { menuOpen = true },
                         modifier = contentModifier,
                     )
-                } else {
-                    Text(message.content, style = textStyle, modifier = contentModifier)
                 }
                 BubbleMenu(
                     expanded = menuOpen,
@@ -1138,6 +1145,7 @@ private fun MessageComposer(
     draftState: TextFieldState,
     state: MessageThreadUiState,
     editorState: MarkdownEditorState,
+    bottomInset: Dp,
     onSend: () -> Unit,
     onRemoveQuote: (String) -> Unit,
     onPickImages: (List<PickedImage>) -> Unit,
@@ -1267,6 +1275,19 @@ private fun MessageComposer(
                     onRecentChange = panel.onRecentChange,
                 )
             }
+            val bottomPadding = PaddingValues(bottom = bottomInset)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (editorState.emojiOpen) {
+                            Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .paddingWithKeyboard(bottomPadding),
+            )
         }
     }
 }

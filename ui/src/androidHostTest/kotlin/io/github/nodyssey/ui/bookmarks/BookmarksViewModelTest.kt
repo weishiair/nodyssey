@@ -1,5 +1,6 @@
 package io.github.nodyssey.ui.bookmarks
 
+import io.github.nodyssey.data.BookmarksSync
 import io.github.nodyssey.data.CollectedPostMeta
 import io.github.nodyssey.data.CollectedPostMetaStore
 import io.github.nodyssey.data.NoOpPostRepository
@@ -11,8 +12,11 @@ import io.github.nodyssey.data.SpaceComment
 import io.github.nodyssey.data.SpacePage
 import io.github.nodyssey.data.SpacePost
 import io.github.nodyssey.data.UserSpaceRepository
+import io.github.nodyssey.data.session.AccountRequestGate
+import io.github.plaza.core.AppClock
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -21,8 +25,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -57,8 +63,13 @@ class BookmarksViewModelTest {
 
     private val known = FakeCollectedPostMetaStore()
 
-    private fun viewModel(offline: OfflineLibrary = FakeOfflineLibrary()) =
-        BookmarksViewModel(space, posts, offline, known)
+    private fun TestScope.synchronizer(
+        offline: OfflineLibrary = FakeOfflineLibrary(),
+        gate: AccountRequestGate = AccountRequestGate(),
+    ) = BookmarksSync(space, known, offline, AppClock { testScheduler.currentTime }, this, gate)
+
+    private fun TestScope.viewModel(offline: OfflineLibrary = FakeOfflineLibrary()) =
+        BookmarksViewModel(synchronizer(offline), posts, offline, known)
 
     @Test
     fun `the whole collection is loaded, not one page of it`() =
@@ -129,13 +140,116 @@ class BookmarksViewModelTest {
         }
 
     @Test
-    fun `the walk is bounded and says so when the bound bites`() =
+    fun `reopening while page two waits shares the walk and shows the first page`() =
         runTest(dispatcher) {
-            space.pages = (1..BookmarksViewModel.MAX_PAGES + 3).map { page(it, 1..1, hasNext = true) }
+            val secondPage = CompletableDeferred<Unit>()
+            space.beforePage = { if (it == 2) secondPage.await() }
+            space.pages = listOf(page(1, 1..2, hasNext = true), page(2, 3..4, hasNext = false))
+            val sync = synchronizer()
+            val offline = FakeOfflineLibrary()
+            BookmarksViewModel(sync, posts, offline, known)
+            runCurrent()
+            val reopened = BookmarksViewModel(sync, posts, offline, known)
+            runCurrent()
+
+            assertEquals(listOf(1L, 2L), reopened.uiState.value.entries.map { it.postId })
+            assertEquals(false, reopened.uiState.value.isLoading)
+            assertTrue(reopened.uiState.value.isSyncing)
+            assertEquals(listOf(1, 2), space.requested)
+            secondPage.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(listOf(1L, 2L, 3L, 4L), reopened.uiState.value.entries.map { it.postId })
+        }
+
+    @Test
+    fun `a recent sync is reused on reentry but manual refresh and collection changes bypass it`() =
+        runTest(dispatcher) {
+            val sync = synchronizer()
+            val offline = FakeOfflineLibrary()
+            space.pages = listOf(page(1, 1..1, hasNext = false))
+            BookmarksViewModel(sync, posts, offline, known)
+            advanceUntilIdle()
+
+            space.pages = listOf(page(1, 2..2, hasNext = false))
+            val reopened = BookmarksViewModel(sync, posts, offline, known)
+            advanceUntilIdle()
+            assertEquals(listOf(1), space.requested)
+            assertEquals(1L, reopened.uiState.value.entries.single().postId)
+
+            reopened.refresh()
+            advanceUntilIdle()
+            assertEquals(2L, reopened.uiState.value.entries.single().postId)
+
+            sync.invalidate()
+            space.pages = listOf(page(1, 3..3, hasNext = false))
+            reopened.refreshIfNeeded()
+            advanceUntilIdle()
+            assertEquals(3L, reopened.uiState.value.entries.single().postId)
+            assertEquals(listOf(1, 1, 1), space.requested)
+        }
+
+    @Test
+    fun `switching accounts cancels the old snapshot and does not carry freshness over`() =
+        runTest(dispatcher) {
+            val gate = AccountRequestGate()
+            val sync = synchronizer(gate = gate)
+            val offline = FakeOfflineLibrary()
+            sync.refreshIfNeeded()
+            advanceUntilIdle()
+            val secondPage = CompletableDeferred<Unit>()
+            space.beforePage = { if (it == 2) secondPage.await() }
+            space.pages = listOf(page(1, 1..1, true), page(2, 2..2, false))
+            sync.refresh()
+            runCurrent()
+            assertEquals(listOf(1, 1, 2), space.requested)
+
+            gate.pause()
+            known.relist(emptyList())
+            space.pages = listOf(page(1, 3..3, false))
+            gate.resume()
+            secondPage.complete(Unit)
+            val current = BookmarksViewModel(sync, posts, offline, known)
+            advanceUntilIdle()
+
+            assertEquals(listOf(1, 1, 2, 1), space.requested)
+            assertEquals(listOf(3L), current.uiState.value.entries.map { it.postId })
+        }
+
+    @Test
+    fun `a capped batch preserves the cached tail and continue reaches the real end`() =
+        runTest(dispatcher) {
+            known.rememberCollection(listOf(CollectedPostMeta(postId = 99, title = "cached")))
+            val limit = BookmarksSync.PAGES_PER_BATCH
+            space.pages = (1..limit + 1).map { page(it, it..it, hasNext = it <= limit) }
             val viewModel = viewModel()
             advanceUntilIdle()
 
-            assertEquals(BookmarksViewModel.MAX_PAGES, space.requested.size)
+            assertEquals((1..limit).toList(), space.requested)
+            assertEquals((1..limit).map(Int::toLong) + 99L, viewModel.uiState.value.entries.map { it.postId })
+            assertTrue(viewModel.uiState.value.truncated)
+
+            viewModel.loadMore()
+            advanceUntilIdle()
+            assertEquals(listOf(limit, limit + 1), space.requested.takeLast(2))
+            assertEquals((1..limit + 1).map(Int::toLong), viewModel.uiState.value.entries.map { it.postId })
+            assertEquals(false, viewModel.uiState.value.truncated)
+        }
+
+    @Test
+    fun `continuing restarts if a new collection changed the page boundary`() =
+        runTest(dispatcher) {
+            val limit = BookmarksSync.PAGES_PER_BATCH
+            space.pages = (1..limit + 1).map { page(it, it..it, hasNext = it <= limit) }
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            space.pages = (1..limit + 2).map { page(it, it - 1..it - 1, hasNext = it <= limit + 1) }
+            space.requested.clear()
+
+            viewModel.loadMore()
+            advanceUntilIdle()
+            assertEquals(listOf(limit) + (1..limit), space.requested)
+            assertEquals(0L, viewModel.uiState.value.entries.first().postId)
             assertTrue(viewModel.uiState.value.truncated)
         }
 
@@ -393,10 +507,12 @@ class BookmarksViewModelTest {
         var pages: List<SpacePage<SpacePost>> = emptyList()
         var failure: Throwable? = null
         val requested = mutableListOf<Int>()
+        var beforePage: suspend (Int) -> Unit = {}
 
         override suspend fun collections(page: Int): SpacePage<SpacePost> {
             failure?.let { throw it }
             requested += page
+            beforePage(page)
             return pages.getOrElse(page - 1) { SpacePage(emptyList(), page, false) }
         }
 
@@ -435,6 +551,13 @@ class BookmarksViewModelTest {
         override suspend fun rememberCollection(metas: List<CollectedPostMeta>) {
             remember(metas)
             listed.value = metas.map { it.postId }
+        }
+
+        override suspend fun rememberCollectionPrefix(metas: List<CollectedPostMeta>) {
+            remember(metas)
+            val prefix = metas.map { it.postId }.distinct()
+            val prefixIds = prefix.toSet()
+            listed.update { order -> prefix + order.filterNot { it in prefixIds } }
         }
 
         override suspend fun forget(postIds: Collection<Long>) {
