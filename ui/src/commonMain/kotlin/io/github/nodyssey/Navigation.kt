@@ -977,23 +977,25 @@ internal fun List<NavKey>.showsListPane(): Boolean =
         .any { paneRoleOf(it) == PaneRole.LIST }
 
 /**
- * Whether [key] is the detail drawn directly beside a list, which is the one detail with nothing of
- * its own to go back to: what is under it is already on screen.
- *
- * A detail opened from another detail is not. It covers the one before it in the same half of the
- * window, and without an arrow the only way back to that one would be a gesture nobody can see.
+ * A first detail next to a list can hide its back button when the list already has an empty pane
+ * of its own. An iPad tab root expands only on selection, so the first detail keeps the button
+ * that closes the split and brings the list back to full width.
  *
  * By identity, as the stack hands each entry its own key and an equal key further down is a
  * different page. Only meaningful once the window is wide enough for two panes.
  */
-internal fun List<NavKey>.sitsBesideList(key: NavKey): Boolean {
+internal fun List<NavKey>.hidesDetailBackButton(key: NavKey, isIosPad: Boolean = false): Boolean {
     val index = indexOfLast { it === key }
-    return index > 0 && paneRoleOf(this[index - 1]) == PaneRole.LIST
+    val list = getOrNull(index - 1)
+    return paneRoleOf(list) == PaneRole.LIST && !(isIosPad && list.opensSplitOnSelection())
 }
+
+/** iPad tab roots fill the window until the reader selects something to open beside them. */
+internal fun NavKey?.opensSplitOnSelection(): Boolean = this == PostListKey || this == NotificationsKey
 
 /**
  * The detail on screen beside [list] on a wide window — the last of the details directly above it —
- * or null when nothing has been opened from it yet. By identity, as [sitsBesideList] is.
+ * or null when nothing has been opened from it yet. By identity, as [hidesDetailBackButton] is.
  */
 internal fun List<NavKey>.detailBeside(list: NavKey): NavKey? {
     val index = indexOfFirst { it === list }
@@ -1010,7 +1012,7 @@ internal fun List<NavKey>.detailBeside(list: NavKey): NavKey? {
  * nothing. On a narrow window it is the ordinary push, where Back to the list is the point.
  *
  * Only a list's own rows open this way. A thread opened from a link inside another still goes on
- * top of it, beside the same list, and keeps its arrow back — see [sitsBesideList].
+ * top of it, beside the same list, and keeps its arrow back — see [hidesDetailBackButton].
  */
 internal fun MutableList<NavKey>.openFromList(
     list: NavKey,

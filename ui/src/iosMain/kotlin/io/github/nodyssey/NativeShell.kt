@@ -42,6 +42,7 @@ import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.ClipboardPost
 import io.github.nodyssey.ui.common.IosClipboardPostReader
+import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
@@ -52,6 +53,7 @@ import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
+import io.github.nodyssey.ui.navigation.supportsIosListDetail
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
 import io.github.nodyssey.ui.postdetail.LocalNativeReadingToolbar
@@ -274,7 +276,7 @@ private class NativeShell(
         }
 
     private var listDetailExpanded by mutableStateOf(false)
-    val root: UITabBarController = ShellTabBarController(onWidth = ::onWindowWidth)
+    val root: UITabBarController = ShellTabBarController(onWindowSize = ::onWindowSize)
 
     private val navigationControllers: Map<TopLevelDestination, UINavigationController> =
         TopLevelDestination.entries.associateWith { destination ->
@@ -509,7 +511,7 @@ private class NativeShell(
     /**
      * Hands [destination]'s navigation controller the screens its stack now calls for.
      *
-     * [relayout] is a change of window width rather than of the stack: the same pages, grouped
+     * [relayout] is a change of window size rather than of the stack: the same pages, grouped
      * again without a navigation animation. It must still wait for UIKit's transition: a rotation
      * animates the existing Compose scenes, which cannot be moved to another container mid-flight.
      */
@@ -543,7 +545,11 @@ private class NativeShell(
         val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
         val layout = paneGroups(keys, listDetailExpanded, ::paneKindOf)
         val onScreen = navigationController.view.window != null
-        val animated = onScreen && !needsRelayout
+        // The tab's list controller moves between navigation stacks when the first detail opens or
+        // closes. As on resize, UIKit must finish that transfer before drawing the reused page.
+        val wasRootSplit = groups.getValue(destination).firstOrNull() is PaneGroup.Split
+        val isRootSplit = layout.firstOrNull() is PaneGroup.Split
+        val animated = onScreen && !needsRelayout && wasRootSplit == isRootSplit
 
         syncing = true
         try {
@@ -597,8 +603,8 @@ private class NativeShell(
         if (root.tabBarHidden != hidden) root.setTabBarHidden(hidden, animated = root.view.window != null)
     }
 
-    private fun onWindowWidth(width: Double) {
-        val expanded = isPad && width >= LIST_DETAIL_MIN_WIDTH
+    private fun onWindowSize(width: Double, height: Double) {
+        val expanded = isPad && supportsIosListDetail(width, height)
         if (expanded == listDetailExpanded) return
         listDetailExpanded = expanded
         TopLevelDestination.entries.forEach { sync(it, relayout = true) }
@@ -980,17 +986,17 @@ private class NativeShell(
 }
 
 /**
- * The tab controller, reporting its width on every layout: what [NativeShell] decides one pane or two
+ * The tab controller, reporting its size on every layout: what [NativeShell] decides one pane or two
  * by. Its own bounds rather than the screen's, because in Split View and Stage Manager the window is
  * not the screen.
  */
 @OptIn(ExperimentalForeignApi::class)
 private class ShellTabBarController(
-    private val onWidth: (Double) -> Unit,
+    private val onWindowSize: (width: Double, height: Double) -> Unit,
 ) : UITabBarController(nibName = null, bundle = null) {
     private val layoutUpdates = WindowLayoutDispatcher(
         post = { update -> NSOperationQueue.mainQueue.addOperationWithBlock { update() } },
-        onLayout = { onWidth(view.bounds.useContents { size.width }) },
+        onLayout = { view.bounds.useContents { onWindowSize(size.width, size.height) } },
     )
 
     override fun viewDidLayoutSubviews() {
@@ -1021,6 +1027,7 @@ private fun DeviceLocals(
     Box(modifier) {
         if (isPad) {
             CompositionLocalProvider(
+                LocalIosPad provides true,
                 LocalOneHandMode provides false,
                 LocalOneHandModeAvailable provides false,
                 content = content,
@@ -1031,16 +1038,9 @@ private fun DeviceLocals(
     }
 }
 
-/**
- * Where Android's `calculatePaneScaffoldDirective` starts drawing two panes: Material's expanded
- * width class. An iPad in landscape and the larger ones in portrait are past it; an 11-inch or
- * smaller iPad in portrait, and half of one in Split View, keep one screen at a time.
- */
-private const val LIST_DETAIL_MIN_WIDTH = 840.0
-
 private fun paneKindOf(key: NavKey): PaneKind =
     when (paneRoleOf(key)) {
-        PaneRole.LIST -> PaneKind.LIST
+        PaneRole.LIST -> if (key.opensSplitOnSelection()) PaneKind.LIST_WHEN_DETAIL else PaneKind.LIST
         PaneRole.DETAIL -> PaneKind.DETAIL
         null -> PaneKind.NONE
     }

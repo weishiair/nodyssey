@@ -30,9 +30,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,6 +72,7 @@ import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.groupedListItemColors
 import io.github.plaza.designsys.component.listAvatarSize
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -198,6 +201,8 @@ internal fun ConversationList(
     }
 }
 
+internal val LocalSelectedConversationUid = compositionLocalOf<Long?> { null }
+
 /**
  * One conversation, as one slice of its card (5b).
  *
@@ -215,9 +220,14 @@ private fun ConversationRow(
     draft: MessageDraft? = null,
 ) {
     val isUnread = conversation.unreadCount > 0
+    val selected = LocalSelectedConversationUid.current?.let { it == conversation.uid }
     GroupedListItem(
         first = first,
         last = last,
+        selected = selected,
+        colors = groupedListItemColors(
+            containerColor = if (selected == true) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        ),
         onClick = onClick,
         modifier = modifier,
         leadingContent = { ConversationAvatar(conversation) },
