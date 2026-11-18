@@ -44,11 +44,13 @@ import okio.IOException
  * answer to that stays 已是最新 until `1.3.0` ships — so a tester who never found the switch would
  * sit on a build that has had four successors and be told there is nothing. The switch still wins
  * once it is touched, in both directions, which is what keeps turning it off from being undone here.
+ * @param oneHandModeDefault the platform shell's default before the reader chooses a value.
  */
 class SettingsRepository(
     private val dataStore: DataStore<Preferences>,
     private val devChannelDefault: Boolean = false,
     site: Site = ActiveSite.current,
+    private val oneHandModeDefault: Boolean = true,
 ) : UpdateCheckStore {
     // Capture the site per graph; companion keys would keep the first site's suffix after a switch.
     private val hiddenHomeBoardsKey = stringPreferencesKey("hidden_home_boards${site.storageSuffix}")
@@ -96,7 +98,7 @@ class SettingsRepository(
                     ?: ReadMarkStyle.BLOCK,
                 readMarkColor = preferences[KEY_READ_MARK_COLOR],
                 fontScale = preferences[KEY_FONT_SCALE] ?: 1f,
-                oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: true,
+                oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: oneHandModeDefault,
                 einkMode = preferences[KEY_EINK_MODE] ?: false,
                 frostedGlass = preferences[KEY_FROSTED_GLASS] ?: false,
                 predictiveBack = preferences[KEY_PREDICTIVE_BACK] ?: true,
@@ -933,7 +935,7 @@ data class UserSettings(
      * 单手模式 — whether a second-level screen opens with its title dropped into a band of blank
      * within the thumb's reach, which the reader then drags to whatever height suits them.
      *
-     * On by default, which is what every build since that bar landed has done. Off turns all of them
+     * On by default on Android; the iOS shell defaults to off. Off turns all of them
      * back into ordinary pinned toolbars: nothing is hidden and nothing moves, the top of the screen
      * simply goes back to being content. It is one answer for the whole app rather than one per
      * screen, because it is a fact about the hand and not about the page — see `LocalOneHandMode`.

@@ -478,6 +478,7 @@ class IosAppContainer(
         SettingsRepository(
             dataStore = createPreferenceDataStore("settings"),
             devChannelDefault = isPreReleaseVersionName(appVersion.name),
+            oneHandModeDefault = false,
         )
     }
 
