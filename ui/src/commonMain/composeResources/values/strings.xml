@@ -1799,6 +1799,7 @@
     <string name="notify_app_alerts_footer">这两项看的是公开列表，不登录也能用。追帖只看「最新回复」排序的前两页：一个检查周期内被顶出前两页的帖子会漏掉提醒，你在首页隐藏的版块里的帖子也追不到。</string>
     <!-- 追踪的帖子列表页 -->
     <string name="tracked_threads_title">追踪的帖子</string>
+    <string name="tracked_threads_empty">还没有追踪的帖子。在帖子右上角的菜单里点「追踪新回复」。</string>
     <string name="tracked_threads_empty_title">还没有追踪的帖子</string>
     <string name="tracked_threads_empty_body">在帖子右上角的菜单里点「追踪新回复」。</string>
     <!-- %1$s 是帖子标题，读屏用 -->

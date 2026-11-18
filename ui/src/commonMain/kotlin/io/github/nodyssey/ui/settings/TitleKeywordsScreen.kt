@@ -44,6 +44,7 @@ import io.github.nodyssey.ui.resources.keywords_block_title
 import io.github.nodyssey.ui.resources.keywords_empty
 import io.github.nodyssey.ui.resources.keywords_remove
 import io.github.plaza.designsys.component.GroupedListItem
+import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.groupedRowTitleStyle
@@ -84,12 +85,12 @@ fun TitleKeywordsScreen(
     modifier: Modifier = Modifier,
     backgroundPollingSupported: Boolean = platformHasBackgroundNotificationPolling,
 ) {
-    val layers = LocalPlazaLayers.current
+    val nativeChrome = LocalPlazaLayers.current.nativeChrome
     val appBarState = rememberOneHandAppBarState()
     val alerts = state.kind == TitleKeywordKind.ALERT
     Scaffold(
-        modifier = if (layers.nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
-        containerColor = settingsPageColor(),
+        modifier = if (nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = if (nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         topBar = {
             SettingsTopBar(
                 title = stringResource(if (alerts) Res.string.keywords_alert_title else Res.string.keywords_block_title),
@@ -99,17 +100,24 @@ fun TitleKeywordsScreen(
             )
         },
     ) { padding ->
+        val insets = if (nativeChrome) {
+            Modifier.padding(padding.withoutBottom()).consumeWindowInsets(padding.withoutBottom()).imePadding()
+        } else {
+            Modifier.padding(padding)
+        }
+        val gutter = if (nativeChrome) {
+            Modifier.padding(settingsScrollPadding(padding))
+        } else {
+            Modifier.padding(horizontal = LayerPageGutter, vertical = Spacing.sm)
+        }
         Column(
-            modifier = Modifier
-                .padding(padding.withoutBottom())
-                .consumeWindowInsets(padding.withoutBottom())
-                .imePadding()
+            modifier = insets
                 .fillMaxSize()
-                .then(if (layers.nativeChrome) Modifier.clipToBounds() else Modifier)
+                .then(if (nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(settingsScrollPadding(padding)),
-            verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
+                .then(gutter),
+            verticalArrangement = Arrangement.spacedBy(if (nativeChrome) SettingsItemGap else Spacing.md),
         ) {
             OutlinedTextField(
                 value = state.input,
@@ -125,39 +133,32 @@ fun TitleKeywordsScreen(
                     TextButton(
                         onClick = onAdd,
                         enabled = state.input.isNotBlank(),
-                        modifier = Modifier.padding(end = Spacing.xs),
+                        modifier = if (nativeChrome) Modifier.padding(end = Spacing.xs) else Modifier,
                     ) {
                         Text(stringResource(Res.string.keywords_add_action))
                     }
                 },
             )
             if (state.keywords.isEmpty()) {
-                SettingsGroup {
-                    GroupedListItem(
-                        first = true,
-                        last = true,
-                        headlineContent = {
-                            Text(
-                                stringResource(Res.string.keywords_empty),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                    )
+                if (nativeChrome) {
+                    SettingsGroup {
+                        GroupedListItem(first = true, last = true, headlineContent = { EmptyKeywords() })
+                    }
+                } else {
+                    EmptyKeywords(Modifier.padding(horizontal = Spacing.xs))
                 }
             } else {
-                SettingsGroup {
+                val rows: @Composable () -> Unit = {
                     state.keywords.forEachIndexed { index, keyword ->
                         GroupedListItem(
                             first = index == 0,
                             last = index == state.keywords.lastIndex,
                             headlineContent = {
-                                Text(
-                                    keyword,
-                                    style = groupedRowTitleStyle(),
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                if (nativeChrome) {
+                                    Text(keyword, style = groupedRowTitleStyle(), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                } else {
+                                    Text(keyword, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
                             },
                             trailingContent = {
                                 IconButton(onClick = { onRemove(keyword) }) {
@@ -167,18 +168,37 @@ fun TitleKeywordsScreen(
                         )
                     }
                 }
+                if (nativeChrome) SettingsGroup { rows() } else Column { rows() }
             }
-            SectionNote(
-                stringResource(
-                    when {
-                        !alerts -> Res.string.keywords_block_footer
-                        backgroundPollingSupported -> Res.string.keywords_alert_footer
-                        else -> Res.string.keywords_alert_footer_no_polling
-                    },
-                ),
+            val footer = stringResource(
+                when {
+                    !alerts -> Res.string.keywords_block_footer
+                    backgroundPollingSupported -> Res.string.keywords_alert_footer
+                    else -> Res.string.keywords_alert_footer_no_polling
+                },
             )
+            if (nativeChrome) {
+                SectionNote(footer)
+            } else {
+                Text(
+                    footer,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.xs),
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun EmptyKeywords(modifier: Modifier = Modifier) {
+    Text(
+        stringResource(Res.string.keywords_empty),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier,
+    )
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 640)

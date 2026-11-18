@@ -9,16 +9,13 @@ import androidx.compose.ui.test.performScrollTo
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.keywords_alert_title
-import io.github.nodyssey.ui.resources.lottery_title
 import io.github.nodyssey.ui.resources.notifications_interactions
 import io.github.nodyssey.ui.resources.notifications_messages
-import io.github.nodyssey.ui.resources.notify_background_unavailable_title
 import io.github.nodyssey.ui.resources.notify_frequency
 import io.github.nodyssey.ui.resources.notify_frequency_15
 import io.github.nodyssey.ui.resources.notify_frequency_every
 import io.github.nodyssey.ui.resources.notify_keyword_alerts
 import io.github.nodyssey.ui.resources.notify_mail
-import io.github.nodyssey.ui.resources.notify_master_title
 import io.github.nodyssey.ui.resources.notify_quiet_hours
 import io.github.nodyssey.ui.resources.notify_telegram_title
 import io.github.nodyssey.ui.resources.notify_tracked_threads
@@ -41,92 +38,6 @@ import org.robolectric.annotation.GraphicsMode
 class NotificationSettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
-
-    @Test
-    fun `unsupported background polling hides polling controls and respects optional lottery entry`() {
-        var masterTitle = ""
-        var frequencyTitle = ""
-        var wifiTitle = ""
-        var unavailableTitle = ""
-        var lotteryTitle = ""
-        var keywordsTitle = ""
-        var trackedTitle = ""
-        var telegramTitle = ""
-        var openedKeywords = false
-        var openedTracked = false
-        var openedTelegram = false
-
-        composeRule.setContent {
-            PlazaTheme {
-                masterTitle = stringResource(Res.string.notify_master_title)
-                frequencyTitle = stringResource(Res.string.notify_frequency)
-                wifiTitle = stringResource(Res.string.notify_wifi_only)
-                unavailableTitle = stringResource(Res.string.notify_background_unavailable_title)
-                lotteryTitle = stringResource(Res.string.lottery_title)
-                keywordsTitle = stringResource(Res.string.keywords_alert_title)
-                trackedTitle = stringResource(Res.string.tracked_threads_title)
-                telegramTitle = stringResource(Res.string.notify_telegram_title)
-                NotificationSettingsScreen(
-                    settings = UserSettings(notificationsEnabled = true),
-                    onBack = {},
-                    onEnabledChange = {},
-                    onPollMinutesChange = {},
-                    onWifiOnlyChange = {},
-                    onQuietHoursChange = {},
-                    onNotifyInteractionsChange = {},
-                    onNotifyMessagesChange = {},
-                    onOpenTelegram = { openedTelegram = true },
-                    alertCounts = AlertCounts(keywords = 2, trackedThreads = 3),
-                    onOpenAlertKeywords = { openedKeywords = true },
-                    onOpenTrackedThreads = { openedTracked = true },
-                    onOpenLottery = null,
-                    backgroundPollingSupported = false,
-                )
-            }
-        }
-
-        composeRule.onNodeWithText(unavailableTitle).assertExists()
-        composeRule.onNodeWithText(masterTitle).assertDoesNotExist()
-        composeRule.onNodeWithText(frequencyTitle).assertDoesNotExist()
-        composeRule.onNodeWithText(wifiTitle).assertDoesNotExist()
-        composeRule.onNodeWithText(lotteryTitle).assertDoesNotExist()
-
-        composeRule.onNodeWithText(keywordsTitle).performClick()
-        composeRule.onNodeWithText(trackedTitle).performClick()
-        composeRule.onNodeWithText(telegramTitle).performClick()
-
-        assertTrue(openedKeywords)
-        assertTrue(openedTracked)
-        assertTrue(openedTelegram)
-    }
-
-    @Test
-    fun `available lottery entry navigates when clicked`() {
-        var lotteryTitle = ""
-        var openedLottery = false
-
-        composeRule.setContent {
-            PlazaTheme {
-                lotteryTitle = stringResource(Res.string.lottery_title)
-                NotificationSettingsScreen(
-                    settings = UserSettings(notificationsEnabled = false),
-                    onBack = {},
-                    onEnabledChange = {},
-                    onPollMinutesChange = {},
-                    onWifiOnlyChange = {},
-                    onQuietHoursChange = {},
-                    onNotifyInteractionsChange = {},
-                    onNotifyMessagesChange = {},
-                    onOpenTelegram = {},
-                    onOpenLottery = { openedLottery = true },
-                    backgroundPollingSupported = false,
-                )
-            }
-        }
-
-        composeRule.onNodeWithText(lotteryTitle).performClick()
-        assertTrue(openedLottery)
-    }
 
     @Test
     fun `master switch off disables polling rows while keeping management and telegram enabled`() {

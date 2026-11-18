@@ -1519,6 +1519,7 @@
     <string name="notify_tracked_threads">追蹤新回覆</string>
     <string name="notify_app_alerts_footer">這兩項看的是公開列表，不登入也能用。追帖只看「最新回覆」排序的前兩頁：一個檢查週期內被頂出前兩頁的帖子會漏掉提醒，你在首頁隱藏的版塊裡的帖子也追不到。</string>
     <string name="tracked_threads_title">追蹤的帖子</string>
+    <string name="tracked_threads_empty">還沒有追蹤的帖子。在帖子右上角的選單裡點「追蹤新回覆」。</string>
     <string name="tracked_threads_empty_title">還沒有追蹤的帖子</string>
     <string name="tracked_threads_empty_body">在帖子右上角的選單裡點「追蹤新回覆」。</string>
     <string name="tracked_threads_untrack">取消追蹤 %1$s</string>

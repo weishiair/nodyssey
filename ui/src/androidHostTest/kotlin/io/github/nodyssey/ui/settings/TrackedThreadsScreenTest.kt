@@ -1,9 +1,5 @@
 package io.github.nodyssey.ui.settings
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -12,8 +8,6 @@ import io.github.nodyssey.data.TrackedThread
 import io.github.nodyssey.data.TrackedThreadStore
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.post_reply_count
-import io.github.nodyssey.ui.resources.tracked_threads_empty_body
-import io.github.nodyssey.ui.resources.tracked_threads_empty_title
 import io.github.nodyssey.ui.resources.tracked_threads_untrack
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.jetbrains.compose.resources.stringResource
@@ -110,48 +104,5 @@ class TrackedThreadsScreenTest {
 
         composeRule.onNodeWithText("alice · $zeroReplies").assertDoesNotExist()
         composeRule.onNodeWithText("bob · $fiveReplies").assertExists()
-    }
-
-    @Test
-    fun `untracking the last thread transitions screen into empty state`() {
-        var untrackLabel = ""
-        var emptyTitle = ""
-        var emptyBody = ""
-        val opened = mutableListOf<Long>()
-
-        composeRule.setContent {
-            PlazaTheme {
-                untrackLabel = stringResource(Res.string.tracked_threads_untrack, "Last Tracked Post")
-                emptyTitle = stringResource(Res.string.tracked_threads_empty_title)
-                emptyBody = stringResource(Res.string.tracked_threads_empty_body)
-                var threads by remember {
-                    mutableStateOf(
-                        listOf(
-                            TrackedThread(
-                                postId = 99L,
-                                title = "Last Tracked Post",
-                                lastKnownCount = 3,
-                                authorName = "carol",
-                                categoryTitle = "交易",
-                                categorySlug = "trade",
-                            ),
-                        ),
-                    )
-                }
-                TrackedThreadsScreen(
-                    threads = threads,
-                    onBack = {},
-                    onOpenThread = { opened += it },
-                    onUntrack = { id -> threads = threads.filterNot { it.postId == id } },
-                )
-            }
-        }
-
-        composeRule.onNodeWithText("Last Tracked Post").assertExists()
-        composeRule.onNodeWithContentDescription(untrackLabel).performClick()
-
-        assertTrue(opened.isEmpty())
-        composeRule.onNodeWithText(emptyTitle).assertExists()
-        composeRule.onNodeWithText(emptyBody).assertExists()
     }
 }

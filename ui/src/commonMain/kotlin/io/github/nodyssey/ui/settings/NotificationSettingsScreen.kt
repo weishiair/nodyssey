@@ -167,7 +167,7 @@ fun NotificationSettingsScreen(
     var frequencySheet by remember { mutableStateOf(false) }
     Scaffold(
         modifier = if (layers.nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
-        containerColor = settingsPageColor(),
+        containerColor = if (layers.nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         topBar = {
             SettingsTopBar(
                 title = stringResource(Res.string.notify_settings_title),
@@ -180,12 +180,12 @@ fun NotificationSettingsScreen(
         Column(
             modifier =
             Modifier
-                .padding(padding.withoutBottom())
+                .padding(if (layers.nativeChrome) padding.withoutBottom() else padding)
                 .fillMaxSize()
                 .then(if (layers.nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(settingsScrollPadding(padding)),
+                .padding(if (layers.nativeChrome) settingsScrollPadding(padding) else SettingsPagePadding),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             if (backgroundPollingSupported) {

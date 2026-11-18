@@ -19,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -41,12 +42,14 @@ import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.post_reply_count
+import io.github.nodyssey.ui.resources.tracked_threads_empty
 import io.github.nodyssey.ui.resources.tracked_threads_empty_body
 import io.github.nodyssey.ui.resources.tracked_threads_empty_title
 import io.github.nodyssey.ui.resources.tracked_threads_title
 import io.github.nodyssey.ui.resources.tracked_threads_untrack
 import io.github.plaza.designsys.component.GroupDividerInset
 import io.github.plaza.designsys.component.GroupedListItem
+import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaText
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.StatusView
@@ -106,11 +109,11 @@ fun TrackedThreadsScreen(
     onUntrack: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val layers = LocalPlazaLayers.current
+    val nativeChrome = LocalPlazaLayers.current.nativeChrome
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
-        modifier = if (layers.nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
-        containerColor = settingsPageColor(),
+        modifier = if (nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = if (nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         topBar = {
             SettingsTopBar(
                 title = stringResource(Res.string.tracked_threads_title),
@@ -120,42 +123,59 @@ fun TrackedThreadsScreen(
             )
         },
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .padding(padding.withoutBottom())
-                .fillMaxSize()
-                .then(if (layers.nativeChrome) Modifier.clipToBounds() else Modifier)
-                .readableWidth(),
-        ) {
-            if (threads.isEmpty()) {
-                StatusView(
-                    icon = PlazaIcons.Forum,
-                    shape = StatusShapes.Empty,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    iconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    title = stringResource(Res.string.tracked_threads_empty_title),
-                    description = stringResource(Res.string.tracked_threads_empty_body),
-                    modifier = Modifier.padding(bottom = padding.bottomWithFloatingBar()),
+        val rows: @Composable () -> Unit = {
+            threads.forEachIndexed { index, thread ->
+                TrackedThreadRow(
+                    thread = thread,
+                    first = index == 0,
+                    last = index == threads.lastIndex,
+                    onClick = { onOpenThread(thread.postId) },
+                    onUntrack = { onUntrack(thread.postId) },
+                    singleLineByline = !nativeChrome,
                 )
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(settingsScrollPadding(padding)),
-                    verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
-                ) {
-                    SettingsGroup {
-                        threads.forEachIndexed { index, thread ->
-                            TrackedThreadRow(
-                                thread = thread,
-                                first = index == 0,
-                                last = index == threads.lastIndex,
-                                onClick = { onOpenThread(thread.postId) },
-                                onUntrack = { onUntrack(thread.postId) },
-                            )
-                        }
+            }
+        }
+        if (nativeChrome) {
+            Box(
+                modifier = Modifier.padding(padding.withoutBottom()).fillMaxSize().clipToBounds().readableWidth(),
+            ) {
+                if (threads.isEmpty()) {
+                    StatusView(
+                        icon = PlazaIcons.Forum,
+                        shape = StatusShapes.Empty,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        iconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        title = stringResource(Res.string.tracked_threads_empty_title),
+                        description = stringResource(Res.string.tracked_threads_empty_body),
+                        modifier = Modifier.padding(bottom = padding.bottomWithFloatingBar()),
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(settingsScrollPadding(padding)),
+                    ) {
+                        SettingsGroup { rows() }
                     }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .readableWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = LayerPageGutter, vertical = Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                if (threads.isEmpty()) {
+                    Text(
+                        stringResource(Res.string.tracked_threads_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = Spacing.xs),
+                    )
+                } else {
+                    Column { rows() }
                 }
             }
         }
@@ -175,6 +195,7 @@ private fun TrackedThreadRow(
     last: Boolean,
     onClick: () -> Unit,
     onUntrack: () -> Unit,
+    singleLineByline: Boolean,
 ) {
     GroupedListItem(
         first = first,
@@ -194,7 +215,7 @@ private fun TrackedThreadRow(
                 // A count below zero is "not seen yet" — nothing to print until a poll has looked.
                 val replies = thread.lastKnownCount.takeIf { it >= 0 }?.let { stringResource(Res.string.post_reply_count, it) }
                 val byline = listOfNotNull(thread.authorName?.takeIf { it.isNotBlank() }, replies)
-                if (byline.isNotEmpty()) MetaText(byline.joinToString(" · "))
+                if (byline.isNotEmpty()) MetaText(byline.joinToString(" · "), singleLine = singleLineByline)
             }
         },
         trailingContent = {
