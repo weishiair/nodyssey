@@ -6,6 +6,37 @@ import kotlin.test.assertTrue
 
 class MarkdownTest {
     @Test
+    fun `chat markdown links bare URLs without changing code or existing destinations`() {
+        val url = "https://example.com/wiki/Foo_(bar)?part=2#details"
+        val input = "> **$url**、`$url`、[说明](/post-42-2)"
+        val quote = parseMarkdown(input, linkify = true).single() as RichNode.Quote
+        val inlines = (quote.children.single() as RichNode.Paragraph).inlines
+
+        assertEquals(
+            listOf(InlineNode.Link(url, url, InlineStyle(bold = true)), InlineNode.Link("说明", "/post-42-2")),
+            inlines.filterIsInstance<InlineNode.Link>(),
+        )
+        assertTrue(InlineNode.Text(url, InlineStyle(code = true)) in inlines)
+        assertEquals(listOf(InlineNode.Text(url)), (parseMarkdown(url).single() as RichNode.Paragraph).inlines)
+    }
+
+    @Test
+    fun `plain text keeps formatting literal and punctuation outside link targets`() {
+        val first = "https://www.nodeseek.com/post-42-2"
+        val second = "https://example.com/wiki/Foo_(bar)?part=1#details"
+        assertEquals(
+            listOf(
+                InlineNode.Text("**帖子（"),
+                InlineNode.Link(first, first),
+                InlineNode.Text("）。**\n("),
+                InlineNode.Link(second, second),
+                InlineNode.Text(")."),
+            ),
+            linkifyPlainText("**帖子（$first）。**\n($second)."),
+        )
+    }
+
+    @Test
     fun `parses the editor syntax used by the preview`() {
         val nodes = parseMarkdown(
             """

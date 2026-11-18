@@ -37,6 +37,7 @@ import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -234,6 +235,8 @@ fun RichContent(
      * bubbles while the plain ones did nothing was exactly the asymmetry that menu exists to end.
      */
     selectable: Boolean = true,
+    /** Lets a host with its own long-press actions handle a press on a link as well. */
+    onLinkLongClick: (() -> Unit)? = null,
 ) {
     // Reading upgrades happen here, at the display seam, so the same styles stay safe to reuse in
     // editors — see `TextStyle.asProse` for why an editor must never inherit them.
@@ -253,10 +256,12 @@ fun RichContent(
     }
     // The container is what a selection needs, so it goes away entirely rather than being told to
     // select nothing — `DisableSelection` inside one would still leave the gesture detector there.
-    if (selectable) {
-        RichSelectionContainer(modifier = modifier) { blocks(Modifier) }
-    } else {
-        blocks(modifier)
+    CompositionLocalProvider(LocalRichLinkLongClick provides onLinkLongClick) {
+        if (selectable) {
+            RichSelectionContainer(modifier = modifier) { blocks(Modifier) }
+        } else {
+            blocks(modifier)
+        }
     }
 }
 
