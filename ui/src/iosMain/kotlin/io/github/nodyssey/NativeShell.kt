@@ -1104,6 +1104,7 @@ private fun NavKey.makesRoomForKeyboard(): Boolean =
         this is SignInKey ||
         this is MessageThreadKey ||
         this is DohSettingsKey ||
+        this is ImageHostKey ||
         this is StickerAddKey ||
         this is ThemeSettingsKey
 
