@@ -462,7 +462,7 @@ private fun CustomSeedRow(
 /**
  * 我的主题 — the seeds a reader named, plus the way to make another.
  *
- * Long-press opens rename and delete, which is what the line beside the heading says. There is no
+ * Long-press opens rename and delete, which is what the hint by the heading says. There is no
  * swipe and no edit mode: the row is at most a dozen chips, and both actions are rare.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -481,11 +481,14 @@ private fun MyThemesBlock(
         modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = 14.dp, bottom = Spacing.md),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Keep the heading intact: at large text sizes the hint needs a line of its own.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
             Text(
                 stringResource(Res.string.settings_my_themes),
                 style = groupedRowTitleStyle(),
-                modifier = Modifier.weight(1f),
             )
             Text(
                 stringResource(Res.string.settings_my_themes_hint),
