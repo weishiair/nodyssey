@@ -54,6 +54,8 @@ import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
+import io.github.nodyssey.ui.postdetail.LocalNativeReadingToolbar
+import io.github.nodyssey.ui.postdetail.NativeReadingToolbar
 import io.github.nodyssey.ui.postlist.HomeFeedStates
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.about_privacy
@@ -110,6 +112,7 @@ import platform.UIKit.hidesBottomBarWhenPushed
 import platform.UIKit.modalInPresentation
 import platform.UIKit.removeFromParentViewController
 import platform.UIKit.tabBarItem
+import platform.UIKit.toolbarItems
 import platform.UIKit.transitionCoordinator
 import platform.UIKit.willMoveToParentViewController
 import platform.darwin.NSObject
@@ -468,6 +471,7 @@ private class NativeShell(
                             // view model lives exactly as long as its entry is on the stack — see
                             // [flushReleases] — and not as long as UIKit keeps the controller around.
                             LocalViewModelStoreOwner provides owner,
+                            LocalNativeReadingToolbar provides { state -> NativeReadingToolbar(state) },
                             // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
                             LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
                             // 测评对比 from any report card's 对比 (n), onto this page's tab.
@@ -874,6 +878,15 @@ private class NativeShell(
         private val destination: TopLevelDestination,
     ) : NSObject(),
         UINavigationControllerDelegateProtocol {
+        @ObjCSignatureOverride
+        override fun navigationController(
+            navigationController: UINavigationController,
+            willShowViewController: UIViewController,
+            animated: Boolean,
+        ) {
+            navigationController.setToolbarHidden(willShowViewController.toolbarItems.isNullOrEmpty(), animated = animated)
+        }
+
         /*
          * Called when a transition has finished, whichever side started it. After a pop UIKit made —
          * a swipe, the tab bar's pop-to-root — the controller holds fewer screens than the mirror,
@@ -881,6 +894,7 @@ private class NativeShell(
          * already agree and nothing is written. A swipe that was let go of halfway lands here too,
          * with nothing popped.
          */
+        @ObjCSignatureOverride
         override fun navigationController(
             navigationController: UINavigationController,
             didShowViewController: UIViewController,
@@ -899,11 +913,21 @@ private class NativeShell(
         private val split: Split,
     ) : NSObject(),
         UINavigationControllerDelegateProtocol {
+        @ObjCSignatureOverride
+        override fun navigationController(
+            navigationController: UINavigationController,
+            willShowViewController: UIViewController,
+            animated: Boolean,
+        ) {
+            navigationController.setToolbarHidden(willShowViewController.toolbarItems.isNullOrEmpty(), animated = animated)
+        }
+
         /*
          * [NavigationDelegate] for the right half of a pair: a swipe there pops a detail, and the back
          * stack loses that one. Only the pair on top of its tab can be swiped, so the entries it
          * stands for are the last ones on the stack.
          */
+        @ObjCSignatureOverride
         override fun navigationController(
             navigationController: UINavigationController,
             didShowViewController: UIViewController,
