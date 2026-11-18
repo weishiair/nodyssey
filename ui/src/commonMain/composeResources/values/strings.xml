@@ -2128,6 +2128,10 @@
     <string name="mail_read_status">已读</string>
     <string name="mail_unread_status">未读</string>
     <string name="mail_recipient_address">收件地址：%1$s</string>
+    <string name="settings_bottom_bar_position">底部栏位置</string>
+    <string name="settings_bottom_bar_position_low">低</string>
+    <string name="settings_bottom_bar_position_medium">中</string>
+    <string name="settings_bottom_bar_position_high">高</string>
     <string name="settings_frosted_glass">毛玻璃质感</string>
     <string name="settings_frosted_glass_hint">悬浮胶囊底栏与顶栏半透明高光；帖子卡片保持纯色以确保阅读对比度</string>
 

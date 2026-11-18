@@ -15,9 +15,10 @@ import androidx.paging.PagingData
 import androidx.paging.compose.collectAsLazyPagingItems
 import io.github.nodyssey.data.Board
 import io.github.nodyssey.data.FeedPost
+import io.github.nodyssey.data.settings.BottomBarPosition
 import io.github.nodyssey.model.PostSummary
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
-import io.github.nodyssey.ui.navigation.FloatingGlassBarClearance
+import io.github.nodyssey.ui.common.bottomBarClearance
 import io.github.nodyssey.ui.postlist.PostListScreen
 import io.github.nodyssey.ui.postlist.PostListUiState
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -79,7 +80,7 @@ class FloatingBottomTransitionTest {
         val visibilityChanges = mutableListOf<Boolean>()
         composeRule.setContent {
             PlazaTheme(darkTheme = true, frostedGlass = true) {
-                CompositionLocalProvider(LocalFloatingBottomBarHeight provides FloatingGlassBarClearance) {
+                CompositionLocalProvider(LocalFloatingBottomBarHeight provides BottomBarPosition.MEDIUM.bottomBarClearance) {
                     val feed = remember {
                         flowOf(
                             PagingData.from(

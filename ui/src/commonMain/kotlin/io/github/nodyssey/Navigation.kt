@@ -69,10 +69,13 @@ import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
+import io.github.nodyssey.ui.common.LocalBottomBarPosition
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.ThreadSharedTransition
 import io.github.nodyssey.ui.common.appName
+import io.github.nodyssey.ui.common.bottomBarClearance
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.common.contentSwipeBack
@@ -84,8 +87,7 @@ import io.github.nodyssey.ui.composer.ComposerShare
 import io.github.nodyssey.ui.composer.PendingComposerShare
 import io.github.nodyssey.ui.login.WebViewGoal
 import io.github.nodyssey.ui.mail.MailMonitorViewModel
-import io.github.nodyssey.ui.navigation.FloatingGlassBarClearance
-import io.github.nodyssey.ui.navigation.GlassBottomNavigationBar
+import io.github.nodyssey.ui.navigation.FloatingBottomNavigationBar
 import io.github.nodyssey.ui.navigation.NodysseyNavigationItems
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
@@ -275,8 +277,8 @@ fun MainNavigation(
         defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
             defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
             defaultSuiteType == NavigationSuiteType.NavigationBar
-    val useFloatingGlassBar = layers.backdropGlass && isBottomBarLayout
-    val currentUseFloatingGlassBar by rememberUpdatedState(useFloatingGlassBar)
+    val bottomBarClearance = LocalBottomBarPosition.current.bottomBarClearance
+    val currentBottomBarClearance by rememberUpdatedState(if (isBottomBarLayout) bottomBarClearance else 0.dp)
     val listDetailSceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
 
@@ -500,8 +502,8 @@ fun MainNavigation(
      * Three `remember` calls rather than a loop, for the same reason the stacks above are written out.
      */
     val entryFloatingBottomBarHeight: (NavKey) -> Dp = { key ->
-        if (currentUseFloatingGlassBar && TopLevelDestination.forKey(key) != null) {
-            FloatingGlassBarClearance
+        if (TopLevelDestination.forKey(key) != null) {
+            currentBottomBarClearance
         } else {
             0.dp
         }
@@ -638,26 +640,21 @@ fun MainNavigation(
             )
         },
         modifier = modifier,
-        navigationSuiteType = if (useFloatingGlassBar) NavigationSuiteType.None else defaultSuiteType,
-        // The bar is a card like any other — white on the grey page — and the rail beside a wide
-        // layout sits flush with the page, since it has no content under it to lift off.
-        navigationSuiteColors =
-        NavigationSuiteDefaults.colors(
-            shortNavigationBarContainerColor = layers.card,
-            navigationBarContainerColor = layers.card,
-            navigationRailContainerColor = layers.page,
-        ),
+        navigationSuiteType = if (isBottomBarLayout) NavigationSuiteType.None else defaultSuiteType,
+        navigationSuiteColors = NavigationSuiteDefaults.colors(navigationRailContainerColor = layers.page),
         state = navigationSuiteState,
     ) {
-        val glassBarVisibility = remember { MutableTransitionState(useFloatingGlassBar && showNavigationSuite) }
-        glassBarVisibility.targetState = useFloatingGlassBar && showNavigationSuite
+        val bottomBarVisibility = remember { MutableTransitionState(isBottomBarLayout && showNavigationSuite) }
+        bottomBarVisibility.targetState = isBottomBarLayout && showNavigationSuite
         var composedNotices by remember { mutableIntStateOf(0) }
         // Keep capture through both exit animations. SnackbarHost may draw an outgoing notice
         // after currentSnackbarData clears, or overlap it with the next notice in the queue.
         val navBackdrop = rememberLiquidGlassBackdrop(
             layers.page,
-            enabled = glassBarVisibility.currentState || glassBarVisibility.targetState || !glassBarVisibility.isIdle ||
-                clipboardSnackbar.currentSnackbarData != null || composedNotices > 0,
+            enabled = layers.backdropGlass && (
+                bottomBarVisibility.currentState || bottomBarVisibility.targetState || !bottomBarVisibility.isIdle ||
+                    clipboardSnackbar.currentSnackbarData != null || composedNotices > 0
+                ),
         )
         Box(Modifier.fillMaxSize()) {
             SharedTransitionLayout(
@@ -699,6 +696,7 @@ fun MainNavigation(
                 CompositionLocalProvider(
                     // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
                     LocalOpenNetworkCheck provides { openNetworkCheck() },
+                    LocalKeepBottomBarVisibleOnScroll provides (touchExploration || isListDetailExpanded),
                     // 测评对比 from any report card's 对比 (n), onto whichever tab the card is in.
                     LocalOpenReportCompare provides { openReportCompare() },
                     // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
@@ -724,12 +722,10 @@ fun MainNavigation(
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
                 FloatingBottomBarVisibility(
-                    visibleState = glassBarVisibility,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+                    visibleState = bottomBarVisibility,
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 ) {
-                    GlassBottomNavigationBar(
+                    FloatingBottomNavigationBar(
                         current = currentTab,
                         onSelect = onSelectTab,
                         unreadCount = notificationsState.counts.all,
@@ -738,7 +734,7 @@ fun MainNavigation(
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
                 val clipboardSnackbarBottomClearance by animateDpAsState(
-                    targetValue = if (useFloatingGlassBar && showNavigationSuite) FloatingGlassBarClearance else 0.dp,
+                    targetValue = if (isBottomBarLayout && showNavigationSuite) bottomBarClearance else 0.dp,
                     animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                     label = "clipboardSnackbarBottomClearance",
                 )

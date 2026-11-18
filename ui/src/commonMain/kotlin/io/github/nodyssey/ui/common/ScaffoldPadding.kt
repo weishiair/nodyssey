@@ -9,10 +9,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/**
- * Extra bottom clearance reserved when the floating liquid-glass bottom navigation pill is active
- * in place of `NavigationSuiteScaffold`'s docked bar.
- */
+/** Extra clearance for bottom tabs drawn over the screen, excluding the window's safe area. */
 internal val LocalFloatingBottomBarHeight = compositionLocalOf { 0.dp }
 
 /**
@@ -26,14 +23,8 @@ internal fun PaddingValues.bottomWithFloatingBar(): Dp =
  * A `Scaffold`'s inner padding minus its bottom edge, for a tab root whose list runs on under the
  * bottom bar.
  *
- * On iOS the tab bar is Liquid Glass floating over the content, and the glass only shows anything if
- * there is content under it. Padding the whole screen by the scaffold's bottom inset — which on that
- * side is the bar's height — stopped every list at the bar's top edge and left the glass over an empty
- * strip of page. The bottom goes to the list as content padding instead, so the last row still scrolls
- * clear of the bar, and to whatever floats at the bottom of the screen so it stays above it.
- *
- * On Android the bar is opaque and the inset under it is already consumed by `NavigationSuiteScaffold`,
- * so the same split draws what it drew before.
+ * The bottom inset and controls' clearance go to the list's content padding. This lets content
+ * scroll behind the bar and still lets the last row scroll clear of it.
  */
 @Composable
 internal fun PaddingValues.withoutBottom(): PaddingValues {

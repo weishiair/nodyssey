@@ -23,6 +23,7 @@ import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.common.ApplyDisplayRefreshRate
 import io.github.nodyssey.ui.common.LocalAppName
+import io.github.nodyssey.ui.common.LocalBottomBarPosition
 import io.github.nodyssey.ui.common.LocalReadMarkPaint
 import io.github.nodyssey.ui.common.ProvideUserNotes
 import io.github.nodyssey.ui.common.ReadMarkPaint
@@ -250,6 +251,7 @@ internal fun NodysseyChrome(
             val reportCompareBasket = rememberReportCompareBasket(container.reportCompareStore)
             CompositionLocalProvider(
                 LocalUriHandler provides browserLinks.uriHandler,
+                LocalBottomBarPosition provides settings.bottomBarPosition,
                 LocalLinkPrefetcher provides browserLinks.prefetcher,
                 LocalReportFormat provides settings.reportFormat,
                 LocalReportCompareBasket provides reportCompareBasket,

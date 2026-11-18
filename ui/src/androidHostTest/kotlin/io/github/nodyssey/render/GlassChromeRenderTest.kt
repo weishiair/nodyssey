@@ -26,7 +26,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
 import io.github.nodyssey.ui.common.PageJumpRail
-import io.github.nodyssey.ui.navigation.GlassBottomNavigationBar
+import io.github.nodyssey.ui.navigation.FloatingBottomNavigationBar
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.postdetail.ThreadReadingControls
 import io.github.plaza.designsys.component.PlazaExtendedFab
@@ -121,7 +121,7 @@ class GlassChromeRenderTest {
                                 visibleState = visibility,
                                 modifier = Modifier.align(Alignment.BottomCenter),
                             ) {
-                                GlassBottomNavigationBar(current = TopLevelDestination.HOME, onSelect = {})
+                                FloatingBottomNavigationBar(current = TopLevelDestination.HOME, onSelect = {})
                             }
                         }
                     }

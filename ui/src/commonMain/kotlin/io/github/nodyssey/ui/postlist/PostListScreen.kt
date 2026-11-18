@@ -97,6 +97,7 @@ import io.github.nodyssey.ui.common.EmptyFeedState
 import io.github.nodyssey.ui.common.FeedSortOrder
 import io.github.nodyssey.ui.common.JumpDestination
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
 import io.github.nodyssey.ui.common.LocalThreadTransition
 import io.github.nodyssey.ui.common.NavigationBarScrollConnection
 import io.github.nodyssey.ui.common.NavigationDirectionThreshold
@@ -574,8 +575,9 @@ fun PostListScreen(
     val floatingBottomBarHeight = LocalFloatingBottomBarHeight.current
     // Track the retracting/reappearing floating navigation bar with the same spatial spec so
     // scroll-collapsing the controls never drops them ahead of the bar itself.
+    val keepBottomBarVisible = LocalKeepBottomBarVisibleOnScroll.current
     val animatedBottomBarClearance by animateDpAsState(
-        targetValue = if (!navigationBarHidden || (showPageBar && showPageSheet)) floatingBottomBarHeight else 0.dp,
+        targetValue = if (keepBottomBarVisible || !navigationBarHidden || (showPageBar && showPageSheet)) floatingBottomBarHeight else 0.dp,
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "feedFloatingBarClearance",
     )
