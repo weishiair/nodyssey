@@ -131,6 +131,7 @@ import io.github.nodyssey.ui.common.RoleBadgeRow
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.UserNoteTag
+import io.github.nodyssey.ui.common.bottomBarClearance
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.rememberShareText
@@ -471,8 +472,7 @@ fun PostDetailScreen(
     lotteryContent: @Composable () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
-    // UIKit already reserves space for its toolbar in this controller's bottom safe area.
-    val readingControlsHeight = if (usesNativeReadingToolbar()) 0.dp else 80.dp
+    val readingControlsHeight = if (state.hasContent && !replyOpen) bottomBarClearance() else 0.dp
     val pullToRefreshState = rememberPullToRefreshState()
     var isScrollbarDragging by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -768,13 +768,7 @@ fun PostDetailScreen(
             snackbarHost = {
                 PlazaSnackbarHost(
                     snackbarHostState,
-                    Modifier.padding(
-                        bottom = if (state.hasContent && !replyOpen) {
-                            readingControlsHeight
-                        } else {
-                            0.dp
-                        },
-                    ),
+                    Modifier.padding(bottom = readingControlsHeight),
                 )
             },
             topBar = {
@@ -927,7 +921,7 @@ fun PostDetailScreen(
                                         onTitleBottom = { collapsedTitleThreshold = it },
                                         lotteryContent = lotteryContent,
                                         topInset = topInset,
-                                        bottomInset = bottomInset,
+                                        bottomPadding = bottomInset + readingControlsHeight + 16.dp,
                                     )
                                 }
                             }
@@ -1446,10 +1440,9 @@ private fun ThreadList(
     lotteryContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
-    bottomInset: Dp = 0.dp,
+    bottomPadding: Dp,
 ) {
     val original = state.postReplyStyle == PostReplyStyle.ORIGINAL
-    val bottomPadding = bottomInset + if (usesNativeReadingToolbar()) 16.dp else 96.dp
     LazyColumn(
         // No bounce under pull-to-refresh, at either end of the thread; see the feed's list in
         // `PostListScreen`.

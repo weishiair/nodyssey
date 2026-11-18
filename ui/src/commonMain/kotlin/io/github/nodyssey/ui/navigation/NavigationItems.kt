@@ -6,12 +6,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -44,9 +49,8 @@ import androidx.navigation3.runtime.NavKey
 import io.github.nodyssey.NotificationsKey
 import io.github.nodyssey.PostListKey
 import io.github.nodyssey.ProfileKey
-import io.github.nodyssey.ui.common.FloatingBottomBarBandHeight
-import io.github.nodyssey.ui.common.FloatingBottomBarBottomGap
-import io.github.nodyssey.ui.common.FloatingBottomBarTopGap
+import io.github.nodyssey.ui.common.BottomBarBand
+import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.tab_home
 import io.github.nodyssey.ui.resources.tab_notifications
@@ -154,22 +158,49 @@ private val NavigationIconSize = 20.dp
 private val GlassBottomBarShape = CircleShape
 private val GlassPillIndicatorShape = CircleShape
 
-/** Clearance for both the capsule and its gaps; keeps FABs and notices above the raised bar. */
-internal val FloatingGlassBarClearance = FloatingBottomBarBandHeight + FloatingBottomBarTopGap + FloatingBottomBarBottomGap
+/** Safe-area positioning shared by the Compose and UIKit tab contents. */
+@Composable
+internal fun BottomNavigationBand(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    BottomBarBand(
+        modifier
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .padding(
+                start = 28.dp,
+                end = 28.dp,
+                bottom = bottomBarInset(WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()),
+            )
+            .widthIn(max = 336.dp)
+            .fillMaxWidth(),
+    ) {
+        content()
+    }
+}
 
 /**
- * Floating rounded-pill bottom navigation bar for 毛玻璃 (Option B).
- *
- * Uses Kyant's `drawBackdrop` against [LocalLiquidGlassBackdrop] so content scrolling behind the
+ * Floating bottom tabs, using a solid surface or Kyant's `drawBackdrop` against [LocalLiquidGlassBackdrop] so content scrolling behind the
  * capsule is blurred and refracted at the edges in real time, with a clean borderless tonal pill
  * highlighting the active tab (matching the iOS 26 Liquid Glass tab bar design).
  */
 @Composable
-internal fun GlassBottomNavigationBar(
+internal fun FloatingBottomNavigationBar(
     current: TopLevelDestination?,
     onSelect: (TopLevelDestination) -> Unit,
     modifier: Modifier = Modifier,
     unreadCount: Int = 0,
+) {
+    BottomNavigationBand(modifier) {
+        BottomNavigationTabs(current, onSelect, unreadCount)
+    }
+}
+
+@Composable
+internal fun BottomNavigationTabs(
+    current: TopLevelDestination?,
+    onSelect: (TopLevelDestination) -> Unit,
+    unreadCount: Int,
 ) {
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current
@@ -177,11 +208,9 @@ internal fun GlassBottomNavigationBar(
     val scheme = MaterialTheme.colorScheme
 
     Row(
-        modifier = modifier
-            .padding(start = 28.dp, end = 28.dp, top = FloatingBottomBarTopGap, bottom = FloatingBottomBarBottomGap)
-            .widthIn(max = 336.dp)
+        modifier = Modifier
             .fillMaxWidth()
-            .height(FloatingBottomBarBandHeight)
+            .fillMaxHeight()
             .glassChromeSurface(
                 layers = layers,
                 darkTheme = darkTheme,

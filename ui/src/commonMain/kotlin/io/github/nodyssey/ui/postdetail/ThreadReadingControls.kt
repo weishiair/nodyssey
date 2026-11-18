@@ -33,7 +33,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,11 +43,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.nodyssey.ui.common.FloatingBottomBarBandHeight
-import io.github.nodyssey.ui.common.FloatingBottomBarBottomGap
-import io.github.nodyssey.ui.common.FloatingBottomBarTopGap
+import io.github.nodyssey.ui.common.BottomBarBand
 import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.page_jump_go
 import io.github.nodyssey.ui.resources.page_jump_latest
@@ -71,19 +69,7 @@ import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
-import io.github.plaza.designsys.theme.nativeGlass
 import org.jetbrains.compose.resources.stringResource
-
-internal data class NativeReadingToolbarState(
-    val position: GlassAction,
-    val reply: GlassAction,
-    val visible: Boolean,
-)
-
-internal val LocalNativeReadingToolbar = staticCompositionLocalOf<(@Composable (NativeReadingToolbarState) -> Unit)?> { null }
-
-@Composable
-internal fun usesNativeReadingToolbar(): Boolean = LocalPlazaLayers.current.nativeGlass && LocalNativeReadingToolbar.current != null
 
 /** Keep the original reading row; glass enters as a whole, like the bottom navigation. */
 @Composable
@@ -96,32 +82,17 @@ internal fun ThreadReadingControls(
     visible: Boolean = true,
     bottomInset: Dp = 0.dp,
 ) {
-    val nativeToolbar = LocalNativeReadingToolbar.current
-    if (usesNativeReadingToolbar() && nativeToolbar != null) {
-        val positionLabel = stringResource(
-            if (currentFloor == 0) Res.string.post_reading_original_position else Res.string.post_floor_position,
-            currentFloor,
-        )
-        val positionText = if (currentFloor == 0) stringResource(Res.string.post_reading_original) else "$currentFloor / ${lastFloor ?: "…"}"
-        nativeToolbar(
-            NativeReadingToolbarState(
-                position = GlassAction(positionLabel, onJump, title = positionText),
-                reply = GlassAction(stringResource(Res.string.post_reply_action), onReply, symbol = "arrowshape.turn.up.left", prominent = true),
-                visible = visible,
-            ),
-        )
-        return
-    }
+    val inset = bottomBarInset(bottomInset)
     if (LocalPlazaLayers.current.frostedGlass) {
         val visibility = remember { MutableTransitionState(false) }
         visibility.targetState = visible
         FloatingBottomBarVisibility(visibleState = visibility, modifier = modifier) {
             // Include the safe area in the sliding content so the row starts below the screen,
             // not partly visible in the home-indicator area before its entrance.
-            ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, Modifier.padding(bottom = bottomInset))
+            ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, Modifier.padding(bottom = inset))
         }
     } else if (visible) {
-        ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, modifier.padding(bottom = bottomInset))
+        ThreadReadingControlsRow(currentFloor, lastFloor, onJump, onReply, modifier.padding(bottom = inset))
     }
 }
 
@@ -142,14 +113,7 @@ private fun ThreadReadingControlsRow(
     } else {
         stringResource(Res.string.post_floor_position, currentFloor)
     }
-    Box(
-        modifier.fillMaxWidth().padding(
-            start = 12.dp,
-            end = 12.dp,
-            top = if (layers.frostedGlass) FloatingBottomBarTopGap else 10.dp,
-            bottom = if (layers.frostedGlass) FloatingBottomBarBottomGap else 10.dp,
-        ).heightIn(min = if (layers.frostedGlass) FloatingBottomBarBandHeight else 48.dp),
-    ) {
+    BottomBarBand(modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Box(
             Modifier.fillMaxWidth().padding(horizontal = 60.dp).align(Alignment.Center),
             contentAlignment = Alignment.Center,
