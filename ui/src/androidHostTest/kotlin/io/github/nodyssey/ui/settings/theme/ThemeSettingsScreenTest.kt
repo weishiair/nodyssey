@@ -1,5 +1,7 @@
 package io.github.nodyssey.ui.settings.theme
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -7,12 +9,15 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
 import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SavedTheme
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.resources.Res
+import io.github.nodyssey.ui.resources.settings_color_source
+import io.github.nodyssey.ui.resources.settings_color_source_custom
 import io.github.nodyssey.ui.resources.settings_frosted_glass
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.jetbrains.compose.resources.stringResource
@@ -116,6 +121,33 @@ class ThemeSettingsScreenTest {
 
         composeRule.onNodeWithText(frostedGlassLabel).performScrollTo().performClick()
         assertTrue(toggles.isEmpty())
+    }
+
+    @Test
+    fun `color source header falls back to menu under large font scale and updates selection`() {
+        var title = ""
+        var customLabel = ""
+        var selected = ColorSource.PRESET
+        composeRule.setContent {
+            title = stringResource(Res.string.settings_color_source)
+            customLabel = stringResource(Res.string.settings_color_source_custom)
+            PlazaTheme {
+                val baseDensity = LocalDensity.current
+                CompositionLocalProvider(
+                    LocalDensity provides Density(baseDensity.density, fontScale = 1.8f),
+                ) {
+                    ColorSourceHeader(
+                        settings = UserSettings(colorSource = ColorSource.PRESET),
+                        onSelect = { selected = it },
+                        nativeChrome = true,
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText(title).performClick()
+        composeRule.onNodeWithText(customLabel).performClick()
+        assertEquals(ColorSource.CUSTOM, selected)
     }
 
     private fun setScreen(

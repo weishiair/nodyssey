@@ -31,7 +31,6 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -223,27 +222,46 @@ fun snapSliderValue(
 }
 
 /**
- * Returns whether all equal-width segments comfortably fit within [availableWidthPx] without
- * clipping or shrinking text. Used on iOS settings to drop down to a menu row for long translations
- * or large accessibility text sizes.
+ * Returns whether all equal-width segments comfortably fit within [availableWidthPx] and
+ * [availableHeightPx] without horizontal truncation or vertical text clipping. Used on iOS settings
+ * to drop down to a menu row for long translations or large accessibility text sizes.
  */
 fun shouldUseSegmentedControl(
     labelWidthsPx: List<Float>,
     availableWidthPx: Float,
     segmentPaddingPx: Float,
     maxSegments: Int = 4,
+    labelHeightPx: Float = 0f,
+    availableHeightPx: Float = Float.POSITIVE_INFINITY,
+    verticalPaddingPx: Float = 0f,
 ): Boolean {
     val count = labelWidthsPx.size
-    if (count < 2 || count > maxSegments || availableWidthPx <= 0f) return false
+    if (count < 2 || count > maxSegments || availableWidthPx <= 0f || availableHeightPx <= 0f) return false
     val segmentWidth = availableWidthPx / count
     val maxLabelWidth = labelWidthsPx.maxOrNull() ?: return false
-    return maxLabelWidth + segmentPaddingPx <= segmentWidth
+    if (maxLabelWidth + segmentPaddingPx > segmentWidth) return false
+    return labelHeightPx + verticalPaddingPx <= availableHeightPx
 }
 
+internal data class SegmentedControlMetrics(
+    val labelWidthsPx: List<Float>,
+    val labelHeightPx: Float,
+    val availableHeightPx: Float,
+    val verticalPaddingPx: Float,
+)
+
+@Composable
+internal expect fun rememberSegmentedControlMetrics(
+    labels: List<String>,
+    density: Density,
+    appFontScale: Float,
+    style: TextStyle,
+): SegmentedControlMetrics
+
 /**
- * Measures [labels] at full display scale (system text scale via [density] and in-app reading
- * scale via [appFontScale]) and returns true only when every segment can be shown at its natural
- * single-line width without truncation inside a native equal-width segmented control.
+ * Measures [labels] at full display scale (system Dynamic Type / density scale plus in-app reading
+ * scale via [appFontScale]) against the native segmented control's actual text metrics and vertical
+ * headroom, returning true only when every segment renders cleanly on one unclipped line.
  */
 @Composable
 fun rememberFitsSegmentedControl(
@@ -257,26 +275,28 @@ fun rememberFitsSegmentedControl(
             fontWeight = FontWeight.SemiBold,
         ),
 ): Boolean {
-    val measurer = rememberTextMeasurer()
-    return remember(labels, availableWidth, density.density, density.fontScale, appFontScale, style) {
+    val metrics =
+        rememberSegmentedControlMetrics(
+            labels = labels,
+            density = density,
+            appFontScale = appFontScale,
+            style = style,
+        )
+    return remember(metrics, availableWidth, density.density) {
         with(density) {
-            val widths =
-                labels.map { text ->
-                    measurer.measure(
-                        text = text,
-                        style = style,
-                        maxLines = 1,
-                        density = density,
-                    ).size.width.toFloat()
-                }
             shouldUseSegmentedControl(
-                labelWidthsPx = widths,
+                labelWidthsPx = metrics.labelWidthsPx,
                 availableWidthPx = availableWidth.toPx(),
                 segmentPaddingPx = SegmentHorizontalPadding.toPx(),
+                labelHeightPx = metrics.labelHeightPx,
+                availableHeightPx = metrics.availableHeightPx,
+                verticalPaddingPx = metrics.verticalPaddingPx,
             )
         }
     }
 }
 
-private val SegmentFontSize = 13.sp
-private val SegmentHorizontalPadding = 30.dp
+internal val SegmentFontSize = 13.sp
+internal val SegmentHorizontalPadding = 30.dp
+internal val SegmentControlMinHeight = 32.dp
+internal val SegmentVerticalPadding = 8.dp

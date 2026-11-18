@@ -18,6 +18,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         ComposeTokenizerGuard.install()
+        PreferredLanguageGuard.install()
         UNUserNotificationCenter.current().delegate = self
         NodysseyApp.shared.registerBackgroundTasks()
         return true
@@ -158,6 +159,47 @@ enum ComposeTokenizerGuard {
     private static func debugLog(_ message: @autoclosure () -> String) {
         #if DEBUG
         print("[ComposeTokenizerGuard] \(message())")
+        #endif
+    }
+}
+
+/// Maps Traditional Chinese tags (`zh-Hant`, `zh-Hant-HK`, `zh-HK`, `zh-MO`) returned by
+/// `NSLocale.preferredLanguages` to `zh-TW` in memory at launch so Compose Resources resolves
+/// `values-zh-rTW` instead of falling back to Simplified Chinese.
+///
+/// Needed because Compose Multiplatform keeps `LocalComposeEnvironment` internal and reads
+/// `NSLocale.preferredLanguages` directly (`Locale.current` and `getSystemEnvironment()`). Writing
+/// `zh-TW` into persistent `AppleLanguages` while `AppLanguage.SYSTEM` is selected would freeze the
+/// system-following behavior across OS language changes and lose to `-AppleLanguages` launch
+/// arguments; intercepting `+preferredLanguages` in memory avoids both. Delete once Compose
+/// Resources supports script/region aliases or public environment overrides.
+private enum PreferredLanguageGuard {
+    private static let preferredLanguagesSelector = NSSelectorFromString("preferredLanguages")
+    private static var installed = false
+
+    static func install() {
+        guard !installed else { return }
+        guard let method = class_getClassMethod(NSLocale.self, preferredLanguagesSelector) else {
+            debugLog("NSLocale.preferredLanguages not found, guard not installed")
+            return
+        }
+        // Force Kotlin helper initialization before swapping +preferredLanguages.
+        _ = IosPreferredLanguages.shared
+        let selector = preferredLanguagesSelector
+        typealias PreferredLanguages = @convention(c) (AnyObject, Selector) -> Unmanaged<NSArray>?
+        let original = unsafeBitCast(method_getImplementation(method), to: PreferredLanguages.self)
+        let replacement: @convention(block) (AnyObject) -> NSArray = { target in
+            let raw = original(target, selector)?.takeUnretainedValue() as? [String] ?? []
+            return IosPreferredLanguages.shared.normalize(languages: raw) as NSArray
+        }
+        method_setImplementation(method, imp_implementationWithBlock(replacement))
+        installed = true
+        debugLog("installed on NSLocale")
+    }
+
+    private static func debugLog(_ message: @autoclosure () -> String) {
+        #if DEBUG
+        print("[PreferredLanguageGuard] \(message())")
         #endif
     }
 }

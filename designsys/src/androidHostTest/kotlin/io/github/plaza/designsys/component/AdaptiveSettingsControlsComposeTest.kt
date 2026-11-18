@@ -85,4 +85,32 @@ class AdaptiveSettingsControlsComposeTest {
         assertTrue(fitsAtDefaultScale)
         assertFalse(fitsAtMaxAppScale)
     }
+
+    @Test
+    fun `rememberFitsSegmentedControl falls back for short two-segment labels when large scale overflows height`() {
+        var fitsAtLarge = false
+        var fitsAtAccessibilityMax = true
+        val labels = listOf("Preset", "Custom")
+
+        composeRule.setContent {
+            PlazaTheme {
+                val baseDensity = LocalDensity.current
+                fitsAtLarge =
+                    rememberFitsSegmentedControl(
+                        labels = labels,
+                        availableWidth = 360.dp,
+                        density = Density(baseDensity.density, fontScale = 1f),
+                    )
+                fitsAtAccessibilityMax =
+                    rememberFitsSegmentedControl(
+                        labels = labels,
+                        availableWidth = 360.dp,
+                        density = Density(baseDensity.density, fontScale = 1.8f),
+                    )
+            }
+        }
+
+        assertTrue(fitsAtLarge)
+        assertFalse(fitsAtAccessibilityMax)
+    }
 }

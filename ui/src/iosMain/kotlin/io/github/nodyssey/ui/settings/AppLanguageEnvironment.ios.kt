@@ -4,12 +4,14 @@ import androidx.compose.runtime.Composable
 import io.github.nodyssey.data.settings.AppLanguage
 
 /**
- * Nothing to provide here.
+ * Nothing to provide inside composition on iOS.
  *
- * Compose Resources reads the locale through an environment this app cannot replace, and this
- * platform has no equivalent of Android's configuration to invalidate it with — see the expect and
- * the Android actual. The language a composition draws in is the one the process started under, so
- * `ApplyAppLanguage` records the choice and the next launch reads it.
+ * Compose Resources keeps `LocalComposeEnvironment` internal and resolves strings from
+ * `NSLocale.preferredLanguages` at startup, with no configuration handle to invalidate mid-process.
+ * Changing language takes effect on the next launch via [ApplyAppLanguage], while Traditional
+ * Chinese system tags (`zh-Hant`, `zh-Hant-HK`, `zh-HK`, `zh-MO`) are mapped to `zh-TW` in memory
+ * at process start (`PreferredLanguageGuard` / `normalizeIosPreferredLanguages`) without freezing
+ * `AppleLanguages`.
  */
 @Composable
 actual fun ProvideAppLanguage(

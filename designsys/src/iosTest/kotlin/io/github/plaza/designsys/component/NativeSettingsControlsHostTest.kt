@@ -274,4 +274,72 @@ class NativeSettingsControlsHostTest {
         overlayHost.update("Theme", items, dark = false, enabled = false)
         assertFalse(overlayHost.view.enabled)
     }
+
+    @Test
+    fun `all control hosts paint supplied card backdrop on non-accessible wrapper container`() {
+        val darkCard = UIColor(red = 0.11, green = 0.12, blue = 0.13, alpha = 1.0)
+        val lightCard = UIColor(red = 1.0, green = 1.0, blue = 1.0, alpha = 1.0)
+
+        val switchHost = NativeSettingsSwitchHost()
+        switchHost.update(
+            checked = true,
+            enabled = true,
+            label = "E-ink",
+            accessibilityEnabled = false,
+            accent = UIColor.blueColor,
+            dark = true,
+            onCheckedChange = {},
+            backdrop = darkCard,
+        )
+        assertEquals(darkCard, switchHost.containerView.backgroundColor)
+        assertFalse(switchHost.containerView.isAccessibilityElement)
+
+        val segmentedHost = NativeSegmentedControlHost()
+        segmentedHost.update(
+            labels = listOf("Auto", "Light", "Dark"),
+            selectedIndex = 2,
+            enabled = true,
+            segmentEnabled = listOf(true, true, true),
+            label = "Theme mode",
+            dark = true,
+            scale = 1f,
+            onSelectIndex = {},
+            backdrop = darkCard,
+        )
+        assertEquals(darkCard, segmentedHost.containerView.backgroundColor)
+        assertFalse(segmentedHost.containerView.isAccessibilityElement)
+        assertNull(segmentedHost.view.backgroundColor)
+
+        val sliderHost = NativeSliderHost()
+        sliderHost.update(
+            value = 16f,
+            min = 14f,
+            max = 24f,
+            steps = 9,
+            enabled = true,
+            label = "Reading text size",
+            valueDescription = "16 sp",
+            accent = UIColor.blueColor,
+            dark = true,
+            onValueChange = {},
+            onValueChangeFinished = {},
+            backdrop = darkCard,
+        )
+        assertEquals(darkCard, sliderHost.containerView.backgroundColor)
+        assertFalse(sliderHost.containerView.isAccessibilityElement)
+        assertNull(sliderHost.view.backgroundColor)
+
+        segmentedHost.update(
+            labels = listOf("Auto", "Light", "Dark"),
+            selectedIndex = 1,
+            enabled = true,
+            segmentEnabled = listOf(true, true, true),
+            label = "Theme mode",
+            dark = false,
+            scale = 1f,
+            onSelectIndex = {},
+            backdrop = lightCard,
+        )
+        assertEquals(lightCard, segmentedHost.containerView.backgroundColor)
+    }
 }
