@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
@@ -166,6 +167,11 @@ object NodysseyApp {
         // On screen now: schedule the daily sweep and resume any queue a past run left behind — the
         // iOS counterpart of what the Android `NodysseyApp` does in `onCreate`.
         offlineScheduler.onLaunch()
+        scope.launch {
+            if (graph.settingsRepository.settings.first().updateCheckOnLaunch) {
+                graph.appUpdateRepository.checkOnLaunch()
+            }
+        }
         return controller
     }
 

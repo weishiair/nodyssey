@@ -671,6 +671,11 @@ jobs:
           gh release edit "$tag" --notes-file release-notes-with-ios.md
           echo "Added the iOS note to $tag."
 
+      - name: Refresh the iOS update inventory
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/dispatches" -f event_type=ios-package-published
+
       # The channel gets the `.ipa` too, for the same reason it gets the APK: a test build nobody
       # hears about gets no testers. Its own message rather than a second attachment on the one the
       # release job sent, because this one needs a caption of its own — a file that cannot be

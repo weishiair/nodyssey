@@ -165,12 +165,17 @@ WorkerFactory 构造注入）、CI 门禁（含 R8 minified 冒烟与依赖锁�
   画一个空相册会被读成"图床把我的图弄丢了"，而这两件事的处理方式完全不同。
 
 **应用内更新约定（github.com）**：
-- 分发渠道就是本项目的 GitHub Releases，所以「更新」= 下载那个 Release 上的签名 APK 并交给系统
+- iOS 使用 `IosUpdateManifestSource` 读取 Pages 上的 `ios.json`。清单生成器只接收本项目 Releases 已上传的 IPA，
+  两条 IPA 发布路径在上传完成后显式触发 `ech-updates.yml` 的 iOS 任务刷新清单，避免 APK 单独发布时误报。
+  `ExternalAppUpdateRepository` 复用版本比较和设置存储，提供启动提醒、手动检查、测试通道与暂缓当前版本，
+  检查结果缓存六小时；启动失败保持静默，手动检查显示失败原因并可重试。原生导航壳仅在活动页面且引导结束后展示提醒。
+  IPA 由用户的签名工具安装，下载和更新日志入口打开项目发布页；平台能力分别表示版本检查与应用内安装。
+- Android 的分发渠道就是本项目的 GitHub Releases，所以「更新」= 下载那个 Release 上的签名 APK 并交给系统
   安装器。数据层在 `data/update/`，纯粹的版本号比较在 `core/update/VersionNames.kt`。
 - **第三个 `OkHttpClient`。** 理由和图床那条一样：`AppContainer.okHttpClient` 挂着 WebView 的
   cookie jar 并补 `Referer: nodeseek.com`，这两样发给 GitHub 都没道理。User-Agent 这里写的是
   `Nodyssey/<版本>`——自报家门是礼貌，而这里没有需要伪装成浏览器的挑战。
-- **不碰 `api.github.com`，读自己发布的静态清单。** 「有没有新版」最顺手的写法是
+- **客户端不碰 `api.github.com`，读自己发布的静态清单。** 「有没有新版」最顺手的写法是
   `GET /repos/<repo>/releases/latest`，这条路走过，也正是它把这件事教明白的：匿名调用是
   **每 IP** 60 次/小时，和同一个 NAT、同一个代理出口后面的所有客户端共享，所以一台一整天没问过
   GitHub 的手机照样收到 403。这不是加个兜底能解决的问题，是给陌生人分发的客户端选错了协议。
@@ -476,6 +481,13 @@ Route/Screen 拆分 + Preview；ViewModel 测试（含两个回归用例）。
 ---
 
 ## 5. 常见修改的正确姿势
+
+**改图片加载策略** → 两端外壳依次安装 `:designsys` 的 `StoredImageInterceptor` 和
+`ImageNetworkPolicyInterceptor`，前者接平台离线文件路径，后者接设置流与平台网络状态。
+本地文件和普通缓存保持可读；远程缓存未命中且不允许联网时返回 `ImagesDeferredException`，
+由现有图片组件提供手动加载。iOS 使用进程生命周期的 `NWPathMonitor`，图片请求等待首个网络状态后再判断。
+Coil 的 `NetworkFetcher` 在磁盘未命中时仍会把 `only-if-cached` 请求交给客户端，因此 iOS 还用
+`NetworkCachePolicyClient` 在字节传输前返回缓存未命中响应，避免自定义客户端忽略禁用联网标记。
 
 **加一个设置项** → 只改 `SettingsRepository`（加 key、加 `UserSettings` 字段、加 setter）。
 消费方 collect 就行。**不要**在任何 ViewModel 里缓存它。

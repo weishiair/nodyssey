@@ -104,6 +104,7 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(nav: StackEntryScope) = 
             onOpenTelegram = { backStack.add(AccountContactKey) },
             onOpenAlertKeywords = { backStack.add(TitleKeywordsKey(alerts = true)) },
             onOpenTrackedThreads = { backStack.add(TrackedThreadsKey) },
+            onOpenLottery = if (container.lotteryRepository != null) ({ backStack.add(LotteryKey) }) else null,
         )
     }
 

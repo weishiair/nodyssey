@@ -1852,4 +1852,11 @@
     <string name="post_unpin_action">取消置頂</string>
     <string name="post_unpin_body">這條評論將恢復按樓層排序。</string>
     <string name="post_unpin_success">已取消置頂</string>
+    <string name="notify_background_unavailable_title">背景訊息提醒尚未接入</string>
+    <string name="notify_background_unavailable_body">此版本暫不支援互動、私訊、信箱、關鍵字和追蹤主題的背景提醒。站內訊息仍可在應用程式內查看。</string>
+    <string name="notify_lottery_hint">管理開獎提醒和結果通知</string>
+    <string name="settings_notify_summary_unavailable">查看目前支援的提醒</string>
+    <string name="about_open_releases">查看版本與下載</string>
+    <string name="about_ios_update_hint">下載新版 IPA 後，請使用原有的簽章工具安裝。</string>
+    <string name="notify_saved_alerts_section">已儲存的提醒規則</string>
 </resources>

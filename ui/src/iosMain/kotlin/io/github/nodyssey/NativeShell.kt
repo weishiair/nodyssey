@@ -30,6 +30,7 @@ import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
@@ -61,6 +62,8 @@ import io.github.nodyssey.ui.resources.about_site
 import io.github.nodyssey.ui.resources.app_name
 import io.github.nodyssey.ui.resources.clipboard_post_open
 import io.github.nodyssey.ui.resources.clipboard_post_prompt
+import io.github.nodyssey.ui.settings.UpdateReminderDialog
+import io.github.nodyssey.ui.settings.UpdateReminderViewModel
 import io.github.nodyssey.ui.settings.rememberAppLinkHandlingEnabled
 import io.github.nodyssey.ui.settings.rememberAppLinkSettingsLauncher
 import io.github.plaza.core.runCatchingExceptCancellation
@@ -238,7 +241,7 @@ private class NativeShell(
     private val scope = MainScope()
 
     /** The newest settings, so a screen pushed later starts in today's colours rather than launch's. */
-    private var settings: UserSettings = initialSettings
+    private var settings: UserSettings by mutableStateOf(initialSettings)
 
     /**
      * What `MainNavigation` keeps in its own composition, kept here because no composition here
@@ -248,6 +251,8 @@ private class NativeShell(
     private val shellStore = ViewModelStore()
     private val notificationsViewModel: NotificationsViewModel =
         ViewModelProvider.create(shellStore, NotificationsViewModel.factory(container))[NotificationsViewModel::class]
+    private val updateReminderViewModel: UpdateReminderViewModel =
+        ViewModelProvider.create(shellStore, UpdateReminderViewModel.factory(container))[UpdateReminderViewModel::class]
     private val homeFeedStates = HomeFeedStates()
     private val pendingComposerShare = PendingComposerShare()
     private val pendingAttendance = PendingAttendance()
@@ -475,6 +480,19 @@ private class NativeShell(
                                     offer = clipboardOffer,
                                     onHandled = ::handleClipboardOffer,
                                 )
+                                val reminder by updateReminderViewModel.launchReminder.collectAsStateWithLifecycle()
+                                if (activePage == page && settings.onboardingSeen && onboarding == null) {
+                                    reminder?.let { release ->
+                                        UpdateReminderDialog(
+                                            release = release,
+                                            onDownload = {
+                                                updateReminderViewModel.acceptReminder()
+                                                SafariUriHandler.openUri(release.htmlUrl)
+                                            },
+                                            onPostpone = updateReminderViewModel::postponeReminder,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -711,7 +729,7 @@ private class NativeShell(
         }
     }
 
-    private var onboarding: UIViewController? = null
+    private var onboarding by mutableStateOf<UIViewController?>(null)
 
     /**
      * 新手引导, presented over the tabs rather than drawn over them.
@@ -745,9 +763,10 @@ private class NativeShell(
 
     private fun dismissOnboarding() {
         val controller = onboarding ?: return
-        onboarding = null
-        controller.dismissViewControllerAnimated(true, completion = null)
-        checkClipboardPost()
+        controller.dismissViewControllerAnimated(true) {
+            onboarding = null
+            checkClipboardPost()
+        }
     }
 
     private fun observeNotifications() {
