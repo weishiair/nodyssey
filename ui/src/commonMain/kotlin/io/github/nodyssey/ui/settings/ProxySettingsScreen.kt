@@ -231,6 +231,7 @@ internal fun ProxySettingsContent(
                             top = true,
                             last = false,
                             enabled = state.enabled,
+                            nativeChrome = nativeChrome,
                         )
                         GroupedListItem(
                             first = false,

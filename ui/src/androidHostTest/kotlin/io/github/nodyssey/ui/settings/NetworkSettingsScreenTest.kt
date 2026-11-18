@@ -410,18 +410,24 @@ class NetworkSettingsScreenTest {
     }
 
     @Test
-    fun `proxy host and port stack at scaled font size on standard phone width`() {
+    fun `proxy host and port stack and proxy type falls back to menu at large font scale`() {
+        val selected = mutableListOf<ProxyType>()
         composeRule.setContent {
             val base = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(base.density, fontScale = 1.8f)) {
                 PlazaTheme {
                     Box(Modifier.width(340.dp)) {
                         ProxySettingsContent(
-                            state = ProxySettingsUiState(enabled = true, hostInput = "192.0.2.10", portInput = "1080"),
+                            state = ProxySettingsUiState(
+                                enabled = true,
+                                type = ProxyType.HTTP,
+                                hostInput = "192.0.2.10",
+                                portInput = "1080",
+                            ),
                             snackbarHostState = SnackbarHostState(),
                             onBack = {},
                             onEnabledChange = {},
-                            onTypeChange = {},
+                            onTypeChange = { selected += it },
                             onForumOnlyChange = {},
                             onHostChange = {},
                             onPortChange = {},
@@ -438,6 +444,13 @@ class NetworkSettingsScreenTest {
         val hostBounds = composeRule.onNode(hasSetTextAction() and hasText("地址")).fetchSemanticsNode().boundsInRoot
         val portBounds = composeRule.onNode(hasSetTextAction() and hasText("端口")).fetchSemanticsNode().boundsInRoot
         assertTrue("Expected scaled dynamic type to stack Host and Port", hostBounds.bottom <= portBounds.top)
+
+        // Two-segment HTTP / SOCKS5 overflows UISegmentedControl height at 1.8x font scale and
+        // falls back to SettingsMenuRow, where SOCKS5 only opens inside the dropdown menu.
+        composeRule.onNodeWithText("SOCKS5").assertDoesNotExist()
+        composeRule.onNodeWithText("代理类型").performClick()
+        composeRule.onNodeWithText("SOCKS5").performClick()
+        assertEquals(listOf(ProxyType.SOCKS), selected)
     }
 
     private fun onAllNodes(matcher: SemanticsMatcher) = composeRule.onAllNodes(matcher)
