@@ -80,4 +80,33 @@ class AppLanguageTest {
         assertEquals(AppLanguage.SYSTEM, AppLanguage.ofName("KLINGON"))
         assertEquals(AppLanguage.ENGLISH, AppLanguage.ofName("ENGLISH"))
     }
+
+    @Test
+    fun `normalizeIosPreferredLanguages maps traditional tags to zh-TW without altering others`() {
+        assertEquals(listOf("zh-TW"), normalizeIosPreferredLanguages(listOf("zh-Hant")))
+        assertEquals(
+            listOf("zh-TW", "en-HK"),
+            normalizeIosPreferredLanguages(listOf("zh-Hant-HK", "en-HK")),
+        )
+        assertEquals(
+            listOf("zh-TW", "en"),
+            normalizeIosPreferredLanguages(listOf("zh-HK", "zh-TW", "en")),
+        )
+        assertEquals(listOf("zh-TW"), normalizeIosPreferredLanguages(listOf("zh-MO")))
+        assertEquals(
+            listOf("zh-TW"),
+            normalizeIosPreferredLanguages(listOf("zh-Hant-MO@calendar=gregorian")),
+        )
+        assertEquals(listOf("zh-TW", "en"), normalizeIosPreferredLanguages(listOf("zh-TW", "en")))
+        assertEquals(
+            listOf("zh-Hans-HK", "zh-Hant-HK"),
+            normalizeIosPreferredLanguages(listOf("zh-Hans-HK", "zh-Hant-HK")),
+        )
+        assertEquals(listOf("zh-CN"), normalizeIosPreferredLanguages(listOf("zh-CN")))
+        assertEquals(
+            listOf("en-US", "zh-Hant-HK"),
+            normalizeIosPreferredLanguages(listOf("en-US", "zh-Hant-HK")),
+        )
+        assertEquals(emptyList(), normalizeIosPreferredLanguages(emptyList()))
+    }
 }

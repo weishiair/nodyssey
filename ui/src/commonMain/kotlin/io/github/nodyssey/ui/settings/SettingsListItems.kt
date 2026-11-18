@@ -237,9 +237,9 @@ internal fun <T> SettingsChoiceSection(
     subtitle: String? = null,
     enabled: Boolean = true,
     menuIcon: ImageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+    nativeChrome: Boolean = LocalPlazaLayers.current.nativeChrome,
 ) {
-    val layers = LocalPlazaLayers.current
-    if (!layers.nativeChrome) {
+    if (!nativeChrome) {
         SettingsBlock(title = title, top = top, subtitle = subtitle, enabled = enabled) {
             ChoiceSegments(
                 labels = choices.map { it.second },

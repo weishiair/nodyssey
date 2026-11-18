@@ -6,22 +6,17 @@ import io.github.nodyssey.data.settings.AppLanguage
 import platform.Foundation.NSUserDefaults
 
 /**
- * Writes the choice into `AppleLanguages`, which is where iOS keeps a per-app language.
+ * Writes the chosen override into `AppleLanguages`, which is where iOS stores a per-app language.
  *
- * Not for the screen — `ProvideAppLanguage` answers that out of composition state and puts a change
- * on screen at once. This is for everything iOS renders on the app's behalf and reads its own
- * locale for: the system's own alert and share sheets, date and number formatting, and the language
- * a `WKWebView` announces. The system reads this key when the process starts and never re-reads it,
- * so those follow at the next launch — which is the platform's rule and not this app's.
+ * Unlike Android, Compose Resources on iOS offers no supported way to swap `LocalComposeEnvironment`
+ * live inside a running process — see [ProvideAppLanguage]. Setting [ApplyAppLanguage] persists the
+ * explicit language (`zh-CN`, `zh-TW`, `en`) for the next launch, and removes `AppleLanguages` when
+ * [AppLanguage.SYSTEM] is selected so OS language changes continue to take effect dynamically.
  *
- * [AppLanguage.SYSTEM] removes the key rather than writing the device's current language into it:
- * the point of that entry is to keep following the device, and a tag frozen at the moment the user
- * chose "follow the system" would stop doing exactly that.
- *
- * There is no Traditional Chinese narrowing here, unlike the Android actual. It would have to be
- * written into this same key to take effect, and that would freeze the very setting it is applied
- * on behalf of. On screen it does not matter — `ProvideAppLanguage` narrows a `zh-Hant-HK` reader
- * to `values-zh-rTW` for every platform alike, and that is where the app's own words come from.
+ * Traditional Chinese tags (`zh-Hant`, `zh-Hant-HK`, `zh-HK`, `zh-MO`) under [AppLanguage.SYSTEM]
+ * are normalized in memory at launch by `PreferredLanguageGuard` (`IosPreferredLanguages` using
+ * `normalizeIosPreferredLanguages`) rather than written into `AppleLanguages`, avoiding any
+ * persistent freeze while mapping cleanly onto `values-zh-rTW`.
  */
 @Composable
 actual fun ApplyAppLanguage(language: AppLanguage?) {
