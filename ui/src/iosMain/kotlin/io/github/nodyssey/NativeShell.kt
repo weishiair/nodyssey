@@ -1103,6 +1103,7 @@ private fun NavKey.makesRoomForKeyboard(): Boolean =
         this is AccountSecurityKey ||
         this is SignInKey ||
         this is MessageThreadKey ||
+        this is ProxySettingsKey ||
         this is DohSettingsKey ||
         this is StickerAddKey ||
         this is ThemeSettingsKey
