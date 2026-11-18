@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nodyssey · NodeSeek 的开源 Android 客户端</title>
-<meta name="description" content="Nodyssey 是 NodeSeek 的非官方开源 Android 客户端，用 Kotlin 和 Jetpack Compose 写成，把帖子、评论、投票和跑分表渲染成原生内容。">
-<meta property="og:title" content="Nodyssey · NodeSeek 的开源 Android 客户端">
-<meta property="og:description" content="用 Kotlin 和 Jetpack Compose 写成的 NodeSeek 第三方客户端。原生渲染、离线缓存、Material 3 主题、消息通知，开源可审计。">
+<title>Nodyssey · NodeSeek 的开源客户端（Android / iOS）</title>
+<meta name="description" content="Nodyssey 是 NodeSeek 的非官方开源客户端，用 Kotlin 和 Compose Multiplatform 写成，Android 与 iOS 共用一套原生界面。">
+<meta property="og:title" content="Nodyssey · NodeSeek 的开源客户端（Android / iOS）">
+<meta property="og:description" content="用 Kotlin 和 Compose Multiplatform 写成的 NodeSeek 第三方客户端。Android / iOS 共用界面，原生渲染、DoH / ECH 直连、离线缓存、Material 3 主题，开源可审计。">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -207,7 +207,11 @@
   }
   @media (max-width: 900px) {
     .nd-hero { grid-template-columns: 1fr !important; }
-    .nd-hero-art { height: 460px !important; }
+    .nd-hero-art { height: 500px !important; }
+    /* 三台手机按比例缩到一屏内，避免旧版固定宽度在小屏上压到下一节标题 */
+    .nd-hero-p1 { width: 30% !important; left: 0 !important; top: 40px !important; }
+    .nd-hero-p2 { width: 42% !important; left: 29% !important; top: 10px !important; }
+    .nd-hero-p3 { width: 26% !important; left: 68% !important; right: auto !important; bottom: auto !important; top: 150px !important; }
     .nd-bento > * { grid-column: span 6 !important; }
     .nd-rel { grid-template-columns: 1fr !important; }
     .nd-rel-side { position: static !important; }
@@ -260,18 +264,18 @@
       <div>
         <a href="https://github.com/weishiair/nodyssey/releases/latest" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 8px 0 14px;border-radius:999px;background:var(--md-sys-color-tertiary-container);color:var(--md-sys-color-on-tertiary-container);font-size:14px;font-weight:600">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--md-sys-color-tertiary)"></span>
-          <span data-lang="zh">本分支最新版本</span><span data-lang="en">Latest fork release</span>
+          <span data-lang="zh">本分支最新版本 · v1.3.8</span><span data-lang="en">Latest fork release · v1.3.8</span>
           <span class="material-symbols-outlined" style="font-size:18px">chevron_right</span>
         </a>
         <h1 style="margin:20px 0 0;font-size:clamp(44px,6.4vw,78px);line-height:1.02;letter-spacing:-.035em;font-weight:700;text-wrap:balance">Nodyssey</h1>
         <p style="margin:24px 0 0;max-width:520px;font-size:18px;line-height:1.65;color:var(--md-sys-color-on-surface-variant);text-wrap:pretty">
-          <span data-lang="zh">用 Kotlin 和 Jetpack Compose 写成的第三方 Android 客户端。帖子、评论、投票、跑分表都渲染成原生内容，不是把网页塞进 WebView。</span>
-          <span data-lang="en">A third-party Android client written in Kotlin and Jetpack Compose. Posts, comments, polls and benchmark tables are rendered as native content — not a web page in a WebView.</span>
+          <span data-lang="zh">用 Kotlin 与 Compose Multiplatform 写成的第三方 NodeSeek 客户端，Android 与 iOS 共用一套界面。内置 DoH 与 ECH，部分网络中不配代理也能尝试直连；帖子、评论、投票与测评报告都渲染成原生内容，不是塞进 WebView 的网页。</span>
+          <span data-lang="en">A third-party NodeSeek client for Android and iOS, written in Kotlin and Compose Multiplatform with one shared UI. Built-in DoH and ECH let it try a direct connection without a proxy on some networks, while posts, comments, polls and reports render as native content — not a web page in a WebView.</span>
         </p>
         <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:32px">
           <a class="nd-press nd-cta-primary" href="https://github.com/weishiair/nodyssey/releases/latest" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;height:64px;padding:0 32px;border-radius:32px;background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary);font-size:18px;font-weight:600;box-shadow:var(--nd-shadow)">
             <span class="material-symbols-outlined" style="font-size:24px">download</span>
-            <span data-lang="zh">下载最新版 APK</span><span data-lang="en">Download the APK</span>
+            <span data-lang="zh">下载 Android / iOS</span><span data-lang="en">Download for Android / iOS</span>
           </a>
           <a class="nd-press nd-cta-ghost" href="https://github.com/weishiair/nodyssey" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;height:64px;padding:0 28px;border-radius:32px;border:1px solid var(--md-sys-color-outline);color:var(--md-sys-color-on-surface);font-size:17px;font-weight:600">
             <span class="material-symbols-outlined" style="font-size:22px">code</span>
@@ -281,22 +285,23 @@
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:28px">
           <span style="padding:7px 14px;border-radius:999px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:13px;font-weight:500">Kotlin · Compose Multiplatform</span>
           <span style="padding:7px 14px;border-radius:999px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:13px;font-weight:500">Material 3 Expressive</span>
-          <span style="padding:7px 14px;border-radius:999px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:13px;font-weight:500">Android 8.0+</span>
+          <span style="padding:7px 14px;border-radius:999px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:13px;font-weight:500">Android 8.0+ · iOS 16.0+</span>
+          <span style="padding:7px 14px;border-radius:999px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:13px;font-weight:500">DoH · ECH</span>
           <span style="padding:7px 14px;border-radius:999px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:13px;font-weight:500">GPL-3.0</span>
         </div>
       </div>
 
       <div class="nd-hero-art" style="position:relative;height:620px">
         <div style="position:absolute;top:30px;left:6%;width:88%;height:88%;background:var(--md-sys-color-primary-container);clip-path:var(--m3e-shape-cookie-12);opacity:.7"></div>
-        <div class="nd-phone" style="--d:0s;position:absolute;top:96px;left:2%;width:190px;padding:7px;border-radius:30px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow);transform:rotate(-7deg)">
+        <div class="nd-phone nd-hero-p1" style="--d:0s;position:absolute;top:96px;left:2%;width:190px;padding:7px;border-radius:30px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow);transform:rotate(-7deg)">
           <img data-shot="light" src="screenshots/profile-light.png" alt="我的" style="width:100%;border-radius:24px">
           <img data-shot="dark" src="screenshots/profile-dark.png" alt="我的" style="width:100%;border-radius:24px">
         </div>
-        <div class="nd-phone" style="--d:1.4s;position:absolute;top:24px;left:30%;width:250px;padding:8px;border-radius:38px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow);transform:rotate(3deg);z-index:2">
+        <div class="nd-phone nd-hero-p2" style="--d:1.4s;position:absolute;top:24px;left:30%;width:250px;padding:8px;border-radius:38px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow);transform:rotate(3deg);z-index:2">
           <img data-shot="light" src="screenshots/post-list-light.png" alt="首页帖子流" style="width:100%;border-radius:31px">
           <img data-shot="dark" src="screenshots/post-list-dark.png" alt="首页帖子流" style="width:100%;border-radius:31px">
         </div>
-        <div class="nd-phone" style="--d:2.8s;position:absolute;bottom:-6px;right:-2%;width:170px;padding:7px;border-radius:28px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow);transform:rotate(8deg)">
+        <div class="nd-phone nd-hero-p3" style="--d:2.8s;position:absolute;bottom:-6px;right:-2%;width:170px;padding:7px;border-radius:28px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow);transform:rotate(8deg)">
           <img data-shot="light" src="screenshots/theme-light.png" alt="主题取色" style="width:100%;border-radius:22px">
           <img data-shot="dark" src="screenshots/theme-dark.png" alt="主题取色" style="width:100%;border-radius:22px">
         </div>
@@ -306,9 +311,9 @@
 
   <section id="features" style="max-width:1200px;margin:0 auto;padding:72px 24px 24px">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:36px">
-      <h2 class="nd-rise" style="margin:0;font-size:clamp(32px,4.4vw,48px);line-height:1.08;letter-spacing:-.025em;font-weight:700;max-width:20ch">
-        <span data-lang="zh">浏览、发帖、互动、离线阅读 —— 一个完整的 NodeSeek 客户端</span>
-        <span data-lang="en">Read, post, interact, and keep reading offline — a complete NodeSeek client</span>
+      <h2 class="nd-rise" style="margin:0;font-size:clamp(32px,4.4vw,48px);line-height:1.08;letter-spacing:-.025em;font-weight:700;max-width:26ch">
+        <span data-lang="zh">一个完整的 NodeSeek 客户端</span>
+        <span data-lang="en">A complete NodeSeek client</span>
       </h2>
     </div>
 
@@ -320,8 +325,8 @@
           </div>
           <h3 style="margin:20px 0 0;font-size:26px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">原生渲染</span><span data-lang="en">Native rendering</span></h3>
           <p style="margin:10px 0 0;font-size:15.5px;line-height:1.6;opacity:.86">
-            <span data-lang="zh">帖子、评论、投票和 NodeQuality 跑分表都是 Compose 组件。正文一律贪心折行并补汉字 / 西文间隙，跑分表保留钉住首列的横向滚动。</span>
-            <span data-lang="en">Posts, comments, polls and NodeQuality reports are Compose components. Body text greedily wraps with CJK / Latin spacing, and benchmark tables keep a pinned first column.</span>
+            <span data-lang="zh">帖子、评论、投票、NodeQuality 与终端测评报告都是 Compose 组件：正文贪心折行并补汉字 / 西文间距，终端报告可缩放并保留原貌，跑分表横向滚动时钉住首列。</span>
+            <span data-lang="en">Posts, comments, polls, NodeQuality and terminal reports are Compose components: body text wraps greedily with CJK / Latin spacing, terminal reports zoom and keep their original look, and benchmark tables keep a pinned first column while scrolling sideways.</span>
           </p>
         </div>
         <div class="nd-phone nd-hide-sm" style="--d:0s;flex:0 0 150px;margin-bottom:-88px;padding:6px;border-radius:26px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow)">
@@ -332,12 +337,34 @@
 
       <article class="nd-card nd-rise" style="grid-column:span 2;padding:32px;border-radius:36px;background:var(--md-sys-color-tertiary-container);color:var(--md-sys-color-on-tertiary-container)">
         <div class="nd-ico" style="--s2:var(--m3e-shape-cookie-12);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-tertiary);color:var(--md-sys-color-on-tertiary);clip-path:var(--m3e-shape-sunny)">
+          <span class="material-symbols-outlined" style="font-size:26px">dns</span>
+        </div>
+        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">免代理直连</span><span data-lang="en">Direct without a proxy</span></h3>
+        <p style="margin:10px 0 0;font-size:15px;line-height:1.6;opacity:.86">
+          <span data-lang="zh">内置 DoH 与 ECH：加密解析域名，条件满足时保护 TLS 握手里的域名。配合 Weishiair DoH，部分网络中不配代理也能尝试直连；它不是 VPN，连通性仍取决于网络。</span>
+          <span data-lang="en">Built-in DoH and ECH encrypt DNS lookups and, when the conditions hold, protect the domain in the TLS handshake. With Weishiair DoH the app can try a direct connection without a proxy — it is not a VPN, and reachability still depends on the network.</span>
+        </p>
+      </article>
+
+      <article class="nd-card nd-rise" style="grid-column:span 3;padding:32px;border-radius:36px;background:var(--md-sys-color-surface-container-high)">
+        <div class="nd-ico" style="--s2:var(--m3e-shape-sunny);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);clip-path:var(--m3e-shape-cookie-7)">
+          <span class="material-symbols-outlined" style="font-size:26px">auto_stories</span>
+        </div>
+        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">连续阅读</span><span data-lang="en">Continuous reading</span></h3>
+        <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
+          <span data-lang="zh">上下翻页接续回复，楼层与阅读位置都记得住；回复可选通栏、轻卡片或官方原版，引用收进更多菜单，置顶回复带图钉排在最前。</span>
+          <span data-lang="en">Paging continues through replies and remembers the floor and scroll position; replies can be full-width, light cards or the original layout, quotes move into a menu, and pinned replies sit first with a pin.</span>
+        </p>
+      </article>
+
+      <article class="nd-card nd-rise" style="grid-column:span 3;padding:32px;border-radius:36px;background:var(--md-sys-color-surface-container-high)">
+        <div class="nd-ico" style="--s2:var(--m3e-shape-cookie-6);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);clip-path:var(--m3e-shape-puffy)">
           <span class="material-symbols-outlined" style="font-size:26px">cloud_off</span>
         </div>
         <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">离线优先</span><span data-lang="en">Offline first</span></h3>
-        <p style="margin:10px 0 0;font-size:15px;line-height:1.6;opacity:.86">
-          <span data-lang="zh">Room 离线缓存与已读标记、本机浏览历史、每帖记住阅读位置。地铁里没信号也能接着读。</span>
-          <span data-lang="en">Room offline cache, read marks, local history and a remembered scroll position per post. Keep reading with no signal.</span>
+        <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
+          <span data-lang="zh">Room 缓存帖子与已读状态，已读可整块染色；浏览历史与每帖阅读位置各自保留，地铁里没信号也能接着读。</span>
+          <span data-lang="en">Room caches posts and read marks, and read threads can be tinted as a block; history and a per-post scroll position are kept, so reading continues with no signal.</span>
         </p>
       </article>
 
@@ -347,19 +374,19 @@
         </div>
         <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">M3 主题</span><span data-lang="en">Material You</span></h3>
         <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
-          <span data-lang="zh">动态取色跟随壁纸，也可选角色预设或自定义种子色。默认是石墨青 #35606E。</span>
-          <span data-lang="en">Dynamic colour from your wallpaper, character palettes, or your own seed. Ships with 石墨青 #35606E.</span>
+          <span data-lang="zh">动态取色跟随壁纸，也可选角色预设或自定义种子色；除纯白与中性深色外，还有接管配色的墨水屏模式。默认石墨青 #35606E。</span>
+          <span data-lang="en">Dynamic colour from the wallpaper, character palettes or your own seed; alongside pure white and neutral dark, an e-ink mode takes over the palette. Ships with 石墨青 #35606E.</span>
         </p>
       </article>
 
       <article class="nd-card nd-rise" style="grid-column:span 2;padding:32px;border-radius:36px;background:var(--md-sys-color-surface-container-high)">
-        <div class="nd-ico" style="--s2:var(--m3e-shape-puffy);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);clip-path:var(--m3e-shape-puffy)">
+        <div class="nd-ico" style="--s2:var(--m3e-shape-flower);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);clip-path:var(--m3e-shape-puffy)">
           <span class="material-symbols-outlined" style="font-size:26px">notifications_active</span>
         </div>
-        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">消息通知</span><span data-lang="en">Notifications</span></h3>
+        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">通知与私信</span><span data-lang="en">Notifications and DMs</span></h3>
         <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
-          <span data-lang="zh">WorkManager 轮询、未读数、互动与私信会话、关注与粉丝，一处收齐。</span>
-          <span data-lang="en">WorkManager polling, unread counts, mentions and replies, DMs, follows — all in one tab.</span>
+          <span data-lang="zh">后台轮询未读与互动；私信改成浮层气泡与快捷表情，草稿按账号保存、失败可重试，防诈提醒直接给结论。</span>
+          <span data-lang="en">Background polling for unread counts and mentions; DMs use bubbles with quick emoji, drafts save per account and retry on failure, and the anti-fraud card leads with the verdict.</span>
         </p>
       </article>
 
@@ -367,43 +394,32 @@
         <div class="nd-ico" style="--s2:var(--m3e-shape-flower);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);clip-path:var(--m3e-shape-clover-8)">
           <span class="material-symbols-outlined" style="font-size:26px">devices</span>
         </div>
-        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">自适应布局</span><span data-lang="en">Adaptive layout</span></h3>
+        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">自适应与 iPad</span><span data-lang="en">Adaptive, including iPad</span></h3>
         <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
-          <span data-lang="zh">4 个 tab，宽窗口由 NavigationSuiteScaffold 换成侧边 rail，每个 tab 各有返回栈。</span>
-          <span data-lang="en">Four tabs; wide windows swap the bar for a side rail via NavigationSuiteScaffold, each tab keeping its own back stack.</span>
+          <span data-lang="zh">手机 3 个 tab 各有返回栈，宽窗口换成侧边 rail；iPad 上列表、私信与详情可并排，旋转或换分栏时原页面继续用。</span>
+          <span data-lang="en">Three tabs with independent back stacks on a phone, a side rail on wide windows; on iPad the list, DMs and a thread sit side by side and survive rotation or a new split.</span>
         </p>
       </article>
 
-      <article class="nd-card nd-rise" style="grid-column:span 2;padding:32px;border-radius:36px;background:var(--md-sys-color-surface-container-high)">
+      <article class="nd-card nd-rise" style="grid-column:span 3;padding:32px;border-radius:36px;background:var(--md-sys-color-surface-container-high)">
         <div class="nd-ico" style="--s2:var(--m3e-shape-burst);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);clip-path:var(--m3e-shape-cookie-4)">
-          <span class="material-symbols-outlined" style="font-size:26px">forum</span>
+          <span class="material-symbols-outlined" style="font-size:26px">emoji_events</span>
         </div>
-        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">完整互动</span><span data-lang="en">Full interaction</span></h3>
+        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">社区工具</span><span data-lang="en">Community tools</span></h3>
         <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
-          <span data-lang="zh">发帖、评论、编辑自己的内容，点赞 / 反对 / 投喂鸡腿、收藏、每日签到、投票帖管理。</span>
-          <span data-lang="en">Post, comment and edit your own content; like, dislike, tip, bookmark, sign in daily, and run polls.</span>
+          <span data-lang="zh">抽奖助手盯开奖提醒、查中奖记录，自动签到按设置执行；NodeSeek 与 DeepFlood 可即时切换，两站数据各自保留。</span>
+          <span data-lang="en">A lottery assistant watches draws and keeps results, auto check-in runs on your settings, and NodeSeek / DeepFlood switch instantly with each site's data kept apart.</span>
         </p>
       </article>
 
-      <article class="nd-card nd-rise" style="grid-column:span 2;padding:32px;border-radius:36px;background:var(--md-sys-color-surface-container-high)">
+      <article class="nd-card nd-rise" style="grid-column:span 3;padding:32px;border-radius:36px;background:var(--md-sys-color-surface-container-high)">
         <div class="nd-ico" style="--s2:var(--m3e-shape-cookie-6);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);clip-path:var(--m3e-shape-flower)">
           <span class="material-symbols-outlined" style="font-size:26px">image</span>
         </div>
         <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">图片体验</span><span data-lang="en">Images</span></h3>
         <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
-          <span data-lang="zh">全屏预览、保存、分享，六选一的图床上传，看图发图都顺手。</span>
-          <span data-lang="en">Full-screen preview, save and share, plus six image hosts to upload to.</span>
-        </p>
-      </article>
-
-      <article class="nd-card nd-rise" style="grid-column:span 2;padding:32px;border-radius:36px;background:var(--md-sys-color-surface-container-high)">
-        <div class="nd-ico" style="--s2:var(--m3e-shape-gem);width:52px;height:52px;display:grid;place-items:center;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);clip-path:var(--m3e-shape-gem)">
-          <span class="material-symbols-outlined" style="font-size:26px">shield_lock</span>
-        </div>
-        <h3 style="margin:20px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em"><span data-lang="zh">隐私克制</span><span data-lang="en">Restrained by design</span></h3>
-        <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
-          <span data-lang="zh">请求频率克制，不做自动化刷分；仓库不保存 Cookie 或凭据，代码全部开源可审计。</span>
-          <span data-lang="en">Polite request rates, no automation. No cookies or credentials in the repo — all code is auditable.</span>
+          <span data-lang="zh">全屏预览、保存、分享；发帖与私信可从六种图床上传，图片插入当前光标位置。</span>
+          <span data-lang="en">Full-screen preview, save and share; six image hosts for posts and DMs, with uploads inserted at the cursor.</span>
         </p>
       </article>
     </div>
@@ -496,12 +512,12 @@
         </figure>
         <figure style="margin:0;flex:0 0 auto;width:214px">
           <div class="nd-phone" style="--d:1.4s;padding:7px;border-radius:32px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow)">
-            <img data-shot="light" src="screenshots/network-check-light.png" alt="网络自检" style="width:100%;border-radius:26px">
-            <img data-shot="dark" src="screenshots/network-check-dark.png" alt="网络自检" style="width:100%;border-radius:26px">
+            <img data-shot="light" src="screenshots/messages-light.png" alt="私信" style="width:100%;border-radius:26px">
+            <img data-shot="dark" src="screenshots/messages-dark.png" alt="私信" style="width:100%;border-radius:26px">
           </div>
           <figcaption style="margin-top:14px;display:flex;justify-content:center">
             <span style="padding:6px 14px;border-radius:999px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:13px;font-weight:600">
-              <span data-lang="zh">网络自检</span><span data-lang="en">Network check</span>
+              <span data-lang="zh">私信</span><span data-lang="en">Messages</span>
             </span>
           </figcaption>
         </figure>
@@ -584,12 +600,12 @@
         </figure>
         <figure style="margin:0;flex:0 0 auto;width:214px">
           <div class="nd-phone" style="--d:0.0s;padding:7px;border-radius:32px;background:var(--md-sys-color-surface-container-highest);box-shadow:var(--nd-shadow)">
-            <img data-shot="light" src="screenshots/network-check-light.png" alt="网络自检" style="width:100%;border-radius:26px">
-            <img data-shot="dark" src="screenshots/network-check-dark.png" alt="网络自检" style="width:100%;border-radius:26px">
+            <img data-shot="light" src="screenshots/messages-light.png" alt="私信" style="width:100%;border-radius:26px">
+            <img data-shot="dark" src="screenshots/messages-dark.png" alt="私信" style="width:100%;border-radius:26px">
           </div>
           <figcaption style="margin-top:14px;display:flex;justify-content:center">
             <span style="padding:6px 14px;border-radius:999px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:13px;font-weight:600">
-              <span data-lang="zh">网络自检</span><span data-lang="en">Network check</span>
+              <span data-lang="zh">私信</span><span data-lang="en">Messages</span>
             </span>
           </figcaption>
         </figure>
@@ -603,8 +619,8 @@
         <p style="margin:0;font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--md-sys-color-on-surface-variant)">
           <span data-lang="zh">最新版本</span><span data-lang="en">Latest release</span>
         </p>
-        <div style="margin:12px 0 0;font-size:clamp(52px,7vw,80px);line-height:1;letter-spacing:-.04em;font-weight:700;color:var(--md-sys-color-primary)"><span data-lang="zh">最新版</span><span data-lang="en">Latest</span></div>
-        <p style="margin:12px 0 0;font-size:16px;color:var(--md-sys-color-on-surface-variant)">Android 8.0+ · iOS 16.0+</p>
+        <div style="margin:12px 0 0;font-size:clamp(52px,7vw,80px);line-height:1;letter-spacing:-.04em;font-weight:700;color:var(--md-sys-color-primary)">1.3.8</div>
+        <p style="margin:12px 0 0;font-size:16px;color:var(--md-sys-color-on-surface-variant)">Android 8.0+ · iOS 16.0+ · 2026-11-04</p>
         <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:24px">
           <a class="nd-press nd-rel-primary" href="https://github.com/weishiair/nodyssey/releases/latest" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 24px;border-radius:26px;background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary);font-size:16px;font-weight:600">
             <span class="material-symbols-outlined" style="font-size:22px">download</span>
@@ -615,49 +631,48 @@
           </a>
         </div>
         <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:var(--md-sys-color-on-surface-variant)">
-          <span data-lang="zh">应用内也能检查更新并直接安装。</span>
-          <span data-lang="en">The app can also check for updates and install them itself.</span>
+          <span data-lang="zh">Android 可直接覆盖安装，应用内也能检查更新；iOS 的 ipa 未签名，需要用自己的方式签名安装，个别功能两端略有差异。</span>
+          <span data-lang="en">Android updates in place and can check for its own updates; the iOS .ipa is unsigned and needs your own signing, and a few features differ between the platforms.</span>
         </p>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:16px">
         <article class="nd-rise" style="padding:28px 32px;border-radius:32px;background:var(--md-sys-color-surface-container-high)">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <span style="font-size:20px;font-weight:600">1.2.21</span>
-            <span style="padding:5px 12px;border-radius:999px;background:var(--md-sys-color-error-container);color:var(--md-sys-color-on-error-container);font-size:12px;font-weight:700"><span data-lang="zh">修复</span><span data-lang="en">Fixed</span></span>
-            <span style="margin-left:auto;font-size:14px;color:var(--md-sys-color-on-surface-variant)">2026-09-13</span>
-          </div>
-          <ul style="margin:16px 0 0;padding-left:20px;font-size:15px;line-height:1.85;color:var(--md-sys-color-on-surface-variant)">
-            <li><span data-lang="zh">私信、发帖预览、个人空间的表情显示成文本。</span><span data-lang="en">Emoji showed as raw text in DMs, post previews and profiles.</span></li>
-            <li><span data-lang="zh">去验证打开的页面没有验证，永远验不过。</span><span data-lang="en">The challenge page opened without a challenge and could never pass.</span></li>
-            <li><span data-lang="zh">接口返回网页、或站点报 503 时，误报成需要 Cloudflare 验证。</span><span data-lang="en">HTML responses and 503s were misreported as a Cloudflare challenge.</span></li>
-            <li><span data-lang="zh">游客看列表和帖子一直 503，打开内版提示需要登录。</span><span data-lang="en">Guests hit endless 503s on lists and posts.</span></li>
-          </ul>
-        </article>
-
-        <article class="nd-rise" style="padding:28px 32px;border-radius:32px;background:var(--md-sys-color-surface-container)">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <span style="font-size:20px;font-weight:600">1.2.19 – 1.2.20</span>
+            <span style="font-size:20px;font-weight:600">1.3.8</span>
             <span style="padding:5px 12px;border-radius:999px;background:var(--md-sys-color-tertiary-container);color:var(--md-sys-color-on-tertiary-container);font-size:12px;font-weight:700"><span data-lang="zh">新增</span><span data-lang="en">Added</span></span>
-            <span style="margin-left:auto;font-size:14px;color:var(--md-sys-color-on-surface-variant)">2026-09-11</span>
+            <span style="margin-left:auto;font-size:14px;color:var(--md-sys-color-on-surface-variant)">2026-11-04</span>
           </div>
           <ul style="margin:16px 0 0;padding-left:20px;font-size:15px;line-height:1.85;color:var(--md-sys-color-on-surface-variant)">
-            <li><span data-lang="zh">支持 DeepFlood，首页顶栏切换站点。</span><span data-lang="en">DeepFlood support — switch sites from the home app bar.</span></li>
-            <li><span data-lang="zh">修复首页和搜索排序切不回按回复时间。</span><span data-lang="en">Sorting on home and search could not switch back to reply time.</span></li>
+            <li><span data-lang="zh">抽奖助手：开奖提醒、中奖结果查询与记录管理，Android 与 iOS 都能用。</span><span data-lang="en">Lottery assistant: draw reminders, result lookup and records, on Android and iOS.</span></li>
+            <li><span data-lang="zh">私信草稿按账号保存，中断后可恢复；发送失败可重试。</span><span data-lang="en">DM drafts save per account and survive an interruption; failed sends retry.</span></li>
+            <li><span data-lang="zh">置顶回复显示图钉并排在最前；修复 iPad 旋转与分栏切换时的闪退。</span><span data-lang="en">Pinned replies get a pin and sit first; iPad rotation and split-switching crashes are fixed.</span></li>
           </ul>
         </article>
 
         <article class="nd-rise" style="padding:28px 32px;border-radius:32px;background:var(--md-sys-color-surface-container)">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <span style="font-size:20px;font-weight:600">1.2.18</span>
-            <span style="padding:5px 12px;border-radius:999px;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);font-size:12px;font-weight:700"><span data-lang="zh">变更</span><span data-lang="en">Changed</span></span>
-            <span style="margin-left:auto;font-size:14px;color:var(--md-sys-color-on-surface-variant)">2026-09-08</span>
+            <span style="font-size:20px;font-weight:600">1.3.7</span>
+            <span style="padding:5px 12px;border-radius:999px;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);font-size:12px;font-weight:700"><span data-lang="zh">改进</span><span data-lang="en">Improved</span></span>
+            <span style="margin-left:auto;font-size:14px;color:var(--md-sys-color-on-surface-variant)">2026-11-02</span>
           </div>
           <ul style="margin:16px 0 0;padding-left:20px;font-size:15px;line-height:1.85;color:var(--md-sys-color-on-surface-variant)">
-            <li><span data-lang="zh">首页和通知左右滑动切换分类，跟手翻页。</span><span data-lang="en">Swipe between categories on home and notifications.</span></li>
-            <li><span data-lang="zh">墨水屏模式：黑白高对比，无动效。</span><span data-lang="en">E-ink mode: high-contrast black and white, no motion.</span></li>
-            <li><span data-lang="zh">通知顶部改成标签页，@我和回复合并成「互动」。</span><span data-lang="en">Notifications moved to tabs; mentions and replies merged into one.</span></li>
-            <li><span data-lang="zh">「我的」改成图标网格，主题帖和评论各成一页。</span><span data-lang="en">Profile became an icon grid, with threads and comments on their own pages.</span></li>
+            <li><span data-lang="zh">自动签到：Android 与 iOS 均可在设置中管理，后台执行时机由系统调度。</span><span data-lang="en">Auto check-in on Android and iOS, managed in settings; the system decides when it runs in the background.</span></li>
+            <li><span data-lang="zh">已读帖子整块染色，颜色可自定义。</span><span data-lang="en">Read threads can be tinted as a block, in a colour you choose.</span></li>
+            <li><span data-lang="zh">iPad 宽屏支持列表、私信与详情并排，旋转后复用原页面。</span><span data-lang="en">iPad pairs the list, DMs and a thread side by side and keeps the page across rotation.</span></li>
+          </ul>
+        </article>
+
+        <article class="nd-rise" style="padding:28px 32px;border-radius:32px;background:var(--md-sys-color-surface-container)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:20px;font-weight:600">1.3.6</span>
+            <span style="padding:5px 12px;border-radius:999px;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);font-size:12px;font-weight:700"><span data-lang="zh">改进</span><span data-lang="en">Improved</span></span>
+            <span style="margin-left:auto;font-size:14px;color:var(--md-sys-color-on-surface-variant)">2026-10-30</span>
+          </div>
+          <ul style="margin:16px 0 0;padding-left:20px;font-size:15px;line-height:1.85;color:var(--md-sys-color-on-surface-variant)">
+            <li><span data-lang="zh">私信浮层气泡、快捷表情与用户资料面板，防诈卡片直接给出风险结论。</span><span data-lang="en">DM bubbles, quick emoji and a profile sheet; the anti-fraud card states the risk outright.</span></li>
+            <li><span data-lang="zh">长按主帖标题可复制完整标题或选中文字；搜索结果显示楼主头像。</span><span data-lang="en">Long-press a title to copy it or the selection; search results show the author's avatar.</span></li>
+            <li><span data-lang="zh">二级页面改为定向滑动与预测性返回，进入帖子使用共享元素转场。</span><span data-lang="en">Second-level pages slide directionally with predictive back, and threads open with a shared-element transition.</span></li>
           </ul>
         </article>
       </div>
@@ -672,8 +687,8 @@
           <span data-lang="zh">自由软件，欢迎共建</span><span data-lang="en">Free software, built in the open</span>
         </h2>
         <p style="margin:16px 0 0;font-size:16.5px;line-height:1.7;opacity:.88">
-          <span data-lang="zh">Nodyssey 以 GPL-3.0 开源。NodeSeek 没有面向第三方的公开 API，列表、详情与搜索靠解析服务端渲染的页面得来；解析器都有测试覆盖，测试永不访问线上站点。本分支基于 5151561/nodyssey，保留原项目署名与许可证。欢迎在本分支提 Issue、发 PR。</span>
-          <span data-lang="en">Nodyssey is GPL-3.0. NodeSeek has no public third-party API, so lists, details and search come from parsing server-rendered HTML; every parser is test-covered and the tests never touch the live site. This fork is based on 5151561/nodyssey and retains its attribution and license. Issues and PRs are welcome in this fork.</span>
+          <span data-lang="zh">Nodyssey 以 GPL-3.0 开源，Android 与 iOS 共用一套 Compose Multiplatform 代码。NodeSeek 没有面向第三方的公开 API，列表、详情与搜索靠解析服务端渲染的页面得来；解析器都有测试覆盖，测试永不访问线上站点。本分支基于 5151561/nodyssey，保留原项目署名与许可证，并参考了 tyrad/nodeseek 的 iOS 实现。欢迎提 Issue、发 PR，或到 Telegram 群里聊聊。</span>
+          <span data-lang="en">Nodyssey is GPL-3.0, with one Compose Multiplatform codebase for Android and iOS. NodeSeek has no public third-party API, so lists, details and search come from parsing server-rendered HTML; every parser is test-covered and the tests never touch the live site. This fork is based on 5151561/nodyssey and keeps its attribution and license, with tyrad/nodeseek as an iOS reference. Issues, PRs and Telegram chatter are all welcome.</span>
         </p>
       </div>
       <div style="position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:36px">
@@ -692,6 +707,11 @@
           <span style="flex:1"><span style="display:block;font-size:16px;font-weight:600"><span data-lang="zh">原项目与致谢</span><span data-lang="en">Original project</span></span><span style="display:block;font-size:13.5px;color:var(--md-sys-color-on-surface-variant)"><span data-lang="zh">5151561/nodyssey · GPL-3.0</span><span data-lang="en">5151561/nodyssey · GPL-3.0</span></span></span>
           <span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-on-surface-variant)">north_east</span>
         </a>
+        <a class="nd-band-link" href="https://t.me/+JGCIMJmPrj0wZGVh" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:14px;padding:20px 24px;border-radius:26px;background:var(--md-sys-color-surface);color:var(--md-sys-color-on-surface);transition:transform .25s var(--sp)">
+          <span class="material-symbols-outlined" style="font-size:26px;color:var(--md-sys-color-primary)">chat</span>
+          <span style="flex:1"><span style="display:block;font-size:16px;font-weight:600"><span data-lang="zh">Telegram 交流群</span><span data-lang="en">Telegram group</span></span><span style="display:block;font-size:13.5px;color:var(--md-sys-color-on-surface-variant)"><span data-lang="zh">使用体验与更新讨论</span><span data-lang="en">Usage and release talk</span></span></span>
+          <span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-on-surface-variant)">north_east</span>
+        </a>
       </div>
     </div>
   </section>
@@ -704,7 +724,7 @@
       </div>
       <div class="nd-rise" style="padding:26px 28px;border-radius:28px;border:1px solid var(--md-sys-color-outline-variant)">
         <h3 style="margin:0;font-size:16px;font-weight:600"><span data-lang="zh">不保存凭据</span><span data-lang="en">No credentials stored</span></h3>
-        <p style="margin:8px 0 0;font-size:14.5px;line-height:1.65;color:var(--md-sys-color-on-surface-variant)"><span data-lang="zh">应用不在仓库中保存 Cookie 或凭据；登录态由系统 CookieManager 持有。</span><span data-lang="en">No cookies or credentials live in the repo; the session is held by the system CookieManager.</span></p>
+        <p style="margin:8px 0 0;font-size:14.5px;line-height:1.65;color:var(--md-sys-color-on-surface-variant)"><span data-lang="zh">应用不在仓库中保存 Cookie 或凭据；登录态由系统的 Cookie 存储持有。</span><span data-lang="en">No cookies or credentials live in the repo; the session stays in the platform's cookie store.</span></p>
       </div>
       <div class="nd-rise" style="padding:26px 28px;border-radius:28px;border:1px solid var(--md-sys-color-outline-variant)">
         <h3 style="margin:0;font-size:16px;font-weight:600"><span data-lang="zh">请求克制</span><span data-lang="en">Polite by default</span></h3>
@@ -728,6 +748,7 @@
         <a href="https://github.com/weishiair/nodyssey" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/weishiair/nodyssey/releases" target="_blank" rel="noopener"><span data-lang="zh">下载</span><span data-lang="en">Releases</span></a>
         <a href="https://github.com/weishiair/nodyssey/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://t.me/+JGCIMJmPrj0wZGVh" target="_blank" rel="noopener">Telegram</a>
         <a href="https://github.com/5151561/nodyssey" target="_blank" rel="noopener"><span data-lang="zh">原项目</span><span data-lang="en">Upstream</span></a>
         <a href="https://www.nodeseek.com/" target="_blank" rel="noopener">NodeSeek</a>
       </div>
