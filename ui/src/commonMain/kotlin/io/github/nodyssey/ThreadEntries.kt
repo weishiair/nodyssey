@@ -9,6 +9,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.rememberShareImage
 import io.github.nodyssey.ui.common.sharedThreadSurface
 import io.github.nodyssey.ui.composer.PostComposerRoute
@@ -97,7 +98,7 @@ internal fun EntryProviderScope<NavKey>.threadEntries(nav: StackEntryScope) = wi
             // By identity: the stack hands the entry this very key, and an equal key further down
             // is a different page.
             replyCovered = backStack.lastOrNull() !== key,
-            showBackButton = !(isListDetailExpanded() && backStack.sitsBesideList(key)),
+            showBackButton = !(isListDetailExpanded() && backStack.hidesDetailBackButton(key, LocalIosPad.current)),
             onBack = { backStack.removeLastOrNull() },
             onOpenBrowser = openWebUrl,
             // A link to this same thread stays on this screen; see [PostDetailViewModel.openLinkInPlace].

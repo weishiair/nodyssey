@@ -32,7 +32,10 @@ internal sealed interface PaneGroup {
 }
 
 /** What a back-stack entry is to a list-detail layout. */
-internal enum class PaneKind { LIST, DETAIL, NONE }
+internal enum class PaneKind { LIST, LIST_WHEN_DETAIL, DETAIL, NONE }
+
+/** The list and detail need enough room side by side, even with the iPad in a resizable window. */
+internal fun supportsIosListDetail(width: Double, height: Double): Boolean = width >= 840.0 && width > height
 
 /**
  * Groups [stack] for a window that does ([expanded]) or does not have room for two panes.
@@ -48,10 +51,11 @@ internal fun <K> paneGroups(
     val groups = mutableListOf<PaneGroup>()
     var index = 0
     while (index < stack.size) {
-        if (kindOf(stack[index]) == PaneKind.LIST) {
+        val kind = kindOf(stack[index])
+        if (kind == PaneKind.LIST || kind == PaneKind.LIST_WHEN_DETAIL) {
             var details = 0
             while (index + 1 + details < stack.size && kindOf(stack[index + 1 + details]) == PaneKind.DETAIL) details++
-            groups += PaneGroup.Split(index, details)
+            groups += if (details == 0 && kind == PaneKind.LIST_WHEN_DETAIL) PaneGroup.Single(index) else PaneGroup.Split(index, details)
             index += 1 + details
         } else {
             groups += PaneGroup.Single(index)
