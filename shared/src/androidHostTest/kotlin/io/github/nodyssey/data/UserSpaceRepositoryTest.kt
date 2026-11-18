@@ -162,6 +162,16 @@ class UserSpaceRepositoryTest {
             assertTrue(page.hasNextPage)
         }
 
+    @Test
+    fun `a collection page with an unreadable row cannot authorise deleting cached bookmarks`() =
+        runTest {
+            val payload = """{"collections":[{"post_id":1,"title":"one"},{"post_id":2}],"hasNext":false}"""
+            val exception = runCatching {
+                NetworkUserSpaceRepository(FakeSpaceJsonSource(payload), dispatchers).collections(1)
+            }.exceptionOrNull()
+            assertEquals(SiteError.Unparsable, (exception as? SiteException)?.error)
+        }
+
     /**
      * Regression: with several unrecognised arrays the walk must not gamble on one — handing back a
      * sibling block (badges, a pager) would render a confident empty tab from the wrong array.

@@ -9,6 +9,7 @@ import io.github.nodyssey.core.net.NodeSeekJsonClient
 import io.github.nodyssey.data.AppCacheStore
 import io.github.nodyssey.data.AssetsRepository
 import io.github.nodyssey.data.AwardRepository
+import io.github.nodyssey.data.BookmarksSync
 import io.github.nodyssey.data.CategoryRepository
 import io.github.nodyssey.data.CollectedPostMetaStore
 import io.github.nodyssey.data.CommunityRepository
@@ -448,7 +449,12 @@ class IosAppContainer(
             historyAccounts = historyAccounts,
             showHomePinnedPosts = settingsRepository.settings.map { it.showHomePinnedPosts }.distinctUntilChanged(),
             pins = PostPinWriter(jsonClient),
+            onCollectionChanged = { bookmarksSync.invalidate() },
         )
+    }
+
+    override val bookmarksSync: BookmarksSync by lazy {
+        BookmarksSync(userSpaceRepository, collectedPostMetaStore, offlineLibrary, clock, appScope, accountRequests)
     }
 
     override val collectedPostMetaStore: CollectedPostMetaStore by lazy {

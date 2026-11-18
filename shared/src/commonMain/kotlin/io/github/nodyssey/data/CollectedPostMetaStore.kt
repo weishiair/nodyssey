@@ -55,7 +55,7 @@ interface CollectedPostMetaStore {
     fun observe(): Flow<Map<Long, CollectedPostMeta>>
 
     /**
-     * The collection itself, in collection order, as of the last complete walk of the endpoint.
+     * The collection itself, in collection order, including any prefix already fetched by an incomplete walk.
      *
      * The 收藏 list reads from here rather than from the request that filled it, which is what makes
      * the screen open onto content with the network off. Empty until a walk has recorded one — a
@@ -77,6 +77,9 @@ interface CollectedPostMetaStore {
      * stay — see the DAO — so re-collecting one does not cost the row what it knew.
      */
     suspend fun rememberCollection(metas: List<CollectedPostMeta>)
+
+    /** Records a fetched prefix without unlisting any of the unseen tail. */
+    suspend fun rememberCollectionPrefix(metas: List<CollectedPostMeta>)
 
     /** Takes threads off the list, for the moment this account un-collects one. */
     suspend fun forget(postIds: Collection<Long>)
@@ -115,9 +118,13 @@ class RoomCollectedPostMetaStore(
         dao.trimTo(MAX_REMEMBERED)
     }
 
+    override suspend fun rememberCollectionPrefix(metas: List<CollectedPostMeta>) {
+        val now = clock.nowMillis()
+        dao.mergeCollectionPrefix(metas.map { it.toEntity(now) }, now)
+    }
+
     override suspend fun forget(postIds: Collection<Long>) {
-        if (postIds.isEmpty()) return
-        dao.unlist(postIds.toList())
+        postIds.toList().chunked(500).forEach { dao.unlist(it) }
     }
 
     override suspend fun relist(postIds: List<Long>) = dao.replaceOrder(postIds)

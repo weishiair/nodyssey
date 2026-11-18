@@ -1314,7 +1314,8 @@
     <string name="bookmarks_sort_replies">Most replies</string>
     <string name="bookmarks_sort_pending">Not downloaded first</string>
     <string name="bookmarks_stale">%1$s — this is the list from the last sync</string>
-    <string name="bookmarks_truncated">Too many bookmarks to read past page %1$d; the counts below cover what was read</string>
+    <string name="bookmarks_truncated">Bookmarks are not fully synced. Counts reflect the current list.</string>
+    <string name="bookmarks_load_more">Load more</string>
     <string name="bookmarks_empty_title">Nothing bookmarked</string>
     <string name="bookmarks_empty_body">The star at the top of a post puts it here. Bookmarks are per post — the site offers no folders and no notes.</string>
     <string name="bookmarks_empty_filter_title">Nothing under this filter</string>

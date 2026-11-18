@@ -279,6 +279,25 @@ class PostCollectionTest {
             assertEquals("一", store.observe().first()[1L]?.title)
         }
 
+    @Test
+    fun `a partial sync puts the fetched rows first without unlisting the cached tail`() =
+        runTest {
+            val store = store()
+            store.rememberCollection(
+                listOf(
+                    CollectedPostMeta(8, title = "eight"),
+                    CollectedPostMeta(2, title = "old title", authorName = "known author"),
+                    CollectedPostMeta(9, title = "nine"),
+                ),
+            )
+            store.rememberCollectionPrefix(listOf(CollectedPostMeta(2, title = "new title"), CollectedPostMeta(1, title = "one")))
+
+            val rows = store.observeCollection().first()
+            assertEquals(listOf(2L, 1L, 8L, 9L), rows.map { it.postId })
+            assertEquals("new title", rows.first().title)
+            assertEquals("known author", rows.first().authorName)
+        }
+
     /** Collection order is the site's own, and the only thing 「收藏顺序」 can mean off disk. */
     @Test
     fun `the stored list comes back in the order the walk saw it`() =

@@ -388,6 +388,7 @@ class OfflineFirstPostRepository(
     private val historyAccounts: ReadingHistoryAccounts = ReadingHistoryAccounts(database),
     private val showHomePinnedPosts: Flow<Boolean> = flowOf(true),
     private val pins: PostPinWriter? = null,
+    private val onCollectionChanged: suspend () -> Unit = {},
 ) : PostRepository {
     override fun feed(
         categorySlug: String?,
@@ -815,6 +816,7 @@ class OfflineFirstPostRepository(
     ) {
         val writer = collections ?: throw SiteException(SiteError.NotWired)
         val outcome = writer.setCollected(postId = postId, collected = collected)
+        onCollectionChanged()
         // The site's echo, not the request: see [CollectionOutcome.collected].
         database.postDetailDao().updateCollection(postId, outcome.collected, outcome.postCollectionCount)
         if (outcome.collected) {
