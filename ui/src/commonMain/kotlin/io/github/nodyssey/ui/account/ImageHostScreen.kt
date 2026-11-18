@@ -157,6 +157,7 @@ import io.github.nodyssey.ui.resources.status_network_title
 import io.github.nodyssey.ui.settings.SettingsGroup
 import io.github.nodyssey.ui.settings.SettingsItemGap
 import io.github.nodyssey.ui.settings.SettingsMenuRow
+import io.github.nodyssey.ui.settings.SettingsPagePadding
 import io.github.nodyssey.ui.settings.SettingsTextField
 import io.github.nodyssey.ui.settings.SettingsTopBar
 import io.github.nodyssey.ui.settings.settingsPageColor
@@ -317,7 +318,7 @@ internal fun ImageHostContent(
     val refreshLabel = stringResource(Res.string.action_refresh)
     Scaffold(
         modifier = if (nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
-        containerColor = settingsPageColor(),
+        containerColor = if (nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
             SettingsTopBar(
@@ -347,17 +348,16 @@ internal fun ImageHostContent(
             )
         },
     ) { padding ->
-        val contentInset = padding.withoutBottom()
+        val contentInset = if (nativeChrome) padding.withoutBottom() else padding
         Column(
             modifier = Modifier
                 .padding(contentInset)
-                .consumeWindowInsets(contentInset)
-                .imePadding()
+                .then(if (nativeChrome) Modifier.consumeWindowInsets(contentInset).imePadding() else Modifier)
                 .fillMaxSize()
                 .then(if (nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(settingsScrollPadding(padding)),
+                .padding(if (nativeChrome) settingsScrollPadding(padding) else SettingsPagePadding),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             ProviderSection(
