@@ -2,19 +2,25 @@ package io.github.nodyssey
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.FeedPost
+import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.THREAD_ORIGIN_FEED
 import io.github.nodyssey.ui.common.searchOrigin
 import io.github.nodyssey.ui.login.WebViewGoal
 import io.github.nodyssey.ui.messages.MessageThreadRoute
 import io.github.nodyssey.ui.messages.MessageThreadViewModel
+import io.github.nodyssey.ui.notifications.LocalSelectedConversationUid
+import io.github.nodyssey.ui.notifications.LocalSelectedInteractionId
 import io.github.nodyssey.ui.notifications.NotificationsRoute
 import io.github.nodyssey.ui.postlist.LocalSelectedPostId
 import io.github.nodyssey.ui.postlist.PostListRoute
@@ -103,25 +109,36 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
             container.settingsRepository.settings.map { it.oneHandTipDismissed }
         }.collectAsStateWithLifecycle(initialValue = true)
         val scope = rememberCoroutineScope()
-        NotificationsRoute(
-            viewModel = notificationsViewModel,
-            onSignIn = { backStack.add(SignInKey) },
-            onVerify = { url ->
-                backStack.add(WebKey(url, siteTitle, WebViewGoal.CHALLENGE))
-            },
-            onNotificationClick = { notification ->
-                notification.postId?.let {
-                    backStack.openFromList(key, PostDetailKey(it, notification.floor), isListDetailExpanded())
-                }
-            },
-            onOpenThread = { uid, name ->
-                backStack.openFromList(key, MessageThreadKey(uid, name), isListDetailExpanded())
-            },
-            showOneHandTip = LocalOneHandModeAvailable.current && !oneHandTipDismissed,
-            onDismissOneHandTip = { scope.launch { container.settingsRepository.dismissOneHandTip() } },
-            onOpenSettings = { backStack.add(SettingsKey) },
-            scrollToTopRequests = notificationsScrollToTopRequests(),
-        )
+        val isIosPad = LocalIosPad.current
+        val shownDetail = if (isIosPad && isListDetailExpanded()) backStack.detailBeside(key) else null
+        // Interactions can share a post and floor. Keep the tapped row attached to the exact entry
+        // it opened so only that row is selected and Back clears the selection with the entry.
+        var selectedInteraction by remember { mutableStateOf<Pair<NavKey, String>?>(null, referentialEqualityPolicy()) }
+        CompositionLocalProvider(
+            LocalSelectedInteractionId provides selectedInteraction?.takeIf { it.first === shownDetail }?.second,
+            LocalSelectedConversationUid provides (shownDetail as? MessageThreadKey)?.uid,
+        ) {
+            NotificationsRoute(
+                viewModel = notificationsViewModel,
+                onSignIn = { backStack.add(SignInKey) },
+                onVerify = { url ->
+                    backStack.add(WebKey(url, siteTitle, WebViewGoal.CHALLENGE))
+                },
+                onNotificationClick = { notification ->
+                    notification.postId?.let {
+                        backStack.openFromList(key, PostDetailKey(it, notification.floor), isListDetailExpanded())
+                        if (isIosPad) selectedInteraction = backStack.detailBeside(key)?.let { detail -> detail to notification.id }
+                    }
+                },
+                onOpenThread = { uid, name ->
+                    backStack.openFromList(key, MessageThreadKey(uid, name), isListDetailExpanded())
+                },
+                showOneHandTip = LocalOneHandModeAvailable.current && !oneHandTipDismissed,
+                onDismissOneHandTip = { scope.launch { container.settingsRepository.dismissOneHandTip() } },
+                onOpenSettings = { backStack.add(SettingsKey) },
+                scrollToTopRequests = notificationsScrollToTopRequests(),
+            )
+        }
     }
 
     entry<MessageThreadKey> { key ->
@@ -133,7 +150,7 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
             )
         MessageThreadRoute(
             viewModel = viewModel,
-            showBackButton = !(isListDetailExpanded() && backStack.sitsBesideList(key)),
+            showBackButton = !(isListDetailExpanded() && backStack.hidesDetailBackButton(key, LocalIosPad.current)),
             onBack = { backStack.removeLastOrNull() },
             onSignIn = { backStack.add(SignInKey) },
             onVerify = { url ->

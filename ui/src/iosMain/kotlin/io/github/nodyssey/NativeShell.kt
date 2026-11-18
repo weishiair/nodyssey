@@ -48,6 +48,7 @@ import io.github.nodyssey.ui.common.IosClipboardPostReader
 import io.github.nodyssey.ui.common.LocalBottomBarSafeAreaOverlap
 import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.bottomBarClearance
@@ -62,6 +63,7 @@ import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
+import io.github.nodyssey.ui.navigation.supportsIosListDetail
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
 import io.github.nodyssey.ui.postlist.HomeFeedStates
@@ -291,7 +293,7 @@ private class NativeShell(
     } else {
         null
     }
-    private val bottomTabs = if (systemTabs == null) BottomTabHost(onWidth = ::onWindowWidth) else null
+    private val bottomTabs = if (systemTabs == null) BottomTabHost() else null
     val root: UIViewController = systemTabs ?: checkNotNull(bottomTabs)
     private var selectedTab = TopLevelDestination.HOME
 
@@ -562,7 +564,7 @@ private class NativeShell(
     /**
      * Hands [destination]'s navigation controller the screens its stack now calls for.
      *
-     * [relayout] is a change of window width rather than of the stack: the same pages, grouped
+     * [relayout] is a change of window size rather than of the stack: the same pages, grouped
      * again without a navigation animation. It must still wait for UIKit's transition: a rotation
      * animates the existing Compose scenes, which cannot be moved to another container mid-flight.
      */
@@ -596,7 +598,11 @@ private class NativeShell(
         val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
         val layout = paneGroups(keys, listDetailExpanded, ::paneKindOf)
         val onScreen = navigationController.view.window != null
-        val animated = onScreen && !needsRelayout
+        // The tab's list controller moves between navigation stacks when the first detail opens or
+        // closes. As on resize, UIKit must finish that transfer before drawing the reused page.
+        val wasRootSplit = groups.getValue(destination).firstOrNull() is PaneGroup.Split
+        val isRootSplit = layout.firstOrNull() is PaneGroup.Split
+        val animated = onScreen && !needsRelayout && wasRootSplit == isRootSplit
 
         syncing = true
         try {
@@ -653,18 +659,14 @@ private class NativeShell(
         if (tabs.tabBarHidden != hidden) tabs.setTabBarHidden(hidden, animated = tabs.view.window != null)
     }
 
-    private fun onSystemTabLayout(width: Double, compact: Boolean, bottomBarHeight: Double?) {
+    private fun onSystemTabLayout(width: Double, height: Double, compact: Boolean, bottomBarHeight: Double?) {
         val floatingTabs = nativeGlassAvailable && compact
         if (compactPadTabs != floatingTabs) {
             compactPadTabs = floatingTabs
             updateTabBar()
         }
         if (!nativeGlassAvailable && bottomBarHeight != null) fixedBottomBarHeight = bottomBarHeight.dp
-        onWindowWidth(width)
-    }
-
-    private fun onWindowWidth(width: Double) {
-        val expanded = isPad && width >= LIST_DETAIL_MIN_WIDTH
+        val expanded = isPad && supportsIosListDetail(width, height)
         if (expanded == listDetailExpanded) return
         listDetailExpanded = expanded
         TopLevelDestination.entries.forEach { sync(it, relayout = true) }
@@ -1044,21 +1046,24 @@ private class NativeShell(
 }
 
 /**
- * Reports the window width and size class after layout so the shell can choose its panes and keep
+ * Reports the window size and size class after layout so the shell can choose its panes and keep
  * an adjustable bottom bar in compact iPad windows.
  */
 @OptIn(ExperimentalForeignApi::class)
 private class ShellTabBarController(
-    onLayout: (width: Double, compact: Boolean, bottomBarHeight: Double?) -> Unit,
+    onLayout: (width: Double, height: Double, compact: Boolean, bottomBarHeight: Double?) -> Unit,
 ) : UITabBarController(nibName = null, bundle = null) {
     private val layoutUpdates = WindowLayoutDispatcher(
         post = { update -> NSOperationQueue.mainQueue.addOperationWithBlock { update() } },
         onLayout = {
-            onLayout(
-                view.bounds.useContents { size.width },
-                traitCollection.horizontalSizeClass == UIUserInterfaceSizeClassCompact,
-                legacyBottomBarHeight(),
-            )
+            view.bounds.useContents {
+                onLayout(
+                    size.width,
+                    size.height,
+                    traitCollection.horizontalSizeClass == UIUserInterfaceSizeClassCompact,
+                    legacyBottomBarHeight(),
+                )
+            }
         },
     )
 
@@ -1087,14 +1092,8 @@ private class ShellTabBarController(
 
 /** Hosts the selected UIKit stack while leaving its full window safe area available to Compose. */
 @OptIn(ExperimentalForeignApi::class)
-private class BottomTabHost(
-    onWidth: (Double) -> Unit,
-) : UIViewController(nibName = null, bundle = null) {
+private class BottomTabHost : UIViewController(nibName = null, bundle = null) {
     private var selected: UIViewController? = null
-    private val layoutUpdates = WindowLayoutDispatcher(
-        post = { update -> NSOperationQueue.mainQueue.addOperationWithBlock { update() } },
-        onLayout = { onWidth(view.bounds.useContents { size.width }) },
-    )
 
     fun show(controller: UIViewController) {
         if (selected == controller) return
@@ -1109,11 +1108,6 @@ private class BottomTabHost(
         view.addSubview(controller.view)
         controller.didMoveToParentViewController(this)
         selected = controller
-    }
-
-    override fun viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        layoutUpdates.request()
     }
 }
 
@@ -1139,6 +1133,7 @@ private fun DeviceLocals(
         Box(modifier) {
             if (isPad) {
                 CompositionLocalProvider(
+                    LocalIosPad provides true,
                     LocalOneHandMode provides false,
                     LocalOneHandModeAvailable provides false,
                     content = content,
@@ -1150,16 +1145,9 @@ private fun DeviceLocals(
     }
 }
 
-/**
- * Where Android's `calculatePaneScaffoldDirective` starts drawing two panes: Material's expanded
- * width class. An iPad in landscape and the larger ones in portrait are past it; an 11-inch or
- * smaller iPad in portrait, and half of one in Split View, keep one screen at a time.
- */
-private const val LIST_DETAIL_MIN_WIDTH = 840.0
-
 private fun paneKindOf(key: NavKey): PaneKind =
     when (paneRoleOf(key)) {
-        PaneRole.LIST -> PaneKind.LIST
+        PaneRole.LIST -> if (key.opensSplitOnSelection()) PaneKind.LIST_WHEN_DETAIL else PaneKind.LIST
         PaneRole.DETAIL -> PaneKind.DETAIL
         null -> PaneKind.NONE
     }

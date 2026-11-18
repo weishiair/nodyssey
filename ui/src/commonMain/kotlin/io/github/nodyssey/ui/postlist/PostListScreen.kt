@@ -6,10 +6,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -97,6 +96,7 @@ import io.github.nodyssey.ui.common.EmptyFeedState
 import io.github.nodyssey.ui.common.FeedSortOrder
 import io.github.nodyssey.ui.common.JumpDestination
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
 import io.github.nodyssey.ui.common.LocalThreadTransition
 import io.github.nodyssey.ui.common.NavigationBarScrollConnection
@@ -109,6 +109,7 @@ import io.github.nodyssey.ui.common.SelectableMenuItem
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.SortMenuItem
 import io.github.nodyssey.ui.common.THREAD_ORIGIN_FEED
+import io.github.nodyssey.ui.common.TabScaffold
 import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.collectPagesAtRest
@@ -167,7 +168,6 @@ import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
-import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -584,7 +584,7 @@ fun PostListScreen(
     // Expressive spatial springs overshoot past 0.dp on retraction; clamp before passing to padding.
     val safeBottomBarClearance = animatedBottomBarClearance.coerceAtLeast(0.dp)
 
-    Scaffold(
+    TabScaffold(
         modifier = modifier,
         snackbarHost = {
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides feedBackdrop) {
@@ -596,7 +596,7 @@ fun PostListScreen(
                 )
             }
         },
-        topBar = {
+        topBar = { wide ->
             Column {
                 HomeHeader(
                     sort = state.sort,
@@ -605,6 +605,7 @@ fun PostListScreen(
                     account = state.account,
                     onAccountClick = onAccountClick,
                     scrollBehavior = topBarScrollBehavior,
+                    wide = wide,
                 )
                 BoardStrip(
                     boards = state.boards,
@@ -650,7 +651,7 @@ fun PostListScreen(
                 }
             }
         },
-    ) { padding ->
+    ) { padding, wide ->
         // The list runs on under the bottom bar and takes the bar's height as content padding — see
         // [withoutBottom].
         val bottomInset = padding.bottomWithFloatingBar()
@@ -708,6 +709,7 @@ fun PostListScreen(
                         onNext = { goToPage((visiblePage + 1).coerceAtMost(state.totalPages)) },
                         onPageClick = { showPageSheet = true },
                         onCreatePost = onCreatePost,
+                        preferHorizontal = wide || LocalIosPad.current,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(bottom = activeBarInset),
@@ -831,14 +833,13 @@ private fun BoardFeed(
                     overscrollEffect = null,
                     state = listState,
                     modifier = Modifier
-                        .fillMaxHeight()
+                        .fillMaxSize()
                         // The direction detector goes outside the app bar's connection so
                         // it reads the raw gesture. Nested first, the app bar would eat
                         // the first 64dp of every downward scroll into its own collapse
                         // and the navigation bar would only start hiding afterwards.
                         .nestedScroll(navigationBarScrollConnection)
-                        .nestedScroll(topBarScrollBehavior.nestedScrollConnection)
-                        .readableWidth(),
+                        .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
                     // Room under the last card for the FAB, so the foot of the feed can be read
                     // without the button sitting on it.
                     contentPadding = PaddingValues(
@@ -877,7 +878,7 @@ private fun BoardFeed(
 }
 
 /**
- * 首页翻页栏: the page keys stacked over 发帖, in the corner the thumb is already in.
+ * 首页翻页栏: the page keys and 发帖 share the end of the feed in both layouts.
  *
  * The rail itself is [PageJumpRail], shared with the comment thread and 管理记录 so the wording and
  * the shortcuts cannot drift between the three screens that have it. 发帖 leaves the `Scaffold`'s
@@ -895,33 +896,47 @@ private fun FeedPageBar(
     onNext: () -> Unit,
     onPageClick: () -> Unit,
     onCreatePost: () -> Unit,
+    preferHorizontal: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.padding(Spacing.lg),
-        horizontalAlignment = Alignment.End,
-        // Separate the glass capsule from the FAB. Standard keys already carry 4dp touch slack.
-        verticalArrangement = Arrangement.spacedBy(if (LocalPlazaLayers.current.frostedGlass) Spacing.sm else Spacing.xs),
-    ) {
-        PageJumpRail(
-            expanded = expanded,
-            page = page,
-            totalPages = totalPages,
-            onPrevious = onScrollToTop,
-            onNext = onNext,
-            onPageClick = onPageClick,
-            previousEnabled = canScrollToTop,
-            previousLabel = Res.string.action_scroll_to_top,
-            previousIcon = PlazaIcons.VerticalAlignTop,
-            previousNativeSymbol = "arrow.up.to.line",
-        )
-        PlazaExtendedFab(
-            text = stringResource(Res.string.action_create_post),
-            icon = Icons.Default.Edit,
-            nativeSymbol = "square.and.pencil",
-            onClick = onCreatePost,
-            expanded = expanded,
-        )
+    val layers = LocalPlazaLayers.current
+    val gap = if (layers.frostedGlass) Spacing.sm else Spacing.xs
+    BoxWithConstraints(modifier.padding(Spacing.lg), contentAlignment = Alignment.BottomEnd) {
+        // Base the fit on all three keys, so collapsing the shortcuts while scrolling keeps the
+        // controls in the same place. A short viewport can otherwise compress the FAB.
+        val short = maxHeight < Sizes.minTouchTarget * 3 + PlazaFabHeight + gap + Spacing.sm
+        val horizontal = (preferHorizontal || short) && maxWidth >= 280.dp
+        val controls: @Composable () -> Unit = {
+            PageJumpRail(
+                expanded = expanded,
+                page = page,
+                totalPages = totalPages,
+                onPrevious = onScrollToTop,
+                onNext = onNext,
+                onPageClick = onPageClick,
+                previousEnabled = canScrollToTop,
+                previousLabel = Res.string.action_scroll_to_top,
+                previousIcon = PlazaIcons.VerticalAlignTop,
+                previousNativeSymbol = "arrow.up.to.line",
+                vertical = !horizontal,
+            )
+            PlazaExtendedFab(
+                text = stringResource(Res.string.action_create_post),
+                icon = Icons.Default.Edit,
+                nativeSymbol = "square.and.pencil",
+                onClick = onCreatePost,
+                expanded = expanded,
+            )
+        }
+        if (horizontal) {
+            Row(horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically) {
+                controls()
+            }
+        } else {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
+                controls()
+            }
+        }
     }
 }
 
@@ -945,7 +960,7 @@ private const val FIRST_PAGE = 1
 private const val APPEND_WAIT_MILLIS = 15_000L
 
 /**
- * The home header: 站点 and the account on the first line, 搜索 and 排序 on the second.
+ * The home header uses two rows on a narrow window and one on a wide window.
  *
  * Both lines fold away together as the feed advances and come back on any scroll toward the top —
  * `enterAlways`, the same as the navigation bar — while the board strip under them stays pinned,
@@ -970,11 +985,25 @@ private fun HomeHeader(
     account: HomeAccount?,
     onAccountClick: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
+    wide: Boolean,
 ) {
     CollapsingHeader(
         scrollBehavior = scrollBehavior,
         modifier = Modifier.windowInsetsPadding(TopAppBarDefaults.windowInsets),
     ) {
+        if (wide && LocalDensity.current.fontScale <= 1.3f) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(end = LayerPageGutter),
+                horizontalArrangement = Arrangement.spacedBy(HeaderControlGap),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SiteSwitcher(account = account)
+                SearchPill(onClick = onSearch, modifier = Modifier.weight(1f))
+                SortButton(sort = sort, onSortChange = onSortChange)
+                AccountButton(account = account, onClick = onAccountClick)
+            }
+            return@CollapsingHeader
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

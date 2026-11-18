@@ -3,6 +3,8 @@ package io.github.nodyssey.ui.navigation
 import io.github.nodyssey.ui.navigation.PaneGroup.Single
 import io.github.nodyssey.ui.navigation.PaneGroup.Split
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -15,6 +17,7 @@ import org.junit.Test
 class PaneLayoutTest {
     private fun kindOf(key: String): PaneKind =
         when {
+            key == "tab" -> PaneKind.LIST_WHEN_DETAIL
             key.startsWith("list") -> PaneKind.LIST
             key.startsWith("thread") -> PaneKind.DETAIL
             else -> PaneKind.NONE
@@ -28,6 +31,13 @@ class PaneLayoutTest {
     }
 
     @Test
+    fun `rotating a large iPad to portrait gives the detail the whole window`() {
+        assertTrue(supportsIosListDetail(width = 1366.0, height = 1024.0))
+        assertFalse(supportsIosListDetail(width = 1024.0, height = 1366.0))
+        assertFalse(supportsIosListDetail(width = 720.0, height = 550.0))
+    }
+
+    @Test
     fun `a list on its own still gets the empty detail beside it`() {
         assertEquals(listOf(Split(0, 0)), groups("list"))
     }
@@ -35,6 +45,19 @@ class PaneLayoutTest {
     @Test
     fun `details opened from a list share its screen`() {
         assertEquals(listOf(Split(0, 2)), groups("list", "thread1", "thread2"))
+    }
+
+    @Test
+    fun `a tab root fills the window until a detail is selected`() {
+        val stack = mutableListOf("tab")
+        assertEquals(listOf(Single(0)), groups(*stack.toTypedArray()))
+
+        stack += "thread"
+        assertEquals(listOf(Split(0, 1)), groups(*stack.toTypedArray()))
+
+        stack.removeLast()
+        assertEquals(listOf(Single(0)), groups(*stack.toTypedArray()))
+        assertEquals(listOf(Single(0), Split(1, 0)), groups("tab", "list-search"))
     }
 
     @Test
