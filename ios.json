@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "versions": [
+    {
+      "versionName": "1.3.12",
+      "tag": "v1.3.12",
+      "notes": "这次更新加入评论置顶和底部栏位置设置，加快收藏加载，让私信链接可以直接打开。iPad 布局和 iOS 离线看图也有改进。\n\n### 新增与改进\n\n- 楼主可置顶或取消置顶评论。置顶前会确认 5 鸡腿费用。\n- 私信中的链接可以直接点开，NodeSeek 帖子链接在应用内打开。输入栏默认显示图片上传入口。\n- 收藏较多时，收藏页会更快显示已获取的帖子，可在列表底部点击继续加载。\n- Android 和 iOS 26 及以上可在主题设置中选择底部栏的低、中、高三档。首页导航和帖子阅读操作在同一档位对齐。\n- iPad 竖屏使用居中的单列，横屏打开帖子或私信后展开分栏。旋转屏幕或切换标签时保留已打开的详情。iPhone 横屏首页也会对齐到安全区域的中央。\n- iOS 支持启动时检查更新、手动检查、选择测试通道和暂缓当前版本。更新提醒只显示已提供 IPA 的版本，下载后需自行签名安装。\n- iOS 通知设置中可打开抽奖助手，并显示该平台支持的提醒选项。iPhone 上未设置过的单手模式默认关闭。\n\n### 修复\n\n- 修复部分视频帖正文空白的问题。可点击正文中的媒体卡片，在浏览器中打开媒体链接。\n- 修复正文和表格中链接的长按复制，可分别复制网址或显示文字。\n- 修复首页版块栏对齐，以及翻页栏和发帖按钮切换时的动画。对齐高级搜索的版块按钮和「我的」页四列入口。\n- 修复 iOS 离线图片读取，并支持「仅 Wi-Fi 加载图片」。在移动网络下仍可查看缓存和已下载的图片，也可手动加载单张图片。\n- iOS 26 以下恢复系统固定底栏。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.11...v1.3.12\n\n### iOS（未签名，需要自己签）\n\n此版本提供未签名的 iOS IPA，需自行签名后安装。支持 iOS 16 及以上。\n\niOS 源码提交为 `d63c082009e1bcd191a385ed63c1f065aafd8f48`。使用 Apple Silicon Mac 和 Xcode 27.2 构建，Rust、Kotlin/Native 和 iOS 模拟器测试已通过。",
+      "publishedOn": "2026-11-18",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.12",
+      "ipa": {
+        "name": "nodyssey-v1.3.12.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.12/nodyssey-v1.3.12.ipa",
+        "sizeBytes": 25341790
+      }
+    },
+    {
+      "versionName": "1.3.11",
+      "tag": "v1.3.11",
+      "notes": "本次更新新增可选玻璃主题，完善邮箱和首页设置，并改善 iOS 阅读与网络体验。\n\n### 新增与改进\n\n- 新增可选的玻璃主题，默认关闭；iOS 26 及以上使用系统原生液态玻璃，较早系统使用兼容样式。\n- 邮箱默认汇总全部邮箱的邮件，显示收件地址与已读状态；仍可切换到单个邮箱查看。\n- 「设置 → 内容」新增首页置顶帖开关，可同时控制首页及各版块的置顶帖，搜索结果不受影响。\n- 用户详情页支持点击或长按用户名、UID，复制完整用户名或数字 UID。\n- iOS 返回前台时可识别外部剪贴板中的 NodeSeek 帖子链接，询问后打开；可在设置中关闭。\n\n### 修复\n\n- 修复邮箱网页验证后无法自动完成授权的问题。\n- 检测到代理或 VPN 时暂停应用内加密 DNS，断开后恢复，保留原有设置；同时修复 iOS 代理状态误判。\n- 改善 iOS 帖子详情、回复编辑器和私信输入栏的布局与底部安全区，减少多余留白。\n\n感谢参与测试、反馈问题和提出建议的朋友。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.10...v1.3.11\n\n### iOS（未签名，需要自己签）\n\n**2026-11-14 已补发 iOS 启动兼容修复包，请重新下载 IPA。**\n\n- 修复 iOS 17 等较早系统因加载液态玻璃符号而无法启动的问题；此故障与登录、玻璃主题开关无关。\n- 版本仍为 **1.3.11（165）**，支持 iOS 16 及以上。开启玻璃主题后，iOS 26 及以上使用系统原生液态玻璃，较早系统使用普通控件。\n- IPA **未签名**，需要自行签名后安装。\n- 使用 Codemagic ARM Mac 构建；Kotlin/Native 和 iOS 模拟器回归测试通过，正式包与模拟器包的液态玻璃类均已验证为弱导入。\n- 本次 iOS 源码提交：`35bd717d434abcf3346f139cb9ebd6ff581488c7`（修复后的 `main`）。现有 `v1.3.11` 标签及 Android 附件保持不变。",
+      "publishedOn": "2026-11-14",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.11",
+      "ipa": {
+        "name": "nodyssey-v1.3.11.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.11/nodyssey-v1.3.11.ipa",
+        "sizeBytes": 22874380
+      }
+    },
+    {
+      "versionName": "1.3.11-ios-test.7",
+      "tag": "v1.3.11-ios-test.7",
+      "notes": "iOS 测试版；安装包未签名，需要自行签名后安装。\n\n### iOS（未签名，需要自己签）\n\n此版本提供未签名的 iOS `.ipa`，需要自行签名后安装。\n支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。\niOS 源码提交：`a967d2c0bcc6be181f1019125f664cbab882cf00`。\n本次使用 ARM Mac 构建，Kotlin/Native 与 iOS 模拟器回归测试通过。",
+      "publishedOn": "2026-11-14",
+      "preRelease": true,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.11-ios-test.7",
+      "ipa": {
+        "name": "nodyssey-v1.3.11-ios-test.7.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.11-ios-test.7/nodyssey-v1.3.11-ios-test.7.ipa",
+        "sizeBytes": 22877334
+      }
+    },
+    {
+      "versionName": "1.3.10",
+      "tag": "v1.3.10",
+      "notes": "本次更新重点修复 iOS 无法正常登录的问题，新增 NodeSeek 邮箱，并支持使用星辰购买邀请码。\n\n### 修复与改进\n\n- 修复 iOS 登录状态保存、恢复异常导致无法正常登录的问题，完善旧版异常账号数据的恢复流程。\n- 新增 NodeSeek 邮箱，可在「我的 → NodeSeek 邮箱」进入，支持多邮箱切换、阅读邮件、已读／未读标记和全部已读。\n- 支持邮件验证码识别与一键复制，新增未读提示及前台新邮件提醒；Android 还支持后台新邮件通知。\n- 邀请好友页支持使用星辰购买邀请码，同时保留鸡腿购买方式。价格从站点获取，购买后可直接查看、复制邀请码，并查看已有邀请码的使用状态。\n\n### 邀请大家体验邮箱功能\n\n邮箱功能首次加入，欢迎大家帮忙测试授权连接、真实收信、验证码识别、已读同步和新邮件提醒。遇到问题时，可以反馈系统版本、连接方式及具体操作，方便排查。\n\n**推荐使用 API Key 模式**，获得更及时的新邮件检查体验：API 模式在应用前台约每 30 秒检查一次，进入邮箱页后约每 15 秒检查一次；网页登录态约每 60 秒检查一次。后台提醒受系统调度影响，并非即时推送。\n\n### API Key 创建方法\n\n1. 在浏览器打开[邮箱官网](https://seek.li)，使用 NodeSeek 账号登录；如果还没有邮箱，先按官网提示创建。\n2. 进入官网[开发者页面](https://seek.li/manage/support?tab=developer)。\n3. 创建 API Key，可将名称填写为 `Nodyssey`，并授予以下三项权限：\n   - `mailbox:read`：列出邮箱。\n   - `mail:read`：读取邮件。\n   - `mail:manage`：更新邮件已读状态。\n4. 复制完整的、以 `sk_live_` 开头的密钥。\n5. 回到 Nodyssey，打开「我的 → NodeSeek 邮箱」，将密钥粘贴到 API Key 输入框，点击「使用 API Key 连接」。\n6. 如果已经通过网页授权连接，可在邮箱选项中选择「改用 API Key」，验证成功后完成切换。\n\n目前邮箱主要支持收信和阅读；发送邮件、查看或下载附件仍请前往官网。API Key 请自行保管，反馈问题时不要附上密钥。\n\n### 鸣谢\n\n- 感谢 Telegram 用户 **@praygem** 反馈 iOS 无法登录的问题，帮助我们发现并修复这一严重故障。\n- 感谢 Telegram 用户 **@dream7painter** 提出使用星辰购买邀请码的需求，让邀请好友更加方便。\n\n也感谢参与测试、提供建议和反馈问题的每一位朋友。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.9...v1.3.10\n\n### iOS（未签名，需要自己签）\n\n此版本同步提供 iOS `.ipa`，**没有签名**，需要自行签名后安装。\n支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。\niOS 测试版已完成使用验收；不同平台的部分功能仍有差异。\niOS 源码提交：`29e60a790e5cfee150d8c2e9689a241889ab8358`。\n本次使用 ARM Mac 构建，Kotlin/Native 与 iOS 模拟器回归测试通过。",
+      "publishedOn": "2026-11-10",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.10",
+      "ipa": {
+        "name": "nodyssey-v1.3.10.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.10/nodyssey-v1.3.10.ipa",
+        "sizeBytes": 22702166
+      }
+    },
+    {
+      "versionName": "1.3.9",
+      "tag": "v1.3.9",
+      "notes": "本次更新支持多账号切换与独立自动签到，完善抽奖结果管理，并改进编辑器、私信和网络体验。\n\n### 改进\n\n- 新增多账号管理，可保存、添加和切换账号，每个账号独立控制自动签到；后台签到使用各自的登录态，不切换当前浏览账号。\n- 切换账号时隔离登录态与草稿，验证失败会恢复原账号；如有离线下载，会先确认清除。\n- 抽奖助手新增结果已读状态、单条与全部已读操作，以及中奖、未中奖、未参与筛选；未读中奖结果优先显示，个人页保留未读提醒入口。\n- 回复和发帖编辑器的「链接」键支持长按选择模板：除普通链接外，还能插入图片链接模板\n  `![image](https://)`，临时引用一张不在图床里的图。\n- 简化帖子点赞、投喂等操作区的选中样式，取消突出的常驻底色，用描边和主题色图标区分状态。\n- 私信时间和发送状态移到气泡下方。\n- 内置 Weishiair DoH（ECH）针对 NodeSeek 网站提供专属解析优化，结合优选 Cloudflare 地址与 ECH 配置改善访问体验。未保存过加密 DNS 开关时默认启用，已有开关、服务器选择和排序继续保留。\n\n### 修复\n\n- 修复 iOS 多账号容器的 UIKit 兼容与编译问题。\n- 修复私信气泡长按时高亮超出圆角的问题。\n\n### 感谢\n\n- 感谢 Telegram 用户 @呱 呱 反馈 iOS 问题并协助排查与验证。\n- 感谢 Telegram 用户 @dream7painter 提出编辑器图片链接模板的建议。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.8...v1.3.9\n\n### iOS（未签名，需要自己签）\n\n此版本同步提供 iOS `.ipa`，**没有签名**，需要自行签名后安装。\n支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。\niOS 测试版已完成使用验收；不同平台的部分功能仍有差异。\niOS 源码提交：`3d05828c93ef263735ded5e8dbb4f3cea7b0b676`。",
+      "publishedOn": "2026-11-05",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.9",
+      "ipa": {
+        "name": "nodyssey-v1.3.9.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.9/nodyssey-v1.3.9.ipa",
+        "sizeBytes": 22390141
+      }
+    },
+    {
+      "versionName": "1.3.8",
+      "tag": "v1.3.8",
+      "notes": "本次更新新增抽奖助手，完善置顶回复显示与私信恢复，并修复 iPad 旋转闪退。\n\n### 改进\n\n- 新增抽奖助手，支持官方抽奖的开奖提醒、中奖结果查询与记录管理；Android 和 iOS 均可使用，后台查询时机受系统调度影响。\n- 私信草稿与待发送消息按账号保存，应用中断后可恢复；发送失败可重试，消息刷新失败时提供提示。\n\n### 修复\n\n- 被管理员置顶的回复现在会显示图钉标记，并像网页一样排在其他楼层前面。\n- 修复 iPad 旋转、切换分栏和横屏启动时可能闪退的问题。\n- 修复私信未读分组的处理，改善消息已读状态更新。\n\n### 感谢\n\n- 感谢 @Bubbles 提出指定帖子显示的需求。\n- 感谢 @呱 呱 反馈 iPad 旋转闪退的问题并协助排查，以及提出抽奖提醒的需求。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.7...v1.3.8\n\n### iOS（未签名，需要自己签）\n\n此版本同步提供 iOS `.ipa`，**没有签名**，需要自行签名后安装。\n支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。\niOS 测试版已完成使用验收；不同平台的部分功能仍有差异。\niOS 源码提交：`a44f37f40408bd5dc643f4ca305f5ef77f75314f`。",
+      "publishedOn": "2026-11-04",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.8",
+      "ipa": {
+        "name": "nodyssey-v1.3.8.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.8/nodyssey-v1.3.8.ipa",
+        "sizeBytes": 22227319
+      }
+    },
+    {
+      "versionName": "1.3.7",
+      "tag": "v1.3.7",
+      "notes": "本次更新支持自动签到和 iPad 宽屏阅读，并改进帖子互动与已读标记。\n\n### 改进\n\n- 支持 Android 与 iOS 自动签到，可在设置中管理；后台执行时机受系统调度影响。\n- 已读帖子支持整块染色，可在设置中自定义标记颜色。\n- 补齐主帖互动计数和回复投喂入口，回复引用收进更多菜单。\n- iPad 宽窗口支持帖子列表、私信与详情并排阅读，旋转或调整窗口时复用原有页面；主题帖、评论、收藏和浏览历史也支持双栏。\n- 宽屏「我的」页面改为双列，回复编辑器使用居中卡片；顶栏操作与阅读列对齐，iPad 隐藏单手模式设置和引导。\n\n### 修复\n\n- 修复表情管理中侧滑时可能反复切换的问题。\n- 修复回帖鸡腿入口以及用户资料页禁言和身份标签的展示问题。\n- 修复 iPad 双栏中返回误关帖子、继续打开帖子后缺少返回按钮，以及返回动画期间切换帖子可能丢失新选择的问题。\n\n### 感谢\n\n- 感谢 @istiao 反馈表情管理的问题。\n- 感谢 Telegram 用户 x 反馈回帖鸡腿和用户资料页没有展示禁言标签的问题。\n- 感谢 @chinazihan 提出帖子高亮显示的需求。\n- 感谢 @呱 提出 iPad 展示优化需求，也感谢 [nodyssey-wa](https://github.com/eddielee214/nodyssey-wa) 项目提供的思路。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.6...v1.3.7\n\n### iOS（未签名，需要自己签）\n\n此版本同步提供 iOS `.ipa`，**没有签名**，需要自行签名后安装。\n支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。\niOS 测试版已完成使用验收；不同平台的部分功能仍有差异。",
+      "publishedOn": "2026-11-02",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.7",
+      "ipa": {
+        "name": "nodyssey-v1.3.7.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.7/nodyssey-v1.3.7.ipa",
+        "sizeBytes": 22032199
+      }
+    },
+    {
+      "versionName": "1.3.6",
+      "tag": "v1.3.6",
+      "notes": "本次更新优化私信和页面切换体验，并完善标题复制、搜索与登录流程。\n\n### 改进\n\n- 私信页改用更轻的浮层与气泡排版，时间移入气泡，新增快捷表情和用户资料面板；防诈卡片直接展示关键风险，点击可查看完整提醒，低等级与新账号继续使用醒目的风险提示。\n- 长按主帖标题可打开文本选择面板，支持复制完整标题或选中的部分文字。\n- 搜索结果显示楼主头像，可在设置 › 外观中关闭头像或调整大小。\n- 设置等二级页面改为不透明的定向滑动，预测性返回跟随手势方向；看图、帖子背景及首页骨架切换不再使用整页渐隐叠化。\n- 点击底栏的首页、通知和我的时页面立即切换，只保留底栏选中动效，避免整页长时间叠化。\n- 从列表、搜索结果和用户空间进入帖子时使用共享元素转场，返回时收拢到原条目；关闭搜索头像后仍保留文字转场。\n\n### 修复\n\n- 原生登录遇到邮箱验证要求时可继续输入验证码，密码和两步验证页面也提供邮箱登录入口，避免把邮箱验证误判为 Cookie 保存失败。\n- Android 网页登录与人机验证使用已保存的 App 内代理，补齐带认证 HTTP / SOCKS5 代理的连接支持。\n- 未登录搜索被站点跳转到外部搜索页时，正确提示登录，避免误报「连不上 NodeSeek」。\n- 修复 Android 14–15 预测性返回没有上一页预览的问题。\n- 关闭「预测式返回动画」后仍保留进入帖子的共享元素转场，并避免快速返回时离开的页面挡住列表滚动。\n\n### 感谢\n\n- 感谢 @istiao 提出帖子标题可选择复制的需求。\n- 感谢 @dream7painter 提出搜索页面显示作者头像的需求。\n- 感谢 @aydabc911 反馈内置代理和登录相关问题。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.5...v1.3.6\n\n### iOS（未签名，需要自己签）\n\n此版本同步提供 iOS `.ipa`，**没有签名**，需要自行签名后安装。\n支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。\niOS 测试版已完成使用验收；不同平台的部分功能仍有差异。",
+      "publishedOn": "2026-10-30",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.6",
+      "ipa": {
+        "name": "nodyssey-v1.3.6.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.6/nodyssey-v1.3.6.ipa",
+        "sizeBytes": 21938012
+      }
+    },
+    {
+      "versionName": "1.3.5",
+      "tag": "v1.3.5",
+      "notes": "本次更新重点改善帖子阅读和测评报告展示，并集中修复 iOS 的输入、图片显示与底栏问题。\r\n\r\n### 改进\r\n\r\n- 设置 › 内容 › 帖子回复样式新增「原版」：主帖独立卡片，回复内容排在头像旁，楼层用分隔线区分，行距与底部操作更紧凑。通栏、轻卡片仍可选择，默认仍为轻卡片。\r\n- 测评报告默认使用「终端原貌」，支持双指缩放、放大、缩小、恢复原始字号、适应宽度及全屏查看；已有的展示偏好继续保留，也可在设置中选择数据卡片。\r\n- 终端报告改用支持中文等宽排版的字体，改善中文、边框和表格的列对齐；深色主题采用更接近网页的终端配色，浅色主题提供易读配色。\r\n- 数据卡片突出硬件报告的总分与排名；测评标签页减少重复留白，文本报告和 TQ 图片使用完整内容宽度。\r\n- iOS 26/27 使用系统原生液态玻璃底栏，较早系统保留普通有背景的底栏，避免列表文字直接穿过图标。\r\n\r\n### 修复\r\n\r\n- 同一代码块中的 IPv4、IPv6 测评报告分别展示，避免标题、目标 IP 和内容混在同一卡片中。\r\n- 修复终端回车、退格、制表符及跨行颜色的处理，减少进度输出覆盖、错位和颜色断裂。\r\n- 下拉刷新的列表关闭回弹，快速滑到顶部后继续下拉可直接触发刷新，减少反复拉动。\r\n- iOS：修复语音输入结束时可能因光标越界而闪退的问题。\r\n- iOS：修复发帖、回复、私信和编辑资料等页面弹出键盘后反复布局、卡死的问题。\r\n- iOS：修复正文与签名中使用 `ch` / `em` 尺寸的 SVG 测评图显示为空白或黑底的问题。\r\n- 修复未登录或登录失效时「我的」页面不能正确恢复登录入口的问题。\r\n\r\n### 鸣谢\r\n\r\niOS 听写闪退、键盘弹出卡死的修复移植自 [eddielee214/nodyssey-wa](https://github.com/eddielee214/nodyssey-wa)，感谢上游维护者提供的修复。SVG 测评图显示修复同样来自该项目。\r\n\r\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.4...v1.3.5\r\n\r\n### iOS（未签名，需要自己签）\r\n\r\n此版本同步提供 iOS `.ipa`，**没有签名**，需要自行签名后安装。\r\n支持 iOS 16 及以上；iOS 26/27 使用系统液态玻璃底栏，较早系统使用普通底栏。\r\niOS 测试版已完成使用验收；不同平台的部分功能仍有差异。\r\n本次使用 Intel Mac 交叉编译，公共 JVM 与网络测试通过；ARM Mac 原生运行测试未执行。",
+      "publishedOn": "2026-10-28",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.5",
+      "ipa": {
+        "name": "nodyssey-v1.3.5.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.5/nodyssey-v1.3.5.ipa",
+        "sizeBytes": 21242234
+      }
+    },
+    {
+      "versionName": "1.3.4",
+      "tag": "v1.3.4",
+      "notes": "### 改进\n\n- 优化帖子详情排版、连续阅读与分页，支持通栏和轻卡片两种回复样式，并可控制作者等级及注册天数显示。\n- 调整默认浅色和深色配色、引用块和阅读控件，保留自选主题。\n- 登录失败时提供可复制的诊断信息，改进网络和会话异常的提示。\n- iOS 原生网络链路增加 DoH / ECH 支持及相关诊断；网页登录使用系统 WebView，不保证与原生请求使用相同链路。\n- 设置页增加 Telegram 交流群入口。\n\n### 修复\n\n- 改进帖子向上加载、跨页阅读与作者资料加载，减少重复内容对阅读的干扰。\n- 改进权限提示与已登录状态的识别，避免把帖子正文中的权限相关文字误判为页面错误。\n- 改进网络重定向及传输失败的处理。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.3...v1.3.4\n\n### iOS（未签名，需要自己签）\n\n此版本同步提供 iOS `.ipa`，**没有签名**，需要自行签名后安装。\n需要用 AltStore、Sideloadly、TrollStore 或 Xcode，拿你自己的 Apple ID 重新签名后再装。\n免费账号签出来的有效期是 7 天，到期要重签。\nAndroid 的免重启切站为平台专属改进；iOS 尚未进行真机验证。",
+      "publishedOn": "2026-10-27",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.4",
+      "ipa": {
+        "name": "nodyssey-v1.3.4.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.4/nodyssey-v1.3.4.ipa",
+        "sizeBytes": 21052156
+      }
+    },
+    {
+      "versionName": "1.3.3",
+      "tag": "v1.3.3",
+      "notes": "### 改进\n\n- Android 新增屏幕刷新率选择：跟随系统、60、90、120、144、165 Hz，不支持的档位置灰，设置即时生效。\n- 回复作者支持显示等级与注册天数，按当前可见回复加载并缓存；仅展示中性账号信息。\n- Android 可直接切换 NodeSeek / DeepFlood，无需重启应用；两站的登录状态、草稿、浏览记录、阅读位置及版块配置分别保留。\n- 私信页面在前台自动刷新，浏览旧消息时保留阅读位置，并提供新消息提示。\n- 发帖、回复及私信上传的图片插入到当前光标位置，便于继续编辑。\n\n### 修复\n\n- 首页向上箭头改为回到顶部，第一页内滑动或从后面的页码进入时也可使用。\n- 主帖昵称、等级天数和「楼主」标签优先同排显示，空间不足时再换行。\n- 修复 iOS 登录时人机验证子页面被拦截的问题，补齐验证不可用时的提示。\n- 修复私信刷新与发送并发时，较早返回的历史消息覆盖刚发送消息的问题。\n- 调整个人资料编辑页收起键盘的处理，避免影响页面操作。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.3.2...v1.3.3\n\n### iOS（未签名，需要自己签）\n\n此版本同步提供 iOS `.ipa`，**没有签名**，需要自行签名后安装。\n需要用 AltStore、Sideloadly、TrollStore 或 Xcode，拿你自己的 Apple ID 重新签名后再装。\n免费账号签出来的有效期是 7 天，到期要重签。\nAndroid 的免重启切站为平台专属改进；iOS 尚未进行真机验证。",
+      "publishedOn": "2026-10-26",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.3",
+      "ipa": {
+        "name": "nodyssey-v1.3.3.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.3/nodyssey-v1.3.3.ipa",
+        "sizeBytes": 18743669
+      }
+    },
+    {
+      "versionName": "1.3.2",
+      "tag": "v1.3.2",
+      "notes": "**安装包已修正**：解决从 1.3.1 测试版升级后仍显示旧版本的问题。此前已下载的用户请重新下载本页 APK，直接覆盖安装即可。\n\n\n### 改进\n\n- 搜索历史默认按帖子、用户各保留 100 条，可在设置中选择每类 50、100、200 或 500 条。\n- 新增「预测式返回动画」开关，关闭后不再在滑动过程中预览上一页，完成手势后正常返回。\n\n### 修复\n\n- 长帖加载下一页时，底部楼层胶囊保持原数字，内容完成布局后再一次更新，避免加载过程中来回跳动。\n- 长帖相邻分页重复返回同一回复时只显示一次，避免继续加载时因重复列表键闪退。\n- 关闭预测式返回动画后，返回列表立即恢复触摸，不再等待普通返回、页面淡出或共享标题动画结束。\n- 浏览记录及阅读位置按账号 UID 分开保存，退出后重新登录同一账号可以恢复；访客和不同账号的记录各自独立，清理帖子缓存也不会删除历史。\n\n\n**Full Changelog**: https://github.com/weishiair/nodyssey/compare/v1.2.22-dev.7...v1.3.2\n\n### iOS（未签名，需要自己签）\n\niOS 版还在迁移中，这个 `.ipa` 是测试构建，**没有签名**，双击装不上。\n需要用 AltStore、Sideloadly、TrollStore 或 Xcode，拿你自己的 Apple ID 重新签名后再装。\n免费账号签出来的有效期是 7 天，到期要重签。",
+      "publishedOn": "2026-10-22",
+      "preRelease": false,
+      "releaseUrl": "https://github.com/weishiair/nodyssey/releases/tag/v1.3.2",
+      "ipa": {
+        "name": "nodyssey-v1.3.2.ipa",
+        "url": "https://github.com/weishiair/nodyssey/releases/download/v1.3.2/nodyssey-v1.3.2.ipa",
+        "sizeBytes": 18701770
+      }
+    }
+  ]
+}
