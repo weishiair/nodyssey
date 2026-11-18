@@ -3,7 +3,15 @@ name: App update manifests
 on:
   release:
     types: [published, edited]
+  repository_dispatch:
+    types: [ios-package-published]
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Update inventory to publish
+        type: choice
+        options: [android, ios]
+        default: android
 
 permissions:
   contents: write
@@ -15,7 +23,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository == 'weishiair/nodyssey' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'ech-') || startsWith(github.event.release.tag_name, 'release-'))
+    if: github.repository == 'weishiair/nodyssey' && inputs.platform != 'ios' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'ech-') || startsWith(github.event.release.tag_name, 'release-'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -47,4 +55,33 @@ jobs:
             git -C "$checkout" push origin HEAD:updates
           fi
           # GITHUB_TOKEN pushes do not trigger a legacy Pages build; request one explicitly.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent
+
+  ios:
+    if: github.repository == 'weishiair/nodyssey' && (inputs.platform == 'ios' || github.event_name == 'repository_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify IPA inventory generation
+        run: python3 -m unittest discover -s .github/scripts -p 'test_build_ios_update_manifests.py'
+      - name: Build the published IPA inventory
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/build-ios-update-manifests.py --repository "$GITHUB_REPOSITORY" --out "$RUNNER_TEMP/ios-feed"
+      - name: Publish the IPA inventory to Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          checkout="$RUNNER_TEMP/updates"
+          git fetch origin updates:refs/remotes/origin/updates
+          git worktree add "$checkout" origin/updates
+          cp "$RUNNER_TEMP/ios-feed/ios.json" "$checkout/ios.json"
+          git -C "$checkout" config user.name 'github-actions[bot]'
+          git -C "$checkout" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$checkout" add ios.json
+          if ! git -C "$checkout" diff --cached --quiet; then
+            git -C "$checkout" commit -m 'Update iOS release inventory'
+            git -C "$checkout" push origin HEAD:updates
+          fi
           gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent

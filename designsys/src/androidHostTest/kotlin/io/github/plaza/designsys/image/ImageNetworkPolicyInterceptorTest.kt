@@ -1,4 +1,4 @@
-package io.github.nodyssey.image
+package io.github.plaza.designsys.image
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -8,8 +8,6 @@ import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.ImageResult
 import coil3.size.Size
-import io.github.plaza.designsys.image.ImagesDeferredException
-import io.github.plaza.designsys.image.allowMeteredImage
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

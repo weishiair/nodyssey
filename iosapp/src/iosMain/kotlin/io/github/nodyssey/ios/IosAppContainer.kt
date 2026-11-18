@@ -112,6 +112,7 @@ import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.sticker.GitHubStickerSource
 import io.github.nodyssey.data.sticker.StickerLibrary
 import io.github.nodyssey.data.update.AppUpdateRepository
+import io.github.nodyssey.data.update.ExternalAppUpdateRepository
 import io.github.nodyssey.di.AppContainer
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.AppDispatchers
@@ -143,6 +144,7 @@ import io.github.plaza.core.net.deviceAcceptLanguage
 import io.github.plaza.core.readAppVersion
 import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.core.update.ApkInstaller
+import io.github.plaza.core.update.IosUpdateManifestSource
 import io.github.plaza.core.update.isPreReleaseVersionName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -163,13 +165,12 @@ import platform.UserNotifications.UNUserNotificationCenter
  * of the thirty-six members as the same expression on both platforms, because steps A5–A7 put the
  * repositories, the database and the network contracts in `commonMain`; D3c sent the six image-host
  * clients and the vote signature after them, so [imageHostRepository] joined them. What is left here
- * is two sessions, a cookie jar, three directories and the three seams gathered in `Unavailable.kt`.
+ * is two sessions, a cookie jar, three directories and the platform services below.
  *
  * **Two sessions, where Android has three clients.** The split is the same one and drawn for the same
  * reason: [forumSession] carries the NodeSeek cookies and stamps the forum's `Referer`, and
  * [imageHostSession] carries neither, because every host behind it is a third party holding a
- * bearer-equivalent secret. Android's third client is the GitHub update check, which this platform
- * does not make.
+ * bearer-equivalent secret. The GitHub update check also uses the cookie-free session.
  *
  * **The proxy is a rebuilt session rather than a selector.** `NSURLSession` takes its proxy in
  * `connectionProxyDictionary`, which is part of the configuration a session is created from, so a
@@ -477,6 +478,7 @@ class IosAppContainer(
         SettingsRepository(
             dataStore = createPreferenceDataStore("settings"),
             devChannelDefault = isPreReleaseVersionName(appVersion.name),
+            oneHandModeDefault = false,
         )
     }
 
@@ -702,7 +704,22 @@ class IosAppContainer(
 
     override val appVersion: AppVersion by lazy { readAppVersion() }
 
-    override val appUpdateRepository: AppUpdateRepository get() = NoAppUpdates
+    override val appUpdateRepository: AppUpdateRepository by lazy {
+        val repository = "weishiair/nodyssey"
+        val source = IosUpdateManifestSource(
+            transport = NSUrlSessionTransport { imageHostSession.current },
+            manifestBaseUrl = "https://weishiair.github.io/nodyssey/",
+            repository = repository,
+        )
+        ExternalAppUpdateRepository(
+            loadReleases = source::releases,
+            store = settingsRepository,
+            clock = clock,
+            scope = CoroutineScope(appScope.coroutineContext + dispatchers.main),
+            currentVersionName = appVersion.name,
+            sourceId = "pages:$repository:ios",
+        )
+    }
 
     override val apkInstaller: ApkInstaller get() = NoApkInstaller
 

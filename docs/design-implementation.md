@@ -6,6 +6,15 @@
 App 的总体真实状态以 [`implementation-status.md`](implementation-status.md) 为准；
 本文记录已完成核对的画板与代码入口，防止实现脱离设计稿。
 
+## iOS 能力入口（2026-11-16）
+
+- `NotificationSettingsScreen`：iOS 显示后台消息提醒的当前限制、抽奖助手入口与 Telegram 绑定入口；
+  Android 保留原有轮询频率、类别和免打扰设置。iOS 设置首页不再把保存的轮询开关显示为有效后台能力。
+- `AboutAppScreen`：iOS 支持手动检查版本，新版本卡片的“查看版本与下载”打开对应发布页，并说明 IPA 的签名安装方式；
+  更新日志打开发布页。设置首页提供启动检查和测试通道开关，启动提醒可暂缓当前版本。
+- 两项页面继续使用共用主题和布局。本次能力分支的明暗渲染位于 `ui/build/outputs/renders/ios-notification-settings-*.png`
+  与 `ios-about-*.png`；这些是共享页面在 Robolectric 上的渲染，原生导航和真机效果另行验收。
+
 ## 测评终端原貌（2026-10-28）
 
 - `ui/richtext/ReportSourceDialog.kt`：原始终端报告采用紧凑行距、独立标题与目标地址；顶部提供复制和全屏入口，底部提供适应宽度、字号百分比、放大与缩小。

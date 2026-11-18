@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.stateIn
 /**
  * The launch-time update surface: 启动提醒's dialog, and the dot on 我的.
  *
- * A ViewModel of its own rather than fields on `ProfileViewModel`, because whether a newer APK
+ * A ViewModel of its own rather than fields on `ProfileViewModel`, because whether a newer release
  * exists is not a fact about the session — signing out rebuilds the profile state from scratch and
  * must not blink the reminder — and rather than reads on the repository from navigation code,
  * because that was the pattern this repository keeps having to un-grow: a repository call in a
@@ -41,7 +41,7 @@ class UpdateReminderViewModel(
                 initialValue = updates.state.value.available != null,
             )
 
-    /** 下载并安装 — the reminder is spent, and the 关于 screen takes over the download. */
+    /** Accepts the reminder; the caller continues to About on Android or the release page on iOS. */
     fun acceptReminder() = updates.acceptLaunchReminder()
 
     /** 下次再说. */
