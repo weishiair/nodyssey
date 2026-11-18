@@ -1,26 +1,28 @@
 package io.github.nodyssey.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -28,12 +30,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.proxy.ProxyConfigProblem
 import io.github.nodyssey.data.proxy.ProxyConnectionFailure
 import io.github.nodyssey.data.proxy.ProxyScope
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.ui.account.AccountMessageSnackbar
+import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.proxy_advanced_hint
@@ -65,17 +70,20 @@ import io.github.nodyssey.ui.resources.proxy_type_title
 import io.github.nodyssey.ui.resources.proxy_username_label
 import io.github.nodyssey.ui.resources.proxy_webview_hint
 import io.github.plaza.designsys.component.ChoiceSegments
-import io.github.plaza.designsys.component.GroupedListItemSwitch
-import io.github.plaza.designsys.component.GroupedRow
+import io.github.plaza.designsys.component.GroupDividerInset
+import io.github.plaza.designsys.component.GroupedListItem
+import io.github.plaza.designsys.component.GroupedSwitchRow
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCard
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionNotes
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
+import io.github.plaza.designsys.theme.LocalPlazaFontScale
+import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -133,37 +141,68 @@ fun ProxySettingsScreen(
     onSave: () -> Unit,
     onTest: () -> Unit,
     modifier: Modifier = Modifier,
+) = ProxySettingsContent(
+    state = state,
+    snackbarHostState = snackbarHostState,
+    onBack = onBack,
+    onEnabledChange = onEnabledChange,
+    onTypeChange = onTypeChange,
+    onForumOnlyChange = onForumOnlyChange,
+    onHostChange = onHostChange,
+    onPortChange = onPortChange,
+    onUsernameChange = onUsernameChange,
+    onPasswordChange = onPasswordChange,
+    onSave = onSave,
+    onTest = onTest,
+    nativeChrome = LocalPlazaLayers.current.nativeChrome,
+    modifier = modifier,
+)
+
+@Composable
+internal fun ProxySettingsContent(
+    state: ProxySettingsUiState,
+    snackbarHostState: SnackbarHostState,
+    onBack: () -> Unit,
+    onEnabledChange: (Boolean) -> Unit,
+    onTypeChange: (ProxyType) -> Unit,
+    onForumOnlyChange: (Boolean) -> Unit,
+    onHostChange: (String) -> Unit,
+    onPortChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onTest: () -> Unit,
+    nativeChrome: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
+        modifier = if (nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = if (nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            SettingsTopBar(
                 title = stringResource(Res.string.proxy_title),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backContentDescription = stringResource(Res.string.action_back),
+                appBarState = appBarState,
             )
         },
     ) { padding ->
+        val contentInset = if (nativeChrome) padding.withoutBottom() else padding
         Column(
             modifier = Modifier
-                .padding(padding)
+                .padding(contentInset)
+                .then(if (nativeChrome) Modifier.consumeWindowInsets(contentInset).imePadding() else Modifier)
                 .fillMaxSize()
+                .then(if (nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
+                .padding(if (nativeChrome) settingsScrollPadding(padding) else SettingsPagePadding),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             SettingsGroup {
-                GroupedRow(
+                GroupedSwitchRow(
                     icon = PlazaIcons.VpnLock,
                     title = stringResource(Res.string.proxy_master_title),
                     subtitle = stringResource(Res.string.proxy_master_hint),
@@ -171,74 +210,75 @@ fun ProxySettingsScreen(
                     last = true,
                     checked = state.enabled,
                     onCheckedChange = onEnabledChange,
-                    trailing = { GroupedListItemSwitch(checked = state.enabled) },
                 )
             }
 
             // No alpha over the block: every control in it takes `enabled` and dims itself.
             Column(verticalArrangement = Arrangement.spacedBy(SettingsItemGap)) {
-                // The type and the four fields are one card: they are one proxy, and a type split
-                // from the address it applies to read as two settings.
-                LayerCard(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    val choices = listOf(
-                        ProxyType.HTTP to stringResource(Res.string.proxy_type_http),
-                        ProxyType.SOCKS to stringResource(Res.string.proxy_type_socks),
-                    )
-                    val typeTitle = stringResource(Res.string.proxy_type_title)
-                    ChoiceSegments(
-                        labels = choices.map { it.second },
-                        selectedIndex = choices.indexOfFirst { it.first == state.type },
-                        onSelect = { onTypeChange(choices[it].first) },
-                        enabled = state.enabled,
-                        // The card drops 代理类型's visible heading — the two segments name
-                        // themselves — so the group carries it for a screen reader instead.
-                        modifier = Modifier.semantics { contentDescription = typeTitle },
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                        ProxyField(
-                            value = state.hostInput,
-                            onValueChange = onHostChange,
-                            labelRes = Res.string.proxy_host_label,
-                            placeholderRes = Res.string.proxy_host_placeholder,
-                            errorRes = Res.string.proxy_host_required,
-                            isError = state.problem == ProxyConfigProblem.MISSING_HOST,
+                val choices = listOf(
+                    ProxyType.HTTP to stringResource(Res.string.proxy_type_http),
+                    ProxyType.SOCKS to stringResource(Res.string.proxy_type_socks),
+                )
+                val typeTitle = stringResource(Res.string.proxy_type_title)
+                if (nativeChrome) {
+                    SettingsGroup {
+                        SettingsChoiceSection(
+                            title = typeTitle,
+                            choices = choices,
+                            selected = state.type,
+                            onSelect = onTypeChange,
+                            icon = PlazaIcons.Tune,
+                            top = true,
+                            last = false,
                             enabled = state.enabled,
-                            keyboardType = KeyboardType.Uri,
-                            modifier = Modifier.weight(2f),
+                            nativeChrome = nativeChrome,
                         )
-                        ProxyField(
-                            value = state.portInput,
-                            onValueChange = onPortChange,
-                            labelRes = Res.string.proxy_port_label,
-                            placeholderRes = Res.string.proxy_port_placeholder,
-                            errorRes = Res.string.proxy_port_invalid,
-                            isError = state.problem == ProxyConfigProblem.INVALID_PORT,
-                            enabled = state.enabled,
-                            keyboardType = KeyboardType.Number,
-                            modifier = Modifier.weight(1f),
+                        GroupedListItem(
+                            first = false,
+                            last = true,
+                            dividerInset = GroupDividerInset,
+                            contentPadding = PaddingValues(Spacing.lg),
+                            headlineContent = {
+                                val fontScale = LocalDensity.current.fontScale * LocalPlazaFontScale.current
+                                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                    ProxyCredentialFields(
+                                        state = state,
+                                        stackHostAndPort = shouldStackProxyHostAndPort(maxWidth, fontScale),
+                                        onHostChange = onHostChange,
+                                        onPortChange = onPortChange,
+                                        onUsernameChange = onUsernameChange,
+                                        onPasswordChange = onPasswordChange,
+                                    )
+                                }
+                            },
                         )
                     }
-                    ProxyField(
-                        value = state.usernameInput,
-                        onValueChange = onUsernameChange,
-                        labelRes = Res.string.proxy_username_label,
-                        placeholderRes = Res.string.proxy_credential_hint,
-                        enabled = state.enabled,
-                        keyboardType = KeyboardType.Ascii,
-                    )
-                    ProxyField(
-                        value = state.passwordInput,
-                        onValueChange = onPasswordChange,
-                        labelRes = Res.string.proxy_password_label,
-                        placeholderRes = Res.string.proxy_credential_hint,
-                        enabled = state.enabled,
-                        keyboardType = KeyboardType.Password,
-                        obscure = true,
-                    )
+                } else {
+                    // The type and the four fields are one card: they are one proxy, and a type split
+                    // from the address it applies to read as two settings.
+                    LayerCard(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        ChoiceSegments(
+                            labels = choices.map { it.second },
+                            selectedIndex = choices.indexOfFirst { it.first == state.type },
+                            onSelect = { onTypeChange(choices[it].first) },
+                            enabled = state.enabled,
+                            // The card drops 代理类型's visible heading — the two segments name
+                            // themselves — so the group carries it for a screen reader instead.
+                            modifier = Modifier.semantics { contentDescription = typeTitle },
+                        )
+                        ProxyCredentialFields(
+                            state = state,
+                            stackHostAndPort = false,
+                            onHostChange = onHostChange,
+                            onPortChange = onPortChange,
+                            onUsernameChange = onUsernameChange,
+                            onPasswordChange = onPasswordChange,
+                        )
+                    }
                 }
 
                 SettingsGroup {
-                    GroupedRow(
+                    GroupedSwitchRow(
                         icon = PlazaIcons.Forum,
                         title = stringResource(Res.string.proxy_scope_title),
                         subtitle = stringResource(Res.string.proxy_scope_hint),
@@ -247,12 +287,6 @@ fun ProxySettingsScreen(
                         enabled = state.enabled,
                         checked = state.scope == ProxyScope.FORUM_ONLY,
                         onCheckedChange = onForumOnlyChange,
-                        trailing = {
-                            GroupedListItemSwitch(
-                                checked = state.scope == ProxyScope.FORUM_ONLY,
-                                enabled = state.enabled,
-                            )
-                        },
                     )
                 }
 
@@ -279,6 +313,78 @@ fun ProxySettingsScreen(
         }
     }
 }
+
+@Composable
+private fun ProxyCredentialFields(
+    state: ProxySettingsUiState,
+    stackHostAndPort: Boolean,
+    onHostChange: (String) -> Unit,
+    onPortChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+) {
+    val hostField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        ProxyField(
+            value = state.hostInput,
+            onValueChange = onHostChange,
+            labelRes = Res.string.proxy_host_label,
+            placeholderRes = Res.string.proxy_host_placeholder,
+            errorRes = Res.string.proxy_host_required,
+            isError = state.problem == ProxyConfigProblem.MISSING_HOST,
+            enabled = state.enabled,
+            keyboardType = KeyboardType.Uri,
+            modifier = fieldModifier,
+        )
+    }
+    val portField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        ProxyField(
+            value = state.portInput,
+            onValueChange = onPortChange,
+            labelRes = Res.string.proxy_port_label,
+            placeholderRes = Res.string.proxy_port_placeholder,
+            errorRes = Res.string.proxy_port_invalid,
+            isError = state.problem == ProxyConfigProblem.INVALID_PORT,
+            enabled = state.enabled,
+            keyboardType = KeyboardType.Number,
+            modifier = fieldModifier,
+        )
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        if (stackHostAndPort) {
+            hostField(Modifier)
+            portField(Modifier)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                hostField(Modifier.weight(2f))
+                portField(Modifier.weight(1f))
+            }
+        }
+        ProxyField(
+            value = state.usernameInput,
+            onValueChange = onUsernameChange,
+            labelRes = Res.string.proxy_username_label,
+            placeholderRes = Res.string.proxy_credential_hint,
+            enabled = state.enabled,
+            keyboardType = KeyboardType.Ascii,
+        )
+        ProxyField(
+            value = state.passwordInput,
+            onValueChange = onPasswordChange,
+            labelRes = Res.string.proxy_password_label,
+            placeholderRes = Res.string.proxy_credential_hint,
+            enabled = state.enabled,
+            keyboardType = KeyboardType.Password,
+            obscure = true,
+        )
+    }
+}
+
+internal fun shouldStackProxyHostAndPort(
+    availableWidth: Dp,
+    fontScale: Float,
+): Boolean = availableWidth / fontScale.coerceAtLeast(1f) < PROXY_ROW_MIN_EFFECTIVE_WIDTH
+
+private val PROXY_ROW_MIN_EFFECTIVE_WIDTH = 260.dp
 
 @Composable
 private fun proxyTestFailureText(failure: ProxyConnectionFailure): String {

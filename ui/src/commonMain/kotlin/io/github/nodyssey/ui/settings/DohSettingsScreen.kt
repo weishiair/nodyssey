@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -15,14 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -45,6 +44,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -57,6 +58,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -72,8 +74,10 @@ import io.github.nodyssey.data.dns.DohServerProblem
 import io.github.nodyssey.ui.account.AccountMessageSnackbar
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.PlazaSheet
+import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
+import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_delete
 import io.github.nodyssey.ui.resources.action_done
 import io.github.nodyssey.ui.resources.doh_add_custom
@@ -120,10 +124,9 @@ import io.github.nodyssey.ui.resources.doh_url_placeholder
 import io.github.nodyssey.ui.resources.doh_url_required
 import io.github.nodyssey.ui.resources.doh_webview_hint
 import io.github.plaza.designsys.component.GroupedListItem
-import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
+import io.github.plaza.designsys.component.GroupedSwitchRow
 import io.github.plaza.designsys.component.InlineBanner
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
@@ -135,6 +138,7 @@ import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -214,39 +218,68 @@ fun DohSettingsScreen(
     onSave: () -> Unit,
     onTest: () -> Unit,
     modifier: Modifier = Modifier,
+) = DohSettingsContent(
+    state = state,
+    snackbarHostState = snackbarHostState,
+    onBack = onBack,
+    onEnabledChange = onEnabledChange,
+    onToggleServer = onToggleServer,
+    onMoveServer = onMoveServer,
+    onOpenServer = onOpenServer,
+    onAddServer = onAddServer,
+    onIncludeIPv6Change = onIncludeIPv6Change,
+    onFallbackChange = onFallbackChange,
+    onSave = onSave,
+    onTest = onTest,
+    nativeChrome = LocalPlazaLayers.current.nativeChrome,
+    modifier = modifier,
+)
+
+@Composable
+internal fun DohSettingsContent(
+    state: DohSettingsUiState,
+    snackbarHostState: SnackbarHostState,
+    onBack: () -> Unit,
+    onEnabledChange: (Boolean) -> Unit,
+    onToggleServer: (String) -> Unit,
+    onMoveServer: (id: String, toIndex: Int) -> Unit,
+    onOpenServer: (String) -> Unit,
+    onAddServer: () -> Unit,
+    onIncludeIPv6Change: (Boolean) -> Unit,
+    onFallbackChange: (Boolean) -> Unit,
+    onSave: () -> Unit,
+    onTest: () -> Unit,
+    nativeChrome: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val appBarState = rememberOneHandAppBarState()
     val ordered = state.capabilities.triesServersInOrder
     val active = state.enabled && !state.pausedForProxy
     Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
+        modifier = if (nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = if (nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            SettingsTopBar(
                 title = stringResource(Res.string.doh_title),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backContentDescription = stringResource(Res.string.action_back),
+                appBarState = appBarState,
             )
         },
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding)
+                .padding(if (nativeChrome) padding.withoutBottom() else padding)
                 .fillMaxSize()
+                .then(if (nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
+                .padding(if (nativeChrome) settingsScrollPadding(padding) else SettingsPagePadding),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
             SettingsGroup {
-                GroupedRow(
+                GroupedSwitchRow(
                     icon = PlazaIcons.Dns,
                     title = stringResource(Res.string.doh_master_title),
                     subtitle = stringResource(if (state.pausedForProxy) Res.string.doh_paused_for_proxy else Res.string.doh_master_hint),
@@ -255,7 +288,6 @@ fun DohSettingsScreen(
                     enabled = !state.pausedForProxy,
                     checked = active,
                     onCheckedChange = onEnabledChange,
-                    trailing = { GroupedListItemSwitch(checked = active, enabled = !state.pausedForProxy) },
                 )
             }
 
@@ -268,6 +300,7 @@ fun DohSettingsScreen(
                     servers = state.servers,
                     ordered = ordered,
                     enabled = active,
+                    nativeChrome = nativeChrome,
                     onToggle = onToggleServer,
                     onMove = onMoveServer,
                     onOpen = onOpenServer,
@@ -290,7 +323,7 @@ fun DohSettingsScreen(
                 if (canChooseRecordTypes || canFallBack) {
                     SettingsGroup {
                         if (canChooseRecordTypes) {
-                            GroupedRow(
+                            GroupedSwitchRow(
                                 title = stringResource(Res.string.doh_ipv6_title),
                                 subtitle = stringResource(Res.string.doh_ipv6_hint),
                                 first = true,
@@ -298,11 +331,10 @@ fun DohSettingsScreen(
                                 enabled = active,
                                 checked = state.includeIPv6,
                                 onCheckedChange = onIncludeIPv6Change,
-                                trailing = { GroupedListItemSwitch(checked = state.includeIPv6, enabled = active) },
                             )
                         }
                         if (canFallBack) {
-                            GroupedRow(
+                            GroupedSwitchRow(
                                 title = stringResource(Res.string.doh_fallback_title),
                                 subtitle = stringResource(Res.string.doh_fallback_hint),
                                 first = !canChooseRecordTypes,
@@ -310,9 +342,6 @@ fun DohSettingsScreen(
                                 enabled = active,
                                 checked = state.fallbackToSystem,
                                 onCheckedChange = onFallbackChange,
-                                trailing = {
-                                    GroupedListItemSwitch(checked = state.fallbackToSystem, enabled = active)
-                                },
                             )
                         }
                     }
@@ -384,6 +413,7 @@ private fun DohServerList(
     servers: List<DohServer>,
     ordered: Boolean,
     enabled: Boolean,
+    nativeChrome: Boolean,
     onToggle: (String) -> Unit,
     onMove: (id: String, toIndex: Int) -> Unit,
     onOpen: (String) -> Unit,
@@ -423,6 +453,7 @@ private fun DohServerList(
                     ordered = ordered,
                     rank = rank,
                     enabled = enabled,
+                    nativeChrome = nativeChrome,
                     dragging = dragging,
                     onToggle = { onToggle(server.id) },
                     onOpen = { onOpen(server.id) },
@@ -500,6 +531,7 @@ private fun DohServerRow(
     /** Where among the ticked servers this one is asked, or null where there is no order to show. */
     rank: Int?,
     enabled: Boolean,
+    nativeChrome: Boolean,
     dragging: Boolean,
     onToggle: () -> Unit,
     onOpen: () -> Unit,
@@ -560,16 +592,29 @@ private fun DohServerRow(
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     rank?.let {
-                        TonalTag(
-                            text =
+                        val rankText =
                             if (it == 0) {
                                 stringResource(Res.string.doh_rank_first)
                             } else {
                                 stringResource(Res.string.doh_rank_backup, it)
-                            },
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
+                            }
+                        if (nativeChrome) {
+                            Text(
+                                text = rankText,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (it == 0) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (it == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.alpha(if (enabled) 1f else DISABLED_ALPHA),
+                            )
+                        } else {
+                            TonalTag(
+                                text = rankText,
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
                     }
                 }
             },
@@ -608,7 +653,7 @@ private fun DragHandle(modifier: Modifier = Modifier) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DohServerSheet(
+internal fun DohServerSheet(
     draft: DohServerDraft,
     server: DohServer?,
     onUrlChange: (String) -> Unit,
@@ -619,6 +664,7 @@ private fun DohServerSheet(
     onDismiss: () -> Unit,
 ) {
     val preset = draft.preset
+    val nativeChrome = LocalPlazaLayers.current.nativeChrome
     PlazaSheet(
         onDismiss = onDismiss,
         // Straight to full height: two text fields and a row of buttons, and a half-open state would
@@ -635,13 +681,20 @@ private fun DohServerSheet(
             server == null -> stringResource(Res.string.doh_provider_custom_hint)
             else -> null
         },
+        action = if (nativeChrome) {
+            { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } }
+        } else {
+            null
+        },
     ) {
+        val sheetPadding = Modifier.padding(horizontal = Spacing.xl).padding(bottom = Spacing.xl)
         Column(
-            modifier = Modifier
-                .padding(horizontal = Spacing.xl)
-                .padding(bottom = Spacing.xl)
-                .navigationBarsPadding()
-                .imePadding(),
+            modifier = if (nativeChrome) {
+                Modifier.fillMaxWidth().navigationBarsPadding().imePadding()
+                    .verticalScroll(rememberScrollState()).then(sheetPadding)
+            } else {
+                sheetPadding.navigationBarsPadding().imePadding()
+            },
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             if (preset == null) {
