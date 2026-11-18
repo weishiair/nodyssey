@@ -70,6 +70,7 @@ import platform.UIKit.UIVisualEffectView
 import platform.UIKit.accessibilityLabel
 import platform.UIKit.accessibilityValue
 import platform.UIKit.labelColor
+import platform.UIKit.systemRedColor
 
 // Overlay placement is essential: the default UIKitView cuts a hole in the Metal canvas, so native
 // glass would sample an empty rectangle instead of the Compose content scrolling behind the button.
