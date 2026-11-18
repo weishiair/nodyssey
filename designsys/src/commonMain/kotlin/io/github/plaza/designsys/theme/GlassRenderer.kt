@@ -15,4 +15,8 @@ val PlazaLayers.backdropGlass: Boolean
 
 /** iOS 26+ draws floating controls with UIKit, while keeping the common theme's subdued colours. */
 val PlazaLayers.nativeGlass: Boolean
-    get() = frostedGlass && platformGlassRenderer == GlassRenderer.Native
+    get() = frostedGlass && nativeGlassAvailable
+
+/** Whether UIKit can render Liquid Glass on the current system. */
+val nativeGlassAvailable: Boolean
+    get() = platformGlassRenderer == GlassRenderer.Native

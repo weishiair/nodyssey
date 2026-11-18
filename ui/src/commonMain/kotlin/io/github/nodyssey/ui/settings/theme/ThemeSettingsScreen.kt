@@ -55,6 +55,7 @@ import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SavedTheme
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
+import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.longPressToEdit
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
@@ -231,20 +232,24 @@ fun ThemeSettingsScreen(
                     onSelect = onPaletteStyleChange,
                     enabled = activePreset(settings)?.hasFixedColors != true,
                 )
+                val adjustableBottomBar = LocalFixedBottomBarHeight.current == null
                 FrostedGlassRow(
                     checked = settings.frostedGlass,
                     enabled = !settings.einkMode,
                     onCheckedChange = onFrostedGlassChange,
+                    last = !adjustableBottomBar,
                 )
-                SettingsMenuRow(
-                    icon = PlazaIcons.VerticalAlignBottom,
-                    title = stringResource(Res.string.settings_bottom_bar_position),
-                    subtitle = stringResource(settings.bottomBarPosition.label),
-                    choices = BottomBarPosition.entries.map { it to stringResource(it.label) },
-                    selected = settings.bottomBarPosition,
-                    onSelect = onBottomBarPositionChange,
-                    last = true,
-                )
+                if (adjustableBottomBar) {
+                    SettingsMenuRow(
+                        icon = PlazaIcons.VerticalAlignBottom,
+                        title = stringResource(Res.string.settings_bottom_bar_position),
+                        subtitle = stringResource(settings.bottomBarPosition.label),
+                        choices = BottomBarPosition.entries.map { it to stringResource(it.label) },
+                        selected = settings.bottomBarPosition,
+                        onSelect = onBottomBarPositionChange,
+                        last = true,
+                    )
+                }
             }
 
             SectionLabel(stringResource(Res.string.settings_theme_preview))
@@ -560,6 +565,7 @@ private fun FrostedGlassRow(
     checked: Boolean,
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    last: Boolean,
 ) {
     GroupedRow(
         icon = PlazaIcons.Palette,
@@ -568,6 +574,7 @@ private fun FrostedGlassRow(
         checked = checked,
         onCheckedChange = onCheckedChange,
         enabled = enabled,
+        last = last,
         trailing = {
             GroupedListItemSwitch(
                 checked = checked && enabled,

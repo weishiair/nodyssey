@@ -124,7 +124,6 @@ import io.github.nodyssey.model.countOf
 import io.github.nodyssey.model.hasSpent
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.common.BottomPullToRefreshBox
-import io.github.nodyssey.ui.common.LocalBottomBarPosition
 import io.github.nodyssey.ui.common.LocalUserNotes
 import io.github.nodyssey.ui.common.NodeSeekIcons
 import io.github.nodyssey.ui.common.PlazaSheet
@@ -473,7 +472,7 @@ fun PostDetailScreen(
     lotteryContent: @Composable () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
-    val readingControlsHeight = if (state.hasContent && !replyOpen) LocalBottomBarPosition.current.bottomBarClearance else 0.dp
+    val readingControlsHeight = if (state.hasContent && !replyOpen) bottomBarClearance() else 0.dp
     val pullToRefreshState = rememberPullToRefreshState()
     var isScrollbarDragging by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()

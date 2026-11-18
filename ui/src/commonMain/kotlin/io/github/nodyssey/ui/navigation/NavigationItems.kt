@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
@@ -48,7 +49,8 @@ import androidx.navigation3.runtime.NavKey
 import io.github.nodyssey.NotificationsKey
 import io.github.nodyssey.PostListKey
 import io.github.nodyssey.ProfileKey
-import io.github.nodyssey.ui.common.FloatingBottomBarBand
+import io.github.nodyssey.ui.common.BottomBarBand
+import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.tab_home
 import io.github.nodyssey.ui.resources.tab_notifications
@@ -162,10 +164,14 @@ internal fun BottomNavigationBand(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    FloatingBottomBarBand(
+    BottomBarBand(
         modifier
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-            .padding(horizontal = 28.dp)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .padding(
+                start = 28.dp,
+                end = 28.dp,
+                bottom = bottomBarInset(WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()),
+            )
             .widthIn(max = 336.dp)
             .fillMaxWidth(),
     ) {
