@@ -179,31 +179,44 @@ SettingsItem.Link(key, title, onClick, description?, value?, icon?, enabled)
 **2026-11-19 定：先做一期。** 一期只做用户最常接触、风险可控的部分——设置类页面和确认框；做完出一个 iOS 测试包，
 真机验收、收集反馈后，再决定二期做不做、做哪些。二期的任务卡（§6）保留原样，届时直接启用，不必重写本文。
 
-### 5.1 一期（当前执行范围）
+### 5.1 一期分工（当前执行范围）
 
-| PR | 标题 | 负责 | 依赖 | 需要 Mac |
+**每个任务都是"开发 + 测试 + 自验"一起交付**：任务卡里的测试和验收清单就是任务本身的一部分，不单独拆测试 PR。
+一个任务一个分支、一个 PR，目标分支都是集成分支 `ios/native-experience`（§7.1）。
+
+**交接只需要一句话**：
+
+> 请按仓库 `weishiair/nodyssey` 中 `docs/ios-native-experience.md` 的任务 **C1**（或 C2）执行。先读该文档 §1–§3、§7 和任务卡，遵守仓库根目录的 `AGENTS.md`。
+
+任务卡里写全了分支、步骤、测试、验收清单和交付方式，不需要另外补充说明。
+
+#### Devin 的任务
+
+| 任务 | 对应 | 内容 | 依赖 | 顺序 |
 |---|---|---|---|---|
-| PR-0 | 描述驱动框架 + 通知页（**已完成**） | Devin | — | 是 |
-| PR-1 | iOS 原生菜单不再带出软键盘 | Devin | PR-0 | 是 |
-| PR-2 | 描述模型扩展 A：滑块、分段、色板、操作行、角标、标签、示例文字 | Devin | PR-0 | 是 |
-| PR-4a | 为四个页面补渲染测试（迁移前的基线） | 协作 AI | — | 否 |
-| PR-4 | 迁移：账号设置、开源许可、偏好设置、动态取色 | 协作 AI | PR-0、PR-2、PR-4a | 否 |
-| PR-5 | 迁移：设置首页 | Devin | PR-1、PR-2 | 是 |
-| PR-7 | 原生确认框 `AdaptiveAlertDialog` | Devin | — | 是 |
-| PR-8 | 替换简单确认框 | 协作 AI | PR-7 | 否 |
+| D1 | PR-2 | 描述模型扩展 A（含开源许可页需要的页首说明、外链行） | — | **1**，先做，解除 C1 的等待 |
+| D2 | PR-1 | iOS 原生菜单不再带出软键盘 | — | 2 |
+| D3 | PR-7 | 原生确认框 `AdaptiveAlertDialog` | — | 3，解除 C2 的等待 |
+| D4 | PR-5 | 迁移设置首页 | D1、D2 | 4 |
+| D5 | — | 验收协作 AI 的 PR；一期整体验收（§9）；出 iOS 测试包；开 `ios/native-experience → dev` 的 PR | 全部 | 持续 |
+
+#### 协作 AI 的任务
+
+| 任务 | 内容 | 依赖 | 什么时候能做 |
+|---|---|---|---|
+| C1 | 迁移四个简单页：开源许可、账号设置、偏好设置、动态取色（补渲染测试 → 迁移 → 逐像素对比 → 行为测试） | 第 1 段无；第 2 段等 D1 | **第 1 段现在就能做**；D1 合入集成分支后做第 2 段 |
+| C2 | 把只有文字和按钮的确认框换成 `AdaptiveAlertDialog`（含测试） | D3 | D3 合入集成分支后 |
 
 ```
-PR-0 ─┬─ PR-1 ─────────┬─ PR-5
-      └─ PR-2 ─┬───────┘
-               └─ PR-4（还依赖 PR-4a）
-PR-7 ── PR-8
-PR-4a（无依赖，可随时开工）
+D1 ──┬── C1 第 2 段
+     └──────────────┐
+D2 ─────────────────┴── D4
+D3 ── C2
+C1 第 1 段（现在）
 ```
 
-一期结束的标志：上表全部合入集成分支 `ios/native-experience`（见 §7.1），§9 中标为「一期」的目标全部通过，并从集成分支出一个 iOS 测试包给用户真机验收；通过后再由单独 PR 把集成分支合入 `dev`。
-
-**协作 AI 现在就能开工的**：PR-4a。PR-4 等 PR-0、PR-2 合入集成分支，PR-8 等 PR-7 合入集成分支；
-开始前先读合入后的实际代码（命名以代码为准，本文的 API 草图只是计划）。
+一期结束的标志：上表全部合入集成分支 `ios/native-experience`，§9 中标为「一期」的目标全部通过，
+并从集成分支出一个 iOS 测试包给用户真机验收；通过后再由单独 PR 把集成分支合入 `dev`。
 
 ### 5.2 二期（视一期反馈决定，暂不排期）
 
@@ -226,7 +239,7 @@ PR-4a（无依赖，可随时开工）
 
 每张卡的「验收目标」就是验收时逐条核对的清单；**全部满足才算完成**。
 
-### PR-1 iOS 原生菜单不再带出软键盘（Devin）
+### 任务 D2 · PR-1 iOS 原生菜单不再带出软键盘（Devin）
 
 - **问题**：在 Compose 宿主里打开 `UIMenu`，iOS 26+ 的菜单键入筛选会把软键盘带出来。纯 UIKit 对照组不弹。
   已确认菜单打开时持有第一响应者的是 Compose 的 `OverlayInputView` / `ComposeContainerView`；
@@ -239,9 +252,9 @@ PR-4a（无依赖，可随时开工）
   - [ ] 若采用推入列表页：选中后自动返回、当前项打勾、边缘右滑可返回、VoiceOver 读出"已选定"。
   - [ ] 若改动了 Compose 侧焦点：注释写明尝试过的官方 API、它缺什么、何时可以删掉这段绕过。
 
-### PR-2 描述模型扩展 A（Devin）
+### 任务 D1 · PR-2 描述模型扩展 A（Devin）
 
-为 PR-4、PR-5 准备能力。计划新增（命名以合入代码为准）：
+为 C1（四个简单页）和 D4（设置首页）准备能力。计划新增（命名以合入代码为准）：
 
 | 能力 | Android 复刻的现有组件 | iOS 实现 |
 |---|---|---|
@@ -254,6 +267,8 @@ PR-4a（无依赖，可随时开工）
 | `SampleText`（随设置变化的示例文字） | 字号滑块下的预览 `Text` | 单元格内 `UILabel`，字号跟随 |
 | 区块脚注带标题（`SectionNotes`） | `SectionNotes` | 区块 footer（标题 + 多段） |
 | 页面提示消息 | `PlazaSnackbarHost` | 同一个 Compose 提示叠在原生页上方 |
+| 页首说明文字 | 开源许可页顶部的 `bodyMedium` 说明 | 首个区块的 header 位置显示说明文字 |
+| 外链行（右侧外链图标、无箭头） | `GroupedRow(showChevron = false, trailing = OpenInNew)` | 右侧 `arrow.up.forward` 图标 |
 
 - **验收目标**
   - [ ] 每种新能力在 iOS 夹具"全组件页"上可见、可操作，截图存档；深色、AX XL 字号下不裁切。
@@ -274,33 +289,71 @@ PR-4a（无依赖，可随时开工）
   - [ ] iOS：页面里其他 Compose 部分（提示消息）不会抢走焦点或让键盘闪烁。
   - [ ] Android：复用 `SettingsTextField` / `ProxyField` / `SettingsTestSaveButtons`，代理与 DNS 页迁移后渲染逐像素一致（在 PR-6 核对）。
 
-### PR-4a 为四个页面补渲染测试（协作 AI）
+### 任务 C1：迁移四个简单页（协作 AI）
 
-- **范围**：`AccountSettingsScreen`、`PreferencesScreen`、`OpenSourceLicensesScreen`、`DynamicColorScreen`
-  目前没有渲染测试。照 `ui/src/androidHostTest/.../render/NotificationSettingsScreenRenderTest.kt` 的写法各补一个类：
-  浅色、深色各一张；有开关的页面至少一种"部分开、部分关"的状态；有空状态或错误状态的页面各加一张。
-- **不许做**：不改任何生产代码。
-- **验收目标**
-  - [ ] 默认测试运行时这些类全部跳过（`assumeRendering()`），不产生文件。
-  - [ ] `-PrenderUi` 下每个类都生成 PNG，内容是真实页面（不是空白或错误页），PR 描述附图。
-  - [ ] `spotlessCheck` 通过。
+**目标**：开源许可、账号设置、偏好设置、动态取色四个页面改成描述驱动（§4），Android 渲染图逐像素不变，iOS 自动成为系统原生列表。
+开发和测试在同一个分支、同一个 PR 里完成。
 
-### PR-4 迁移四个简单页（协作 AI）
+**分支**：`git fetch origin` 后从 `origin/ios/native-experience` 切 `ios/migrate-simple-settings`。
 
-- **范围**：账号设置、开源许可、偏好设置、动态取色。照 §7.3 的步骤逐页迁移，**一个页面一个提交**。
-- **注意**
-  - 账号设置的「退出登录」用 `Action(destructive = true)`；确认流程保持原样。
-  - 开源许可的依赖列表是动态数据：每个依赖一行 `Link`，`key` 用依赖名，不要用下标。
-  - 偏好设置的板块行用 `tag`（PR-2 提供）；如果 PR-2 的 `tag` 不足以复刻 `BoardTag`，停下报告。
-  - 动态取色的色板候选用带 `swatch` 的 `Choice`；"读取失败 + 重试"用 footer + `Action`。
-- **验收目标**
-  - [ ] 四个页面的 PR-4a 渲染图改动前后逐像素一致（附对比结果输出）。
-  - [ ] 每页至少一个行为测试，抓真实逻辑（例：未登录时某行禁用、退出登录走确认、开关回调值正确）。
-  - [ ] 页面文件里不再出现 `SettingsGroup` / `GroupedRow` / `OneHandTopAppBar` 等布局代码（全部经描述）。
-  - [ ] 没有修改 `designsys/**/settings/**`、`**/iosMain/**`、ViewModel、Route。
-  - [ ] Devin 在 Mac 上过 §8 的 iOS 检查表（协作 AI 不需要做）。
+#### 第 1 段：补渲染测试、存基线图（现在就能做）
 
-### PR-5 迁移设置首页（Devin）
+这四个页面目前没有渲染测试，迁移前必须先有"改之前"的图。
+
+1. 在 `ui/src/androidHostTest/kotlin/io/github/nodyssey/render/` 为每个页面新增一个渲染测试类，
+   完全照 `NotificationSettingsScreenRenderTest.kt` 的写法（`RobolectricTestRunner`、`GraphicsMode.NATIVE`、
+   `@Config(qualifiers = "w360dp-h…dp")`、`@Before fun onlyWhenRendering() = assumeRendering()`、最后 `captureRender("名字")`）。
+   - 每个页面浅色、深色各一张；高度要放得下整页。
+   - 有开关的页面设成"部分开、部分关"；动态取色另加"没有候选色"和"读取失败"两张。
+2. 每个页面一个提交，例如「补充开源许可页渲染测试」。
+3. 生成基线图并保存到工作区外（例如 `..\renders-before\`）：
+   ```powershell
+   .\gradlew.bat :ui:testAndroidHostTest -PrenderUi --tests '*OpenSourceLicenses*RenderTest' --tests '*AccountSettings*RenderTest' --tests '*Preferences*RenderTest' --tests '*DynamicColor*RenderTest'
+   # 把 ui\build\outputs\renders\ 下的 PNG 复制到 ..\renders-before\
+   ```
+4. 逐张打开检查：必须是真实页面，不是空白或报错页。
+
+第 1 段做完先推送分支（PR 可以先开成 Draft），**等 D1 合入集成分支**后再做第 2 段。
+
+#### 第 2 段：迁移、对比、补行为测试（D1 合入后）
+
+1. 把最新集成分支合进来：`git fetch origin; git merge origin/ios/native-experience`。
+2. 按 §7.3 逐页迁移，**一个页面一个提交**。先读 D1 合入后的实际代码，命名以代码为准。各页注意：
+   - **开源许可**：页首说明文字、外链行（右侧外链图标、无箭头）用 D1 提供的能力；依赖列表每项一行，`key` 用依赖名，不要用下标。
+   - **账号设置**：「退出登录」用 `Action(destructive = true)`，确认流程保持原样。
+   - **偏好设置**：板块行用 D1 的行首标签 `tag`；如果复刻不了 `BoardTag`，停下报告。
+   - **动态取色**：色板候选用带 `swatch` 的单选；"读取失败 + 重试"用区块说明 + `Action`。
+3. 每迁完一页，重新生成该页渲染图，用 §7.4 的脚本和基线逐像素对比。不一致就修到一致；原因在渲染器的，停下报告（§7.6）。
+   开源许可页目前的页面间距和其他设置页不同，如果只能统一成设置页间距，这算有意变化：在 PR 里单列前后对比图，由 Devin 验收时向用户确认。
+4. 每页至少一个行为测试，放在 `ui/src/androidHostTest/kotlin/io/github/nodyssey/ui/<包>/`，抓真实逻辑。例如：
+   - 账号设置：点「退出登录」先走确认，不直接退出；
+   - 偏好设置：切换板块开关，回调传出的是板块 slug 和新状态；
+   - 动态取色：没有系统取色时对应开关禁用；点重试触发重新读取；
+   - 开源许可：点依赖行，打开的是该依赖的源码地址。
+5. 跑 §7.2 的命令。
+
+#### 不许做
+
+- 不改 `designsys/**/settings/**`、`**/iosMain/**`、`NativeShell.kt`、ViewModel、Route、Repository。
+- 不往描述模型里加字段，不在页面里写平台判断；模型不够用就停下报告。
+- 不加依赖，不改版本号、lockfile、Room。
+
+#### 验收清单（全部满足才算完成）
+
+- [ ] 四个页面都有渲染测试；默认测试运行时全部跳过、不产生文件。
+- [ ] 四个页面迁移后渲染图与基线逐像素一致（附 §7.4 脚本输出）；有意变化单列并附前后对比。
+- [ ] 每页至少一个行为测试，且能在对应逻辑被改坏时失败。
+- [ ] 页面文件里不再有 `SettingsGroup`、`GroupedRow`、`OneHandTopAppBar` 等布局代码。
+- [ ] `git diff --stat origin/ios/native-experience` 只涉及这四个页面、它们的测试和渲染测试。
+- [ ] `spotlessCheck` 通过，`git diff --check` 无输出。
+
+#### 交付
+
+- 推送分支，开 PR（或把 Draft 转为正式）：`gh pr create -R weishiair/nodyssey --base ios/native-experience`。
+- PR 描述用 §7.7 的模板，附逐像素对比输出和新增测试清单。
+- Devin 验收：全量门禁、复核对比结果、在 Mac 上做 §8 的 iOS 检查，通过后合入集成分支。
+
+### 任务 D4 · PR-5 迁移设置首页（Devin）
 
 设置首页最复杂：3 个滑块（含实时预览文字和搜索头像预览）、3 个分段、4 个菜单、已读色块、清除缓存（loading）、更新红点、
 自动签到区块。搜索头像预览这类真正自定义的块，评估后要么用 `SampleText` 类能力表达，要么在 iOS 上省略并在 PR 中说明。
@@ -319,7 +372,7 @@ PR-4a（无依赖，可随时开工）
   - [ ] iOS：开启代理 → 填写 → 测试连接（loading、成功 / 失败提示）→ 保存，全流程可用，键盘不遮挡。
   - [ ] iOS：校验错误（缺地址、端口非法）显示在对应输入框下方。
 
-### PR-7 原生确认框 `AdaptiveAlertDialog`（Devin）
+### 任务 D3 · PR-7 原生确认框 `AdaptiveAlertDialog`（Devin）
 
 在 `:designsys` 新增 `AdaptiveAlertDialog(title, message, confirmLabel, onConfirm, dismissLabel?, onDismiss, destructive = false)`：
 Android / 桌面画现有 Material `AlertDialog`（与现有调用的样式一致），iOS 弹 `UIAlertController`。
@@ -331,14 +384,47 @@ Android / 桌面画现有 Material `AlertDialog`（与现有调用的样式一�
   - [ ] Android：替换一处真实调用作为样例，渲染逐像素一致。
   - [ ] 附带一份"调用点替换指南"写进本文附录 B。
 
-### PR-8 替换简单确认框（协作 AI）
+### 任务 C2 · PR-8 替换简单确认框（协作 AI）
 
-- **范围**：附录 B 的「可直接替换」清单。逐个确认对话框只有文字（可多段）和至多两个按钮，再换成 `AdaptiveAlertDialog`。
-- **不许做**：带输入框、单选、复选、列表、图片的对话框一律不换，记入"跳过清单"并写明原因。
-- **验收目标**
-  - [ ] 每个被替换对话框所在页面的渲染图（若有渲染测试）逐像素一致；没有渲染测试的，附替换前后截图。
-  - [ ] 原有行为测试全部通过（确认前不执行、取消不执行等）。
-  - [ ] PR 描述附"已替换清单"和"跳过清单（含原因）"。
+**目标**：只有文字和按钮的确认框改用 D3 提供的 `AdaptiveAlertDialog`，iOS 上变成系统确认框，Android 外观和行为不变。
+开发和测试在同一个分支、同一个 PR 里完成。
+
+**前提**：D3 已合入集成分支。开工前先读 D3 合入后 `AdaptiveAlertDialog` 的实际签名和它附带的替换指南（附录 B）。
+
+**分支**：`git fetch origin` 后从 `origin/ios/native-experience` 切 `ios/native-alert-dialogs`。
+
+#### 步骤
+
+1. 用 `rg -n "AlertDialog\(" ui/src/commonMain` 列出当前全部调用点，对照附录 B 的三份清单逐个确认。
+   只替换"正文只有文字（可以多段）+ 至多两个按钮（可带一个破坏性按钮）"的；其余一律不动。
+2. 替换前，为每个要改的对话框准备"改之前"的证据：
+   - 所在页面有渲染测试、且能渲染出对话框的：保存基线图；
+   - 没有的：在该页面现有的 Robolectric 测试或新写的行为测试里，能把对话框打开即可（见第 4 步）。
+3. 逐个替换，**一个文件一个提交**。按钮文案、点击后的行为、`onDismiss` 的时机保持原样。
+4. 测试（和替换一起交付）：
+   - 每个被替换的对话框至少有一个行为测试覆盖"点确认才执行、点取消不执行"。已有覆盖的写明是哪个测试，没有的新增，
+     放在对应包的 `ui/src/androidHostTest/kotlin/io/github/nodyssey/ui/<包>/`。
+   - 能渲染的对话框，替换后和基线逐像素对比（§7.4）。
+5. 跑 §7.2 的命令。
+
+#### 不许做
+
+- 带输入框、单选、复选、列表、图片的对话框不换，记入"跳过清单"并写明原因。
+- 不改 `AdaptiveAlertDialog` 本身、`**/iosMain/**`、ViewModel；它不够用就停下报告。
+
+#### 验收清单（全部满足才算完成）
+
+- [ ] 附录 B「可直接替换」的 15 处逐一处理：要么已替换，要么在跳过清单里写明原因。
+- [ ] 「需逐个判断」的 14 处逐一检查并归类（替换 / 跳过 + 原因）。
+- [ ] 每个被替换的对话框都有"确认才执行、取消不执行"的行为测试（新增或指明已有测试）。
+- [ ] 能渲染的对话框逐像素一致（附 §7.4 输出）。
+- [ ] `spotlessCheck` 通过，`git diff --check` 无输出；除被替换的调用点和测试外没有其他改动。
+
+#### 交付
+
+- 推送分支，开 PR：`gh pr create -R weishiair/nodyssey --base ios/native-experience`。
+- PR 描述用 §7.7 的模板，附"已替换清单""跳过清单（含原因）"和测试清单。
+- Devin 验收：全量门禁，在 Mac 上逐个触发被替换的对话框截图（§8），通过后合入集成分支。
 
 ### 【二期】PR-9 SF Symbols 图标基础设施（Devin）
 
@@ -440,7 +526,7 @@ git diff --check
    .\gradlew.bat :ui:testAndroidHostTest -PrenderUi --tests '*XxxRenderTest'
    # 产物在 ui/build/outputs/renders/，复制到例如 ..\renders-before\
    ```
-   没有渲染测试的页面，先完成 PR-4a。
+   没有渲染测试的页面，先补渲染测试并单独提交（做法见任务 C1 第 1 段）。
 2. **改写 Screen**：保留函数签名；把布局换成构建 `SettingsPage` 并调用 `SettingsPageScreen(page, onBack, modifier)`。
    对照附录 A 的组件映射表。照 `NotificationSettingsScreen.kt` 的写法：可复用的行先建成变量，复杂分支抽成私有 `@Composable` 函数返回 `List<SettingsSection>`。
 3. **保留原注释的意图**：原代码里解释"为什么"的注释，跟着对应的行或区块搬过去，不要丢。
