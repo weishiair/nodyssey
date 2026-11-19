@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -81,6 +83,19 @@ class LotteryScreenRenderTest {
             }
         }
         composeRule.onRoot().captureRender("lottery-tracking-phone")
+    }
+
+    @Test
+    fun `tracking reminder help`() {
+        val viewModel = model(emptyList())
+        composeRule.setContent {
+            PlazaTheme { LotteryRoute(viewModel, {}, {}, {}, {}, {}, {}) }
+        }
+        composeRule.onNodeWithContentDescription("更多选项").performClick()
+        composeRule.onNodeWithText("提醒说明").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNode(isDialog()).captureRender("lottery-reminder-help")
     }
 
     @Test
