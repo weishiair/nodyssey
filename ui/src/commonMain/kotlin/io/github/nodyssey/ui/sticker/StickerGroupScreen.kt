@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -86,6 +85,7 @@ import io.github.nodyssey.ui.resources.sticker_manage_show
 import io.github.nodyssey.ui.resources.sticker_menu_move_top
 import io.github.nodyssey.ui.resources.sticker_menu_save_to_mine
 import io.github.nodyssey.ui.resources.sticker_undo
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
@@ -266,17 +266,17 @@ fun StickerGroupRoute(
         )
     }
     if (confirmingBroken) {
-        AlertDialog(
-            onDismissRequest = { confirmingBroken = false },
-            title = { Text(stringResource(Res.string.sticker_manage_remove_broken_confirm, current?.brokenCount ?: 0)) },
-            text = { Text(stringResource(Res.string.sticker_manage_remove_broken_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.removeBroken()
-                    confirmingBroken = false
-                }) { Text(stringResource(Res.string.sticker_group_remove), color = MaterialTheme.colorScheme.error) }
+        AdaptiveAlertDialog(
+            onDismiss = { confirmingBroken = false },
+            title = stringResource(Res.string.sticker_manage_remove_broken_confirm, current?.brokenCount ?: 0),
+            message = stringResource(Res.string.sticker_manage_remove_broken_body),
+            confirmLabel = stringResource(Res.string.sticker_group_remove),
+            onConfirm = {
+                viewModel.removeBroken()
+                confirmingBroken = false
             },
-            dismissButton = { TextButton(onClick = { confirmingBroken = false }) { Text(stringResource(Res.string.action_cancel)) } },
+            dismissLabel = stringResource(Res.string.action_cancel),
+            destructive = true,
         )
     }
 }
