@@ -11,15 +11,16 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -65,8 +67,10 @@ import io.github.nodyssey.data.imagehost.ImageHostProvider
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
 import io.github.nodyssey.ui.common.describedAsLoading
+import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_back
+import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.imagehost_api_token_label
 import io.github.nodyssey.ui.resources.imagehost_clear_custom_body
@@ -150,22 +154,30 @@ import io.github.nodyssey.ui.resources.imagehost_token_required
 import io.github.nodyssey.ui.resources.imagehost_upload_url_label
 import io.github.nodyssey.ui.resources.imagehost_upload_url_placeholder
 import io.github.nodyssey.ui.resources.status_network_title
+import io.github.nodyssey.ui.settings.SettingsGroup
 import io.github.nodyssey.ui.settings.SettingsItemGap
+import io.github.nodyssey.ui.settings.SettingsMenuRow
 import io.github.nodyssey.ui.settings.SettingsPagePadding
 import io.github.nodyssey.ui.settings.SettingsTextField
+import io.github.nodyssey.ui.settings.SettingsTopBar
+import io.github.nodyssey.ui.settings.settingsPageColor
+import io.github.nodyssey.ui.settings.settingsScrollPadding
+import io.github.plaza.designsys.component.AdaptiveConfirmDialog
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.ImageFallback
 import io.github.plaza.designsys.component.LayerCard
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
+import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.groupedRowTitleStyle
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.nativeChrome
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -233,7 +245,6 @@ fun ImageHostRoute(
  * a masked fingerprint instead. A settings screen is the most-screenshotted surface in any app, and
  * this is the one string on it that would let somebody else upload under this account.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageHostScreen(
     state: ImageHostUiState,
@@ -255,49 +266,109 @@ fun ImageHostScreen(
     onOpenSite: () -> Unit,
     onOpenImage: (String) -> Unit,
     modifier: Modifier = Modifier,
+) = ImageHostContent(
+    state = state,
+    snackbarHostState = snackbarHostState,
+    onBack = onBack,
+    onSelectProvider = onSelectProvider,
+    onSiteUrlChange = onSiteUrlChange,
+    onTokenChange = onTokenChange,
+    onCustomChange = onCustomChange,
+    onToggleCustomFields = onToggleCustomFields,
+    onSave = onSave,
+    onRequestDisconnect = onRequestDisconnect,
+    onDismissDisconnect = onDismissDisconnect,
+    onConfirmDisconnect = onConfirmDisconnect,
+    onRefresh = onRefresh,
+    onRequestDelete = onRequestDelete,
+    onDismissDelete = onDismissDelete,
+    onConfirmDelete = onConfirmDelete,
+    onOpenSite = onOpenSite,
+    onOpenImage = onOpenImage,
+    nativeChrome = LocalPlazaLayers.current.nativeChrome,
+    modifier = modifier,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ImageHostContent(
+    state: ImageHostUiState,
+    snackbarHostState: SnackbarHostState,
+    onBack: () -> Unit,
+    onSelectProvider: (ImageHostProvider) -> Unit,
+    onSiteUrlChange: (String) -> Unit,
+    onTokenChange: (String) -> Unit,
+    onCustomChange: ((CustomHostFields) -> CustomHostFields) -> Unit,
+    onToggleCustomFields: () -> Unit,
+    onSave: () -> Unit,
+    onRequestDisconnect: () -> Unit,
+    onDismissDisconnect: () -> Unit,
+    onConfirmDisconnect: () -> Unit,
+    onRefresh: () -> Unit,
+    onRequestDelete: (HostedImage) -> Unit,
+    onDismissDelete: () -> Unit,
+    onConfirmDelete: () -> Unit,
+    onOpenSite: () -> Unit,
+    onOpenImage: (String) -> Unit,
+    nativeChrome: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val appBarState = rememberOneHandAppBarState()
+    val showRefresh = state.connected && state.provider.browsable
+    val refreshLabel = stringResource(Res.string.action_refresh)
     Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
+        modifier = if (nativeChrome) modifier else modifier.nestedScroll(appBarState.nestedScrollConnection),
+        containerColor = if (nativeChrome) settingsPageColor() else MaterialTheme.colorScheme.background,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            SettingsTopBar(
                 title = stringResource(Res.string.imagehost_title),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
+                onBack = onBack,
+                backContentDescription = stringResource(Res.string.action_back),
+                appBarState = appBarState,
+                actions =
+                if (showRefresh) {
+                    listOf(
+                        GlassAction(
+                            label = refreshLabel,
+                            onClick = onRefresh,
+                            symbol = "arrow.clockwise",
+                        ),
+                    )
+                } else {
+                    emptyList()
                 },
-                actions = {
-                    if (state.connected && state.provider.browsable) {
+                fallbackActions = {
+                    if (showRefresh) {
                         IconButton(onClick = onRefresh) {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = stringResource(Res.string.action_refresh),
-                            )
+                            Icon(Icons.Default.Refresh, contentDescription = refreshLabel)
                         }
                     }
                 },
             )
         },
     ) { padding ->
+        val contentInset = if (nativeChrome) padding.withoutBottom() else padding
         Column(
             modifier = Modifier
-                .padding(padding)
+                .padding(contentInset)
+                .then(if (nativeChrome) Modifier.consumeWindowInsets(contentInset).imePadding() else Modifier)
                 .fillMaxSize()
+                .then(if (nativeChrome) Modifier.clipToBounds() else Modifier)
                 .readableWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
+                .padding(if (nativeChrome) settingsScrollPadding(padding) else SettingsPagePadding),
             verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
         ) {
-            ProviderCard(selected = state.provider, onSelect = onSelectProvider)
+            ProviderSection(
+                selected = state.provider,
+                onSelect = onSelectProvider,
+                nativeChrome = nativeChrome,
+            )
 
             ConnectionCard(
                 state = state,
+                nativeChrome = nativeChrome,
                 onSave = onSave,
                 onDisconnect = onRequestDisconnect,
                 onOpenSite = onOpenSite,
@@ -318,6 +389,7 @@ fun ImageHostScreen(
             )
             ImagesSection(
                 state = state,
+                nativeChrome = nativeChrome,
                 onRequestDelete = onRequestDelete,
                 onOpenImage = onOpenImage,
                 onOpenSite = onOpenSite,
@@ -326,37 +398,92 @@ fun ImageHostScreen(
     }
 
     if (state.confirmingDisconnect) {
-        HighRiskDialog(
-            icon = PlazaIcons.Shield,
-            title = stringResource(Res.string.imagehost_clear_key_title, stringResource(state.provider.nameRes())),
-            // A custom host loses its address and its field names along with the credential, because
-            // for that one the configuration *is* the connection — see [ImageHostSettings.disconnect].
-            // The dialog says which of the two is about to happen; the promise underneath it ("no more
-            // pictures in posts") is the same either way.
-            body = if (state.provider == ImageHostProvider.CUSTOM) {
+        val disconnectTitle = stringResource(Res.string.imagehost_clear_key_title, stringResource(state.provider.nameRes()))
+        // A custom host loses its address and its field names along with the credential, because
+        // for that one the configuration *is* the connection — see [ImageHostSettings.disconnect].
+        // The dialog says which of the two is about to happen; the promise underneath it ("no more
+        // pictures in posts") is the same either way.
+        val disconnectBody =
+            if (state.provider == ImageHostProvider.CUSTOM) {
                 stringResource(Res.string.imagehost_clear_custom_body)
             } else {
                 stringResource(Res.string.imagehost_clear_key_body)
-            },
-            confirmLabel = stringResource(Res.string.imagehost_clear_key_action),
+            }
+        val disconnectAction = stringResource(Res.string.imagehost_clear_key_action)
+        AdaptiveConfirmDialog(
+            title = disconnectTitle,
+            message = disconnectBody,
+            confirmLabel = disconnectAction,
+            dismissLabel = stringResource(Res.string.action_cancel),
             onConfirm = onConfirmDisconnect,
             onDismiss = onDismissDisconnect,
-            destructive = true,
-        )
+            destructiveConfirm = true,
+        ) {
+            HighRiskDialog(
+                icon = PlazaIcons.Shield,
+                title = disconnectTitle,
+                body = disconnectBody,
+                confirmLabel = disconnectAction,
+                onConfirm = onConfirmDisconnect,
+                onDismiss = onDismissDisconnect,
+                destructive = true,
+            )
+        }
     }
 
     state.deleting?.let { target ->
-        HighRiskDialog(
-            icon = Icons.Default.Delete,
-            title = stringResource(Res.string.imagehost_delete_title),
-            // Named in the dialog because thumbnails of the same screenshot are indistinguishable,
-            // and this delete cannot be undone from anywhere in the app.
-            body = stringResource(Res.string.imagehost_delete_body, target.fileName),
-            confirmLabel = stringResource(Res.string.imagehost_delete_action),
+        val deleteTitle = stringResource(Res.string.imagehost_delete_title)
+        // Named in the dialog because thumbnails of the same screenshot are indistinguishable,
+        // and this delete cannot be undone from anywhere in the app.
+        val deleteBody = stringResource(Res.string.imagehost_delete_body, target.fileName)
+        val deleteAction = stringResource(Res.string.imagehost_delete_action)
+        AdaptiveConfirmDialog(
+            title = deleteTitle,
+            message = deleteBody,
+            confirmLabel = deleteAction,
+            dismissLabel = stringResource(Res.string.action_cancel),
             onConfirm = onConfirmDelete,
             onDismiss = onDismissDelete,
-            destructive = true,
-        )
+            destructiveConfirm = true,
+        ) {
+            HighRiskDialog(
+                icon = Icons.Default.Delete,
+                title = deleteTitle,
+                body = deleteBody,
+                confirmLabel = deleteAction,
+                onConfirm = onConfirmDelete,
+                onDismiss = onDismissDelete,
+                destructive = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProviderSection(
+    selected: ImageHostProvider,
+    onSelect: (ImageHostProvider) -> Unit,
+    nativeChrome: Boolean,
+) {
+    if (!nativeChrome) {
+        ProviderCard(selected = selected, onSelect = onSelect)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(SettingsItemGap)) {
+        SettingsGroup {
+            SettingsMenuRow(
+                icon = PlazaIcons.CloudUpload,
+                title = stringResource(Res.string.imagehost_section_provider),
+                subtitle = null,
+                choices = ImageHostProvider.entries.map { it to stringResource(it.nameRes()) },
+                selected = selected,
+                onSelect = onSelect,
+                first = true,
+                last = true,
+                value = stringResource(selected.shortNameRes()),
+            )
+        }
+        SectionNote(stringResource(selected.hintRes()))
     }
 }
 
@@ -421,21 +548,31 @@ private fun ProviderCard(
  * the two actions, on one card: they are one connection, and the status next to the fields is what
  * says whether typing into them will replace something.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConnectionCard(
     state: ImageHostUiState,
+    nativeChrome: Boolean,
     onSave: () -> Unit,
     onDisconnect: () -> Unit,
     onOpenSite: () -> Unit,
     fields: @Composable () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    LayerCard(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    LayerCard(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        elevated = !nativeChrome,
+    ) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 stringResource(Res.string.imagehost_section_connection),
                 style = groupedRowTitleStyle(),
-                modifier = Modifier.weight(1f),
             )
             TonalTag(
                 text = stringResource(
@@ -660,6 +797,7 @@ private fun HostField(
 @Composable
 private fun ImagesSection(
     state: ImageHostUiState,
+    nativeChrome: Boolean,
     onRequestDelete: (HostedImage) -> Unit,
     onOpenImage: (String) -> Unit,
     onOpenSite: () -> Unit,
@@ -681,17 +819,19 @@ private fun ImagesSection(
          */
         state.imagesError == ImageHostError.Unsupported -> InfoCard(
             text = stringResource(Res.string.imagehost_error_unsupported),
+            elevated = !nativeChrome,
             action = stringResource(Res.string.imagehost_open_site) to onOpenSite,
         )
 
-        state.imagesError != null -> InfoCard(stringResource(state.imagesError.messageRes()))
+        state.imagesError != null -> InfoCard(stringResource(state.imagesError.messageRes()), elevated = !nativeChrome)
 
-        state.images.isEmpty() -> InfoCard(stringResource(Res.string.imagehost_empty))
+        state.images.isEmpty() -> InfoCard(stringResource(Res.string.imagehost_empty), elevated = !nativeChrome)
 
         else -> LayerCard(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            elevated = !nativeChrome,
         ) {
             Text(
                 stringResource(
@@ -804,6 +944,7 @@ private const val GALLERY_COLUMNS = 3
 @Composable
 private fun InfoCard(
     text: String,
+    elevated: Boolean = true,
     action: Pair<String, () -> Unit>? = null,
 ) {
     LayerCard(
@@ -816,6 +957,7 @@ private fun InfoCard(
             bottom = if (action == null) Spacing.lg else Spacing.xs,
         ),
         verticalArrangement = Arrangement.Top,
+        elevated = elevated,
     ) {
         Text(
             text = text,
