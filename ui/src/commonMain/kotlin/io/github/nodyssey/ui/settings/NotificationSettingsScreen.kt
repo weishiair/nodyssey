@@ -48,6 +48,7 @@ import io.github.nodyssey.ui.resources.notify_wifi_only_hint
 import io.github.nodyssey.ui.resources.tracked_threads_title
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.settings.SettingsItem
+import io.github.plaza.designsys.settings.SettingsOption
 import io.github.plaza.designsys.settings.SettingsPage
 import io.github.plaza.designsys.settings.SettingsSection
 import io.github.plaza.designsys.settings.SettingsSectionStyle
@@ -226,9 +227,9 @@ private fun pollingSections(
 ): List<SettingsSection> {
     val enabled = settings.notificationsEnabled
     val choices = SettingsRepository.POLL_MINUTE_CHOICES
-    val frequencyLabels =
+    val frequencyOptions =
         choices.map { minutes ->
-            stringResource(Res.string.notify_frequency_every, stringResource(pollMinutesLabel(minutes)))
+            SettingsOption(stringResource(Res.string.notify_frequency_every, stringResource(pollMinutesLabel(minutes))))
         }
     // A value this build never wrote reads as the default, the way [pollMinutesLabel] names it.
     val selectedFrequency =
@@ -258,7 +259,7 @@ private fun pollingSections(
                     key = "frequency",
                     title = stringResource(Res.string.notify_frequency),
                     prompt = stringResource(Res.string.notify_frequency_hint),
-                    options = frequencyLabels,
+                    options = frequencyOptions,
                     selectedIndex = selectedFrequency,
                     onSelect = { index -> onPollMinutesChange(choices[index]) },
                     icon = PlazaIcons.Schedule,
