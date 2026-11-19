@@ -1,6 +1,6 @@
 # iOS 原生体验改造：开发文档
 
-> 状态：2026-11-19 起草，执行计划。试点（PR-0）已在分支 `ios/native-settings-spike` 完成，待推送评审。
+> 状态：2026-11-19 起草，执行计划。试点（PR-0）为 PR #93，目标是集成分支 `ios/native-experience`（§7.1）。
 > 范围：**先做一期**（设置类页面 + 确认框，见 §5.1）；二期视一期真机反馈再定（§5.2）。
 > 旧分支 `codex/ios-experience-integration` 的做法已放弃，本文不以它为基线；其中仍有价值的个别修复见 §10。
 
@@ -200,9 +200,9 @@ PR-7 ── PR-8
 PR-4a（无依赖，可随时开工）
 ```
 
-一期结束的标志：上表全部合入 `dev`，§9 中标为「一期」的目标全部通过，并出一个 iOS 测试包给用户真机验收。
+一期结束的标志：上表全部合入集成分支 `ios/native-experience`（见 §7.1），§9 中标为「一期」的目标全部通过，并从集成分支出一个 iOS 测试包给用户真机验收；通过后再由单独 PR 把集成分支合入 `dev`。
 
-**协作 AI 现在就能开工的**：PR-4a。PR-4 等 PR-0、PR-2 合入，PR-8 等 PR-7 合入；
+**协作 AI 现在就能开工的**：PR-4a。PR-4 等 PR-0、PR-2 合入集成分支，PR-8 等 PR-7 合入集成分支；
 开始前先读合入后的实际代码（命名以代码为准，本文的 API 草图只是计划）。
 
 ### 5.2 二期（视一期反馈决定，暂不排期）
@@ -401,8 +401,19 @@ iOS 上把默认点击反馈从水波纹换成按下变暗（主题层一处）�
 ### 7.1 环境与分支
 
 - JDK 21、Android SDK 37；Windows 用 `.\gradlew.bat`。`local.properties` 指向本机 SDK，**不要提交**。
-- 在干净的工作区从最新 `origin/dev` 切分支，命名 `ios/<slug>`（例：`ios/migrate-account-settings`）。
+- **集成分支 `ios/native-experience`**（2026-11-19 基于 `dev` 建立）。本轮所有 PR 的目标分支都是它，**不是 `dev`**。
+  ```
+  dev ──▶ ios/native-experience（集成分支）
+              ▲      ▲      ▲
+         ios/<slug> ios/<slug> …   各 PR 合回集成分支
+  一期整体验收、真机测试包通过后，由 Devin 开单独 PR：ios/native-experience → dev
+  ```
+- 在干净的工作区从最新 `origin/ios/native-experience` 切分支，命名 `ios/<slug>`（例：`ios/migrate-account-settings`）。
   工作区里已有的、不属于你的改动不要碰；暂存时写明路径，不要 `git add -A`。
+- 开 PR 必须显式指定仓库和目标分支：
+  `gh pr create -R weishiair/nodyssey --base ios/native-experience`。
+  这个仓库的 `gh` 默认指向上游 `5151561/nodyssey`，不写 `-R` 会开到别的仓库去。
+- 不在集成分支上直接提交；不对集成分支 rebase 或 force-push。`dev` 有新进展时，由 Devin 把 `dev` 合入集成分支（merge）。
 - 一个 PR 一个目的；页面迁移一个页面一个提交。提交信息用中文短句，正文写原因和验证结果。
 - **推送和开 PR 只在用户授权后做。**
 
