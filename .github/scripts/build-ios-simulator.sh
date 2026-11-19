@@ -36,6 +36,9 @@ if [[ ! "$binary_sdk" =~ ^([0-9]+)\. ]] || (( ${BASH_REMATCH[1]} < 26 )); then
   exit 1
 fi
 python3 .github/scripts/native-network-notices.py "$app/NativeNetworkLicenses.txt"
+# Into an existing bundle, `cp -R` nests the new one inside it and leaves the stale one on top, so a
+# rebuild into the same directory would install the previous app.
+rm -rf "$output/Nodyssey.app"
 cp -R "$app" "$output/Nodyssey.app"
 name="nodyssey-$version-simulator-arm64.zip"
 ditto -c -k --sequesterRsrc --keepParent "$output/Nodyssey.app" "$output/$name"
