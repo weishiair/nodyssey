@@ -73,9 +73,9 @@ Android 渲染图不变、交付门禁全绿；页面代码没有平台分叉。
 
 | 类别 | 页面 | 处理 |
 |---|---|---|
-| **A 设置/表单类** | 设置首页、通知（已完成）、代理、加密 DNS、账号设置、偏好设置、开源许可、动态取色 | **迁到描述驱动**，iOS 整页原生 |
+| **A 设置/表单类** | 设置首页、通知（已完成）、代理、加密 DNS、账号设置、开源许可 | **迁到描述驱动**，iOS 整页原生 |
 | **A' 列表管理类** | 屏蔽列表、标题关键词、追踪的帖子、账号列表 | 第四阶段再评估（需要可编辑列表能力） |
-| **B 视觉自定义重** | 图床、网络自检、关于、社区、更新日志、联系方式、资料字段、安全、主题设置、隐私 | 不迁，保留 Compose，只吃 C 类的组件级改造 |
+| **B 视觉自定义重** | 图床、网络自检、关于、社区、更新日志、联系方式、资料字段、安全、主题设置、隐私、偏好设置（存储标记、板块色标）、动态取色（壁纸色块、调色板色阶） | 不迁，保留 Compose，只吃 C 类的组件级改造 |
 | **C 内容页** | 帖子、编辑器、首页、私信、搜索、收藏、通知、我的、表情、工具等 | 不重写，在组件层换掉安卓惯用法 |
 
 C 类涉及的组件用量：
@@ -186,7 +186,7 @@ SettingsItem.Link(key, title, onClick, description?, value?, icon?, enabled)
 
 **交接只需要一句话**：
 
-> 请按仓库 `weishiair/nodyssey` 中 `docs/ios-native-experience.md` 的任务 **C1**（或 C2）执行。先读该文档 §1–§3、§7 和任务卡，遵守仓库根目录的 `AGENTS.md`。
+> 请按仓库 `weishiair/nodyssey` 中 `docs/ios-native-experience.md` 的任务 **C1**（或 C2、C3）执行。先读该文档 §1–§3、§7 和任务卡，遵守仓库根目录的 `AGENTS.md`。
 
 任务卡里写全了分支、步骤、测试、验收清单和交付方式，不需要另外补充说明。
 
@@ -194,23 +194,25 @@ SettingsItem.Link(key, title, onClick, description?, value?, icon?, enabled)
 
 | 任务 | 对应 | 内容 | 依赖 | 顺序 |
 |---|---|---|---|---|
-| D1 | PR-2 | 描述模型扩展 A（含开源许可页需要的页首说明、外链行） | — | **1**，先做，解除 C1 的等待 |
+| D1 | PR-2 | 描述模型扩展 A：C1、C3 需要的全部能力（含 Compose 页面布局预设，保证 Android 逐像素不变） | — | **1**，先做，解除 C1 第 2 段和 C3 的等待 |
 | D2 | PR-1 | iOS 原生菜单不再带出软键盘 | — | 2 |
 | D3 | PR-7 | 原生确认框 `AdaptiveAlertDialog` | — | 3，解除 C2 的等待 |
-| D4 | PR-5 | 迁移设置首页 | D1、D2 | 4 |
 | D5 | — | 验收协作 AI 的 PR；一期整体验收（§9）；出 iOS 测试包；开 `ios/native-experience → dev` 的 PR | 全部 | 持续 |
+
+（原 D4「迁移设置首页」改为协作 AI 的 C3。）
 
 #### 协作 AI 的任务
 
 | 任务 | 内容 | 依赖 | 什么时候能做 |
 |---|---|---|---|
-| C1 | 迁移四个简单页：开源许可、账号设置、偏好设置、动态取色（补渲染测试 → 迁移 → 逐像素对比 → 行为测试） | 第 1 段无；第 2 段等 D1 | **第 1 段现在就能做**；D1 合入集成分支后做第 2 段 |
+| C1 | 迁移账号设置、开源许可（补渲染测试 → 迁移 → 逐像素对比 → 行为测试） | 第 1 段无；第 2 段等 D1 | **第 1 段现在就能做**；D1 合入集成分支后做第 2 段 |
 | C2 | 把只有文字和按钮的确认框换成 `AdaptiveAlertDialog`（含测试） | D3 | D3 合入集成分支后 |
+| C3 | 迁移设置首页（含测试） | D1（iOS 验收另需 D2） | D1 合入集成分支后 |
 
 ```
 D1 ──┬── C1 第 2 段
-     └──────────────┐
-D2 ─────────────────┴── D4
+     └── C3 ──（iOS 验收等 D2）
+D2
 D3 ── C2
 C1 第 1 段（现在）
 ```
@@ -254,7 +256,7 @@ C1 第 1 段（现在）
 
 ### 任务 D1 · PR-2 描述模型扩展 A（Devin）
 
-为 C1（四个简单页）和 D4（设置首页）准备能力。计划新增（命名以合入代码为准）：
+为 C1（账号设置、开源许可）和 C3（设置首页）准备能力。**硬性要求：这两项迁移后 Android 必须逐像素不变**，所以 Compose 渲染器要能复刻它们现在的样子。计划新增（命名以合入代码为准）：
 
 | 能力 | Android 复刻的现有组件 | iOS 实现 |
 |---|---|---|
@@ -263,12 +265,14 @@ C1 第 1 段（现在）
 | 选项色块（`swatch`） | `ReadMarkColorRow` | 菜单项 / 选项页带色块图像 |
 | `Action`（原地操作，不跳页；`loading`、`destructive`） | `GroupedRow(showChevron = false)` + `PlazaSpinner`；红色退出登录行 | 普通行；loading 时右侧 `UIActivityIndicatorView`；destructive 用系统红 |
 | `Link.badge`（更新红点） | `UpdateDot` | 右侧系统红点 |
-| 行首标签 `tag`（文字 + 颜色） | 偏好设置的 `BoardTag` | 标题前的圆角色块文字（或仅文字，按视觉验收定） |
 | `SampleText`（随设置变化的示例文字） | 字号滑块下的预览 `Text` | 单元格内 `UILabel`，字号跟随 |
 | 区块脚注带标题（`SectionNotes`） | `SectionNotes` | 区块 footer（标题 + 多段） |
 | 页面提示消息 | `PlazaSnackbarHost` | 同一个 Compose 提示叠在原生页上方 |
 | 页首说明文字 | 开源许可页顶部的 `bodyMedium` 说明 | 首个区块的 header 位置显示说明文字 |
 | 外链行（右侧外链图标、无箭头） | `GroupedRow(showChevron = false, trailing = OpenInNew)` | 右侧 `arrow.up.forward` 图标 |
+| Compose 页面布局预设（页边距、组间距、说明文字内边距） | 账号设置、开源许可与标准设置页不同的间距 | 不适用（iOS 用系统列表间距） |
+| 小号弱化行首图标、破坏性操作行带图标 | 账号设置的 `RowIcon`（20dp、`onSurfaceVariant`）与红色退出登录行 | 行首不画图标（系统设置子页惯例）；破坏性行用系统红 |
+| 预览块（仅 Compose 绘制的示意） | 设置首页的搜索头像预览卡 | 省略，或以示例文字代替；在 PR 中说明 |
 
 - **验收目标**
   - [ ] 每种新能力在 iOS 夹具"全组件页"上可见、可操作，截图存档；深色、AX XL 字号下不裁切。
@@ -289,26 +293,30 @@ C1 第 1 段（现在）
   - [ ] iOS：页面里其他 Compose 部分（提示消息）不会抢走焦点或让键盘闪烁。
   - [ ] Android：复用 `SettingsTextField` / `ProxyField` / `SettingsTestSaveButtons`，代理与 DNS 页迁移后渲染逐像素一致（在 PR-6 核对）。
 
-### 任务 C1：迁移四个简单页（协作 AI）
+### 任务 C1：迁移账号设置、开源许可（协作 AI）
 
-**目标**：开源许可、账号设置、偏好设置、动态取色四个页面改成描述驱动（§4），Android 渲染图逐像素不变，iOS 自动成为系统原生列表。
+**目标**：账号设置、开源许可两个页面改成描述驱动（§4），**Android 渲染图逐像素不变**，iOS 自动成为系统原生列表。
 开发和测试在同一个分支、同一个 PR 里完成。
 
+> 范围说明（2026-11-19 修订）：原计划的偏好设置、动态取色已移出——前者有存储标记、板块色标、等宽图例等定制布局，
+> 后者是壁纸色块和调色板色阶，都属于 §4.4「不迁」的情况，归入 B 类保留 Compose。
+
 **分支**：`git fetch origin` 后从 `origin/ios/native-experience` 切 `ios/migrate-simple-settings`。
+（如果已经按旧任务卡建了这个分支并补了四个页面的渲染测试：保留偏好设置、动态取色的渲染测试提交，它们无害；只是不迁移这两页。）
 
 #### 第 1 段：补渲染测试、存基线图（现在就能做）
 
-这四个页面目前没有渲染测试，迁移前必须先有"改之前"的图。
+这两个页面目前没有渲染测试，迁移前必须先有"改之前"的图。
 
 1. 在 `ui/src/androidHostTest/kotlin/io/github/nodyssey/render/` 为每个页面新增一个渲染测试类，
    完全照 `NotificationSettingsScreenRenderTest.kt` 的写法（`RobolectricTestRunner`、`GraphicsMode.NATIVE`、
    `@Config(qualifiers = "w360dp-h…dp")`、`@Before fun onlyWhenRendering() = assumeRendering()`、最后 `captureRender("名字")`）。
    - 每个页面浅色、深色各一张；高度要放得下整页。
-   - 有开关的页面设成"部分开、部分关"；动态取色另加"没有候选色"和"读取失败"两张。
+   - 账号设置另加一张"屏蔽人数未知"（`blockedCount = null`）的状态。
 2. 每个页面一个提交，例如「补充开源许可页渲染测试」。
 3. 生成基线图并保存到工作区外（例如 `..\renders-before\`）：
    ```powershell
-   .\gradlew.bat :ui:testAndroidHostTest -PrenderUi --tests '*OpenSourceLicenses*RenderTest' --tests '*AccountSettings*RenderTest' --tests '*Preferences*RenderTest' --tests '*DynamicColor*RenderTest'
+   .\gradlew.bat :ui:testAndroidHostTest -PrenderUi --tests '*OpenSourceLicenses*RenderTest' --tests '*AccountSettings*RenderTest'
    # 把 ui\build\outputs\renders\ 下的 PNG 复制到 ..\renders-before\
    ```
 4. 逐张打开检查：必须是真实页面，不是空白或报错页。
@@ -318,33 +326,29 @@ C1 第 1 段（现在）
 #### 第 2 段：迁移、对比、补行为测试（D1 合入后）
 
 1. 把最新集成分支合进来：`git fetch origin; git merge origin/ios/native-experience`。
-2. 按 §7.3 逐页迁移，**一个页面一个提交**。先读 D1 合入后的实际代码，命名以代码为准。各页注意：
-   - **开源许可**：页首说明文字、外链行（右侧外链图标、无箭头）用 D1 提供的能力；依赖列表每项一行，`key` 用依赖名，不要用下标。
-   - **账号设置**：「退出登录」用 `Action(destructive = true)`，确认流程保持原样。
-   - **偏好设置**：板块行用 D1 的行首标签 `tag`；如果复刻不了 `BoardTag`，停下报告。
-   - **动态取色**：色板候选用带 `swatch` 的单选；"读取失败 + 重试"用区块说明 + `Action`。
-3. 每迁完一页，重新生成该页渲染图，用 §7.4 的脚本和基线逐像素对比。不一致就修到一致；原因在渲染器的，停下报告（§7.6）。
-   开源许可页目前的页面间距和其他设置页不同，如果只能统一成设置页间距，这算有意变化：在 PR 里单列前后对比图，由 Devin 验收时向用户确认。
+2. 先读 D1 合入后的实际代码和 §4.2（D1 会把它更新成实际 API），命名以代码为准。按 §7.3 逐页迁移，**一个页面一个提交**。各页注意：
+   - 两页的页边距和组间距都和标准设置页不同：用 D1 提供的 Compose 页面布局预设，**不要**改成标准间距。
+   - **账号设置**：左侧小号弱化图标用 D1 的对应样式；「退出登录」用破坏性操作行（红色、带图标、无箭头），点击仍走原来的 `onSignOut`。
+   - **开源许可**：页首说明文字、外链行（右侧外链图标、无箭头）、底部说明都用 D1 提供的能力；依赖列表每项一行，`key` 用依赖名，不要用下标。
+3. 每迁完一页，重新生成该页渲染图，用 §7.4 的脚本和基线逐像素对比。**必须完全一致**；不一致就修到一致，原因在渲染器的停下报告（§7.6）。
 4. 每页至少一个行为测试，放在 `ui/src/androidHostTest/kotlin/io/github/nodyssey/ui/<包>/`，抓真实逻辑。例如：
-   - 账号设置：点「退出登录」先走确认，不直接退出；
-   - 偏好设置：切换板块开关，回调传出的是板块 slug 和新状态；
-   - 动态取色：没有系统取色时对应开关禁用；点重试触发重新读取；
-   - 开源许可：点依赖行，打开的是该依赖的源码地址。
+   - 账号设置：五个入口各自触发对应回调（不是同一个）；点「退出登录」调用的是 `onSignOut`。
+   - 开源许可：点某个依赖行，`onOpenUri` 收到的是该依赖的源码地址；点本应用行收到的是许可证地址。
 5. 跑 §7.2 的命令。
 
 #### 不许做
 
-- 不改 `designsys/**/settings/**`、`**/iosMain/**`、`NativeShell.kt`、ViewModel、Route、Repository。
+- 不改 `designsys/**/settings/**`、`ui/.../settings/SettingsPageContent.kt`、`**/iosMain/**`、`NativeShell.kt`、ViewModel、Route、Repository。
 - 不往描述模型里加字段，不在页面里写平台判断；模型不够用就停下报告。
 - 不加依赖，不改版本号、lockfile、Room。
 
 #### 验收清单（全部满足才算完成）
 
-- [ ] 四个页面都有渲染测试；默认测试运行时全部跳过、不产生文件。
-- [ ] 四个页面迁移后渲染图与基线逐像素一致（附 §7.4 脚本输出）；有意变化单列并附前后对比。
+- [ ] 两个页面都有渲染测试；默认测试运行时全部跳过、不产生文件。
+- [ ] 两个页面迁移后渲染图与基线逐像素一致（附 §7.4 脚本输出）。
 - [ ] 每页至少一个行为测试，且能在对应逻辑被改坏时失败。
 - [ ] 页面文件里不再有 `SettingsGroup`、`GroupedRow`、`OneHandTopAppBar` 等布局代码。
-- [ ] `git diff --stat origin/ios/native-experience` 只涉及这四个页面、它们的测试和渲染测试。
+- [ ] `git diff --stat origin/ios/native-experience` 只涉及这两个页面、它们的测试和渲染测试（以及第 1 段已有的渲染测试）。
 - [ ] `spotlessCheck` 通过，`git diff --check` 无输出。
 
 #### 交付
@@ -353,15 +357,51 @@ C1 第 1 段（现在）
 - PR 描述用 §7.7 的模板，附逐像素对比输出和新增测试清单。
 - Devin 验收：全量门禁、复核对比结果、在 Mac 上做 §8 的 iOS 检查，通过后合入集成分支。
 
-### 任务 D4 · PR-5 迁移设置首页（Devin）
+### 任务 C3：迁移设置首页（协作 AI）
 
-设置首页最复杂：3 个滑块（含实时预览文字和搜索头像预览）、3 个分段、4 个菜单、已读色块、清除缓存（loading）、更新红点、
-自动签到区块。搜索头像预览这类真正自定义的块，评估后要么用 `SampleText` 类能力表达，要么在 iOS 上省略并在 PR 中说明。
+**目标**：设置首页（`ui/.../ui/settings/SettingsScreen.kt` 里的 `SettingsScreen`）改成描述驱动，**Android 渲染图逐像素不变**。
+这是一期里最大的页面迁移：开关、3 个滑块（含实时示例文字和搜索头像预览）、3 组分段、4 个菜单、已读标记色块、
+清除缓存（转圈）、更新红点、自动签到区块。D1 会提供全部需要的能力。
 
-- **验收目标**
-  - [ ] `SettingsScreenRenderTest` 全部渲染逐像素一致；现有 `SettingsScreenTest`（字号拖动不提前提交等）全部通过。
-  - [ ] iOS：所有开关、滑块、分段、菜单可用；改语言、字号、主题模式后其他页面立即反映。
-  - [ ] iOS：从首页进入的每个子页面都能进出（含原生页和 Compose 页混合跳转）。
+**前提**：D1 已合入集成分支。开工前先读 D1 合入后的 §4.2 和实际代码。
+
+**分支**：`git fetch origin` 后从 `origin/ios/native-experience` 切 `ios/migrate-settings-home`。
+
+#### 步骤
+
+1. **基线**：`SettingsScreenRenderTest` 已存在。先在未改动的代码上跑一遍，PNG 存到工作区外：
+   ```powershell
+   .\gradlew.bat :ui:testAndroidHostTest -PrenderUi --tests '*SettingsScreenRenderTest'
+   ```
+   如果它没覆盖下面这些状态，**先补渲染测试并单独提交**，再存基线：墨水屏开（明暗分段禁用）、表情统一大小开（多出表情大小滑块）、
+   已读标记为整块染色（多出标记颜色）、清除缓存进行中（转圈）、有新版本（红点）、自动签到开 / 关。
+2. **迁移**：按 §7.3 改写 `SettingsScreen`，保留函数签名。建议按区块分提交：外观、内容、自动签到、通知 / 网络 / 关于。
+   - `AutoAttendanceSettings`、`ReadMarkColorRow`、`AppLanguageRow` 等私有或内部组件，改成返回描述项 / 区块的函数，原组件不再使用后删除。
+   - 滑块拖动中只更新显示、松手才提交（现有 `SettingsScreenTest` 锁着这条），用 D1 滑块的"实时值 / 松手提交"两个回调。
+   - 原代码里解释"为什么"的注释跟着对应的行搬过去。
+3. **对比**：每个区块迁完都和基线逐像素对比（§7.4），**必须完全一致**。
+4. **测试**（和迁移一起交付）：
+   - 现有 `SettingsScreenTest` 全部通过，不许改它的断言。
+   - 新增行为测试，至少覆盖：墨水屏开时明暗分段禁用；表情统一大小关时没有表情大小滑块；已读标记切到整块染色后出现标记颜色；
+     分段 / 菜单的回调传出的是业务枚举值，不是下标；清除缓存进行中不能重复触发。
+5. 跑 §7.2 的命令。
+
+#### 不许做
+
+- 同 C1。另外不改 `SettingsViewModel` 和 `SettingsUiState`。
+
+#### 验收清单（全部满足才算完成）
+
+- [ ] `SettingsScreenRenderTest` 的全部渲染图与基线逐像素一致（附 §7.4 输出）。
+- [ ] 现有 `SettingsScreenTest` 全部通过且断言未改；新增行为测试覆盖上面列出的 5 条，且各自能在对应逻辑被改坏时失败。
+- [ ] `SettingsScreen.kt` 里不再有 `SettingsGroup`、`GroupedRow`、`SettingsBlock`、`OneHandTopAppBar` 等布局代码。
+- [ ] `spotlessCheck` 通过，`git diff --check` 无输出；改动只涉及设置首页及其测试。
+
+#### 交付
+
+- 推送分支，开 PR：`gh pr create -R weishiair/nodyssey --base ios/native-experience`。
+- PR 描述用 §7.7 的模板。
+- Devin 验收：全量门禁、复核对比；D2（菜单键盘）合入后在 Mac 上做 §8 的 iOS 检查（开关、滑块、分段、菜单、每个子页面进出），通过后合入集成分支。
 
 ### 【二期】PR-6 迁移代理、加密 DNS（Devin）
 
@@ -624,7 +664,7 @@ sys.exit(1 if failed else 0)
 
 | 编号 | 期 | 目标 | 检查方法 |
 |---|---|---|---|
-| G1 | 一期 | 一期 6 个设置页（设置首页、通知、账号设置、偏好设置、开源许可、动态取色）是系统原生列表；二期再加代理、加密 DNS。要求：系统导航栏和玻璃返回、内嵌分组、`UISwitch`、系统选项（菜单或勾选列表）、分段、滑块、系统箭头 | 逐页截图；无障碍树里行是 `Cell`、开关是 `Switch` |
+| G1 | 一期 | 一期 4 个设置页（设置首页、通知、账号设置、开源许可）是系统原生列表；二期再加代理、加密 DNS。要求：系统导航栏和玻璃返回、内嵌分组、`UISwitch`、系统选项（菜单或勾选列表）、分段、滑块、系统箭头 | 逐页截图；无障碍树里行是 `Cell`、开关是 `Switch` |
 | G2 | 一期 | 打开任何选项都不会带出软键盘 | 每个带选项的页面各打开 5 次 |
 | G3 | 二期 | 表单页输入流畅：键盘不遮挡、回车切换、校验错误就近显示 | 代理页全流程 |
 | G4 | 一期 | 附录 B 中可替换的确认框全部是系统 `UIAlertController` | 逐个触发截图 |
