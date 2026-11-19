@@ -10,3 +10,5 @@ actual fun AdaptiveSettingsPage(
     modifier: Modifier,
     fallback: @Composable () -> Unit,
 ) = fallback()
+
+actual val nativeSettingsPages: Boolean = false
