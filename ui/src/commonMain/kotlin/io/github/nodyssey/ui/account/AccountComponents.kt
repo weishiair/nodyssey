@@ -1,15 +1,12 @@
 package io.github.nodyssey.ui.account
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -32,6 +29,7 @@ import io.github.nodyssey.ui.resources.status_sign_in_title
 import io.github.nodyssey.ui.resources.status_unknown_title
 import io.github.nodyssey.ui.resources.status_unparsable_title
 import io.github.plaza.core.net.SiteError
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.TonalTagShape
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import org.jetbrains.compose.resources.StringResource
@@ -194,29 +192,14 @@ internal fun HighRiskDialog(
     onDismiss: () -> Unit,
     destructive: Boolean = false,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        // AlertDialog centres both icon and title on its own once an icon is present, which is the
-        // layout the design shows; there is nothing to override here.
-        icon = { Icon(icon, contentDescription = null) },
-        title = { Text(title) },
-        text = { Text(body, style = MaterialTheme.typography.bodyMedium) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    confirmLabel,
-                    color =
-                    if (destructive) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) }
-        },
-        shape = MaterialTheme.shapes.extraLarge,
+    AdaptiveAlertDialog(
+        title = title,
+        message = body,
+        confirmLabel = confirmLabel,
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(Res.string.action_cancel),
+        destructive = destructive,
+        icon = icon,
     )
 }
