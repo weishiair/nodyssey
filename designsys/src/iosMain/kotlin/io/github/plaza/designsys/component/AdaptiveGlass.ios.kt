@@ -19,11 +19,13 @@ import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.viewinterop.remeasureRequester
 import androidx.compose.ui.viewinterop.rememberUIKitInteropRemeasureRequester
+import io.github.plaza.designsys.nativeglass.plaza_badge_image
 import io.github.plaza.designsys.nativeglass.plaza_configure_bar_item_style
 import io.github.plaza.designsys.nativeglass.plaza_glass_button_configuration
 import io.github.plaza.designsys.nativeglass.plaza_glass_effect
 import io.github.plaza.designsys.nativeglass.plaza_make_bar_spinner
 import io.github.plaza.designsys.nativeglass.plaza_make_subtitle_view
+import io.github.plaza.designsys.nativeglass.plaza_set_bar_item_indicator_badge
 import io.github.plaza.designsys.nativeglass.plaza_set_bar_item_selected
 import io.github.plaza.designsys.nativeglass.plaza_set_glass_capsule
 import io.github.plaza.designsys.nativeglass.plaza_update_subtitle_view
@@ -66,7 +68,9 @@ import platform.UIKit.UIView
 import platform.UIKit.UIVisualEffect
 import platform.UIKit.UIVisualEffectView
 import platform.UIKit.accessibilityLabel
+import platform.UIKit.accessibilityValue
 import platform.UIKit.labelColor
+import platform.UIKit.systemRedColor
 
 // Overlay placement is essential: the default UIKitView cuts a hole in the Metal canvas, so native
 // glass would sample an empty rectangle instead of the Compose content scrolling behind the button.
@@ -153,6 +157,7 @@ actual fun AdaptiveGlassTopBar(
     val scale = LocalPlazaFontScale.current
     val foreground = MaterialTheme.colorScheme.onSurface
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val badgeColor = MaterialTheme.colorScheme.error
     val background = if (containerColor.isSpecified) containerColor else layers.page
     val host = remember { NativeTopBarHost() }
     UIKitView(
@@ -173,6 +178,7 @@ actual fun AdaptiveGlassTopBar(
                 nativeGlass = layers.nativeGlass,
                 dark = dark,
                 scale = scale,
+                badgeColor = badgeColor.toUIColor(),
             )
         },
     )
@@ -353,6 +359,7 @@ internal class NativeTopBarHost {
         nativeGlass: Boolean,
         dark: Boolean,
         scale: Float,
+        badgeColor: UIColor = UIColor.systemRedColor,
     ) {
         if (nativeGlass != lastNativeGlass || background != lastBackground || dark != lastDark) {
             lastNativeGlass = nativeGlass
@@ -390,8 +397,8 @@ internal class NativeTopBarHost {
             mutedForeground = mutedForeground,
             scale = scale,
         )
-        updateLeft(back = back, accent = accent, foreground = foreground, scale = scale)
-        updateRight(actions = actions, accent = accent, foreground = foreground, scale = scale)
+        updateLeft(back = back, accent = accent, foreground = foreground, badgeColor = badgeColor)
+        updateRight(actions = actions, accent = accent, foreground = foreground, badgeColor = badgeColor)
     }
 
     private fun updateTitle(
@@ -460,7 +467,7 @@ internal class NativeTopBarHost {
         }
     }
 
-    private fun updateLeft(back: GlassAction?, accent: UIColor, foreground: UIColor, scale: Float) {
+    private fun updateLeft(back: GlassAction?, accent: UIColor, foreground: UIColor, badgeColor: UIColor) {
         if (back == null) {
             if (leftHost != null) {
                 leftHost = null
@@ -470,24 +477,24 @@ internal class NativeTopBarHost {
         }
         val existing = leftHost
         if (existing != null && existing.canReuse(back)) {
-            existing.update(back, accent, foreground)
+            existing.update(back, accent, foreground, badgeColor)
         } else {
-            val host = NativeBarItemHost(back).also { it.update(back, accent, foreground) }
+            val host = NativeBarItemHost(back).also { it.update(back, accent, foreground, badgeColor) }
             leftHost = host
             item.leftBarButtonItem = host.barItem
         }
     }
 
-    private fun updateRight(actions: List<GlassAction>, accent: UIColor, foreground: UIColor, scale: Float) {
+    private fun updateRight(actions: List<GlassAction>, accent: UIColor, foreground: UIColor, badgeColor: UIColor) {
         val reversed = actions.asReversed()
         val reusable = rightHosts.size == reversed.size &&
             rightHosts.zip(reversed).all { (host, action) -> host.canReuse(action) }
         if (reusable) {
-            rightHosts.zip(reversed).forEach { (host, action) -> host.update(action, accent, foreground) }
+            rightHosts.zip(reversed).forEach { (host, action) -> host.update(action, accent, foreground, badgeColor) }
             return
         }
         rightHosts = reversed.map { action ->
-            NativeBarItemHost(action).also { it.update(action, accent, foreground) }
+            NativeBarItemHost(action).also { it.update(action, accent, foreground, badgeColor) }
         }
         item.rightBarButtonItems = rightHosts.map { it.barItem }
     }
@@ -533,9 +540,12 @@ private class NativeBarItemHost(initial: GlassAction) {
         return true
     }
 
-    fun update(action: GlassAction, accent: UIColor, foreground: UIColor) {
+    fun update(action: GlassAction, accent: UIColor, foreground: UIColor, badgeColor: UIColor) {
         state.action = action
         barItem.accessibilityLabel = action.label
+        barItem.accessibilityValue = if (action.badge) action.badgeDescription else null
+        val tint = if (action.enabled) accent else null
+        val baseImage = action.symbol?.let { UIImage.systemImageNamed(it) }
         when (kind) {
             BarItemKind.LOADING -> {
                 spinner?.color = foreground
@@ -544,7 +554,12 @@ private class NativeBarItemHost(initial: GlassAction) {
             BarItemKind.MENU -> {
                 barItem.enabled = action.enabled
                 barItem.title = action.title
-                barItem.image = action.symbol?.let { UIImage.systemImageNamed(it) }
+                val usedNativeBadge = plaza_set_bar_item_indicator_badge(barItem, action.badge, badgeColor)
+                barItem.image = if (action.badge && !usedNativeBadge && baseImage != null) {
+                    plaza_badge_image(baseImage, tint ?: foreground, badgeColor)
+                } else {
+                    baseImage
+                }
                 val signature = action.menu.signatures()
                 if (signature != lastMenuSignature) {
                     lastMenuSignature = signature
@@ -558,8 +573,13 @@ private class NativeBarItemHost(initial: GlassAction) {
             BarItemKind.PLAIN -> {
                 barItem.enabled = action.enabled
                 barItem.title = action.title
-                barItem.image = action.symbol?.let { UIImage.systemImageNamed(it) }
-                barItem.tintColor = if (action.enabled) accent else null
+                barItem.tintColor = tint
+                val usedNativeBadge = plaza_set_bar_item_indicator_badge(barItem, action.badge, badgeColor)
+                barItem.image = if (action.badge && !usedNativeBadge && baseImage != null) {
+                    plaza_badge_image(baseImage, tint ?: foreground, badgeColor)
+                } else {
+                    baseImage
+                }
                 plaza_configure_bar_item_style(barItem, action.prominent)
                 plaza_set_bar_item_selected(barItem, action.selected)
             }

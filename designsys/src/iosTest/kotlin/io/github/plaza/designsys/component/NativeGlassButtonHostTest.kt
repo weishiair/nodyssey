@@ -3,11 +3,16 @@
 package io.github.plaza.designsys.component
 
 import androidx.compose.ui.graphics.Color
+import io.github.plaza.designsys.nativeglass.plaza_bar_item_has_badge
+import io.github.plaza.designsys.nativeglass.plaza_native_glass_available
 import platform.UIKit.UIColor
 import platform.UIKit.UIControlEventPrimaryActionTriggered
+import platform.UIKit.accessibilityLabel
+import platform.UIKit.accessibilityValue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -94,5 +99,58 @@ class NativeGlassButtonHostTest {
         assertEquals(initialRightItems, host.item.rightBarButtonItems)
         assertEquals(initialMoreMenu, host.item.rightBarButtonItems?.firstOrNull())
         assertTrue(host.item.titleView != null)
+    }
+
+    @Test
+    fun `top bar action carries badge visibility and accessibility value without replacing bar item`() {
+        val host = NativeTopBarHost()
+        val settingsAction = GlassAction(
+            label = "设置",
+            onClick = {},
+            symbol = "gearshape",
+            badge = true,
+            badgeDescription = "有新版本",
+        )
+        host.update(
+            title = "",
+            subtitle = null,
+            titleAction = null,
+            back = null,
+            actions = listOf(settingsAction),
+            accent = UIColor.blueColor,
+            foreground = UIColor.blackColor,
+            mutedForeground = UIColor.grayColor,
+            background = Color.White,
+            nativeGlass = false,
+            dark = false,
+            scale = 1f,
+        )
+        val initialBarItem = host.item.rightBarButtonItems?.firstOrNull() as platform.UIKit.UIBarButtonItem
+        assertEquals("设置", initialBarItem.accessibilityLabel)
+        assertEquals("有新版本", initialBarItem.accessibilityValue)
+        if (plaza_native_glass_available()) {
+            assertTrue(plaza_bar_item_has_badge(initialBarItem))
+        }
+
+        host.update(
+            title = "",
+            subtitle = null,
+            titleAction = null,
+            back = null,
+            actions = listOf(settingsAction.copy(badge = false, badgeDescription = null)),
+            accent = UIColor.blueColor,
+            foreground = UIColor.blackColor,
+            mutedForeground = UIColor.grayColor,
+            background = Color.White,
+            nativeGlass = false,
+            dark = false,
+            scale = 1f,
+        )
+        val updatedBarItem = host.item.rightBarButtonItems?.firstOrNull() as platform.UIKit.UIBarButtonItem
+        assertEquals(initialBarItem, updatedBarItem)
+        assertNull(updatedBarItem.accessibilityValue)
+        if (plaza_native_glass_available()) {
+            assertFalse(plaza_bar_item_has_badge(updatedBarItem))
+        }
     }
 }
