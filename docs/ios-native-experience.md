@@ -136,22 +136,50 @@ ViewModel ── UiState ──▶ XxxScreen（@Composable，commonMain）
 - 回调是普通 Kotlin lambda，原生控件触发时在主线程直接调用，和 Compose 点击完全一样。
 - 文案在 Compose 里解析，所以 Android 应用内切换语言照常生效；iOS 本来就是重启后生效。
 
-### 4.2 描述模型（当前已有）
+### 4.2 描述模型（D1 合入后的实际 API）
+
+模型在 `designsys/.../settings/SettingsPage.kt`，Compose 渲染器在 `ui/.../ui/settings/SettingsPageContent.kt`。
 
 ```kotlin
-SettingsPage(title, sections)
+SettingsPage(title, sections, intro = null)            // intro：页首说明（开源许可页顶部那段）
 SettingsSection(key, items = emptyList(), header = null, footer = null, style = Grouped)
 SettingsSectionStyle: Grouped | Prominent（主开关卡片）| Callout（指向页外的卡片）
-SettingsItem.Toggle(key, title, checked, onCheckedChange, description?, icon?, enabled)
-SettingsItem.Choice(key, title, options: List<String>, selectedIndex, onSelect(Int), prompt?, icon?, enabled)
-SettingsItem.Link(key, title, onClick, description?, value?, icon?, enabled)
+SettingsOption(label, swatch: Color? = null, enabled = true)   // 单选的一个答案；swatch 是已读标记那种色块
+SettingsChoicePresentation: Sheet（底部面板单选）| Menu（行尾菜单）| Segmented（标题下的分段）
+SettingsSample(text, fontSizeSp)                        // 滑块下跟着字号变的示例文字
+
+// 每种行都有：key、title、icon?、enabled、testTag?（Compose testTag / iOS accessibilityIdentifier）
+SettingsItem.Toggle(key, title, checked, onCheckedChange, description?)
+SettingsItem.Choice(key, title, options: List<SettingsOption>, selectedIndex, onSelect(Int),
+                    prompt?, presentation = Sheet, description?)
+SettingsItem.Slider(key, title, value, range, steps, onValueChange(Float), onValueChangeFinished(),
+                    valueLabel?, sample?, description?)
+SettingsItem.Link(key, title, onClick, description?, value?, badge = false, external = false)
+SettingsItem.Action(key, title, onClick, description?, value?, destructive = false, loading = false)
+SettingsItem.Custom(native: SettingsItem, compose: @Composable (SettingsRowPosition) -> Unit)
+
+// 页面入口（:ui 内部）
+SettingsPageScreen(page, onBack, modifier, layout = SettingsPageLayout.Standard, snackbarHostState = null)
+SettingsPageLayout.Standard | Account | Licenses       // 只影响 Compose 的页边距、组间距、脚注内边距、小号图标
 ```
 
 - `key`：页面内唯一、跨重组稳定，用英文 kebab-case（如 `"wifi-only"`），**不要用下标或文案**。
 - `icon` 只在 Compose 渲染里画；iOS 设置子页按系统惯例不显示图标。
-- `value` 是"目的地当前的状态"（如「3 个」）：Android 画在副标题，iOS 画在右侧。
-- `description` 是解释性文字：两端都画在标题下方。
+- `value` 是"目的地当前的状态"（如「3 个」「4.3 MB」）：Android 画在副标题，iOS 画在右侧。
+- `description` 是解释性文字：两端都画在标题下方。`Choice(Sheet)` 没有 `description` 时，Android 副标题显示当前答案。
 - 区块 `footer`：有行时是区块下方的小字；没有行时（只有 header + footer）就是一段说明。
+- `Slider`：`value` 是滑块当前显示的值（拖动中由页面自己保存），`onValueChange` 每次移动都调用，
+  `onValueChangeFinished` 松手时调用一次，页面在这里写入设置。`steps` 的含义和 Compose `Slider` 一样（两端之间的停靠点数，0 = 连续），
+  iOS 端用 `snapToSteps` 吸附到同样的停靠点。
+- `Choice(Segmented)`：只给 2～4 个短答案用。iOS 在辅助功能字号或超过 4 项时自动退回菜单。
+- `Choice(Menu)` 在 iOS 的辅助功能字号下，答案按钮移到标题下一行（和系统设置一致）。
+- `Action.loading = true` 时两端都显示转圈，并且不再响应点击；`destructive` 两端都画成红色。
+- `Link.external = true`：外链图标、无箭头；`Link.badge = true`：更新红点。
+- `Custom`：只给 Compose 端现有组件无法复刻的行用（如设置首页的搜索头像预览卡）。`native` 是同一个设置的普通行，
+  拿着同样的状态和回调，iOS 画它。每个 `Custom` 都是"一行两份画法"，能不用就不用，用了要在 PR 里说明。
+- `layout`：只为让既有页面迁移后 Android 逐像素不变，**不是**给新页面挑样式用的。新页面一律 `Standard`。
+- `snackbarHostState`：页面有提示消息时传入。Android 放在 `Scaffold` 里；iOS 叠在原生页上方。
+- **还没有的能力**：带标题的多段脚注（`SectionNotes`）、文本输入、保存/测试按钮、横幅，属于二期 PR-3。遇到就按 §7.6 停下报告。
 
 ### 4.3 iOS 渲染器要点（`AdaptiveSettingsPage.ios.kt`）
 
@@ -567,7 +595,7 @@ git diff --check
    # 产物在 ui/build/outputs/renders/，复制到例如 ..\renders-before\
    ```
    没有渲染测试的页面，先补渲染测试并单独提交（做法见任务 C1 第 1 段）。
-2. **改写 Screen**：保留函数签名；把布局换成构建 `SettingsPage` 并调用 `SettingsPageScreen(page, onBack, modifier)`。
+2. **改写 Screen**：保留函数签名；把布局换成构建 `SettingsPage` 并调用 `SettingsPageScreen(page, onBack, modifier)`（需要时再传 `layout`、`snackbarHostState`，见 §4.2）。
    对照附录 A 的组件映射表。照 `NotificationSettingsScreen.kt` 的写法：可复用的行先建成变量，复杂分支抽成私有 `@Composable` 函数返回 `List<SettingsSection>`。
 3. **保留原注释的意图**：原代码里解释"为什么"的注释，跟着对应的行或区块搬过去，不要丢。
 4. **清理**：删掉不再使用的私有 Composable 和 import。
@@ -721,11 +749,18 @@ sys.exit(1 if failed else 0)
 | `SectionLabel(x)` + `SettingsGroup { … }` | `SettingsSection(key, header = x, items = …)` |
 | `GroupedRow(checked, onCheckedChange, trailing = { GroupedListItemSwitch(…) })` | `SettingsItem.Toggle` |
 | `GroupedRow(onClick)`（有箭头，进入子页面） | `SettingsItem.Link` |
-| `GroupedRow(onClick, showChevron = false)`（原地操作） | `SettingsItem.Action`（PR-2） |
+| `GroupedRow(onClick, showChevron = false)`（原地操作）；带 `PlazaSpinner` 的 | `SettingsItem.Action`（`loading`） |
+| 红色的退出登录行 | `SettingsItem.Action(destructive = true)` |
+| `GroupedRow(showChevron = false, trailing = OpenInNew)` 外链行 | `SettingsItem.Link(external = true)` |
+| 行尾 `UpdateDot` | `SettingsItem.Link(badge = true)` |
+| 页顶 `bodyMedium` 说明文字 | `SettingsPage(intro = …)` |
+| `ReadMarkColorRow` 这类带色块的单选 | `SettingsOption(swatch = …)` |
+| 字号滑块下的预览 `Text` | `SettingsItem.Slider(sample = SettingsSample(…))` |
+| 现有组件复刻不了的预览块 | `SettingsItem.Custom`（慎用，见 §4.2） |
 | 行 + `PlazaSheet` 里的 `ChoiceRow` 单选 | `SettingsItem.Choice`（`Sheet`） |
-| `SettingsMenuRow` 下拉菜单 | `SettingsItem.Choice`（`Menu`，PR-2） |
-| `SettingsBlock` + `ChoiceSegments` | `SettingsItem.Choice`（`Segmented`，PR-2） |
-| `SettingsBlock` + `SettingsSlider` | `SettingsItem.Slider`（PR-2） |
+| `SettingsMenuRow` 下拉菜单 | `SettingsItem.Choice`（`Menu`） |
+| `SettingsBlock` + `ChoiceSegments` | `SettingsItem.Choice`（`Segmented`） |
+| `SettingsBlock` + `SettingsSlider` | `SettingsItem.Slider` |
 | 主开关的着色卡片 `GroupedListItem(colors = primaryContainer…)` | 只含一个 `Toggle` 的 `SettingsSection(style = Prominent)` |
 | `LayerCard` 指向页外的卡片 | 只含一个 `Link` 的 `SettingsSection(style = Callout)` |
 | 区块下方 `Text(labelSmall)` | 有行的区块的 `footer` |

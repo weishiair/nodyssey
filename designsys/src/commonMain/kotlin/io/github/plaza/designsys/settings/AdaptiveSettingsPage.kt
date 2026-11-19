@@ -15,3 +15,6 @@ expect fun AdaptiveSettingsPage(
     modifier: Modifier = Modifier,
     fallback: @Composable () -> Unit,
 )
+
+/** Whether [AdaptiveSettingsPage] draws the system list here rather than its Compose fallback. */
+expect val nativeSettingsPages: Boolean
