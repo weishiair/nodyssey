@@ -19,6 +19,7 @@ import platform.UIKit.UIAlertActionStyleDestructive
 import platform.UIKit.UIAlertController
 import platform.UIKit.UIAlertControllerStyleAlert
 import platform.UIKit.UIViewController
+import platform.UIKit.transitionCoordinator
 
 @Composable
 actual fun AdaptiveAlertDialog(
