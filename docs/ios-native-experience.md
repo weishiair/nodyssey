@@ -464,14 +464,14 @@ Android / 桌面画现有 Material `AlertDialog`（与现有调用的样式一�
   - [ ] iOS：标题、正文、按钮文字正确；`destructive` 按钮为系统红；取消按钮位置由系统决定。
   - [ ] iOS：点外部不关闭（与系统一致）；对话框显示中页面被弹出时不崩溃、不残留。
   - [ ] Android：替换一处真实调用作为样例，渲染逐像素一致。
-  - [ ] 附带一份"调用点替换指南"写进本文附录 B。
+  - [ ] 附带一份"调用点替换指南"写进本文附录 B（见 B.0）。
 
 ### 任务 C2 · PR-8 替换简单确认框（协作 AI）
 
 **目标**：只有文字和按钮的确认框改用 D3 提供的 `AdaptiveAlertDialog`，iOS 上变成系统确认框，Android 外观和行为不变。
 开发和测试在同一个分支、同一个 PR 里完成。
 
-**前提**：D3 已合入集成分支。开工前先读 D3 合入后 `AdaptiveAlertDialog` 的实际签名和它附带的替换指南（附录 B）。
+**前提**：D3 已合入集成分支。开工前先读附录 B.0 的替换指南（含签名、逐项对照、必须跳过的情况）。
 
 **分支**：`git fetch origin` 后从 `origin/ios/native-experience` 切 `ios/native-alert-dialogs`。
 
@@ -496,7 +496,7 @@ Android / 桌面画现有 Material `AlertDialog`（与现有调用的样式一�
 
 #### 验收清单（全部满足才算完成）
 
-- [ ] 附录 B「可直接替换」的 15 处逐一处理：要么已替换，要么在跳过清单里写明原因。
+- [ ] 附录 B「可直接替换」中除 D3 已完成的 `HighRiskDialog` 外的 14 处逐一处理：要么已替换，要么在跳过清单里写明原因。
 - [ ] 「需逐个判断」的 14 处逐一检查并归类（替换 / 跳过 + 原因）。
 - [ ] 每个被替换的对话框都有"确认才执行、取消不执行"的行为测试（新增或指明已有测试）。
 - [ ] 能渲染的对话框逐像素一致（附 §7.4 输出）。
@@ -783,9 +783,75 @@ sys.exit(1 if failed else 0)
 | `SectionLabel` + `SectionNote`（没有卡片） | 没有行的区块：`header` + `footer` |
 | `SettingsTextField` / `SettingsTestSaveButtons` / `InlineBanner` | PR-3 的表单能力 |
 
-## 附录 B：确认框清单（2026-11-19）
+## 附录 B：确认框替换指南与清单
 
-**可直接替换（只有文字和按钮）**，15 处：
+### B.0 替换指南（D3 合入后）
+
+`AdaptiveAlertDialog` 在 `io.github.plaza.designsys.component`：
+
+```kotlin
+AdaptiveAlertDialog(
+    title: String,
+    message: String?,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    dismissLabel: String? = null,      // null = 只有一个按钮
+    destructive: Boolean = false,      // 确认按钮：Android error 色 / iOS 系统红
+    prominentConfirm: Boolean = false, // 确认按钮：Android 用实心 Button
+    icon: ImageVector? = null,         // 只有 Android 画，iOS 系统确认框没有图标
+)
+```
+
+**逐项对照**（原写法 → 新参数）：
+
+| 原 `AlertDialog` | `AdaptiveAlertDialog` |
+|---|---|
+| `onDismissRequest = X` | `onDismiss = X` |
+| `title = { Text(t) }` | `title = t` |
+| `text = { Text(b) }`，或带 `style = MaterialTheme.typography.bodyMedium` | `message = b`（这个样式就是默认样式）；没有 `text` 就传 `null` |
+| `icon = { Icon(i, contentDescription = null) }` | `icon = i` |
+| `confirmButton = { TextButton(onClick = A) { Text(l) } }` | `confirmLabel = l`，`onConfirm = A` |
+| 确认按钮文字 `color = MaterialTheme.colorScheme.error` | 再加 `destructive = true` |
+| 确认按钮是 `Button(...)`（实心） | 再加 `prominentConfirm = true` |
+| `dismissButton = { TextButton(onClick = Y) { Text(d) } }` | `dismissLabel = d` |
+| 没有 `dismissButton` | 不传 `dismissLabel` |
+
+`destructive` 只在 Android 原来就是 error 色时才加。没有红色的确认按钮，即使动作是删除，也不要加，否则 Android 会变色。
+
+**遇到以下情况一律跳过**，记进跳过清单并写明原因：
+- 正文是 `Column` 里的多个 `Text`，或者带样式片段、链接、按钮：合并成一个字符串会改变 Android 的排版。
+- `dismissButton` 的 `onClick` 和 `onDismissRequest` 不是同一个动作。iOS 上取消按钮调用的是 `onDismiss`，行为会变。
+- 点确认后确认框并不消失，比如留在原地转圈：iOS 系统确认框点任何按钮都会自己关闭。
+- 设置了 `properties`（如 `DialogProperties(dismissOnClickOutside = false)`）、`modifier`、自定义 `shape` / 颜色，或按钮带 `enabled`、图标、三个及以上按钮。
+
+**行为约定**：
+- 两个回调都必须让确认框离开组合，也就是把控制它显示的状态置为 false。原来的写法本来就是这样，照搬即可。
+- iOS 上点外部不会关闭，这是系统行为，不用处理。
+- 页面被返回时确认框离开组合，iOS 会自动收起，调用方不用处理。
+
+**样例**：D3 已经把 `account/AccountComponents.kt` 的 `HighRiskDialog` 换掉了（6 处调用一起生效），C2 不用再处理这一处：
+
+```kotlin
+AdaptiveAlertDialog(
+    title = title,
+    message = body,
+    confirmLabel = confirmLabel,
+    onConfirm = onConfirm,
+    onDismiss = onDismiss,
+    dismissLabel = stringResource(Res.string.action_cancel),
+    destructive = destructive,
+    icon = icon,
+)
+```
+
+**验证**：
+- Android：有渲染测试的对话框，用 `composeRule.onNode(isDialog()).captureRender(...)` 截图，前后逐像素对比。写法见 `HighRiskDialogRenderTest`。
+- 行为：用 `onNode(isDialog())` 下按文字点按钮，断言回调只调了一次。写法见 `designsys` 的 `AdaptiveAlertDialogTest`。
+
+### B.1 清单（2026-11-19）
+
+**可直接替换（只有文字和按钮）**，15 处（第一处 `AccountComponents.kt:197` 的 `HighRiskDialog` 已由 D3 完成）：
 
 ```
 account/AccountComponents.kt:197        bookmarks/OfflineManageSheet.kt:125
