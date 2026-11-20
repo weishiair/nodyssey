@@ -1,7 +1,7 @@
 # iOS 原生体验改造：开发文档
 
-> 状态：2026-11-19 起草，执行计划。试点（PR-0）为 PR #93，目标是集成分支 `ios/native-experience`（§7.1）。
-> 范围：**先做一期**（设置类页面 + 确认框，见 §5.1）；二期视一期真机反馈再定（§5.2）。
+> 状态：2026-11-19 起草，执行计划。试点（PR-0）为 PR #93；一期已完成，2026-11-20 经 PR #107 合入 `dev`。集成分支 `ios/native-experience`（§7.1）继续使用。
+> 范围：**当前执行第二批**（§5.3，依据 §2.3 的内容页盘点）；二期其余各项视反馈再定（§5.2）。
 > 旧分支 `codex/ios-experience-integration` 的做法已放弃，本文不以它为基线；其中仍有价值的个别修复见 §10。
 
 本文写给两类读者：
@@ -87,6 +87,18 @@ C 类涉及的组件用量：
 | `Icon(` | 295 处 | Material 图标直接引用 256 处 / 77 个文件；`PlazaIcons.` 273 处 / 70 个文件 |
 | `DropdownMenu(` | 23 处 / 18 个文件 | 第四阶段再评估（锚定原生菜单风险高） |
 | Snackbar / FAB | — | `PlazaSnackbarHost`、`PlazaExtendedFab` 在开启毛玻璃时已有 iOS 原生玻璃实现，本轮不动 |
+
+### 2.3 内容页盘点（2026-11-20，`origin/dev` = `4f0cf1fa`）
+
+一期合入后，在模拟器上逐屏检查了首页、帖子详情、通知、私信、我的（已登录，浅色 / 深色），并对照代码。结论：
+
+- **现有的原生控件默认不生效。** 液态玻璃标签栏、帖子详情的原生顶栏和"…"菜单、发帖 / 回复 / 翻页玻璃按钮、提示条，
+  都由 `PlazaLayers.nativeGlass`（= 「毛玻璃质感」开启 && iOS 26+）控制。该开关默认关闭，关闭时全部退回 Compose 的 Material 版本。
+- **D2 的菜单键盘修复只覆盖设置页**（`AdaptiveSettingsPage.ios.kt`）；`AdaptiveGlass.ios.kt` 里的原生菜单（帖子详情"…"等）没有。
+- **约 50 个页面用 Material `TopAppBar`**（安卓返回箭头、竖三点），私信会话最明显。`AdaptiveGlassTopBar` 只有帖子详情在用，
+  且只支持一行纯文字标题。
+- 首页排序、切换站点等按钮菜单是 Material `DropdownMenu`；通知页的切换是下划线标签；图标全部是 Material。
+- 长按帖子卡片没有菜单；楼层操作、私信附件是 Material 底部面板。这几项属于 §5.2 的二期范围，第二批不做。
 
 ---
 
@@ -202,6 +214,10 @@ SettingsPageLayout.Standard | Account | Licenses       // 只影响 Compose 的�
 满足任一条就保留 Compose：页面有两处以上无法用描述表达的自定义块（预览卡、色板网格、报告图表等）；
 主体是可编辑列表或富文本；交互不是"设置项"而是"内容"。拿不准时问 Devin。
 
+### 4.5 统一顶栏 `AdaptiveTopBar`（D7 合入后补写）
+
+D7 合入时在这里写明 API、迁移示例和 Material 图标 → SF Symbol 对照表。C5 开工前必须读。
+
 ---
 
 ## 5. PR 总表与依赖
@@ -209,7 +225,7 @@ SettingsPageLayout.Standard | Account | Licenses       // 只影响 Compose 的�
 **2026-11-19 定：先做一期。** 一期只做用户最常接触、风险可控的部分——设置类页面和确认框；做完出一个 iOS 测试包，
 真机验收、收集反馈后，再决定二期做不做、做哪些。二期的任务卡（§6）保留原样，届时直接启用，不必重写本文。
 
-### 5.1 一期分工（当前执行范围）
+### 5.1 一期分工（已完成，2026-11-20 经 PR #107 合入 `dev`）
 
 **每个任务都是"开发 + 测试 + 自验"一起交付**：任务卡里的测试和验收清单就是任务本身的一部分，不单独拆测试 PR。
 一个任务一个分支、一个 PR，目标分支都是集成分支 `ios/native-experience`（§7.1）。
@@ -265,11 +281,201 @@ C1 第 1 段（现在）
 
 二期开始前，先根据一期反馈重新排序；不需要的项直接划掉。
 
+### 5.3 第二批分工（2026-11-20 定，当前执行范围）
+
+一期已全部合入 `dev`（PR #107）。第二批针对 §2.3 的发现，只用现成组件或小幅扩展，不新增整页原生实现。
+目标分支仍是集成分支 `ios/native-experience`（§7.1）。交接方式同 §5.1：
+
+> 请按仓库 `weishiair/nodyssey` 中 `docs/ios-native-experience.md` 的任务 **C4**（或 C5）执行。先读该文档 §1–§3、§7 和任务卡，遵守仓库根目录的 `AGENTS.md`。
+
+**用户已定（2026-11-20）**：iOS 26 及以上一律使用系统控件，不再受「毛玻璃质感」控制，iOS 26+ 上隐藏该开关；
+墨水屏模式例外，仍用 Compose 实色控件；iOS 26 以下和 Android 不变。理由：
+
+- iOS 26 的系统控件本身就是液态玻璃，没有"实色原生"可选，自绘实色版就是 §1.2 说的仿制品；
+- 系统控件自动遵循"降低透明度""增强对比度"，Compose 版不会；
+- iOS 26+ 只剩一条渲染路径，验收量减半；
+- 该开关默认关闭，多数 iOS 用户目前看到的是 Material 版本。
+
+#### Devin 的任务
+
+| 任务 | 内容 | 依赖 | 顺序 |
+|---|---|---|---|
+| D6 | 原生按钮与菜单补全：菜单键盘修复覆盖 `AdaptiveGlass` 的菜单；`GlassMenuAction` 支持副标题；`GlassAction` 支持提醒红点 | — | **1**，解除 C4 第 2 段的等待 |
+| D7 | 统一顶栏 `AdaptiveTopBar`：一份描述，iOS 画系统导航栏，Android 画现在的 Material 顶栏（逐像素不变） | — | 2，解除 C5 的等待 |
+| D8 | iOS 26+ 的系统控件与「毛玻璃质感」脱钩（上面的决定） | D6 | 3 |
+| D9 | 验收 C4、C5；第二批整体验收；出 iOS 测试包；开 `ios/native-experience → dev` 的 PR | 全部 | 持续 |
+
+#### 协作 AI 的任务
+
+| 任务 | 内容 | 依赖 | 什么时候能做 |
+|---|---|---|---|
+| C4 | 首页、通知、我的三个标签页页头的按钮换成 `AdaptiveGlassButton`（带菜单的用原生菜单） | 第 1 段无；第 2 段等 D6 | **第 1 段现在就能做** |
+| C5 | 二级页面的顶栏分批换成 D7 的 `AdaptiveTopBar` | D7 | D7 合入集成分支后 |
+
+```
+D6 ──┬── C4 第 2 段
+     └── D8
+D7 ── C5（分批）
+C4 第 1 段（现在）
+```
+
+第二批结束的标志：上表全部合入集成分支，iOS 测试包经用户真机确认，再由单独 PR 把集成分支合入 `dev`。
+
 ---
 
 ## 6. 任务卡
 
 每张卡的「验收目标」就是验收时逐条核对的清单；**全部满足才算完成**。
+
+### 任务 D6 · 原生按钮与菜单补全（Devin）
+
+- 把 D2 的"菜单弹出时 Compose 交出第一响应者"从 `AdaptiveSettingsPage.ios.kt` 抽到 `:designsys` iosMain 的共用位置；
+  `AdaptiveGlass.ios.kt` 里所有带 `UIMenu` 的控件（`AdaptiveGlassButton`、`AdaptiveGlassToolbar`、`AdaptiveGlassTopBar`）都走它。
+- `GlassMenuAction` 增加 `subtitle: String? = null`，iOS 映射到 `UIAction.subtitle`。
+- `GlassAction` 增加 `badge: Boolean = false`，iOS 原生按钮右上角画系统红点。
+- 两个新字段都带默认值，Compose 回退不读，Android 不变。
+- **验收目标**
+  - [ ] 远程桌面下手动打开帖子详情"…"菜单和设置页菜单各若干次，软键盘不出现；自动化 20 次循环 0 次。
+  - [ ] 普通输入框仍能弹出键盘。
+  - [ ] 副标题、红点在浅色 / 深色、大字号下截图正常。
+  - [ ] Android 渲染图不变。
+
+### 任务 D7 · 统一顶栏 `AdaptiveTopBar`（Devin）
+
+**目标**：普通二级页的顶栏只定义一次。
+
+- 描述：标题、可选副标题、可选返回、右侧按钮列表（每个按钮：文案、Material 图标、SF Symbol 名、点击、可选菜单项、可选红点、是否可用）。
+- Android / JVM：按描述画出现有 Material `TopAppBar` 的样子；页面间常见的差异（颜色、`OneHandTopAppBar`、`ReadableTopBar` 宽度）
+  作为参数提供，保证迁移后逐像素一致。
+- iOS 26+：系统 `UINavigationBar`，返回为 `chevron.backward`，溢出菜单为系统 `UIMenu`；iOS 26 以下画和 Android 相同的 Compose 版本。
+- 标题区有纯文字以外内容（头像、标签页、搜索框）的页面不在此组件范围。
+- 在 §4.5 写明 API、迁移示例和 Material 图标 → SF Symbol 常用对照（C5 照用）。
+- **验收目标**
+  - [ ] 用它迁移一个示范页（`ReadHistoryScreen`），Android 渲染逐像素一致，iOS 截图为系统导航栏。
+  - [ ] 返回按钮、边缘返回、菜单（20 次循环 + 远程桌面手动检查）、深色、大字号、iPad 横屏正常。
+  - [ ] §4.5 已写好。
+
+### 任务 D8 · 系统控件与「毛玻璃质感」脱钩（Devin）
+
+- iOS 26+：`nativeGlass` 不再取决于 `frostedGlass`（墨水屏模式除外）；`frostedGlass` 参与的配色和布局间距在 iOS 26+ 按"开"处理，
+  和系统控件保持一致；主题设置里隐藏「毛玻璃质感」开关。
+- iOS 26 以下、Android：行为和外观不变。设置的存储键不改，Android 上开关照常读写。
+- **验收目标**
+  - [ ] 开关为默认值（关）的 iPhone iOS 26+ 上：标签栏、帖子详情顶栏、发帖 / 回复 / 翻页按钮、提示条都是系统控件。
+  - [ ] 墨水屏模式下仍是 Compose 实色控件。
+  - [ ] iOS 26+ 主题设置页不显示该开关；Android 主题设置渲染图逐像素一致。
+  - [ ] 打开系统"降低透明度"后，系统控件随之变为不透明。
+
+### 任务 C4：标签页页头按钮换成原生按钮（协作 AI）
+
+**目标**：首页、通知、我的三个标签页页头的按钮改用现成的 `AdaptiveGlassButton`
+（`designsys/src/commonMain/kotlin/io/github/plaza/designsys/component/AdaptiveGlass.kt`）。
+iOS 上变成系统液态玻璃按钮，带菜单的变成系统菜单；Android 外观和行为不变——`AdaptiveGlassButton` 的 Android / JVM 实现
+就是直接调用 `fallback`，把原来的 Compose 按钮整段放进 `fallback` 即可。开发和测试在同一个分支、同一个 PR 里完成。
+
+**分支**：`git fetch origin` 后从 `origin/ios/native-experience` 切 `ios/tab-header-native-buttons`（第 2 段另切 `ios/tab-header-native-buttons-2`）。
+
+**写法**（参照 `ui/.../postdetail/ThreadReadingControls.kt` 里的回复按钮）：
+
+```kotlin
+AdaptiveGlassButton(
+    action = GlassAction(
+        label = stringResource(Res.string.action_sort), // VoiceOver 读的文字
+        onClick = {},                                   // 有 menu 时点按直接弹菜单，不调用 onClick
+        symbol = "arrow.up.arrow.down",                 // SF Symbol 名
+        menu = sortMenuActions(sort, onSortChange),     // List<GlassMenuAction>，抽成可测的函数
+    ),
+    modifier = …,                                       // 和原按钮同尺寸
+) {
+    // 原来的 FilledIconButton + DropdownMenu，一行不改
+}
+```
+
+#### 第 1 段（现在就能做）
+
+| 位置 | 原控件 | 换成 |
+|---|---|---|
+| 首页 `ui/.../postlist/PostListScreen.kt` 的 `SortButton` | `FilledIconButton` + `DropdownMenu` | `GlassAction(symbol = "arrow.up.arrow.down", menu = 各排序项)`，当前排序 `selected = true` |
+| 通知 `ui/.../notifications/NotificationsScreen.kt` 的 `markAllRead` | 带图标的 `TextButton` | `GlassAction(title = 「全部已读」文案, symbol = "checkmark.circle", enabled = state.hasUnread)` |
+
+#### 第 2 段（D6 合入后）
+
+| 位置 | 原控件 | 换成 |
+|---|---|---|
+| 首页 `SiteSwitcher` | `TextButton` + `DropdownMenu`（每项带域名、当前登录账号、"下次启动生效"） | `GlassAction(title = 当前站点名, symbol = "chevron.down", menu = 各站点)`；每项的附加说明用「 · 」连成一行，放进 D6 新增的 `GlassMenuAction.subtitle` |
+| 我的 `ui/.../profile/ProfileScreen.kt` 的 `SettingsAction` | `IconButton` + 更新红点 | `GlassAction(symbol = "gearshape", badge = hasAppUpdate)` |
+
+#### 不许做
+
+- 首页右上角的账号按钮不换：登录后它显示头像，原生按钮画不了远程图片。
+- 不改 `AdaptiveGlass*` 本身、`**/iosMain/**`、ViewModel；能力不够就按 §7.6 停下报告。
+- 不改页头的布局、间距和其他按钮。
+
+#### 测试
+
+- 原生菜单只在 iOS 上执行，Android 测试走不到，所以菜单项的构造要抽成普通函数单独测：
+  排序菜单、站点菜单各一个测试，逐项调用 `onClick` 传出的是对应的业务值（排序枚举、站点），不是下标；且只有当前项 `selected`。
+  放在 `ui/src/androidHostTest/kotlin/io/github/nodyssey/ui/<包>/`。
+- `PostListScreenRenderTest`、`NotificationsScreenRenderTest`、`ProfileScreenRenderTest`：改前存基线，改后逐像素一致（§7.4）。
+
+#### 验收清单（全部满足才算完成）
+
+- [ ] 本段的位置已替换；账号按钮未动。
+- [ ] 三个页面的 Android 渲染图逐像素一致（附 §7.4 输出）。
+- [ ] 菜单映射测试：逐项点选传出正确的业务值，且只有当前项 `selected`。
+- [ ] 用到的 SF Symbol 名列在 PR 描述里，供 Devin 在 Mac 上核对。
+- [ ] `spotlessCheck` 通过，`git diff --check` 无输出；改动只涉及上述位置及其测试。
+
+#### 交付
+
+- 第 1 段、第 2 段各开一个 PR：`gh pr create -R weishiair/nodyssey --base ios/native-experience`，描述用 §7.7 的模板。
+- Devin 验收：全量门禁；Mac 上逐个按钮截图；菜单 20 次循环 + 远程桌面手动检查（菜单相关的验收在 D6 合入后进行）。
+
+### 任务 C5：二级页面顶栏换成 `AdaptiveTopBar`（协作 AI）
+
+**目标**：普通二级页面的 Material `TopAppBar` 换成 D7 的 `AdaptiveTopBar`。iOS 上成为系统导航栏（返回 `chevron.backward`、
+溢出菜单为系统菜单），Android 逐像素不变。
+
+**前提**：D7 已合入集成分支。先读 §4.5 的 API、示范页（`ReadHistoryScreen`）和 SF Symbol 对照表。
+
+**分支**：每批一个分支、一个 PR：`ios/adaptive-top-bar-1`、`ios/adaptive-top-bar-2`……，从最新 `origin/ios/native-experience` 切。
+
+| 批 | 页面 |
+|---|---|
+| 1 | 私信会话 `messages/MessageThreadScreen.kt`（标题 + 副标题，溢出菜单 `ThreadMenu`）、用户空间 `space/UserSpaceScreen.kt`、关注 `space/FollowScreen.kt`、收藏 `bookmarks/BookmarksScreen.kt`、我的内容 `mycontent/MyContentScreen.kt` |
+| 2 | 设置下的二级页：关于、社区、更新日志、隐私、网络自检、标题关键词、追踪的帖子、主题、动态取色 |
+| 3 | 账号与工具：账号列表、屏蔽、联系方式、图床、偏好、资料字段、安全、资产、积分、星尘、抽奖、社区工具、奖励、邀请、幸运、管理记录、邮箱、表情相关页 |
+| 不在本任务 | 发帖 / 回复编辑器、登录流程、`SettingsPageContent.kt`（iOS 已整页原生）、帖子详情（已有原生顶栏）、三个标签页根页面（C4） |
+
+#### 每页步骤
+
+1. 改前存该页渲染基线；没有渲染测试的先补，单独提交（做法见 C1 第 1 段）。
+2. 把 `TopAppBar` 换成 `AdaptiveTopBar`：原 `IconButton` 的图标、文案、点击搬进按钮描述，溢出 `DropdownMenu` 的各项搬进菜单项。一个页面一个提交。
+3. 逐像素对比。不一致且原因在 `AdaptiveTopBar` 的 Compose 实现时，按 §7.6 停下报告，不要在页面里补偿。
+4. 标题区有纯文字以外的内容，或顶栏有 D7 没覆盖的行为（滚动折叠、编辑模式切换等）：跳过，记入跳过清单。
+
+#### 不许做
+
+- 不改 `AdaptiveTopBar` 本身、`**/iosMain/**`、ViewModel、Route。
+- 不改页面内容区。
+
+#### 测试
+
+- 有溢出菜单的页面：菜单项执行的是对应动作（例如"在浏览器打开"打开的是本页地址）。已有测试覆盖的写明测试名，没有的新增。
+- 每页渲染图逐像素一致（§7.4）。
+
+#### 验收清单（全部满足才算完成）
+
+- [ ] 本批页面逐一处理：已替换，或在跳过清单里写明原因。
+- [ ] 每页 Android 渲染图逐像素一致（附 §7.4 输出）。
+- [ ] 溢出菜单动作的测试（新增或指明已有）。
+- [ ] 用到对照表以外的 SF Symbol 时列在 PR 描述里。
+- [ ] `spotlessCheck` 通过，`git diff --check` 无输出。
+
+#### 交付
+
+- 每批一个 PR：`gh pr create -R weishiair/nodyssey --base ios/native-experience`，描述用 §7.7 的模板。
+- Devin 验收：全量门禁；Mac 上逐页截图（浅色 / 深色 / 大字号）、返回和边缘返回、菜单 20 次循环。
 
 ### 任务 D2 · PR-1 iOS 原生菜单不再带出软键盘（Devin）
 
@@ -568,7 +774,7 @@ iOS 上把默认点击反馈从水波纹换成按下变暗（主题层一处）�
   dev ──▶ ios/native-experience（集成分支）
               ▲      ▲      ▲
          ios/<slug> ios/<slug> …   各 PR 合回集成分支
-  一期整体验收、真机测试包通过后，由 Devin 开单独 PR：ios/native-experience → dev
+  每一批整体验收、真机测试包通过后，由 Devin 开单独 PR：ios/native-experience → dev
   ```
 - 在干净的工作区从最新 `origin/ios/native-experience` 切分支，命名 `ios/<slug>`（例：`ios/migrate-account-settings`）。
   工作区里已有的、不属于你的改动不要碰；暂存时写明路径，不要 `git add -A`。
@@ -645,7 +851,7 @@ sys.exit(1 if failed else 0)
 
 - 页面需要描述模型没有的能力（不要往模型里加字段，不要在页面里写平台判断）。
 - 逐像素对比不一致，且原因在 Compose 渲染器或 `:designsys` 组件。
-- 需要改 `**/iosMain/**`、`designsys/**/settings/**`、`NativeShell.kt`、ViewModel、Route、Repository。
+- 需要改 `**/iosMain/**`、`designsys/**/settings/**`、`AdaptiveGlass*` / `AdaptiveTopBar` 本身、`NativeShell.kt`、ViewModel、Route、Repository。
 - 需要加依赖、改 lockfile、改版本号、改 Room。
 - 测试在你改动之前就是失败的（报告，不要顺手修）。
 
