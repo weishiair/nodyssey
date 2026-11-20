@@ -119,4 +119,18 @@ class SettingsPageShapeTest {
         val outside = SettingsItem.Link(key = "source", title = "源码", onClick = {}, external = true)
         assertNotEquals(single(inside).shape(), single(outside).shape())
     }
+
+    @Test
+    fun `an info row that reads another value updates in place`() {
+        val before = SettingsItem.Info(key = "attendance", title = "签到状态", value = "未签到")
+        val after = SettingsItem.Info(key = "attendance", title = "签到状态", value = "已签到")
+        assertEquals(single(before).shape(), single(after).shape())
+    }
+
+    @Test
+    fun `an info row that gains a tap is a different cell`() {
+        val info = SettingsItem.Info(key = "attendance", title = "签到状态", value = "已签到")
+        val link = SettingsItem.Link(key = "attendance", title = "签到状态", value = "已签到", onClick = {})
+        assertNotEquals(single(info).shape(), single(link).shape())
+    }
 }
