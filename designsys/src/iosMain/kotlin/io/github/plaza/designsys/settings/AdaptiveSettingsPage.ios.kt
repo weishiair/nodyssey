@@ -21,6 +21,7 @@ import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSIndexPath
+import platform.Foundation.NSNumber
 import platform.Foundation.setValue
 import platform.UIKit.NSFontAttributeName
 import platform.UIKit.NSForegroundColorAttributeName
@@ -415,7 +416,9 @@ private class NativeSettingsRow(
 
             is SettingsItem.Info -> {
                 cell.selectionStyle = UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone
-                cell.accessibilityTraits = UIAccessibilityTraitStaticText
+                // Read as text rather than as a button. Through key-value coding for the same reason as the
+                // identifier below: the binding declares the property on the protocol, not on the cell.
+                cell.setValue(NSNumber(unsignedLongLong = UIAccessibilityTraitStaticText), forKey = "accessibilityTraits")
             }
 
             is SettingsItem.Custom -> error("a custom row reaches the system list as its native item")
