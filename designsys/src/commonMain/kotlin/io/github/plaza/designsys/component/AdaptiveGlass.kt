@@ -16,12 +16,16 @@ data class GlassAction(
     val menu: List<GlassMenuAction> = emptyList(),
     /** Small native content for a dense header; the host still owns the touch-target size. */
     val compact: Boolean = false,
+    /** A red reminder dot on the native button, for what the fallback draws as an update dot. */
+    val badge: Boolean = false,
 )
 
 data class GlassMenuAction(
     val label: String,
     val onClick: () -> Unit,
     val symbol: String? = null,
+    /** A second, smaller line under the label, for what the fallback menu shows beneath an entry. */
+    val subtitle: String? = null,
     val enabled: Boolean = true,
     val selected: Boolean = false,
 )

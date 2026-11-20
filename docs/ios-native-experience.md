@@ -492,7 +492,7 @@ AdaptiveGlassButton(
 - **结论（2026-11-20，已修复）**：
   - **触发条件**：模拟器或设备认为接着硬件键盘。用远程桌面操作 Mac 时，Mac 键盘会被模拟器当作硬件键盘，并且随按键反复连接、断开（日志 `BKSHIDKeyboardDevice … transport: CoreDevice`）。自动化测试不经过 Mac 键盘，所以一直复现不了；`typeKey` 模拟按键也复现不了。
   - **机制**：有硬件键盘时，菜单会开启键入筛选 `_UITypeSelectKeyInput`，挂在当前第一响应者上。Compose 为了接收硬件按键，一直让 `OverlayInputView` 当第一响应者（`canBecomeFirstResponder = true`），于是 UIKit 判定它需要键盘（`requiresKB:Y`）。硬件键盘这时恰好处于断开状态，软键盘就弹了出来。纯 UIKit 页面没有第一响应者，所以不弹。
-  - **修复**：`AdaptiveSettingsPage.ios.kt` 的 `NativeSettingsFocus` 在菜单触发时（`UIControlEventMenuActionTriggered`）让非文本输入的第一响应者交出焦点，页面离开时再交还给 Compose。Compose 只在窗口或浮层变化时才会把焦点抢回去，菜单不会触发这两种情况。
+  - **修复**：`NativeMenuFocus`（`designsys/src/iosMain/.../component/NativeMenuFocus.kt`，D6 从设置页抽出共用）在菜单触发时（`UIControlEventMenuActionTriggered`）让非文本输入的第一响应者交出焦点，菜单所属的控件离开组合时再交还给 Compose。Compose 只在窗口或浮层变化时才会把焦点抢回去，菜单不会触发这两种情况。`UIBarButtonItem` 打开菜单时没有事件，原生顶栏改在触摸到达时交出（`FocusReleasingNavigationBar`）。设置页、`AdaptiveGlassButton` / `Toolbar` / `TopBar` 都走它；**以后新增的原生菜单也必须接上**。
   - **验证**：用户在远程桌面下原本每次打开菜单都会弹出键盘，修复后不再弹出。
 - **决定**：保留弹出菜单。§8 检查表保留"菜单连续开关 20 次"，作为回归检查。但它测不出这个问题，涉及菜单的改动还要在远程桌面（或连着硬件键盘的真机）上手动开几次菜单。
 
@@ -942,7 +942,7 @@ sys.exit(1 if failed else 0)
 
 | 编号 | 风险 / 问题 | 处理 |
 |---|---|---|
-| R1 | Compose 宿主内打开 `UIMenu` 带出软键盘（有硬件键盘时，键入筛选挂在 Compose 的第一响应者上） | 已修复（`NativeSettingsFocus`）。§8 保留 20 次循环，并在远程桌面下手动检查；升级 Compose 后复查 |
+| R1 | Compose 宿主内打开 `UIMenu` 带出软键盘（有硬件键盘时，键入筛选挂在 Compose 的第一响应者上） | 已修复（`NativeMenuFocus`，D6 起覆盖全部原生菜单）。§8 保留 20 次循环，并在远程桌面下手动检查；升级 Compose 后复查 |
 | R2 | 原生页内 `UITextField` 与 Compose 焦点互相干扰 | PR-3 重点验证；参考 Compose Multiplatform 的"原生视图成为第一响应者时清除 Compose 焦点"修复 |
 | R3 | 原生 sheet 内 Compose 内容拿不到页面的主题和 `CompositionLocal` | PR-12 先做技术验证，再决定是否全面替换 |
 | R4 | SF Symbols 栅格化的清晰度、性能、着色 | PR-9 先做小范围验证 |
