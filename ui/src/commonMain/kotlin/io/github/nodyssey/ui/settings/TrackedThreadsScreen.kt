@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -37,16 +36,15 @@ import io.github.nodyssey.data.TrackedThreadStore
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.post_reply_count
 import io.github.nodyssey.ui.resources.tracked_threads_empty
 import io.github.nodyssey.ui.resources.tracked_threads_title
 import io.github.nodyssey.ui.resources.tracked_threads_untrack
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupDividerInset
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaText
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.ThreadRowTitle
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
@@ -87,14 +85,10 @@ fun TrackedThreadsRoute(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.tracked_threads_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
