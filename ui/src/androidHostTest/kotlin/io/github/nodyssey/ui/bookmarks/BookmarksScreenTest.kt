@@ -2,8 +2,10 @@ package io.github.nodyssey.ui.bookmarks
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import io.github.nodyssey.data.OfflineFailure
 import io.github.nodyssey.data.OfflineState
 import io.github.nodyssey.data.OfflineUsage
@@ -65,6 +67,7 @@ class BookmarksScreenTest {
         state: BookmarksUiState,
         onPostClick: (Long) -> Unit = {},
         onToggleSelection: (Long) -> Unit = {},
+        onClearOffline: () -> Unit = {},
     ) {
         composeRule.setContent {
             PlazaTheme {
@@ -92,10 +95,26 @@ class BookmarksScreenTest {
                     onDownloadPending = {},
                     onRowOfflineAction = {},
                     onOfflineSettings = {},
-                    onClearOffline = {},
+                    onClearOffline = onClearOffline,
                 )
             }
         }
+    }
+
+    @Test
+    fun `only confirming removes the downloaded copies`() {
+        var clears = 0
+        setScreen(state(), onClearOffline = { clears++ })
+        composeRule.onNodeWithContentDescription("管理").performClick()
+
+        val clear = composeRule.onNodeWithText("清空离线内容")
+        clear.performScrollTo().performClick()
+        composeRule.onNodeWithText("取消").performClick()
+        assertEquals(0, clears)
+
+        clear.performClick()
+        composeRule.onNodeWithText("清空").performClick()
+        assertEquals(1, clears)
     }
 
     /**

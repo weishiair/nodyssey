@@ -72,6 +72,10 @@ class VoteCardTest {
         composeRule.onNodeWithText("提交后不可修改。").assertIsDisplayed()
         assertEquals(0, submits)
 
+        composeRule.onNodeWithText("取消").performClick()
+        assertEquals(0, submits)
+        composeRule.onNodeWithText("提交投票").performClick()
+
         composeRule.onNodeWithText("提交").performClick()
         assertEquals(1, submits)
     }

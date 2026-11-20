@@ -64,6 +64,7 @@ import io.github.nodyssey.ui.resources.offline_usage_summary_unknown
 import io.github.nodyssey.ui.resources.offline_usage_text
 import io.github.nodyssey.ui.resources.offline_wifi_only
 import io.github.nodyssey.ui.resources.offline_wifi_only_body
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.ChoiceRow
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
@@ -122,30 +123,19 @@ internal fun OfflineManageSheet(
     }
 
     if (confirmingClear) {
-        AlertDialog(
-            onDismissRequest = { confirmingClear = false },
-            title = { Text(stringResource(Res.string.offline_clear_title)) },
+        AdaptiveAlertDialog(
+            onDismiss = { confirmingClear = false },
+            title = stringResource(Res.string.offline_clear_title),
             // Spelled out because the word 清空 sits on a screen called 收藏, and the one thing a reader
             // will fear is that it clears the collection. It does not, and that is worth a sentence.
-            text = { Text(stringResource(Res.string.offline_clear_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmingClear = false
-                        onClear()
-                    },
-                ) {
-                    Text(
-                        text = stringResource(Res.string.offline_clear_confirm),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
+            message = stringResource(Res.string.offline_clear_body),
+            confirmLabel = stringResource(Res.string.offline_clear_confirm),
+            onConfirm = {
+                confirmingClear = false
+                onClear()
             },
-            dismissButton = {
-                TextButton(onClick = { confirmingClear = false }) {
-                    Text(stringResource(Res.string.action_cancel))
-                }
-            },
+            dismissLabel = stringResource(Res.string.action_cancel),
+            destructive = true,
         )
     }
 }

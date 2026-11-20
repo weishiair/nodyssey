@@ -1,6 +1,8 @@
 package io.github.nodyssey.ui.lottery
 
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModelProvider
@@ -55,7 +57,7 @@ class LotteryPostDrawsTest {
     @After
     fun clearModels() = models.clear()
 
-    private fun show(entries: List<LotteryEntry>) {
+    private fun model(entries: List<LotteryEntry>): LotteryViewModel {
         val repository = object : LotteryRepository {
             override val entries = flowOf(entries)
             override suspend fun watch(draw: LuckyDrawParams, title: String) {
@@ -68,15 +70,36 @@ class LotteryPostDrawsTest {
             override suspend fun markResultsRead(entries: List<LotteryEntry>) = Unit
             override suspend fun synchronize() = Unit
         }
-        val model = ViewModelProvider.create(
+        return ViewModelProvider.create(
             models,
             viewModelFactory { initializer { LotteryViewModel(repository, AppClock { draw.drawAtMillis - 60_000 }) } },
         )[LotteryViewModel::class]
+    }
+
+    private fun show(entries: List<LotteryEntry>) {
+        val model = model(entries)
         composeRule.setContent {
             PlazaTheme {
                 LotteryPostDraws(model, body, draw.postId, "draw", false, { signInRequests++ }, {}, {})
             }
         }
+    }
+
+    @Test
+    fun `acknowledging reminder help closes it without changing tracked draws`() {
+        val model = model(emptyList())
+        composeRule.setContent {
+            PlazaTheme { LotteryRoute(model, {}, {}, {}, {}, {}, {}) }
+        }
+        composeRule.onNodeWithContentDescription("更多选项").performClick()
+        composeRule.onNodeWithText("提醒说明").performClick()
+        composeRule.onNode(isDialog()).assertExists()
+
+        composeRule.onNodeWithText("知道了").performClick()
+
+        composeRule.onNode(isDialog()).assertDoesNotExist()
+        assertEquals(0, watchRequests)
+        assertEquals(0, removeRequests)
     }
 
     @Test

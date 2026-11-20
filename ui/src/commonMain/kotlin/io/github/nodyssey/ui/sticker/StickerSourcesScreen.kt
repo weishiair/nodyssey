@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -60,6 +59,7 @@ import io.github.nodyssey.ui.resources.sticker_sources_meta
 import io.github.nodyssey.ui.resources.sticker_sources_meta_total
 import io.github.nodyssey.ui.resources.sticker_sources_subscribe_new
 import io.github.nodyssey.ui.resources.sticker_update_action
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -167,17 +167,17 @@ fun StickerSourcesRoute(
     }
 
     confirming?.let { slug ->
-        AlertDialog(
-            onDismissRequest = { confirming = null },
-            title = { Text(stringResource(Res.string.sticker_manage_unsubscribe_confirm, slug)) },
-            text = { Text(stringResource(Res.string.sticker_manage_unsubscribe_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.unsubscribe(slug)
-                    confirming = null
-                }) { Text(stringResource(Res.string.sticker_manage_unsubscribe), color = MaterialTheme.colorScheme.error) }
+        AdaptiveAlertDialog(
+            onDismiss = { confirming = null },
+            title = stringResource(Res.string.sticker_manage_unsubscribe_confirm, slug),
+            message = stringResource(Res.string.sticker_manage_unsubscribe_body),
+            confirmLabel = stringResource(Res.string.sticker_manage_unsubscribe),
+            onConfirm = {
+                viewModel.unsubscribe(slug)
+                confirming = null
             },
-            dismissButton = { TextButton(onClick = { confirming = null }) { Text(stringResource(Res.string.action_cancel)) } },
+            dismissLabel = stringResource(Res.string.action_cancel),
+            destructive = true,
         )
     }
 }
