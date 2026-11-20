@@ -186,6 +186,9 @@ class UserSpaceScreenRenderTest {
     @Test
     fun `my comments in light`() = render("my-comments-light", darkTheme = false) { Comments() }
 
+    @Test
+    fun `my comments in dark`() = render("my-comments-dark", darkTheme = true) { Comments() }
+
     private companion object {
         val OTHER =
             UserSpaceUiState(

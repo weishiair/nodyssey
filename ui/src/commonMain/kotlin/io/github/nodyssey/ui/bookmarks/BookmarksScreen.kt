@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
@@ -68,7 +67,6 @@ import io.github.nodyssey.ui.common.shortMessage
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.common.snackbarDuration
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_sort
 import io.github.nodyssey.ui.resources.bookmarks_count
@@ -99,15 +97,18 @@ import io.github.nodyssey.ui.resources.history_undo
 import io.github.nodyssey.ui.resources.offline_manage
 import io.github.nodyssey.ui.resources.offline_status
 import io.github.plaza.core.net.SiteError
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandAppBarState
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.StatusView
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -469,6 +470,112 @@ private fun BookmarkList(
 /** 64dp of toolbar plus its 16dp inset, rounded up so the last row clears the FAB too. */
 private val FLOATING_CLEARANCE = 96.dp
 
+internal fun bookmarkSortMenuActions(
+    current: BookmarkSort,
+    labelFor: (BookmarkSort) -> String,
+    onSort: (BookmarkSort) -> Unit,
+): List<GlassMenuAction> =
+    BookmarkSort.entries.map { sort ->
+        GlassMenuAction(
+            label = labelFor(sort),
+            onClick = { onSort(sort) },
+            selected = sort == current,
+        )
+    }
+
+@Composable
+internal fun bookmarksTopBarActions(
+    sort: BookmarkSort,
+    hasEntries: Boolean,
+    offlineAvailable: Boolean,
+    onSearch: () -> Unit,
+    onSort: (BookmarkSort) -> Unit,
+    onEnterSelection: () -> Unit,
+    onManage: () -> Unit,
+): List<TopBarAction> {
+    val searchLabel = stringResource(Res.string.bookmarks_search)
+    val sortLabel = stringResource(Res.string.action_sort)
+    val sortLabels = BookmarkSort.entries.associateWith { stringResource(it.labelRes) }
+    val selectLabel = stringResource(Res.string.bookmarks_select_action)
+    val manageLabel = stringResource(Res.string.offline_manage)
+    return buildList {
+        add(
+            TopBarAction(
+                glass = GlassAction(
+                    label = searchLabel,
+                    onClick = onSearch,
+                    symbol = "magnifyingglass",
+                ),
+                compose = {
+                    IconButton(onClick = onSearch) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = searchLabel,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+            ),
+        )
+        // In the bar with the other two ways of narrowing the list, as 8e has it, rather than
+        // pinned to the end of the chip row, where it cost the chips their last few dp.
+        add(
+            TopBarAction(
+                glass = GlassAction(
+                    label = sortLabel,
+                    onClick = {},
+                    symbol = "arrow.up.arrow.down",
+                    menu = bookmarkSortMenuActions(sort, sortLabels::getValue, onSort),
+                ),
+                compose = { SortMenu(current = sort, onSort = onSort) },
+            ),
+        )
+        if (hasEntries) {
+            add(
+                TopBarAction(
+                    glass = GlassAction(
+                        label = selectLabel,
+                        onClick = onEnterSelection,
+                        symbol = "checklist",
+                    ),
+                    compose = {
+                        IconButton(onClick = onEnterSelection) {
+                            Icon(
+                                imageVector = PlazaIcons.Checklist,
+                                contentDescription = selectLabel,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                ),
+            )
+        }
+        if (offlineAvailable) {
+            // Straight to 离线管理 rather than a ⋮ that opens onto a menu of one. The overflow
+            // was there when the board put 排序 in it too; 排序 has its own control beside the
+            // filter chips, so what was left was a tap to reveal a single item.
+            add(
+                TopBarAction(
+                    glass = GlassAction(
+                        label = manageLabel,
+                        onClick = onManage,
+                        symbol = "checkmark.icloud",
+                    ),
+                    compose = {
+                        IconButton(onClick = onManage) {
+                            Icon(
+                                imageVector = PlazaIcons.CloudDone,
+                                contentDescription = manageLabel,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                ),
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BookmarksTopBar(
@@ -481,30 +588,27 @@ private fun BookmarksTopBar(
     onEnterSelection: () -> Unit,
     onManage: () -> Unit,
 ) {
-    val back =
-        @Composable {
-            IconButton(onClick = { if (state.isSearching) onSearching(false) else onBack() }) {
-                Icon(
-                    imageVector =
-                    if (state.isSearching) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription =
-                    stringResource(if (state.isSearching) Res.string.action_close else Res.string.action_back),
-                )
-            }
-        }
     if (state.isSearching) {
         // A plain bar for as long as the box is open: [OneHandTopAppBar] takes a title string rather
         // than a slot, and a search field belongs in a bar that is not also a pull target.
         TopAppBar(
             title = { BookmarkSearchField(query = state.query.orEmpty(), onQuery = onQuery) },
-            navigationIcon = back,
+            navigationIcon = {
+                IconButton(onClick = { onSearching(false) }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(Res.string.action_close),
+                    )
+                }
+            },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
         )
         return
     }
-    OneHandTopAppBar(
+    AdaptiveTopBar(
         title = stringResource(Res.string.bookmarks_title),
         state = appBarState,
+        onBack = onBack,
         // 32 篇 · 已离线 N 篇 · 占用 X (board 8e). The offline half used to be a strip of its own
         // between the chips and the list; as a subtitle it costs no row at all, and these are
         // standing facts about the screen rather than controls — which is what a subtitle is for.
@@ -519,40 +623,15 @@ private fun BookmarksTopBar(
                 null
             },
         ).joinToString(SUBTITLE_SEPARATOR).ifEmpty { null },
-        navigationIcon = back,
-        actions = {
-            IconButton(onClick = { onSearching(true) }) {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = stringResource(Res.string.bookmarks_search),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            // In the bar with the other two ways of narrowing the list, as 8e has it, rather than
-            // pinned to the end of the chip row, where it cost the chips their last few dp.
-            SortMenu(current = state.sort, onSort = onSort)
-            if (state.entries.isNotEmpty()) {
-                IconButton(onClick = onEnterSelection) {
-                    Icon(
-                        imageVector = PlazaIcons.Checklist,
-                        contentDescription = stringResource(Res.string.bookmarks_select_action),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            if (state.offlineAvailable) {
-                // Straight to 离线管理 rather than a ⋮ that opens onto a menu of one. The overflow
-                // was there when the board put 排序 in it too; 排序 has its own control beside the
-                // filter chips, so what was left was a tap to reveal a single item.
-                IconButton(onClick = onManage) {
-                    Icon(
-                        imageVector = PlazaIcons.CloudDone,
-                        contentDescription = stringResource(Res.string.offline_manage),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        },
+        actions = bookmarksTopBarActions(
+            sort = state.sort,
+            hasEntries = state.entries.isNotEmpty(),
+            offlineAvailable = state.offlineAvailable,
+            onSearch = { onSearching(true) },
+            onSort = onSort,
+            onEnterSelection = onEnterSelection,
+            onManage = onManage,
+        ),
     )
 }
 
