@@ -1189,6 +1189,28 @@ private fun SortButton(
     }
 }
 
+internal fun siteMenuActions(
+    active: Site,
+    signedInLabel: String?,
+    nextLaunchLabel: String,
+    restartsApp: Boolean,
+    onSelect: (Site) -> Unit,
+): List<GlassMenuAction> =
+    Site.entries.map { site ->
+        val isCurrent = site == active
+        val subtitle = buildList {
+            add(site.domain)
+            if (isCurrent && signedInLabel != null) add(signedInLabel)
+            if (!isCurrent && !restartsApp) add(nextLaunchLabel)
+        }.joinToString(" · ")
+        GlassMenuAction(
+            label = site.displayName,
+            onClick = { onSelect(site) },
+            subtitle = subtitle,
+            selected = isCurrent,
+        )
+    }
+
 /**
  * 站点: which forum the feed below came from, and the way to the other one.
  *
@@ -1211,94 +1233,114 @@ private fun SiteSwitcher(
     var menuOpen by remember { mutableStateOf(false) }
     val active = ActiveSite.current
     val switchSite = rememberSiteSwitch()
+    val switchLabel = stringResource(Res.string.action_switch_site)
+    val signedInLabel = account?.let { stringResource(Res.string.site_switch_signed_in_as, it.name) }
+    val nextLaunchLabel = stringResource(Res.string.site_switch_next_launch)
 
     Box(modifier) {
-        TextButton(onClick = { menuOpen = true }, contentPadding = PaddingValues(horizontal = Spacing.sm)) {
-            Text(
-                text = active.displayName,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+        AdaptiveGlassButton(
+            action = GlassAction(
+                label = "${active.displayName}, $switchLabel",
+                onClick = {},
+                symbol = "chevron.down",
+                title = active.displayName,
+                menu = siteMenuActions(
+                    active = active,
+                    signedInLabel = signedInLabel,
+                    nextLaunchLabel = nextLaunchLabel,
+                    restartsApp = siteSwitchRestartsApp,
+                    onSelect = switchSite,
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-            )
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                // The button already reads out the site's name; the arrow only says it opens.
-                contentDescription = stringResource(Res.string.action_switch_site),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 2.dp).size(HeaderIconSize),
-            )
-        }
-        DropdownMenu(
-            expanded = menuOpen,
-            onDismissRequest = { menuOpen = false },
-            shape = MaterialTheme.shapes.largeIncreased,
-            containerColor = LocalPlazaLayers.current.card,
-            modifier = Modifier.widthIn(min = 280.dp),
+            ),
+            modifier = Modifier.heightIn(min = 44.dp),
         ) {
-            Site.entries.forEachIndexed { index, site ->
-                val isCurrent = site == active
-                SelectableMenuItem(
-                    selected = isCurrent,
-                    index = index,
-                    count = Site.entries.size,
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    site.displayName,
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                )
-                                Text(
-                                    site.domain,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            // Who is signed in, for the site that can say: the other one's cookies are
-                            // not read until it is switched to, so its line stays silent rather than
-                            // guessing.
-                            if (isCurrent && account != null) {
-                                Text(
-                                    text = stringResource(Res.string.site_switch_signed_in_as, account.name),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            // 下次启动生效 under the name it applies to rather than as a note
-                            // elsewhere on the screen: the sentence is only true of this entry, and
-                            // only on a platform that cannot restart itself.
-                            if (!isCurrent && !siteSwitchRestartsApp) {
-                                Text(
-                                    text = stringResource(Res.string.site_switch_next_launch),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    },
-                    onClick = {
-                        menuOpen = false
-                        switchSite(site)
-                    },
-                    leadingIcon = { SiteMonogram(site, index) },
-                    modifier = Modifier.heightIn(min = 64.dp),
+            TextButton(onClick = { menuOpen = true }, contentPadding = PaddingValues(horizontal = Spacing.sm)) {
+                Text(
+                    text = active.displayName,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    // The button already reads out the site's name; the arrow only says it opens.
+                    contentDescription = switchLabel,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 2.dp).size(HeaderIconSize),
                 )
             }
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = Spacing.xs),
-            )
-            Text(
-                text = stringResource(Res.string.site_switch_separate_sessions),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .padding(start = 18.dp, end = 18.dp, top = Spacing.xs, bottom = Spacing.sm),
-            )
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                shape = MaterialTheme.shapes.largeIncreased,
+                containerColor = LocalPlazaLayers.current.card,
+                modifier = Modifier.widthIn(min = 280.dp),
+            ) {
+                Site.entries.forEachIndexed { index, site ->
+                    val isCurrent = site == active
+                    SelectableMenuItem(
+                        selected = isCurrent,
+                        index = index,
+                        count = Site.entries.size,
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        site.displayName,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    )
+                                    Text(
+                                        site.domain,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                // Who is signed in, for the site that can say: the other one's cookies are
+                                // not read until it is switched to, so its line stays silent rather than
+                                // guessing.
+                                if (isCurrent && signedInLabel != null) {
+                                    Text(
+                                        text = signedInLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                // 下次启动生效 under the name it applies to rather than as a note
+                                // elsewhere on the screen: the sentence is only true of this entry, and
+                                // only on a platform that cannot restart itself.
+                                if (!isCurrent && !siteSwitchRestartsApp) {
+                                    Text(
+                                        text = nextLaunchLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            menuOpen = false
+                            switchSite(site)
+                        },
+                        leadingIcon = { SiteMonogram(site, index) },
+                        modifier = Modifier.heightIn(min = 64.dp),
+                    )
+                }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = Spacing.xs),
+                )
+                Text(
+                    text = stringResource(Res.string.site_switch_separate_sessions),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .widthIn(max = 280.dp)
+                        .padding(start = 18.dp, end = 18.dp, top = Spacing.xs, bottom = Spacing.sm),
+                )
+            }
         }
     }
 }
