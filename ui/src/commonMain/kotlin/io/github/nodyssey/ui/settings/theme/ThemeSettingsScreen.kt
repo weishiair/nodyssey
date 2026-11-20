@@ -96,6 +96,7 @@ import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.frostedGlassConfigurable
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -233,12 +234,14 @@ fun ThemeSettingsScreen(
                     enabled = activePreset(settings)?.hasFixedColors != true,
                 )
                 val adjustableBottomBar = LocalFixedBottomBarHeight.current == null
-                FrostedGlassRow(
-                    checked = settings.frostedGlass,
-                    enabled = !settings.einkMode,
-                    onCheckedChange = onFrostedGlassChange,
-                    last = !adjustableBottomBar,
-                )
+                if (frostedGlassConfigurable) {
+                    FrostedGlassRow(
+                        checked = settings.frostedGlass,
+                        enabled = !settings.einkMode,
+                        onCheckedChange = onFrostedGlassChange,
+                        last = !adjustableBottomBar,
+                    )
+                }
                 if (adjustableBottomBar) {
                     SettingsMenuRow(
                         icon = PlazaIcons.VerticalAlignBottom,
