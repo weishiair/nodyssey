@@ -27,6 +27,7 @@ import platform.UIKit.NSForegroundColorAttributeName
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.NSLineBreakByTruncatingTail
 import platform.UIKit.NSLineBreakByWordWrapping
+import platform.UIKit.UIAccessibilityTraitStaticText
 import platform.UIKit.UIAction
 import platform.UIKit.UIActivityIndicatorView
 import platform.UIKit.UIActivityIndicatorViewStyleMedium
@@ -412,6 +413,11 @@ private class NativeSettingsRow(
 
             is SettingsItem.Action -> spinner = UIActivityIndicatorView(activityIndicatorStyle = UIActivityIndicatorViewStyleMedium)
 
+            is SettingsItem.Info -> {
+                cell.selectionStyle = UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone
+                cell.accessibilityTraits = UIAccessibilityTraitStaticText
+            }
+
             is SettingsItem.Custom -> error("a custom row reaches the system list as its native item")
         }
         // Through key-value coding: UIView conforms to UIAccessibilityIdentification at runtime, but the
@@ -563,6 +569,11 @@ private class NativeSettingsRow(
                 cell.selectionStyle =
                     if (item.loading) UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone else UITableViewCellSelectionStyle.UITableViewCellSelectionStyleDefault
                 return listContent(item.title, item.description, item.value, item.enabled, palette, destructive = item.destructive)
+            }
+
+            is SettingsItem.Info -> {
+                cell.accessoryView = null
+                return listContent(item.title, item.description, item.value, item.enabled, palette)
             }
 
             is SettingsItem.Custom -> error("a custom row reaches the system list as its native item")

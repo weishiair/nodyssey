@@ -381,6 +381,18 @@ private fun ItemRow(
                 },
             )
         }
+
+        is SettingsItem.Info ->
+            GroupedRow(
+                title = item.title,
+                subtitle = item.description ?: item.value,
+                leading = leadingIcon(item.icon, layout),
+                first = first,
+                last = last,
+                enabled = item.enabled,
+                modifier = Modifier.tagged(item.testTag),
+                showChevron = false,
+            )
     }
 }
 

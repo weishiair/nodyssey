@@ -181,6 +181,22 @@ sealed interface SettingsItem {
     ) : SettingsItem
 
     /**
+     * A row that only reports — 签到状态 — with nothing to tap: no click, no chevron, no selection.
+     * [value] is what it currently reads; where the system draws lists it sits at the row's end and
+     * moves under the title when it is too long to share the line.
+     */
+    @Immutable
+    class Info(
+        override val key: String,
+        override val title: String,
+        val value: String? = null,
+        val description: String? = null,
+        override val icon: ImageVector? = null,
+        override val enabled: Boolean = true,
+        override val testTag: String? = null,
+    ) : SettingsItem
+
+    /**
      * A row the Compose list draws its own way, for the few whose Android look the shared rows cannot
      * reproduce — a preview card, a palette strip. [native] is the same setting as an ordinary item,
      * holding the same state and the same callbacks, and is what the system list draws.
@@ -228,6 +244,7 @@ internal fun SettingsItem.rowKind(): String =
         is SettingsItem.Slider -> "slider"
         is SettingsItem.Link -> if (item.external) "link-external" else "link"
         is SettingsItem.Action -> "action"
+        is SettingsItem.Info -> "info"
         is SettingsItem.Custom -> error("unreachable")
     }
 
