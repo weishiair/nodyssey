@@ -11,13 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,7 +33,6 @@ import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.about_changelog
 import io.github.nodyssey.ui.resources.about_update_open_release
 import io.github.nodyssey.ui.resources.about_update_prerelease
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.changelog_all_releases
 import io.github.nodyssey.ui.resources.changelog_current_version
@@ -48,9 +44,11 @@ import io.github.nodyssey.ui.resources.changelog_refresh
 import io.github.plaza.core.update.ReleaseNote
 import io.github.plaza.core.update.UpdateFailure
 import io.github.plaza.core.update.releaseNotesText
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -100,19 +98,21 @@ fun ChangelogScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.about_changelog),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onRefresh, enabled = !state.loading) {
-                        Icon(Icons.Default.Refresh, stringResource(Res.string.changelog_refresh))
-                    }
-                },
+                onBack = onBack,
+                actions = listOf(
+                    TopBarAction(
+                        glass = GlassAction(
+                            label = stringResource(Res.string.changelog_refresh),
+                            onClick = onRefresh,
+                            symbol = "arrow.clockwise",
+                            enabled = !state.loading,
+                        ),
+                        icon = Icons.Default.Refresh,
+                    ),
+                ),
             )
         },
     ) { padding ->
