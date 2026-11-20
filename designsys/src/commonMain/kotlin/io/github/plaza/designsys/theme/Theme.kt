@@ -129,12 +129,12 @@ fun PlazaTheme(
      * have to pass both.
      */
     einkMode: Boolean = false,
-    /** 毛玻璃质感; see [LocalFrostedGlass]. Ignored when [einkMode] is active. */
+    /** 毛玻璃质感; see [LocalFrostedGlass]. Also forced on where the system draws Liquid Glass; ignored when [einkMode] is active. */
     frostedGlass: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val neutralSurfaces = pureWhite && !einkMode
-    val activeFrostedGlass = frostedGlass && !einkMode
+    val activeFrostedGlass = frostedGlassInForce(frostedGlass, einkMode)
     // Asked for only when it could win: 角色预设 beats it, and building a scheme that is about to be
     // discarded is work on every recomposition of the whole app. Null means this platform — or this
     // Android version — has no system palette; see [platformSystemColorScheme].
