@@ -897,6 +897,8 @@ sys.exit(1 if failed else 0)
   - [ ] 页面有弹出菜单时：每个菜单连续开关 20 次（探针 `test10MenuLoop` 的做法），软键盘出现 0 次。
     同时点一次纯 UIKit 对照输入框（`test11SoftwareKeyboardVisible`），确认软键盘能弹出，否则上一条的结果无效。
   - [ ] 改动涉及菜单或第一响应者时：在远程桌面里（Mac 键盘被当作硬件键盘）手动打开每个菜单几次，软键盘不出现。自动化测试测不出这一条，见任务 D2。
+  - [ ] Compose 页面上的原生菜单：菜单开着时点菜单外面的内容（帖子卡片、列表行），只关菜单，不能打开下面的内容。
+    Compose 读的是原始触摸，会收到这一下；`NativeMenuShield`（`designsys/src/iosMain/.../component/NativeMenuShield.kt`）在菜单弹出时垫一层透明视图吃掉它。以后新加的原生菜单也必须接上。
   - [ ] 截图与结论写进 PR 评论。
 
 ---
