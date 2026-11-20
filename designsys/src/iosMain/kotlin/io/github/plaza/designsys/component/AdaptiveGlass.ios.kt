@@ -1,4 +1,8 @@
-@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@file:OptIn(
+    kotlinx.cinterop.ExperimentalForeignApi::class,
+    androidx.compose.ui.ExperimentalComposeUiApi::class,
+    kotlin.experimental.ExperimentalNativeApi::class,
+)
 
 package io.github.plaza.designsys.component
 
@@ -65,6 +69,7 @@ import platform.UIKit.accessibilityTraits
 import platform.UIKit.accessibilityValue
 import platform.UIKit.labelColor
 import platform.UIKit.systemRedColor
+import kotlin.native.ref.WeakReference
 
 // Overlay placement is essential: the default UIKitView cuts a hole in the Metal canvas, so native
 // glass would sample an empty rectangle instead of the Compose content scrolling behind the button.
@@ -168,8 +173,9 @@ actual fun AdaptiveGlassTopBar(
             )
             val item = UINavigationItem(title = title)
             item.leftBarButtonItem = back?.barItem { currentBack }
+            val anchor = WeakReference<UIView>(bar)
             item.rightBarButtonItems = actions.asReversed().map { action ->
-                action.barItem { currentActions.firstOrNull { it.label == action.label } }
+                action.barItem(anchor) { currentActions.firstOrNull { it.label == action.label } }
             }
             if (titleAction != null) {
                 item.titleView = UIButton.buttonWithConfiguration(
@@ -194,7 +200,10 @@ actual fun AdaptiveGlassTopBar(
             }
             bar.setItems(listOf(item), animated = false)
         },
-        onRelease = { focus.restore() },
+        onRelease = {
+            focus.restore()
+            NativeMenuShield.lower()
+        },
     )
 }
 
@@ -365,7 +374,13 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         )
     }
 
-    fun dispose() = focus.restore()
+    // The menu is the button's own, so it may only reach back to the button weakly.
+    private val anchor = WeakReference<UIView>(view)
+
+    fun dispose() {
+        focus.restore()
+        NativeMenuShield.lower()
+    }
 
     fun update(action: GlassAction, accent: UIColor, dark: Boolean, scale: Float) {
         state.action = action
@@ -424,7 +439,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         val currentState = state
         view.menu = action.menu.takeIf { it.isNotEmpty() }?.let { menu ->
             UIMenu.menuWithChildren(
-                menu.map { item ->
+                listOf(NativeMenuShield.element(anchor::get)) + menu.map { item ->
                     item.uiAction {
                         // The menu may still be open when an async operation disables or changes an item.
                         currentState.action.takeIf { it.enabled && !it.loading }
@@ -550,10 +565,13 @@ private fun pin(child: UIView, parent: UIView, inset: Double) {
     )
 }
 
-private fun GlassAction.barItem(current: () -> GlassAction?): UIBarButtonItem {
+private fun GlassAction.barItem(
+    anchor: WeakReference<UIView>? = null,
+    current: () -> GlassAction?,
+): UIBarButtonItem {
     val nativeMenu = menu.takeIf { it.isNotEmpty() }?.let { items ->
         UIMenu.menuWithChildren(
-            items.map { item ->
+            listOfNotNull(anchor?.let { NativeMenuShield.element(it::get) }) + items.map { item ->
                 item.uiAction { current()?.menu?.firstOrNull { it.label == item.label && it.enabled }?.onClick?.invoke() }
             },
         )
@@ -569,7 +587,10 @@ private fun GlassAction.barItem(current: () -> GlassAction?): UIBarButtonItem {
 }
 
 private fun GlassMenuAction.uiAction(onSelect: () -> Unit): UIAction =
-    UIAction.actionWithTitle(label, symbol?.let { UIImage.systemImageNamed(it) }, null) { onSelect() }.apply {
+    UIAction.actionWithTitle(label, symbol?.let { UIImage.systemImageNamed(it) }, null) {
+        NativeMenuShield.lower()
+        onSelect()
+    }.apply {
         this@uiAction.subtitle?.let { subtitle = it }
         if (!enabled) attributes = UIMenuElementAttributesDisabled
         state = if (selected) UIMenuElementState.UIMenuElementStateOn else UIMenuElementState.UIMenuElementStateOff
