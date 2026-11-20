@@ -151,6 +151,8 @@ import io.github.nodyssey.ui.resources.profile_tile_topics
 import io.github.nodyssey.ui.resources.profile_tools
 import io.github.nodyssey.ui.resources.settings_title
 import io.github.nodyssey.ui.resources.tab_profile
+import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -456,20 +458,31 @@ private fun SettingsAction(
     hasAppUpdate: Boolean,
     onClick: () -> Unit,
 ) {
-    Box {
-        IconButton(onClick = onClick) {
-            Icon(
-                Icons.Default.Settings,
-                contentDescription = stringResource(Res.string.settings_title),
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        if (hasAppUpdate) {
-            UpdateDot(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 10.dp, end = 8.dp),
-            )
+    val label = stringResource(Res.string.settings_title)
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = label,
+            onClick = onClick,
+            symbol = "gearshape",
+            badge = hasAppUpdate,
+        ),
+        modifier = Modifier.size(Sizes.minTouchTarget),
+    ) {
+        Box {
+            IconButton(onClick = onClick) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = label,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            if (hasAppUpdate) {
+                UpdateDot(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 10.dp, end = 8.dp),
+                )
+            }
         }
     }
 }
