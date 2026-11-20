@@ -17,6 +17,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        NodysseyApp.shared.applyLaunchLanguage()
         ComposeTokenizerGuard.install()
         UNUserNotificationCenter.current().delegate = self
         NodysseyApp.shared.registerBackgroundTasks()

@@ -20,8 +20,9 @@ import platform.Foundation.NSUserDefaults
  *
  * There is no Traditional Chinese narrowing here, unlike the Android actual. It would have to be
  * written into this same key to take effect, and that would freeze the very setting it is applied
- * on behalf of. On screen it does not matter — `ProvideAppLanguage` narrows a `zh-Hant-HK` reader
- * to `values-zh-rTW` for every platform alike, and that is where the app's own words come from.
+ * on behalf of. On screen the narrowing happens at launch instead — `:iosapp`'s
+ * `narrowLaunchLanguage` writes it into this process's volatile argument domain before anything
+ * reads the locale, and that is where the app's own words come from.
  */
 @Composable
 actual fun ApplyAppLanguage(language: AppLanguage?) {

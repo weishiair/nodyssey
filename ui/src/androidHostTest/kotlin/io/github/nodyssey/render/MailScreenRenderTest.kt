@@ -1,6 +1,7 @@
 package io.github.nodyssey.render
 
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import io.github.nodyssey.data.mail.MailAuthMode
@@ -98,6 +99,23 @@ class MailScreenRenderTest {
             }
         }
         composeRule.onRoot().captureRender("mail-inbox-empty")
+    }
+
+    @Test
+    fun `disconnecting mail`() {
+        composeRule.setContent {
+            PlazaTheme {
+                Inbox(
+                    MailInboxUiState(
+                        initializing = false,
+                        connected = true,
+                        authMode = MailAuthMode.API_KEY,
+                        confirmingDisconnect = true,
+                    ),
+                )
+            }
+        }
+        composeRule.onNode(isDialog()).captureRender("mail-disconnect-confirmation")
     }
 
     @Test

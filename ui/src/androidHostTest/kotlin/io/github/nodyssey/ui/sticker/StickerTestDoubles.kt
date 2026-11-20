@@ -30,6 +30,7 @@ internal const val NEW_SHA = "2222222222222222222222222222222222222222"
  */
 internal class FakeStickerHttp : HttpTransport {
     var head: String = OLD_SHA
+    var missingUrls: Set<String> = emptySet()
     val trees = mutableMapOf<String, List<String>>()
     val requests = mutableListOf<HttpRequest>()
 
@@ -38,6 +39,7 @@ internal class FakeStickerHttp : HttpTransport {
         onUploadProgress: UploadProgress?,
     ): HttpResponse {
         requests += request
+        if (request.url in missingUrls) return HttpResponse(404, request.url, emptyMap(), "")
         if (!request.url.contains("api.github.com")) return HttpResponse(200, request.url, emptyMap(), "")
         val path = request.url.substringAfter("api.github.com").substringBefore('?')
         val body = when {

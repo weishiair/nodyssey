@@ -81,6 +81,11 @@ class ReadHistoryScreenTest {
             .assertIsDisplayed()
         assertEquals(0, cleared)
 
+        composeRule.onNodeWithText("取消").performClick()
+        assertEquals(0, cleared)
+        openMenu()
+        composeRule.onNodeWithText("全部清除").performClick()
+
         composeRule.onNodeWithText("清除").performClick()
         assertEquals(1, cleared)
     }

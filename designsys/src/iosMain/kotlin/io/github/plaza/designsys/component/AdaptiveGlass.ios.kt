@@ -530,7 +530,7 @@ private fun GlassMenuAction.uiAction(onSelect: () -> Unit): UIAction =
         state = if (selected) UIMenuElementState.UIMenuElementStateOn else UIMenuElementState.UIMenuElementStateOff
     }
 
-private fun Color.toUIColor(): UIColor = UIColor(red = red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = alpha.toDouble())
+internal fun Color.toUIColor(): UIColor = UIColor(red = red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = alpha.toDouble())
 
-private fun interfaceStyle(dark: Boolean): UIUserInterfaceStyle =
+internal fun interfaceStyle(dark: Boolean): UIUserInterfaceStyle =
     if (dark) UIUserInterfaceStyle.UIUserInterfaceStyleDark else UIUserInterfaceStyle.UIUserInterfaceStyleLight

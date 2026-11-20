@@ -1,8 +1,12 @@
 package io.github.nodyssey.render
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import io.github.nodyssey.data.ReadHistoryEntry
 import io.github.nodyssey.ui.history.ReadHistoryScreen
 import io.github.nodyssey.ui.history.ReadHistoryUiState
@@ -54,6 +58,16 @@ class ReadHistoryScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("history-dark")
+    }
+
+    @Test
+    fun `clearing all reading history`() {
+        composeRule.setContent { Screen(darkTheme = false) }
+        composeRule.onNodeWithContentDescription("更多").performClick()
+        composeRule.onNodeWithText("全部清除").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNode(isDialog()).captureRender("history-clear-confirmation")
     }
 
     private companion object {

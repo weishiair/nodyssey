@@ -10,6 +10,7 @@
 | [`kmp-migration-decision.md`](kmp-migration-decision.md) | KMP 可行性评估：代码分布、生态核对、成本计价与三道门槛的实测结论 | 是，评估结论（2026-08-18 快照，目标已修订见其第 0 节） |
 | [`kmp-migration-plan.md`](kmp-migration-plan.md) | KMP-ready 架构改造：共享边界、第一阶段五项改造、第二阶段的**唯一执行顺序**（前后端已合成一张表） | 是，执行计划 |
 | [`cmp-ui-decision.md`](cmp-ui-decision.md) | 前端路线改定为 Compose Multiplatform：依据与依赖实测核对 | 是，前端路线**为什么**的唯一入口（覆盖前两份文档中的前端结论）；**做什么顺序**看上一行 |
+| [`ios-native-experience.md`](ios-native-experience.md) | iOS 原生体验改造：目的、描述驱动设置页的架构、PR 拆分与任务卡、验收目标 | 是，执行计划 |
 | [`design-implementation.md`](design-implementation.md) | 已核对画板到 Compose/Repository 的映射 | 是，设计交付对照 |
 | [`design-requirements.md`](design-requirements.md) | 新版设计总纲、信息架构与视觉约束 | 是，设计目标 |
 | [`design-requirements-remaining.md`](design-requirements-remaining.md) | 登录态站点实测词典与批次 A–E 完成记录 | 是，真实数据样本 |

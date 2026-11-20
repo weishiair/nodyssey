@@ -52,6 +52,7 @@ import io.github.nodyssey.ui.resources.vote_compose_public_body
 import io.github.nodyssey.ui.resources.vote_compose_question
 import io.github.nodyssey.ui.resources.vote_compose_remove_option
 import io.github.nodyssey.ui.resources.vote_compose_title
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -223,23 +224,26 @@ fun VoteComposeDialog(
     )
 
     if (confirming) {
-        AlertDialog(
-            onDismissRequest = { confirming = false },
-            title = { Text(stringResource(Res.string.vote_compose_confirm_title)) },
-            text = { Text(stringResource(Res.string.vote_compose_confirm_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirming = false
-                        onCreate(title.trim(), multiple, isPublic, filled)
-                    },
-                ) { Text(stringResource(Res.string.vote_compose_create)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirming = false }) { Text(stringResource(Res.string.action_cancel)) }
+        VoteCreationConfirmation(
+            onDismiss = { confirming = false },
+            onConfirm = {
+                confirming = false
+                onCreate(title.trim(), multiple, isPublic, filled)
             },
         )
     }
+}
+
+@Composable
+internal fun VoteCreationConfirmation(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AdaptiveAlertDialog(
+        onDismiss = onDismiss,
+        title = stringResource(Res.string.vote_compose_confirm_title),
+        message = stringResource(Res.string.vote_compose_confirm_body),
+        confirmLabel = stringResource(Res.string.vote_compose_create),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(Res.string.action_cancel),
+    )
 }
 
 @Composable

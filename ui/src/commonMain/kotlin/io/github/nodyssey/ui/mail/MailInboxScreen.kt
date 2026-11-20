@@ -89,6 +89,7 @@ import io.github.nodyssey.ui.resources.mail_title
 import io.github.nodyssey.ui.resources.mail_use_key
 import io.github.nodyssey.ui.resources.mail_verify_and_retry
 import io.github.plaza.core.net.UserAgent
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -487,12 +488,13 @@ fun MailInboxScreen(
         }
     }
     if (state.confirmingDisconnect) {
-        AlertDialog(
-            onDismissRequest = onDismissDisconnect,
-            title = { Text(stringResource(Res.string.mail_disconnect)) },
-            text = { Text(stringResource(Res.string.mail_disconnect_hint)) },
-            confirmButton = { TextButton(onClick = onConfirmDisconnect) { Text(stringResource(Res.string.mail_disconnect)) } },
-            dismissButton = { TextButton(onClick = onDismissDisconnect) { Text(stringResource(Res.string.action_cancel)) } },
+        AdaptiveAlertDialog(
+            onDismiss = onDismissDisconnect,
+            title = stringResource(Res.string.mail_disconnect),
+            message = stringResource(Res.string.mail_disconnect_hint),
+            confirmLabel = stringResource(Res.string.mail_disconnect),
+            onConfirm = onConfirmDisconnect,
+            dismissLabel = stringResource(Res.string.action_cancel),
         )
     }
     if (switchingToKey && state.connected) {

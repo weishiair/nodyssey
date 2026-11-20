@@ -86,6 +86,7 @@ import io.github.nodyssey.ui.resources.history_undo
 import io.github.nodyssey.ui.resources.history_untitled
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.ChoiceRow
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
@@ -254,26 +255,19 @@ fun ReadHistoryScreen(
     }
 
     if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text(stringResource(Res.string.history_clear_title)) },
+        AdaptiveAlertDialog(
+            onDismiss = { confirmClear = false },
+            title = stringResource(Res.string.history_clear_title),
             // Spelled out rather than a bare "确定吗": these rows are also the unread baselines, so
             // clearing them un-reads every thread in the feed. That is not something to discover
             // afterwards by noticing the list has changed colour.
-            text = { Text(stringResource(Res.string.history_clear_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmClear = false
-                        onClearAll()
-                    },
-                ) { Text(stringResource(Res.string.history_clear_confirm)) }
+            message = stringResource(Res.string.history_clear_body),
+            confirmLabel = stringResource(Res.string.history_clear_confirm),
+            onConfirm = {
+                confirmClear = false
+                onClearAll()
             },
-            dismissButton = {
-                TextButton(onClick = { confirmClear = false }) {
-                    Text(stringResource(Res.string.action_cancel))
-                }
-            },
+            dismissLabel = stringResource(Res.string.action_cancel),
         )
     }
 

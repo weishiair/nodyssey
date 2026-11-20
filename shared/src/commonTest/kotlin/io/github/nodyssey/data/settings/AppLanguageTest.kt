@@ -3,6 +3,7 @@ package io.github.nodyssey.data.settings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -79,5 +80,42 @@ class AppLanguageTest {
         assertEquals(AppLanguage.SYSTEM, AppLanguage.ofName(""))
         assertEquals(AppLanguage.SYSTEM, AppLanguage.ofName("KLINGON"))
         assertEquals(AppLanguage.ENGLISH, AppLanguage.ofName("ENGLISH"))
+    }
+
+    /**
+     * A leading tag a `values-zh-rTW` bundle cannot reach is replaced by one it can.
+     *
+     * `zh-Hant` with no region is what a device set to 繁體中文 with no country reports; `zh-MO` is
+     * the tag with no `rTW` directory behind it at all.
+     */
+    @Test
+    fun `a traditional lead without TW is narrowed to zh-TW`() {
+        assertEquals(
+            listOf("zh-TW", "en-HK"),
+            narrowedForTraditionalChinese(listOf("zh-Hant-HK", "en-HK")),
+        )
+        assertEquals(listOf("zh-TW"), narrowedForTraditionalChinese(listOf("zh-MO")))
+        assertEquals(listOf("zh-TW"), narrowedForTraditionalChinese(listOf("zh-Hant")))
+    }
+
+    /** A `zh-TW` further down the list is kept once — the narrowed head replaces the lead, not adds. */
+    @Test
+    fun `narrowing does not repeat a zh-TW already in the list`() {
+        assertEquals(
+            listOf("zh-TW", "en"),
+            narrowedForTraditionalChinese(listOf("zh-Hant-HK", "zh-TW", "en")),
+        )
+    }
+
+    /** Only the first entry decides, and lists that already resolve are left alone. */
+    @Test
+    fun `lists that need no narrowing answer null`() {
+        assertNull(narrowedForTraditionalChinese(listOf("zh-Hant-TW")))
+        assertNull(narrowedForTraditionalChinese(listOf("zh-TW")))
+        assertNull(narrowedForTraditionalChinese(listOf("zh-Hans-HK")))
+        assertNull(narrowedForTraditionalChinese(listOf("zh-CN")))
+        assertNull(narrowedForTraditionalChinese(listOf("en-US")))
+        assertNull(narrowedForTraditionalChinese(emptyList()))
+        assertNull(narrowedForTraditionalChinese(listOf("en-US", "zh-Hant-HK")))
     }
 }

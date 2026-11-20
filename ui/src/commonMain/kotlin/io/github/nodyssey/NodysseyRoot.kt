@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,6 +29,8 @@ import io.github.nodyssey.ui.common.LocalReadMarkPaint
 import io.github.nodyssey.ui.common.ProvideUserNotes
 import io.github.nodyssey.ui.common.ReadMarkPaint
 import io.github.nodyssey.ui.common.SystemBarsMatchTheme
+import io.github.nodyssey.ui.common.clearFocusOnBlankTap
+import io.github.nodyssey.ui.common.dismissesKeyboardOnBlankTap
 import io.github.nodyssey.ui.common.rememberBrowserLinks
 import io.github.nodyssey.ui.common.rememberReducedMotionEnabled
 import io.github.nodyssey.ui.compare.LocalReportCompareBasket
@@ -275,8 +278,12 @@ internal fun NodysseyChrome(
             ) {
                 // 备注 rides here for the reason 测评报告 does: a name is drawn on five screens.
                 ProvideUserNotes(container.userNoteStore) {
+                    val focusManager = LocalFocusManager.current
                     Surface(
-                        modifier = modifier.fillMaxSize(),
+                        modifier =
+                        modifier
+                            .fillMaxSize()
+                            .then(if (dismissesKeyboardOnBlankTap) Modifier.clearFocusOnBlankTap(focusManager) else Modifier),
                         color = MaterialTheme.colorScheme.background,
                     ) {
                         // A post body turns up on six screens, and a selection in any of them should go
