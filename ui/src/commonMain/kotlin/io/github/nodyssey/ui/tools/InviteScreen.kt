@@ -74,6 +74,7 @@ import io.github.nodyssey.ui.resources.invite_web_check
 import io.github.nodyssey.ui.resources.invite_web_fallback
 import io.github.nodyssey.ui.resources.spend_got_it
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
@@ -496,32 +497,25 @@ private fun OutcomeDialog(
             )
         }
 
-        is InviteOutcome.Refused -> AlertDialog(
-            onDismissRequest = onDismiss,
-            icon = { Icon(Icons.Default.Warning, contentDescription = null) },
-            title = { Text(outcome.error.shortMessage()) },
-            text = {
-                Text(
-                    text = outcome.detail ?: stringResource(Res.string.invite_buy_failed_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            confirmButton = {
-                Button(onClick = onDismiss) { Text(stringResource(Res.string.spend_got_it)) }
-            },
+        is InviteOutcome.Refused -> AdaptiveAlertDialog(
+            onDismiss = onDismiss,
+            icon = Icons.Default.Warning,
+            title = outcome.error.shortMessage(),
+            message = outcome.detail ?: stringResource(Res.string.invite_buy_failed_hint),
+            confirmLabel = stringResource(Res.string.spend_got_it),
+            onConfirm = onDismiss,
+            prominentConfirm = true,
         )
 
-        is InviteOutcome.Unknown -> AlertDialog(
-            onDismissRequest = onDismiss,
-            icon = { Icon(Icons.Default.Warning, contentDescription = null) },
-            title = { Text(stringResource(Res.string.invite_purchase_unknown_title)) },
-            text = { Text(stringResource(Res.string.invite_purchase_unknown_body)) },
-            confirmButton = {
-                Button(onClick = onRetry) { Text(stringResource(Res.string.invite_check_result)) }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.spend_got_it)) }
-            },
+        is InviteOutcome.Unknown -> AdaptiveAlertDialog(
+            onDismiss = onDismiss,
+            icon = Icons.Default.Warning,
+            title = stringResource(Res.string.invite_purchase_unknown_title),
+            message = stringResource(Res.string.invite_purchase_unknown_body),
+            confirmLabel = stringResource(Res.string.invite_check_result),
+            onConfirm = onRetry,
+            dismissLabel = stringResource(Res.string.spend_got_it),
+            prominentConfirm = true,
         )
     }
 }

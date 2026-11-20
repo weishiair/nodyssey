@@ -124,6 +124,7 @@ import io.github.nodyssey.ui.resources.lottery_verify
 import io.github.nodyssey.ui.resources.lottery_waiting
 import io.github.nodyssey.ui.resources.lottery_won
 import io.github.nodyssey.ui.settings.rememberNotificationPermissionRequest
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
@@ -370,12 +371,13 @@ fun LotteryRoute(
         }
     }
     if (helpOpen) {
-        AlertDialog(
-            onDismissRequest = { helpOpen = false },
-            icon = { Icon(PlazaIcons.Alarm, null) },
-            title = { Text(stringResource(Res.string.lottery_help)) },
-            text = { Text(stringResource(Res.string.lottery_hint)) },
-            confirmButton = { TextButton(onClick = { helpOpen = false }) { Text(stringResource(Res.string.lottery_ok)) } },
+        AdaptiveAlertDialog(
+            onDismiss = { helpOpen = false },
+            icon = PlazaIcons.Alarm,
+            title = stringResource(Res.string.lottery_help),
+            message = stringResource(Res.string.lottery_hint),
+            confirmLabel = stringResource(Res.string.lottery_ok),
+            onConfirm = { helpOpen = false },
         )
     }
 }

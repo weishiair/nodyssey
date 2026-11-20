@@ -229,6 +229,7 @@ import io.github.nodyssey.ui.sticker.rememberImageActionsState
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.AdaptiveGlassTopBar
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
@@ -3100,17 +3101,14 @@ private fun ReactionConfirmDialog(
 
 @Composable
 private fun CommentPinDialog(pinned: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(PlazaIcons.PushPin, contentDescription = null) },
-        title = { Text(stringResource(if (pinned) Res.string.post_pin_action else Res.string.post_unpin_action)) },
-        text = { Text(stringResource(if (pinned) Res.string.post_pin_body else Res.string.post_unpin_body)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(if (pinned) Res.string.post_pin_confirm else Res.string.post_unpin_action))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
+    AdaptiveAlertDialog(
+        onDismiss = onDismiss,
+        icon = PlazaIcons.PushPin,
+        title = stringResource(if (pinned) Res.string.post_pin_action else Res.string.post_unpin_action),
+        message = stringResource(if (pinned) Res.string.post_pin_body else Res.string.post_unpin_body),
+        confirmLabel = stringResource(if (pinned) Res.string.post_pin_confirm else Res.string.post_unpin_action),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(Res.string.action_cancel),
     )
 }
 

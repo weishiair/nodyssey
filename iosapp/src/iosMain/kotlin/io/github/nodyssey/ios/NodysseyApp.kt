@@ -82,6 +82,9 @@ object NodysseyApp {
     private val attendanceScheduler = BgTaskAttendanceScheduler(scope) { ensureContainer() }
     private val lotteryScheduler = BgTaskLotteryScheduler(scope) { ensureContainer().lotteryRepository }
 
+    /** Called first in `didFinishLaunchingWithOptions`, before anything reads the locale; see [narrowLaunchLanguage]. */
+    fun applyLaunchLanguage() = narrowLaunchLanguage()
+
     /**
      * Called from `AppDelegate.application(_:didFinishLaunchingWithOptions:)`, and it must be: iOS
      * traps if a `BGTaskScheduler` handler is registered after launch completes.

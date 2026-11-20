@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -86,6 +85,7 @@ import io.github.nodyssey.ui.resources.vote_voter_uid
 import io.github.nodyssey.ui.resources.vote_voters_collapse
 import io.github.nodyssey.ui.resources.vote_voters_expand
 import io.github.nodyssey.ui.resources.vote_voters_more
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SkeletonBar
@@ -763,12 +763,13 @@ private fun VoteConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(title)) },
-        text = { Text(stringResource(body)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(confirm)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
+    AdaptiveAlertDialog(
+        onDismiss = onDismiss,
+        title = stringResource(title),
+        message = stringResource(body),
+        confirmLabel = stringResource(confirm),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(Res.string.action_cancel),
     )
 }
 

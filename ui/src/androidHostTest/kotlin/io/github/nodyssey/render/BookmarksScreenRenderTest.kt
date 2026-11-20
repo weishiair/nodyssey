@@ -1,10 +1,13 @@
 package io.github.nodyssey.render
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import io.github.nodyssey.data.OfflineFailure
@@ -109,6 +112,16 @@ class BookmarksScreenRenderTest {
         composeRule.waitForIdle()
 
         captureScreenRoboImage(filePath = "build/outputs/renders/bookmarks-offline-sheet-light.png")
+    }
+
+    @Test
+    fun `clearing downloaded content`() {
+        composeRule.setContent { Screen(darkTheme = false) }
+        composeRule.onNodeWithContentDescription("管理").performClick()
+        composeRule.onNodeWithText("清空离线内容").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNode(isDialog()).captureRender("bookmarks-offline-clear-confirmation")
     }
 
     private companion object {

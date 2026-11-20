@@ -61,5 +61,20 @@ fun isTraditionalChineseTag(tag: String): Boolean {
     return rest.any { subtag -> TRADITIONAL_REGIONS.any { it.equals(subtag, ignoreCase = true) } }
 }
 
+/**
+ * The language list a process should run under so that a Traditional Chinese reader whose device
+ * names a region or script the app has no bundle for — `zh-Hant-HK`, `zh-MO`, a bare `zh-Hant` — is
+ * handed `values-zh-rTW`; null when [preferred] already resolves, which is every list that does not
+ * lead with such a tag. Only the first entry decides, as it does for the resource lookup; the rest
+ * keep their order, without a second `zh-TW`.
+ */
+fun narrowedForTraditionalChinese(preferred: List<String>): List<String>? {
+    val head = preferred.firstOrNull()?.substringBefore('@') ?: return null
+    if (!isTraditionalChineseTag(head)) return null
+    if (head.split('-', '_').any { it.equals("TW", ignoreCase = true) }) return null
+    val traditional = checkNotNull(AppLanguage.TRADITIONAL_CHINESE.tag)
+    return listOf(traditional) + preferred.drop(1).filterNot { it.equals(traditional, ignoreCase = true) }
+}
+
 /** The three regions whose Chinese is written in the traditional script. */
 private val TRADITIONAL_REGIONS = listOf("TW", "HK", "MO")
