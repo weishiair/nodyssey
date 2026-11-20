@@ -36,10 +36,21 @@ class SettingsScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean, pureWhite: Boolean = false, attendanceEnabled: Boolean = false, frostedGlass: Boolean = false) {
-        PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite, frostedGlass = frostedGlass) {
+    private fun Screen(
+        darkTheme: Boolean,
+        pureWhite: Boolean = false,
+        attendanceEnabled: Boolean = false,
+        frostedGlass: Boolean = false,
+        state: SettingsUiState = STATE,
+    ) {
+        PlazaTheme(
+            darkTheme = darkTheme,
+            pureWhite = pureWhite,
+            frostedGlass = frostedGlass,
+            einkMode = state.settings.einkMode,
+        ) {
             SettingsScreen(
-                state = STATE.copy(settings = STATE.settings.copy(presetId = if (pureWhite) "pure_white" else "graphite")),
+                state = state.copy(settings = state.settings.copy(presetId = if (pureWhite) "pure_white" else "graphite")),
                 appLinkHandlingEnabled = true,
                 attendanceConfig = AutoAttendanceConfig(enabled = attendanceEnabled),
                 attendanceState = AutoAttendanceState(completed = true, gain = 5),
@@ -167,6 +178,38 @@ class SettingsScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true, attendanceEnabled = true) }
         composeRule.onNodeWithText("签到状态").performScrollTo()
         composeRule.onRoot().captureRender("settings-attendance-dark")
+    }
+
+    @Test
+    fun `e ink disables the theme segments`() {
+        val eink = STATE.copy(settings = STATE.settings.copy(einkMode = true))
+        composeRule.setContent { Screen(darkTheme = false, state = eink) }
+
+        composeRule.onRoot().captureRender("settings-eink")
+    }
+
+    @Test
+    fun `automatic attendance turned off`() {
+        composeRule.setContent { Screen(darkTheme = false) }
+        composeRule.onNodeWithText("签到方式").performScrollTo()
+
+        composeRule.onRoot().captureRender("settings-attendance-off")
+    }
+
+    @Test
+    fun `clearing the cache`() {
+        composeRule.setContent { Screen(darkTheme = false, state = STATE.copy(isClearingCache = true)) }
+        composeRule.onNodeWithText("清除缓存").performScrollTo()
+
+        composeRule.onRoot().captureRender("settings-clearing-cache")
+    }
+
+    @Test
+    fun `new version badge`() {
+        composeRule.setContent { Screen(darkTheme = false, state = STATE.copy(updateVersionName = "1.2.22")) }
+        composeRule.onNodeWithText("关于 Nodyssey").performScrollTo()
+
+        composeRule.onRoot().captureRender("settings-update-badge")
     }
 
     private companion object {
