@@ -93,7 +93,7 @@ actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
         factory = { host.view },
-        modifier = modifier.remeasureRequester(remeasure),
+        modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
             host.update(action, accent.toUIColor(), dark, scale)
@@ -122,7 +122,7 @@ actual fun AdaptiveGlassToolbar(
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
         factory = { host.view },
-        modifier = modifier.remeasureRequester(remeasure),
+        modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
             host.update(actions, foreground.toUIColor(), surface.toUIColor(), dark, scale)
@@ -231,7 +231,7 @@ actual fun AdaptiveGlassNotice(
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
         factory = { host.view },
-        modifier = modifier.remeasureRequester(remeasure),
+        modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
             host.update(message, action, dismissAction, accent.toUIColor(), dark, scale)
@@ -258,7 +258,7 @@ fun NativeGlassTabBar(tabs: List<NativeGlassTab>, modifier: Modifier = Modifier)
     val host = remember(tabs.size) { NativeGlassTabBarHost(tabs.size) }
     UIKitView(
         factory = { host.view },
-        modifier = modifier,
+        modifier = modifier.clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
             host.view.overrideUserInterfaceStyle = interfaceStyle(dark)
@@ -414,7 +414,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
                     } else if (grouped) {
                         17.0
                     } else {
-                        20.0
+                        17.0
                     }
                     ) * scale,
                 weight = if (pullDown) platform.UIKit.UIImageSymbolWeightSemibold else platform.UIKit.UIImageSymbolWeightRegular,
