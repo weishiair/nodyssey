@@ -14,6 +14,8 @@ data class GlassAction(
     val prominent: Boolean = false,
     val loading: Boolean = false,
     val menu: List<GlassMenuAction> = emptyList(),
+    /** A note above the menu's entries, for what the fallback menu says under or over its list. */
+    val menuTitle: String? = null,
     /** Small native content for a dense header; the host still owns the touch-target size. */
     val compact: Boolean = false,
     /** A red reminder dot on the native button, for what the fallback draws as an update dot. */
@@ -28,6 +30,8 @@ data class GlassMenuAction(
     val subtitle: String? = null,
     val enabled: Boolean = true,
     val selected: Boolean = false,
+    /** Drawn in the system's destructive red, for what the fallback menu colours as an error. */
+    val destructive: Boolean = false,
 )
 
 /** Native Liquid Glass on supported iOS, the original component everywhere else. */
@@ -55,6 +59,8 @@ expect fun AdaptiveGlassTopBar(
     back: GlassAction?,
     actions: List<GlassAction>,
     modifier: Modifier = Modifier,
+    /** A second line under the title, the system's own navigation subtitle. */
+    subtitle: String? = null,
     fallback: @Composable () -> Unit,
 )
 

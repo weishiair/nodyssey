@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -59,7 +58,6 @@ import io.github.nodyssey.data.ReadHistoryEntry
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_delete
 import io.github.nodyssey.ui.resources.action_more
@@ -87,16 +85,19 @@ import io.github.nodyssey.ui.resources.history_untitled
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.ChoiceRow
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.StatusView
 import io.github.plaza.designsys.component.ThreadRowTitle
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.groupSlice
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -174,7 +175,7 @@ fun ReadHistoryScreen(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.history_title),
                 state = appBarState,
                 // The one place the retention setting is visible without opening a menu: "how much
@@ -190,22 +191,15 @@ fun ReadHistoryScreen(
                         limitLabel(state.limit),
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-                actions = {
-                    HistoryMenu(
+                onBack = onBack,
+                actions = listOf(
+                    historyMenuAction(
                         limit = state.limit,
                         canClear = state.entries.isNotEmpty(),
                         onPickLimit = { pickingLimit = true },
                         onClearAll = { confirmClear = true },
-                    )
-                },
+                    ),
+                ),
             )
         },
     ) { padding ->
@@ -286,6 +280,39 @@ fun ReadHistoryScreen(
  * 全部清除 used to be a text button in the bar. It is the most destructive thing on the screen and it
  * sat one mis-tap from 返回, which is not where a button that un-reads the whole feed belongs.
  */
+@Composable
+internal fun historyMenuAction(
+    limit: Int,
+    canClear: Boolean,
+    onPickLimit: () -> Unit,
+    onClearAll: () -> Unit,
+): TopBarAction = TopBarAction(
+    glass = GlassAction(
+        label = stringResource(Res.string.action_more),
+        onClick = {},
+        symbol = "ellipsis",
+        menu = listOfNotNull(
+            GlassMenuAction(
+                label = stringResource(Res.string.history_limit_title),
+                onClick = onPickLimit,
+                symbol = "clock.arrow.circlepath",
+                subtitle = limitLabel(limit),
+            ),
+            if (canClear) {
+                GlassMenuAction(
+                    label = stringResource(Res.string.history_clear_all),
+                    onClick = onClearAll,
+                    symbol = "trash",
+                    destructive = true,
+                )
+            } else {
+                null
+            },
+        ),
+    ),
+    compose = { HistoryMenu(limit, canClear, onPickLimit, onClearAll) },
+)
+
 @Composable
 private fun HistoryMenu(
     limit: Int,

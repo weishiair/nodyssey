@@ -1244,6 +1244,7 @@ private fun SiteSwitcher(
                 onClick = {},
                 symbol = "chevron.down",
                 title = active.displayName,
+                menuTitle = stringResource(Res.string.site_switch_separate_sessions),
                 menu = siteMenuActions(
                     active = active,
                     signedInLabel = signedInLabel,

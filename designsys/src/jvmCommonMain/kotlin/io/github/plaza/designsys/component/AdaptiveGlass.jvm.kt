@@ -21,6 +21,7 @@ actual fun AdaptiveGlassTopBar(
     back: GlassAction?,
     actions: List<GlassAction>,
     modifier: Modifier,
+    subtitle: String?,
     fallback: @Composable () -> Unit,
 ) = fallback()
 

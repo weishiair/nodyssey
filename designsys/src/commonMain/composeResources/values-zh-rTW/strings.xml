@@ -71,4 +71,6 @@
     <string name="richtext_stardust_ref_id">Ref ID %1$d</string>
     <string name="richtext_stardust_onetime">一次性</string>
     <string name="richtext_quote_source">%1$s · %2$s樓</string>
+    <string name="top_bar_back">返回</string>
+    <string name="top_bar_close">關閉</string>
 </resources>
