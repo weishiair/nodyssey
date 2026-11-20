@@ -16,10 +16,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,10 +26,46 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.settings_read_mark_color
+import io.github.nodyssey.ui.resources.settings_read_mark_color_more
 import io.github.nodyssey.ui.resources.settings_read_mark_color_theme
 import io.github.nodyssey.ui.settings.theme.SeedColorSheet
+import io.github.nodyssey.ui.settings.theme.toHexString
+import io.github.plaza.designsys.settings.SettingsChoicePresentation
+import io.github.plaza.designsys.settings.SettingsItem
+import io.github.plaza.designsys.settings.SettingsOption
 import io.github.plaza.designsys.theme.PlazaPaletteStyle
 import org.jetbrains.compose.resources.stringResource
+
+@Composable
+internal fun readMarkColorItem(color: Int?, onPick: (Int?) -> Unit, onPickCustom: () -> Unit): SettingsItem {
+    val customColor = color?.takeUnless { it in MarkColors }
+    val colors = listOf<Int?>(null) + MarkColors + listOfNotNull(customColor)
+    val options = colors.map { argb ->
+        if (argb == null) {
+            SettingsOption(stringResource(Res.string.settings_read_mark_color_theme), swatch = MaterialTheme.colorScheme.primary)
+        } else {
+            val swatch = Color(argb)
+            SettingsOption(swatch.toHexString(), swatch = swatch)
+        }
+    } + SettingsOption(stringResource(Res.string.settings_read_mark_color_more))
+    val choice = SettingsItem.Choice(
+        key = "read-mark-color",
+        title = stringResource(Res.string.settings_read_mark_color),
+        options = options,
+        selectedIndex = colors.indexOf(color),
+        presentation = SettingsChoicePresentation.Menu,
+        onSelect = { index ->
+            if (index == colors.size || (customColor != null && colors[index] == customColor)) {
+                onPickCustom()
+            } else {
+                onPick(colors[index])
+            }
+        },
+    )
+    return SettingsItem.Custom(choice) {
+        ReadMarkColorRow(color = color, onPick = onPick, onPickCustom = onPickCustom)
+    }
+}
 
 /**
  * 标记颜色 — the swatches that decide what colour 已读标记 paints with.
@@ -46,11 +78,11 @@ import org.jetbrains.compose.resources.stringResource
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ReadMarkColorRow(
+private fun ReadMarkColorRow(
     color: Int?,
     onPick: (Int?) -> Unit,
+    onPickCustom: () -> Unit,
 ) {
-    var picking by remember { mutableStateOf(false) }
     SettingsBlock(
         title = stringResource(Res.string.settings_read_mark_color),
         value = if (color == null) stringResource(Res.string.settings_read_mark_color_theme) else null,
@@ -78,7 +110,7 @@ internal fun ReadMarkColorRow(
             // A colour that came out of the picker rather than off this row keeps its place on it,
             // so the answer is never a row of dots none of which is ticked.
             if (color != null && color !in MarkColors) {
-                Swatch(color = Color(color), selected = true, onClick = { picking = true })
+                Swatch(color = Color(color), selected = true, onClick = onPickCustom)
             }
             // 自定义… — the same picker 主题 uses, minus the theme half of it: this is a colour, not
             // a palette to keep.
@@ -87,27 +119,24 @@ internal fun ReadMarkColorRow(
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     selected = false,
                     glyph = { Glyph(Icons.Default.Add, MaterialTheme.colorScheme.onSurfaceVariant) },
-                    onClick = { picking = true },
+                    onClick = onPickCustom,
                 )
             }
         }
     }
+}
 
-    if (picking) {
-        SeedColorSheet(
-            initial = color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary,
-            // Reaches only the preview strip, which shows the scheme this colour would build if it
-            // were a seed. 柔和 is the app's own default, so it is the honest one to show.
-            paletteStyle = PlazaPaletteStyle.SOFT,
-            onDismiss = { picking = false },
-            titleOverride = stringResource(Res.string.settings_read_mark_color),
-            hideThemeSave = true,
-            onApply = { picked, _ ->
-                picking = false
-                onPick(picked.toArgb())
-            },
-        )
-    }
+@Composable
+internal fun ReadMarkColorPicker(color: Int?, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
+    SeedColorSheet(
+        initial = color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary,
+        // Only the preview strip needs a palette style. Use the app's default style.
+        paletteStyle = PlazaPaletteStyle.SOFT,
+        onDismiss = onDismiss,
+        titleOverride = stringResource(Res.string.settings_read_mark_color),
+        hideThemeSave = true,
+        onApply = { picked, _ -> onPick(picked.toArgb()) },
+    )
 }
 
 /**
