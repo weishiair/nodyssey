@@ -114,6 +114,7 @@ import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.collectPagesAtRest
 import io.github.nodyssey.ui.common.compactCount
+import io.github.nodyssey.ui.common.labelRes
 import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.readMarkCardColor
 import io.github.nodyssey.ui.common.readMarkTitleColor
@@ -146,8 +147,11 @@ import io.github.nodyssey.ui.resources.tab_profile
 import io.github.nodyssey.ui.settings.rememberSiteSwitch
 import io.github.nodyssey.ui.settings.siteSwitchRestartsApp
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -1119,6 +1123,19 @@ private fun SearchPill(
     }
 }
 
+internal fun sortMenuActions(
+    current: FeedSort,
+    labelFor: (FeedSort) -> String,
+    onSortChange: (FeedSort) -> Unit,
+): List<GlassMenuAction> =
+    FeedSortOrder.map { order ->
+        GlassMenuAction(
+            label = labelFor(order),
+            onClick = { onSortChange(order) },
+            selected = order == current,
+        )
+    }
+
 /** 排序, as a square-cornered button beside the search pill with its menu anchored under it. */
 @Composable
 private fun SortButton(
@@ -1128,32 +1145,44 @@ private fun SortButton(
     var menuOpen by remember { mutableStateOf(false) }
     val layers = LocalPlazaLayers.current
     val shape = MaterialTheme.shapes.medium
-    Box {
-        FilledIconButton(
-            onClick = { menuOpen = true },
-            shape = shape,
-            modifier = Modifier
-                .size(HeaderControlHeight)
-                .cardShadow(shape, layers.shadows)
-                // As the search pill beside it: on 墨水屏 the raised tone is the page's paper.
-                .cardBorder(layers, shape),
-            colors =
-            IconButtonDefaults.filledIconButtonColors(
-                containerColor = layers.raised,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-        ) {
-            Icon(
-                imageVector = PlazaIcons.SwapVert,
-                contentDescription = stringResource(Res.string.action_sort),
-                modifier = Modifier.size(HeaderIconSize),
-            )
-        }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            FeedSortOrder.forEach { order ->
-                SortMenuItem(order, sort) {
-                    onSortChange(it)
-                    menuOpen = false
+    val sortLabel = stringResource(Res.string.action_sort)
+    val sortLabels = FeedSortOrder.associateWith { stringResource(it.labelRes()) }
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = sortLabel,
+            onClick = {},
+            symbol = "arrow.up.arrow.down",
+            menu = sortMenuActions(sort, sortLabels::getValue, onSortChange),
+        ),
+        modifier = Modifier.size(HeaderControlHeight),
+    ) {
+        Box {
+            FilledIconButton(
+                onClick = { menuOpen = true },
+                shape = shape,
+                modifier = Modifier
+                    .size(HeaderControlHeight)
+                    .cardShadow(shape, layers.shadows)
+                    // As the search pill beside it: on 墨水屏 the raised tone is the page's paper.
+                    .cardBorder(layers, shape),
+                colors =
+                IconButtonDefaults.filledIconButtonColors(
+                    containerColor = layers.raised,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            ) {
+                Icon(
+                    imageVector = PlazaIcons.SwapVert,
+                    contentDescription = sortLabel,
+                    modifier = Modifier.size(HeaderIconSize),
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                FeedSortOrder.forEach { order ->
+                    SortMenuItem(order, sort) {
+                        onSortChange(it)
+                        menuOpen = false
+                    }
                 }
             }
         }
