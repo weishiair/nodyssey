@@ -21,12 +21,14 @@ import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSIndexPath
+import platform.Foundation.NSNumber
 import platform.Foundation.setValue
 import platform.UIKit.NSFontAttributeName
 import platform.UIKit.NSForegroundColorAttributeName
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.NSLineBreakByTruncatingTail
 import platform.UIKit.NSLineBreakByWordWrapping
+import platform.UIKit.UIAccessibilityTraitStaticText
 import platform.UIKit.UIAction
 import platform.UIKit.UIActivityIndicatorView
 import platform.UIKit.UIActivityIndicatorViewStyleMedium
@@ -412,6 +414,13 @@ private class NativeSettingsRow(
 
             is SettingsItem.Action -> spinner = UIActivityIndicatorView(activityIndicatorStyle = UIActivityIndicatorViewStyleMedium)
 
+            is SettingsItem.Info -> {
+                cell.selectionStyle = UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone
+                // Read as text rather than as a button. Through key-value coding for the same reason as the
+                // identifier below: the binding declares the property on the protocol, not on the cell.
+                cell.setValue(NSNumber(unsignedLongLong = UIAccessibilityTraitStaticText), forKey = "accessibilityTraits")
+            }
+
             is SettingsItem.Custom -> error("a custom row reaches the system list as its native item")
         }
         // Through key-value coding: UIView conforms to UIAccessibilityIdentification at runtime, but the
@@ -563,6 +572,11 @@ private class NativeSettingsRow(
                 cell.selectionStyle =
                     if (item.loading) UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone else UITableViewCellSelectionStyle.UITableViewCellSelectionStyleDefault
                 return listContent(item.title, item.description, item.value, item.enabled, palette, destructive = item.destructive)
+            }
+
+            is SettingsItem.Info -> {
+                cell.accessoryView = null
+                return listContent(item.title, item.description, item.value, item.enabled, palette)
             }
 
             is SettingsItem.Custom -> error("a custom row reaches the system list as its native item")

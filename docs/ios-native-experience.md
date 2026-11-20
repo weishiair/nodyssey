@@ -156,6 +156,7 @@ SettingsItem.Slider(key, title, value, range, steps, onValueChange(Float), onVal
                     valueLabel?, sample?, description?)
 SettingsItem.Link(key, title, onClick, description?, value?, badge = false, external = false)
 SettingsItem.Action(key, title, onClick, description?, value?, destructive = false, loading = false)
+SettingsItem.Info(key, title, value?, description?)                  // 只读：不可点、无箭头（签到状态）
 SettingsItem.Custom(native: SettingsItem, compose: @Composable (SettingsRowPosition) -> Unit)
 
 // 页面入口（:ui 内部）
@@ -174,6 +175,7 @@ SettingsPageLayout.Standard | Account | Licenses       // 只影响 Compose 的�
 - `Choice(Segmented)`：只给 2～4 个短答案用。iOS 在辅助功能字号或超过 4 项时自动退回菜单。
 - `Choice(Menu)` 在 iOS 的辅助功能字号下，答案按钮移到标题下一行（和系统设置一致）。
 - `Action.loading = true` 时两端都显示转圈，并且不再响应点击；`destructive` 两端都画成红色。
+- `Info`：只展示当前状态，没有点击。Android 是不带点击的 `GroupedRow`；iOS 值在右侧，过长时系统自动移到标题下。
 - `Link.external = true`：外链图标、无箭头；`Link.badge = true`：更新红点。
 - `Custom`：只给 Compose 端现有组件无法复刻的行用（如设置首页的搜索头像预览卡）。`native` 是同一个设置的普通行，
   拿着同样的状态和回调，iOS 画它。每个 `Custom` 都是"一行两份画法"，能不用就不用，用了要在 PR 里说明。
@@ -768,6 +770,7 @@ sys.exit(1 if failed else 0)
 | `GroupedRow(onClick, showChevron = false)`（原地操作）；带 `PlazaSpinner` 的 | `SettingsItem.Action`（`loading`） |
 | 红色的退出登录行 | `SettingsItem.Action(destructive = true)` |
 | `GroupedRow(showChevron = false, trailing = OpenInNew)` 外链行 | `SettingsItem.Link(external = true)` |
+| `GroupedRow(showChevron = false)` 且没有 `onClick`（只展示状态） | `SettingsItem.Info` |
 | 行尾 `UpdateDot` | `SettingsItem.Link(badge = true)` |
 | 页顶 `bodyMedium` 说明文字 | `SettingsPage(intro = …)` |
 | `ReadMarkColorRow` 这类带色块的单选 | `SettingsOption(swatch = …)` |
