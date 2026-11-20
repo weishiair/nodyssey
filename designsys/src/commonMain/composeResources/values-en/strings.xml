@@ -69,4 +69,6 @@
     <string name="richtext_stardust_ref_id">Ref ID %1$d</string>
     <string name="richtext_stardust_onetime">One-time</string>
     <string name="richtext_quote_source">%1$s · #%2$s</string>
+    <string name="top_bar_back">Back</string>
+    <string name="top_bar_close">Close</string>
 </resources>

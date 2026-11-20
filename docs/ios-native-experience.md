@@ -214,9 +214,83 @@ SettingsPageLayout.Standard | Account | Licenses       // 只影响 Compose 的�
 满足任一条就保留 Compose：页面有两处以上无法用描述表达的自定义块（预览卡、色板网格、报告图表等）；
 主体是可编辑列表或富文本；交互不是"设置项"而是"内容"。拿不准时问 Devin。
 
-### 4.5 统一顶栏 `AdaptiveTopBar`（D7 合入后补写）
+### 4.5 统一顶栏 `AdaptiveTopBar`（D7）
 
-D7 合入时在这里写明 API、迁移示例和 Material 图标 → SF Symbol 对照表。C5 开工前必须读。
+文件：`designsys/src/commonMain/kotlin/io/github/plaza/designsys/component/AdaptiveTopBar.kt`。纯 common 代码，没有平台分叉。
+
+```kotlin
+AdaptiveTopBar(
+    title: String,
+    state: OneHandAppBarState,          // 照旧 rememberOneHandAppBarState()，Scaffold 的 nestedScroll 不变
+    onBack: (() -> Unit)?,              // null = 没有返回按钮
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    closeInsteadOfBack: Boolean = false, // 模态页用叉号（Android Close / iOS xmark）
+    actions: List<TopBarAction> = emptyList(),
+)
+
+data class TopBarAction(
+    val glass: GlassAction,                       // iOS：文案、SF Symbol、enabled、menu
+    val icon: ImageVector? = null,                // Android：生成 IconButton(onClick = glass.onClick, enabled = glass.enabled)
+    val compose: (@Composable () -> Unit)? = null, // Android：整段原样使用，代替生成的按钮
+)
+```
+
+**各平台画什么**
+
+| 情况 | 画法 |
+|---|---|
+| Android / 桌面 | 原来的 `OneHandTopAppBar`：`ArrowBack`（或 `Close`）`IconButton` + 标题 / 副标题 + 每个动作一个 `IconButton` 或 `compose`。迁移后渲染逐像素不变 |
+| iOS，系统控件可用 | 系统 `UINavigationBar`：返回 `chevron.backward`，按钮为 SF Symbol，菜单为 `UIMenu`，副标题用系统的 `UINavigationItem.subtitle` |
+| iOS，单手模式开 | 仍是 Compose 的 `OneHandTopAppBar`（单手模式的意义就在顶部留白） |
+
+返回按钮的文案（返回 / 关闭）由组件自带，页面不用传。
+
+**什么时候用 `icon`，什么时候用 `compose`**
+
+- 按钮在 Android 上就是一个 `IconButton(onClick) { Icon(图标, 文案) }`：只填 `icon`，删掉原来的按钮代码。
+- 按钮在 Android 上带自己的下拉菜单、角标或其他内容：填 `compose`，把原来那段整个放进去，**一行不改**；
+  iOS 的菜单另写在 `glass.menu` 里。两边的菜单项必须一一对应，所以 `glass` 的构造要抽成函数并写测试（见示范页）。
+
+**菜单项 `GlassMenuAction`**
+
+| 字段 | 用途 |
+|---|---|
+| `label` / `onClick` / `symbol` | 文案、动作、SF Symbol |
+| `subtitle` | 菜单项下的小字（例如当前取值） |
+| `selected` | 打勾 |
+| `enabled` | 灰掉 |
+| `destructive` | 系统红色，用于删除、清空这类操作（对应 Android 里用 `error` 色的菜单项） |
+
+Android 菜单在列表上方或下方有一行说明文字的，把它放进 `GlassAction.menuTitle`，iOS 显示在菜单顶部（例：首页切换站点菜单的"两个站点分开登录……"）。
+
+**示范页**：`ui/.../history/ReadHistoryScreen.kt`。
+
+- 标题 + 副标题 + 返回；
+- 溢出菜单用 `compose` 保留 Android 原来的 `HistoryMenu`，iOS 菜单由 `historyMenuAction()` 构造；
+- 测试 `ReadHistoryScreenTest.the native overflow runs each entry's own action and offers clearing only with history`。
+
+**Material 图标 → SF Symbol 常用对照**
+
+| Material | SF Symbol | Material | SF Symbol |
+|---|---|---|---|
+| `ArrowBack` | `chevron.backward`（组件自带） | `Close` | `xmark`（组件自带） |
+| `MoreVert` / `MoreHoriz` | `ellipsis` | `Refresh` | `arrow.clockwise` |
+| `OpenInNew` / 在浏览器打开 | `safari` | `Share` | `square.and.arrow.up` |
+| `Search` | `magnifyingglass` | `Settings` | `gearshape` |
+| `Add` | `plus` | `Delete` | `trash` |
+| `Edit` | `pencil` | `Check` / `Done` | `checkmark` |
+| `DoneAll`（全部已读） | `checkmark.circle` | `Sort` / `SwapVert` | `arrow.up.arrow.down` |
+| `FilterList` | `line.3.horizontal.decrease` | `History` | `clock.arrow.circlepath` |
+| `Bookmark` | `bookmark` | `Notifications` | `bell` |
+| `ContentCopy` | `doc.on.doc` | `Link` | `link` |
+| `Person` | `person` | `Mail` | `envelope` |
+| `Info` | `info.circle` | `Help` | `questionmark.circle` |
+
+对照表里没有的，挑 SF Symbols 里意思最接近的，并在 PR 描述里列出，由 Devin 在 Mac 上核对。
+
+**不适用**：标题区有纯文字以外内容的（头像、标签页、搜索框），顶栏有滚动折叠以外特殊行为的（编辑模式切换等）。
+这类页面保持现状，记入跳过清单。
 
 ---
 

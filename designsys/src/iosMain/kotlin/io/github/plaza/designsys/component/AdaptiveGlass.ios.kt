@@ -54,6 +54,7 @@ import platform.UIKit.UILayoutConstraintAxisVertical
 import platform.UIKit.UILayoutPriorityDefaultLow
 import platform.UIKit.UILayoutPriorityRequired
 import platform.UIKit.UIMenu
+import platform.UIKit.UIMenuElementAttributesDestructive
 import platform.UIKit.UIMenuElementAttributesDisabled
 import platform.UIKit.UIMenuElementState
 import platform.UIKit.UINavigationBarAppearance
@@ -138,6 +139,7 @@ actual fun AdaptiveGlassTopBar(
     back: GlassAction?,
     actions: List<GlassAction>,
     modifier: Modifier,
+    subtitle: String?,
     fallback: @Composable () -> Unit,
 ) {
     if (!LocalPlazaLayers.current.nativeGlass) {
@@ -172,6 +174,8 @@ actual fun AdaptiveGlassTopBar(
                     UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(17.0 * scale)),
             )
             val item = UINavigationItem(title = title)
+            // UIKit's own iOS 26 subtitle; this bar only runs where native glass does, which is 26+.
+            item.subtitle = subtitle
             item.leftBarButtonItem = back?.barItem { currentBack }
             val anchor = WeakReference<UIView>(bar)
             item.rightBarButtonItems = actions.asReversed().map { action ->
@@ -438,8 +442,9 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         }
         val currentState = state
         view.menu = action.menu.takeIf { it.isNotEmpty() }?.let { menu ->
-            UIMenu.menuWithChildren(
-                listOf(NativeMenuShield.element(anchor::get)) + menu.map { item ->
+            UIMenu.menuWithTitle(
+                title = action.menuTitle.orEmpty(),
+                children = listOf(NativeMenuShield.element(anchor::get)) + menu.map { item ->
                     item.uiAction {
                         // The menu may still be open when an async operation disables or changes an item.
                         currentState.action.takeIf { it.enabled && !it.loading }
@@ -570,8 +575,9 @@ private fun GlassAction.barItem(
     current: () -> GlassAction?,
 ): UIBarButtonItem {
     val nativeMenu = menu.takeIf { it.isNotEmpty() }?.let { items ->
-        UIMenu.menuWithChildren(
-            listOfNotNull(anchor?.let { NativeMenuShield.element(it::get) }) + items.map { item ->
+        UIMenu.menuWithTitle(
+            title = menuTitle.orEmpty(),
+            children = listOfNotNull(anchor?.let { NativeMenuShield.element(it::get) }) + items.map { item ->
                 item.uiAction { current()?.menu?.firstOrNull { it.label == item.label && it.enabled }?.onClick?.invoke() }
             },
         )
@@ -592,7 +598,8 @@ private fun GlassMenuAction.uiAction(onSelect: () -> Unit): UIAction =
         onSelect()
     }.apply {
         this@uiAction.subtitle?.let { subtitle = it }
-        if (!enabled) attributes = UIMenuElementAttributesDisabled
+        attributes = (if (enabled) 0uL else UIMenuElementAttributesDisabled) or
+            (if (destructive) UIMenuElementAttributesDestructive else 0uL)
         state = if (selected) UIMenuElementState.UIMenuElementStateOn else UIMenuElementState.UIMenuElementStateOff
     }
 

@@ -9,8 +9,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import io.github.nodyssey.data.ReadHistoryEntry
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -142,5 +145,34 @@ class ReadHistoryScreenTest {
 
         assertEquals(1, removals)
         composeRule.onNodeWithText("绿云抢鸡竞赛").assertIsDisplayed()
+    }
+
+    /**
+     * iOS draws the overflow from its native description, which no Android path runs: a swapped
+     * callback, or 全部清除 offered on an empty history, would ship without a screen showing it.
+     */
+    @Test
+    fun `the native overflow runs each entry's own action and offers clearing only with history`() {
+        var picked = 0
+        var cleared = 0
+        lateinit var withHistory: TopBarAction
+        lateinit var empty: TopBarAction
+        composeRule.setContent {
+            withHistory = historyMenuAction(limit = 500, canClear = true, onPickLimit = { picked++ }, onClearAll = { cleared++ })
+            empty = historyMenuAction(limit = 500, canClear = false, onPickLimit = { picked++ }, onClearAll = { cleared++ })
+        }
+        composeRule.waitForIdle()
+
+        val (limit, clear) = withHistory.glass.menu
+        limit.onClick()
+        assertEquals(1 to 0, picked to cleared)
+        clear.onClick()
+        assertEquals(1 to 1, picked to cleared)
+        assertTrue(clear.destructive)
+        assertFalse(limit.destructive)
+
+        val only = empty.glass.menu.single()
+        only.onClick()
+        assertEquals(2 to 1, picked to cleared)
     }
 }
