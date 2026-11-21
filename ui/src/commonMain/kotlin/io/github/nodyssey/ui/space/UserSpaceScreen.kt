@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
@@ -37,8 +36,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -91,7 +88,6 @@ import io.github.nodyssey.ui.common.sharedThreadTitle
 import io.github.nodyssey.ui.common.spaceOrigin
 import io.github.nodyssey.ui.postlist.toSiteError
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_more
 import io.github.nodyssey.ui.resources.action_open_in_browser
 import io.github.nodyssey.ui.resources.action_retry
@@ -131,6 +127,8 @@ import io.github.nodyssey.ui.resources.user_note_action
 import io.github.nodyssey.ui.richtext.PostRichContent
 import io.github.plaza.core.richtext.collapseMarkdown
 import io.github.plaza.core.richtext.parseMarkdown
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -140,9 +138,9 @@ import io.github.plaza.designsys.component.PillTabRow
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
-import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -228,6 +226,7 @@ fun UserSpaceScreen(
     onLinkClick: (String) -> Unit = onOpenBrowser,
 ) {
     val spaceUrl = NodeSeekSite.BASE_URL + NodeSeekSite.spacePath(state.uid)
+    val notes = LocalUserNotes.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     FollowFailureEffect(
@@ -243,48 +242,20 @@ fun UserSpaceScreen(
         modifier = modifier,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            ReadableTopBar { barInsets ->
-                TopAppBar(
-                    windowInsets = barInsets,
-                    title = {},
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.action_back),
-                            )
-                        }
-                    },
-                    actions = {
-                        if (state.isSelf) {
-                            IconButton(onClick = onEditProfile) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = stringResource(Res.string.profile_edit),
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        } else if (state.hasProfile) {
-                            // 备注 up here rather than as a third button on the card: beside 关注 and
-                            // 私信 it squeezed all three into wrapping their labels a character a line.
-                            val notes = LocalUserNotes.current
-                            IconButton(onClick = { notes.edit(state.uid, state.name) }) {
-                                Icon(
-                                    PlazaIcons.Badge,
-                                    contentDescription = stringResource(Res.string.user_note_action),
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
-                        SpaceOverflowMenu(onOpenBrowser = { onOpenBrowser(spaceUrl) })
-                    },
-                    colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        scrolledContainerColor = MaterialTheme.colorScheme.background,
-                    ),
-                )
-            }
+            AdaptiveTopBar(
+                title = "",
+                onBack = onBack,
+                containerColor = MaterialTheme.colorScheme.background,
+                maxContentWidth = Sizes.readableContentWidth,
+                actions = spaceTopBarActions(
+                    isSelf = state.isSelf,
+                    hasProfile = state.hasProfile,
+                    spaceUrl = spaceUrl,
+                    onEditProfile = onEditProfile,
+                    onEditNote = { notes.edit(state.uid, state.name) },
+                    onOpenBrowser = onOpenBrowser,
+                ),
+            )
         },
     ) { padding ->
         if (state.isLoadingProfile && !state.hasProfile) {
@@ -373,6 +344,68 @@ fun UserSpaceScreen(
             }
         }
     }
+}
+
+@Composable
+internal fun spaceTopBarActions(
+    isSelf: Boolean,
+    hasProfile: Boolean,
+    spaceUrl: String,
+    onEditProfile: () -> Unit,
+    onEditNote: () -> Unit,
+    onOpenBrowser: (String) -> Unit,
+): List<TopBarAction> = buildList {
+    if (isSelf) {
+        add(
+            TopBarAction(
+                glass = GlassAction(
+                    label = stringResource(Res.string.profile_edit),
+                    onClick = onEditProfile,
+                    symbol = "pencil",
+                ),
+                compose = {
+                    IconButton(onClick = onEditProfile) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = stringResource(Res.string.profile_edit),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                },
+            ),
+        )
+    } else if (hasProfile) {
+        add(
+            TopBarAction(
+                glass = GlassAction(
+                    label = stringResource(Res.string.user_note_action),
+                    onClick = onEditNote,
+                    symbol = "person.text.rectangle",
+                ),
+                compose = {
+                    // 备注 up here rather than as a third button on the card: beside 关注 and
+                    // 私信 it squeezed all three into wrapping their labels a character a line.
+                    IconButton(onClick = onEditNote) {
+                        Icon(
+                            PlazaIcons.Badge,
+                            contentDescription = stringResource(Res.string.user_note_action),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                },
+            ),
+        )
+    }
+    add(
+        TopBarAction(
+            glass = GlassAction(
+                label = stringResource(Res.string.action_open_in_browser),
+                onClick = { onOpenBrowser(spaceUrl) },
+                symbol = "safari",
+            ),
+            compose = { SpaceOverflowMenu(onOpenBrowser = { onOpenBrowser(spaceUrl) }) },
+        ),
+    )
 }
 
 @Composable

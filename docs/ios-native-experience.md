@@ -229,6 +229,17 @@ AdaptiveTopBar(
     actions: List<TopBarAction> = emptyList(),
 )
 
+// 页面原来没有单手留白（TopAppBar 或 ReadableTopBar { TopAppBar }）时用不带 state 的重载：
+AdaptiveTopBar(
+    title: String,                       // "" = 无标题，Android 的标题槽留空
+    onBack: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    closeInsteadOfBack: Boolean = false,
+    actions: List<TopBarAction> = emptyList(),
+    containerColor: Color? = null,       // 照抄原 colors 的 containerColor；null = Material 默认
+    maxContentWidth: Dp? = null,         // 原来包了 ReadableTopBar 的传它（默认宽度即 Sizes.readableContentWidth）
+)
+
 data class TopBarAction(
     val glass: GlassAction,                       // iOS：文案、SF Symbol、enabled、menu
     val icon: ImageVector? = null,                // Android：生成 IconButton(onClick = glass.onClick, enabled = glass.enabled)
@@ -243,8 +254,14 @@ data class TopBarAction(
 | Android / 桌面 | 原来的 `OneHandTopAppBar`：`ArrowBack`（或 `Close`）`IconButton` + 标题 / 副标题 + 每个动作一个 `IconButton` 或 `compose`。迁移后渲染逐像素不变 |
 | iOS，系统控件可用 | 系统 `UINavigationBar`：返回 `chevron.backward`，按钮为 SF Symbol，菜单为 `UIMenu`，副标题用系统的 `UINavigationItem.subtitle` |
 | iOS，单手模式开 | 仍是 Compose 的 `OneHandTopAppBar`（单手模式的意义就在顶部留白） |
+| Android，原来是普通 `TopAppBar` | 不带 `state` 的重载：画原来的 `TopAppBar` / `ReadableTopBar`，逐像素不变；iOS 一律系统导航栏（不受单手模式影响） |
 
 返回按钮的文案（返回 / 关闭）由组件自带，页面不用传。
+
+**用哪个重载**：原来是 `OneHandTopAppBar`（带单手留白）的页用带 `state` 的；原来是 `TopAppBar` 或
+`ReadableTopBar { TopAppBar }` 的页用不带 `state` 的——`containerColor` 照抄原 `colors` 的 `containerColor`，
+原来包了 `ReadableTopBar` 的传 `maxContentWidth`（默认宽度即 `Sizes.readableContentWidth`）；
+图标改过尺寸的（如 `Modifier.size(20.dp)`）用 `compose` 原样保留。
 
 **什么时候用 `icon`，什么时候用 `compose`**
 
@@ -286,11 +303,13 @@ Android 菜单在列表上方或下方有一行说明文字的，把它放进 `G
 | `ContentCopy` | `doc.on.doc` | `Link` | `link` |
 | `Person` | `person` | `Mail` | `envelope` |
 | `Info` | `info.circle` | `Help` | `questionmark.circle` |
+| `PlazaIcons.Badge`（备注） | `person.text.rectangle` | | |
 
 对照表里没有的，挑 SF Symbols 里意思最接近的，并在 PR 描述里列出，由 Devin 在 Mac 上核对。
 
-**不适用**：标题区有纯文字以外内容的（头像、标签页、搜索框），顶栏有滚动折叠以外特殊行为的（编辑模式切换等）。
-这类页面保持现状，记入跳过清单。
+**不适用**：标题区有纯文字以外内容的（头像、标签页、搜索框），顶栏有编辑模式切换、单手留白以外的
+滚动折叠等特殊行为的。这类页面保持现状，记入跳过清单。
+（单一 `containerColor` 的普通 `TopAppBar` 页面不在此列——用不带 `state` 的重载。）
 
 ---
 
@@ -527,7 +546,9 @@ AdaptiveGlassButton(
 1. 改前存该页渲染基线；没有渲染测试的先补，单独提交（做法见 C1 第 1 段）。
 2. 把 `TopAppBar` 换成 `AdaptiveTopBar`：原 `IconButton` 的图标、文案、点击搬进按钮描述，溢出 `DropdownMenu` 的各项搬进菜单项。一个页面一个提交。
 3. 逐像素对比。不一致且原因在 `AdaptiveTopBar` 的 Compose 实现时，按 §7.6 停下报告，不要在页面里补偿。
-4. 标题区有纯文字以外的内容，或顶栏有 D7 没覆盖的行为（滚动折叠、编辑模式切换等）：跳过，记入跳过清单。
+4. 标题区有纯文字以外的内容，或顶栏有编辑模式切换、单手留白以外的滚动折叠等没覆盖的行为：跳过，记入跳过清单。
+   单一 `containerColor` 的普通 `TopAppBar` 页面不算——用不带 `state` 的重载（§4.5「用哪个重载」）；
+   用户空间 `space/UserSpaceScreen.kt` 已按此重载迁移，是本重载的示范页。
 
 #### 不许做
 
