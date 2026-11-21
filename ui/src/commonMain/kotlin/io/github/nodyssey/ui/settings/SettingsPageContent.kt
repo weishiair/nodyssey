@@ -39,6 +39,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,6 +71,7 @@ import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.settings.AdaptiveSettingsPage
 import io.github.plaza.designsys.settings.SettingsChoicePresentation
 import io.github.plaza.designsys.settings.SettingsItem
+import io.github.plaza.designsys.settings.SettingsKeyboard
 import io.github.plaza.designsys.settings.SettingsPage
 import io.github.plaza.designsys.settings.SettingsRowPosition
 import io.github.plaza.designsys.settings.SettingsSection
@@ -294,6 +298,27 @@ private fun ItemRow(
             )
 
         is SettingsItem.Choice -> ChoiceItemRow(item, first, last, layout, onOpenChoice)
+
+        is SettingsItem.Text ->
+            SettingsBlock(title = item.title, top = first, enabled = item.enabled) {
+                SettingsTextField(
+                    value = item.value,
+                    onValueChange = item.onValueChange,
+                    label = item.title,
+                    placeholder = item.placeholder,
+                    enabled = item.enabled,
+                    isError = item.errorMessage != null,
+                    supportingText = item.errorMessage,
+                    keyboardType =
+                    when (item.keyboard) {
+                        SettingsKeyboard.Uri -> KeyboardType.Uri
+                        SettingsKeyboard.Number -> KeyboardType.Number
+                        SettingsKeyboard.Text -> KeyboardType.Text
+                    },
+                    visualTransformation = if (item.secure) PasswordVisualTransformation() else VisualTransformation.None,
+                    modifier = Modifier.tagged(item.testTag),
+                )
+            }
 
         is SettingsItem.Slider ->
             // A block, not a row: the slider needs the line to itself. Never the group's last card —
