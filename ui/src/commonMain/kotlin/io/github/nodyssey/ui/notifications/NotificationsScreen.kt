@@ -117,6 +117,7 @@ import io.github.plaza.designsys.component.UnderlineTabRow
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.groupedListItemColors
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -419,9 +420,13 @@ fun NotificationsScreen(
                         // `isEmpty` keeps the first load out of the indicator: that one already draws
                         // [LoadingState] in the middle of the screen, and a spinner above a spinner
                         // reads as two different loads.
+                        val pressHaptics = rememberPlatformHaptics()
                         PullToRefreshBox(
                             isRefreshing = state.isLoading && !state.isEmptyOf(tab),
-                            onRefresh = onRetry,
+                            onRefresh = {
+                                pressHaptics.refreshTriggered()
+                                onRetry()
+                            },
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             // Inside the refresh box rather than on the `Scaffold`, which is the

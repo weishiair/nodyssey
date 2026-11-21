@@ -101,6 +101,7 @@ import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
@@ -228,9 +229,13 @@ fun MailInboxScreen(
         },
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
     ) { padding ->
+        val pressHaptics = rememberPlatformHaptics()
         PullToRefreshBox(
             isRefreshing = state.loading,
-            onRefresh = onRefresh,
+            onRefresh = {
+                pressHaptics.refreshTriggered()
+                onRefresh()
+            },
             enabled = state.connected && !state.loadingMore,
             modifier = Modifier.padding(padding).fillMaxSize().readableWidth(),
         ) {

@@ -163,6 +163,7 @@ import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SkeletonBar
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -824,9 +825,13 @@ private fun BoardFeed(
                 size = CardAvatarSize,
                 urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
             )
+            val pressHaptics = rememberPlatformHaptics()
             PullToRefreshBox(
                 isRefreshing = refreshState is LoadState.Loading,
-                onRefresh = posts::refresh,
+                onRefresh = {
+                    pressHaptics.refreshTriggered()
+                    posts.refresh()
+                },
             ) {
                 LazyColumn(
                     // No bounce: a list under pull-to-refresh has the indicator for that. On

@@ -154,6 +154,7 @@ import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.UnderlineTabRow
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -829,9 +830,13 @@ private fun PostResults(
             urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
         )
     }
+    val pressHaptics = rememberPlatformHaptics()
     PullToRefreshBox(
         isRefreshing = posts.loadState.refresh is LoadState.Loading,
-        onRefresh = posts::refresh,
+        onRefresh = {
+            pressHaptics.refreshTriggered()
+            posts.refresh()
+        },
     ) {
         LazyColumn(
             state = listState,

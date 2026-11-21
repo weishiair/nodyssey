@@ -110,6 +110,7 @@ import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.StatusView
 import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Sizes
@@ -349,9 +350,13 @@ fun BookmarksScreen(
                         }
                     }
                 }
+                val pressHaptics = rememberPlatformHaptics()
                 PullToRefreshBox(
                     isRefreshing = state.isSyncing && state.entries.isNotEmpty(),
-                    onRefresh = onRetry,
+                    onRefresh = {
+                        pressHaptics.refreshTriggered()
+                        onRetry()
+                    },
                     enabled = !state.inSelection && !state.isSyncing,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 ) {
