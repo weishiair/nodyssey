@@ -33,9 +33,13 @@ class TrackedThreadsScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean) {
-        val viewModel = remember { TrackedThreadsViewModel(TrackedThreadStore(FakeTrackedThreadDao, AppClock.System)) }
-        PlazaTheme(darkTheme = darkTheme) {
+    private fun Screen(
+        darkTheme: Boolean,
+        rows: List<TrackedThreadEntity> = SAMPLE_ROWS,
+        oneHandMode: Boolean = true,
+    ) {
+        val viewModel = remember(rows) { TrackedThreadsViewModel(TrackedThreadStore(FakeTrackedThreadDao(rows), AppClock.System)) }
+        PlazaTheme(darkTheme = darkTheme, oneHandMode = oneHandMode) {
             TrackedThreadsRoute(
                 viewModel = viewModel,
                 onBack = {},
@@ -60,29 +64,36 @@ class TrackedThreadsScreenRenderTest {
         composeRule.onRoot().captureRender("tracked-threads-dark")
     }
 
-    private object FakeTrackedThreadDao : TrackedThreadDao {
-        private val rows =
-            listOf(
-                TrackedThreadEntity(
-                    postId = 1001L,
-                    title = "香港线路晚上丢包排查记录",
-                    lastKnownCount = 24,
-                    addedAtMillis = 1_760_000_000_000L,
-                    authorName = "轻舟",
-                    categoryTitle = "技术",
-                    categorySlug = "tech",
-                ),
-                TrackedThreadEntity(
-                    postId = 1002L,
-                    title = "四盘位 NAS 静音风扇选型对比",
-                    lastKnownCount = 12,
-                    addedAtMillis = 1_759_900_000_000L,
-                    authorName = "homelab_er",
-                    categoryTitle = "日常",
-                    categorySlug = "daily",
-                ),
+    @Test
+    fun `empty tracked threads with compact bar in light`() {
+        composeRule.setContent {
+            Screen(
+                darkTheme = false,
+                rows = emptyList(),
+                oneHandMode = false,
             )
+        }
+        composeRule.waitForIdle()
 
+        composeRule.onRoot().captureRender("tracked-threads-empty-light")
+    }
+
+    @Test
+    fun `empty tracked threads in dark`() {
+        composeRule.setContent {
+            Screen(
+                darkTheme = true,
+                rows = emptyList(),
+            )
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onRoot().captureRender("tracked-threads-empty-dark")
+    }
+
+    private class FakeTrackedThreadDao(
+        private val rows: List<TrackedThreadEntity>,
+    ) : TrackedThreadDao {
         override fun observeAll(): Flow<List<TrackedThreadEntity>> = flowOf(rows)
 
         override suspend fun all(): List<TrackedThreadEntity> = rows
@@ -106,5 +117,29 @@ class TrackedThreadsScreenRenderTest {
             postId: Long,
             count: Int,
         ) = Unit
+    }
+
+    private companion object {
+        val SAMPLE_ROWS =
+            listOf(
+                TrackedThreadEntity(
+                    postId = 1001L,
+                    title = "香港线路晚上丢包排查记录",
+                    lastKnownCount = 24,
+                    addedAtMillis = 1_760_000_000_000L,
+                    authorName = "轻舟",
+                    categoryTitle = "技术",
+                    categorySlug = "tech",
+                ),
+                TrackedThreadEntity(
+                    postId = 1002L,
+                    title = "四盘位 NAS 静音风扇选型对比",
+                    lastKnownCount = 12,
+                    addedAtMillis = 1_759_900_000_000L,
+                    authorName = "homelab_er",
+                    categoryTitle = "日常",
+                    categorySlug = "daily",
+                ),
+            )
     }
 }
