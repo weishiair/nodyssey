@@ -321,6 +321,7 @@ private fun ReplyEditorSheet(
         }
     val dismiss = { if (!state.isPublishing) onDismiss() }
     val nativeGlass = LocalPlazaLayers.current.nativeGlass
+    val fillNativeSheet = nativeGlass && !asCard
     val editor: @Composable (Modifier) -> Unit = { editorModifier ->
         Column(modifier = editorModifier.fillMaxWidth()) {
             // The post editor's top bar in miniature: ✕ · where the reply goes · 预览 · 发布. 发布
@@ -407,7 +408,13 @@ private fun ReplyEditorSheet(
                 inlinePictures = stickerPictures,
                 modifier = Modifier
                     .readableWidth()
-                    .heightIn(min = MIN_EDITOR_HEIGHT, max = MAX_EDITOR_HEIGHT)
+                    .then(
+                        if (fillNativeSheet) {
+                            Modifier.weight(1f)
+                        } else {
+                            Modifier.heightIn(min = MIN_EDITOR_HEIGHT, max = MAX_EDITOR_HEIGHT)
+                        },
+                    )
                     .focusRequester(bodyFocus)
                     .onFocusChanged { if (it.isFocused) editorState.closePanels() }
                     .padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.sm),
@@ -509,7 +516,9 @@ private fun ReplyEditorSheet(
         ) {
             // Material clips the whole sheet, including its handle, to one outer shape. Painting
             // another full-width background below the handle creates a second, square-edged panel.
-            editor(Modifier.imePadding())
+            // UIKit's detent fixes the sheet height. Let the body take the remaining space so
+            // the formatting strip stays against the keyboard instead of above unused sheet space.
+            editor(if (fillNativeSheet) Modifier.fillMaxSize().imePadding() else Modifier.imePadding())
         }
     }
 }
