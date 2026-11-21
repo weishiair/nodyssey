@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,6 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.Spacing
 
 /**
@@ -127,7 +127,7 @@ fun GroupedRow(
     first: Boolean = false,
     last: Boolean = false,
     icon: ImageVector? = null,
-    leading: (@Composable () -> Unit)? = icon?.let { { Icon(it, contentDescription = null) } },
+    leading: (@Composable () -> Unit)? = icon?.let { { PlazaIcon(it, contentDescription = null) } },
     subtitle: String? = null,
     /** For a subtitle that is an address or a value to be read character by character — a URL. */
     subtitleMonospace: Boolean = false,
@@ -202,7 +202,7 @@ fun GroupedRowTrailing(
         }
         trailing?.invoke()
         if (showChevron) {
-            Icon(
+            PlazaIcon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),

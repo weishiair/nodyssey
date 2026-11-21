@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,6 +13,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.ControlShape
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -73,7 +73,7 @@ fun PlazaExtendedFab(
                     style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
                 )
             },
-            icon = { Icon(icon, contentDescription = null) },
+            icon = { PlazaIcon(icon, contentDescription = null) },
             onClick = onClick,
             expanded = expanded,
             shape = ControlShape,

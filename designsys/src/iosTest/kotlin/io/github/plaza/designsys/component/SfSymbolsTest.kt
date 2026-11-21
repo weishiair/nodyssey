@@ -52,7 +52,10 @@ class SfSymbolsTest {
         for (y in 0 until pixels.size / (w * 4)) {
             for (x in 0 until w) {
                 if (pixels[(y * w + x) * 4 + 3].toInt() and 0xff != 0) {
-                    l = minOf(l, x); r = maxOf(r, x); t = minOf(t, y); b = maxOf(b, y)
+                    l = minOf(l, x)
+                    r = maxOf(r, x)
+                    t = minOf(t, y)
+                    b = maxOf(b, y)
                 }
             }
         }

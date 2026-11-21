@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -12,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.richtext_image_load_failed
 import io.github.plaza.designsys.resources.richtext_image_skipped_title
@@ -50,7 +50,7 @@ fun ImageFallback(
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
+        PlazaIcon(
             imageVector = if (deferred) PlazaIcons.Image else PlazaIcons.BrokenImage,
             contentDescription = description,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

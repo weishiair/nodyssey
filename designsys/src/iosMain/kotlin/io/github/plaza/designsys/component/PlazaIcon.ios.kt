@@ -144,10 +144,10 @@ internal fun symbolPixels(name: String, w: Int, h: Int): ByteArray? {
 private fun rasterizeSymbol(name: String, w: Int, h: Int): ImageBitmap? =
     symbolPixels(name, w, h)?.let {
         Image.makeRaster(
-                ImageInfo(w, h, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
-                it,
-                w * 4,
-            )
+            ImageInfo(w, h, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
+            it,
+            w * 4,
+        )
             .toComposeImageBitmap()
     }
 

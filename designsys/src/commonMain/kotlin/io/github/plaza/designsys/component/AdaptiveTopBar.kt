@@ -9,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -20,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.top_bar_back
 import io.github.plaza.designsys.resources.top_bar_close
@@ -166,7 +166,7 @@ fun AdaptiveTopBar(
 @Composable
 private fun TopBarBackButton(onBack: () -> Unit, closeInsteadOfBack: Boolean, label: String) {
     IconButton(onClick = onBack) {
-        Icon(
+        PlazaIcon(
             if (closeInsteadOfBack) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
             contentDescription = label,
         )
@@ -181,7 +181,7 @@ private fun TopBarActions(actions: List<TopBarAction>) {
             custom()
         } else {
             IconButton(onClick = action.glass.onClick, enabled = action.glass.enabled) {
-                Icon(
+                PlazaIcon(
                     checkNotNull(action.icon) { "${action.glass.label} needs an icon or a compose form" },
                     action.glass.label,
                 )
