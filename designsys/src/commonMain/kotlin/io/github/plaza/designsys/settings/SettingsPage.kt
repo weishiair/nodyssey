@@ -79,6 +79,13 @@ class SettingsSample(
     val fontSizeSp: Float,
 )
 
+/** The system keyboard a [SettingsItem.Text] field opens. */
+enum class SettingsKeyboard {
+    Text,
+    Uri,
+    Number,
+}
+
 @Immutable
 sealed interface SettingsItem {
     /** Unique within its page; see [SettingsSection.key]. */
@@ -99,6 +106,24 @@ sealed interface SettingsItem {
         val checked: Boolean,
         val onCheckedChange: (Boolean) -> Unit,
         val description: String? = null,
+        override val icon: ImageVector? = null,
+        override val enabled: Boolean = true,
+        override val testTag: String? = null,
+    ) : SettingsItem
+
+    /**
+     * A single-line text entry. iOS renders it as a title label next to a real [UITextField];
+     * [keyboard] picks the system keyboard layout, [errorMessage] renders as an error row below.
+     */
+    @Immutable
+    class Text(
+        override val key: String,
+        override val title: String,
+        val value: String,
+        val onValueChange: (String) -> Unit,
+        val placeholder: String? = null,
+        val keyboard: SettingsKeyboard = SettingsKeyboard.Text,
+        val errorMessage: String? = null,
         override val icon: ImageVector? = null,
         override val enabled: Boolean = true,
         override val testTag: String? = null,
@@ -243,6 +268,7 @@ internal fun SettingsItem.rowKind(): String =
         is SettingsItem.Choice -> if (item.presentation == SettingsChoicePresentation.Segmented) "choice-segmented" else "choice"
         is SettingsItem.Slider -> "slider"
         is SettingsItem.Link -> if (item.external) "link-external" else "link"
+        is SettingsItem.Text -> "text"
         is SettingsItem.Action -> "action"
         is SettingsItem.Info -> "info"
         is SettingsItem.Custom -> error("unreachable")

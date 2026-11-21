@@ -24,12 +24,14 @@ import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSIndexPath
 import platform.Foundation.NSNumber
+import platform.Foundation.NSRange
 import platform.Foundation.setValue
 import platform.UIKit.NSFontAttributeName
 import platform.UIKit.NSForegroundColorAttributeName
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.NSLineBreakByTruncatingTail
 import platform.UIKit.NSLineBreakByWordWrapping
+import platform.UIKit.NSTextAlignmentRight
 import platform.UIKit.UIAccessibilityTraitStaticText
 import platform.UIKit.UIAction
 import platform.UIKit.UIActivityIndicatorView
@@ -51,6 +53,9 @@ import platform.UIKit.UIFontWeightSemibold
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageRenderingMode
 import platform.UIKit.UIImageView
+import platform.UIKit.UIKeyboardTypeDecimalPad
+import platform.UIKit.UIKeyboardTypeDefault
+import platform.UIKit.UIKeyboardTypeURL
 import platform.UIKit.UILabel
 import platform.UIKit.UILayoutConstraintAxisHorizontal
 import platform.UIKit.UILayoutConstraintAxisVertical
@@ -65,6 +70,7 @@ import platform.UIKit.UINavigationBarAppearance
 import platform.UIKit.UINavigationBarDelegateProtocol
 import platform.UIKit.UINavigationItem
 import platform.UIKit.UINavigationItemBackButtonDisplayModeMinimal
+import platform.UIKit.UIReturnKeyDone
 import platform.UIKit.UIScrollView
 import platform.UIKit.UISegmentedControl
 import platform.UIKit.UISlider
@@ -80,6 +86,9 @@ import platform.UIKit.UITableViewCellStyle
 import platform.UIKit.UITableViewDataSourceProtocol
 import platform.UIKit.UITableViewDelegateProtocol
 import platform.UIKit.UITableViewStyle
+import platform.UIKit.UITextField
+import platform.UIKit.UITextFieldDelegateProtocol
+import platform.UIKit.UITextFieldViewMode
 import platform.UIKit.UIView
 import platform.UIKit.labelColor
 import platform.UIKit.row
@@ -427,11 +436,82 @@ private class NativeSettingsRow(
                 cell.setValue(NSNumber(unsignedLongLong = UIAccessibilityTraitStaticText), forKey = "accessibilityTraits")
             }
 
+            is SettingsItem.Text -> buildTextField(rowState)
+
             is SettingsItem.Custom -> error("a custom row reaches the system list as its native item")
         }
         // Through key-value coding: UIView conforms to UIAccessibilityIdentification at runtime, but the
         // Kotlin binding declares the property only on the protocol, and the cast to it does not succeed.
         item.testTag?.let { tag -> cell.setValue(tag, forKey = "accessibilityIdentifier") }
+    }
+
+    private var textField: UITextField? = null
+    private var lastPushedValue: String? = null
+
+    private inner class TextFieldDelegate :
+        NSObject(),
+        UITextFieldDelegateProtocol {
+        override fun textFieldShouldChangeCharactersInRange(
+            textField: UITextField,
+            range: CValue<NSRange>,
+            replacementString: String,
+        ): Boolean {
+            val cur = textField.text ?: ""
+            val next =
+                cur.substring(0, range.location.toInt()) +
+                    replacementString +
+                    cur.substring((range.location + range.length).toInt().coerceAtMost(cur.length))
+            (state.item as? SettingsItem.Text)?.onValueChange(next)
+            return true
+        }
+
+        override fun textFieldDidBeginEditing(textField: UITextField) {
+            focus.releaseFor(textField)
+        }
+
+        override fun textFieldDidEndEditing(textField: UITextField) {
+            focus.restore()
+        }
+
+        override fun textFieldShouldReturn(textField: UITextField): Boolean {
+            textField.resignFirstResponder()
+            return true
+        }
+    }
+
+    private fun buildTextField(rowState: NativeSettingsRowState) {
+        val item = rowState.item as SettingsItem.Text
+        val field =
+            UITextField().apply {
+                delegate = TextFieldDelegate()
+                text = item.value
+                placeholder = item.placeholder
+                keyboardType =
+                    when (item.keyboard) {
+                        SettingsKeyboard.Uri -> UIKeyboardTypeURL
+                        SettingsKeyboard.Number -> UIKeyboardTypeDecimalPad
+                        SettingsKeyboard.Text -> UIKeyboardTypeDefault
+                    }
+                returnKeyType = UIReturnKeyDone
+                clearButtonMode = UITextFieldViewMode.UITextFieldViewModeWhileEditing
+                isEnabled = item.enabled
+                textAlignment = NSTextAlignmentRight
+                font = UIFont.systemFontOfSize(17.0)
+                setContentHuggingPriority(50.0f, UILayoutConstraintAxisHorizontal)
+            }
+        lastPushedValue = item.value
+        textField = field
+        cell.contentView.addSubview(field)
+        cell.pinToMargins(field)
+        cell.selectionStyle = UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone
+    }
+
+    /** Model → field, only when the value differs and the user is not typing in it. */
+    private fun pushModelValue(item: SettingsItem.Text) {
+        if (item.value == lastPushedValue) return
+        lastPushedValue = item.value
+        val field = textField ?: return
+        if (!field.isFirstResponder()) field.text = item.value
     }
 
     private fun buildSegments(rowState: NativeSettingsRowState) {
