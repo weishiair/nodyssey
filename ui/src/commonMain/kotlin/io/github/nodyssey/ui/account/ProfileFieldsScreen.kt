@@ -192,7 +192,7 @@ fun ProfileFieldsScreen(
                     TopBarAction(
                         glass = GlassAction(label = saveLabel, onClick = save, enabled = state.canSave),
                         compose = {
-                            // Saving is this page's one commit, and it waits up here while
+                            // 3b's filled pill: saving is this page's one commit, and it waits up here while
                             // the fields below are edited.
                             Button(
                                 onClick = save,
