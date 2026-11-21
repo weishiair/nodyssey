@@ -497,6 +497,9 @@ private class NativeSettingsRow(
 
     private var errorLabel: UILabel? = null
 
+    /** `UITextField.delegate` is weak — the row keeps its delegate for the cell's life. */
+    private var fieldDelegate: TextFieldDelegate? = null
+
     private inner class TextFieldDelegate :
         NSObject(),
         UITextFieldDelegateProtocol {
@@ -525,9 +528,11 @@ private class NativeSettingsRow(
                 text = item.title
                 font = UIFont.systemFontOfSize(17.0)
             }
+        val fieldDelegate = TextFieldDelegate()
+        this.fieldDelegate = fieldDelegate
         val field =
             UITextField().apply {
-                delegate = TextFieldDelegate()
+                delegate = fieldDelegate
                 text = item.value
                 placeholder = item.placeholder
                 keyboardType =
