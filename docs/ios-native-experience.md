@@ -364,8 +364,8 @@ C1 第 1 段（现在）
 
 | PR | 标题 | 负责 | 依赖 | 需要 Mac | 放到二期的原因 |
 |---|---|---|---|---|---|
-| PR-3 | 描述模型扩展 B：表单（文本输入、按钮组、内联错误、键盘避让） | Devin | PR-0 | 是 | 原生输入框与 Compose 焦点的互操作风险高 |
-| PR-6 | 迁移：代理、加密 DNS | Devin | PR-1、PR-3 | 是 | 用户进入频率低，依赖 PR-3 |
+| ~~PR-3~~ | 描述模型扩展 B：表单（文本输入、按钮组、内联错误、键盘避让） | Devin | PR-0 | 是 | 原生输入框与 Compose 焦点的互操作风险高 |
+| ~~PR-6~~ | 迁移：代理、加密 DNS | Devin | PR-1、PR-3 | 是 | 用户进入频率低，依赖 PR-3 |
 | ~~PR-9~~ | SF Symbols 图标基础设施 `PlazaIcon` | Devin | — | 是 | **已完成**（#123，Devin） |
 | ~~PR-10a~~ | 图标清单与 SF Symbols 候选表（纯数据） | 协作 AI | — | 否 | **已完成**（#123，改由 Devin 做；见 `docs/ios-sf-symbols.md`） |
 | ~~PR-10~~ | 图标调用点替换与映射补全 | 协作 AI | PR-9、PR-10a | 否 | **已完成**（#123，Devin） |
@@ -653,9 +653,8 @@ AdaptiveGlassButton(
 
 ### 【二期】PR-3 描述模型扩展 B：表单（Devin）
 
-为 PR-6 准备：`TextField`（标签、占位、错误文字、键盘类型、安全输入、启用状态）、按钮组（测试 / 保存，带 loading）、
-内联错误（`InlineBanner`）。iOS：单元格内 `UITextField`；表格底部约束到 `keyboardLayoutGuide`；
-回车切到下一个输入框；与 Compose 焦点互不干扰。
+**已交付（缩减范围）**：仅 `SettingsItem.Text`（`value/onValueChange/placeholder/keyboard:SettingsKeyboard(Text/Uri/Number)/secure/errorMessage/enabled`）+ `SettingsKeyboard` 枚举。
+iOS 侧为单元格内 `UITextField`（keyboardType 映射、clearButton、secureTextEntry），`errorMessage` 渲染为单元格内红色错误行（出现/消失触发行高重算）；键盘避让走 `UIKeyboardWillChangeFrameNotification`→`contentInset/scrollIndicatorInsets`+滚动编辑行可见；回车链 Next→页内下一个 Text 字段、末字段 Done；焦点互斥复用 `NativeMenuFocus`（beginEditing→releaseFor、endEditing→restore）。未做 `RadioGroup`/独立按钮组项——测试/保存复用 `SettingsItem.Action`（loading），内联错误不新增 `InlineBanner` 项（`errorMessage` 已在单元格内）。
 
 - **验收目标**
   - [ ] iOS：点任一输入框键盘弹出且该行滚到键盘上方；回车依次跳到下一个；最后一个收起键盘。
@@ -775,7 +774,8 @@ AdaptiveGlassButton(
 
 ### 【二期】PR-6 迁移代理、加密 DNS（Devin）
 
-依赖 PR-3 的表单能力。DNS 页有预设选择面板和服务器链，面板部分按 PR-12 的结论处理。
+**已交付（缩减范围）**：仅代理页——`ProxySettingsScreen` 包 `AdaptiveSettingsPage(page=proxySettingsPage(), fallback={原 Compose 体逐字})`，Android 渲染逐像素不变（`NetworkSettingsRenderTest` 4/4 identical）。
+**加密 DNS 不迁移**：`DohSettingsScreen` 的服务器拖拽排序（`detectDragGestures`）+ preset 单选列表需要 reorder 模型项或原生/Compose 混排——模型与渲染器都不支持 `Custom` 行到达原生页（会 `error`），整页必须纯描述或整页留 Compose；缩减决策整页保留 Compose。
 
 - **验收目标**
   - [ ] `NetworkSettingsRenderTest` 逐像素一致；`ProxySettingsViewModelTest`、`DohSettingsViewModelTest` 通过。
@@ -1073,11 +1073,12 @@ sys.exit(1 if failed else 0)
 | 编号 | 风险 / 问题 | 处理 |
 |---|---|---|
 | R1 | Compose 宿主内打开 `UIMenu` 带出软键盘（有硬件键盘时，键入筛选挂在 Compose 的第一响应者上） | 已修复（`NativeMenuFocus`，D6 起覆盖全部原生菜单）。§8 保留 20 次循环，并在远程桌面下手动检查；升级 Compose 后复查 |
-| R2 | 原生页内 `UITextField` 与 Compose 焦点互相干扰 | PR-3 重点验证；参考 Compose Multiplatform 的"原生视图成为第一响应者时清除 Compose 焦点"修复 |
+| R2 | 原生页内 `UITextField` 与 Compose 焦点互相干扰 | 已处理（PR-3）：`textFieldDidBeginEditing→NativeMenuFocus.releaseFor`、`DidEndEditing→restore`，同一遍历/恢复路径与原生菜单共用 |
 | R3 | 原生 sheet 内 Compose 内容拿不到页面的主题和 `CompositionLocal` | PR-12 先做技术验证，再决定是否全面替换 |
 | R4 | SF Symbols 栅格化的清晰度、性能、着色 | PR-9 先做小范围验证 |
 | R5 | Compose Multiplatform 是 alpha 版本，升级可能打破互操作行为 | 每次升级在 Mac 上跑 §8 检查表 |
 | R6 | 模拟器与真机差异（触感、键盘、性能） | 每阶段结束出一个测试包真机验证 |
+| R7 | iOS 按压高亮替代 ripple（PR-11 Part A） | **未做**：pinned material3 `1.5.0-alpha27` 字节码显示 `Surface` 直接调 `ripple()`，Material 组件不读 `LocalIndication`；`RippleConfiguration` 只调外观参数不能替换绘制形态；替换需反射/逐组件改 `indication=`，无主题级官方 API——按规则停于调研，Part B（`PlatformHaptics`）已交付（#126） |
 
 **待用户确认**
 
