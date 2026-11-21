@@ -31,7 +31,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,6 +61,7 @@ import androidx.compose.ui.window.DialogProperties
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.PickedImage
 import io.github.nodyssey.data.composer.UploadFailure
+import io.github.nodyssey.ui.common.PlazaSheet
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.resources.Res
@@ -98,7 +98,6 @@ import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
-import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.QuotePreview
 import io.github.plaza.designsys.component.StatusAction
@@ -494,10 +493,10 @@ private fun ReplyEditorSheet(
             }
         }
     } else {
-        ModalBottomSheet(
+        PlazaSheet(
             // Guarded like the close button and the BackHandler: while a publish is in flight, a swipe
             // or scrim tap must not be the one dismiss path that still works.
-            onDismissRequest = dismiss,
+            onDismiss = dismiss,
             sheetState = rememberBottomSheetState(
                 initialValue = SheetValue.Hidden,
                 enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
@@ -505,8 +504,6 @@ private fun ReplyEditorSheet(
             // A sheet of paper, like the post editor's page (2c): the editor is one card lifted over the
             // thread, and only its bar and the emoji panel under it recede.
             containerColor = layers.card,
-            shape = PlazaSheetDefaults.shape,
-            dragHandle = { PlazaSheetDefaults.DragHandle() },
         ) {
             // Material clips the whole sheet, including its handle, to one outer shape. Painting
             // another full-width background below the handle creates a second, square-edged panel.
