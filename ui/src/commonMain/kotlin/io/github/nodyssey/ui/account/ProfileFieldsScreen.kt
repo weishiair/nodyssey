@@ -21,14 +21,11 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -77,17 +74,18 @@ import io.github.nodyssey.ui.resources.account_readme
 import io.github.nodyssey.ui.resources.account_readme_helper
 import io.github.nodyssey.ui.resources.account_signature
 import io.github.nodyssey.ui.resources.account_signature_helper
-import io.github.nodyssey.ui.resources.action_back
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.AvatarShape
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.SectionNote
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.editor.EditorToolbar
@@ -181,31 +179,31 @@ fun ProfileFieldsScreen(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            val saveLabel = stringResource(Res.string.account_action_save)
+            val save = {
+                finishEditing()
+                onSave()
+            }
+            AdaptiveTopBar(
                 title = stringResource(Res.string.account_profile_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-                actions = {
-                    // 3b's filled pill: saving is this page's one commit, and it waits up here while
-                    // the fields below are edited.
-                    Button(
-                        onClick = {
-                            finishEditing()
-                            onSave()
+                onBack = onBack,
+                actions = listOf(
+                    TopBarAction(
+                        glass = GlassAction(label = saveLabel, onClick = save, enabled = state.canSave),
+                        compose = {
+                            // 3b's filled pill: saving is this page's one commit, and it waits up here while
+                            // the fields below are edited.
+                            Button(
+                                onClick = save,
+                                enabled = state.canSave,
+                                modifier = Modifier.padding(end = Spacing.sm),
+                            ) {
+                                Text(saveLabel)
+                            }
                         },
-                        enabled = state.canSave,
-                        modifier = Modifier.padding(end = Spacing.sm),
-                    ) {
-                        Text(stringResource(Res.string.account_action_save))
-                    }
-                },
+                    ),
+                ),
             )
         },
     ) { padding ->

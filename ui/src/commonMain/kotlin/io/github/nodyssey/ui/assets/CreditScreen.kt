@@ -10,11 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -42,7 +38,6 @@ import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.postlist.toSiteError
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.credit_balance
 import io.github.nodyssey.ui.resources.credit_column_change
 import io.github.nodyssey.ui.resources.credit_column_total
@@ -52,10 +47,10 @@ import io.github.nodyssey.ui.resources.credit_unit_level
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -117,17 +112,10 @@ fun CreditScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.credit_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->

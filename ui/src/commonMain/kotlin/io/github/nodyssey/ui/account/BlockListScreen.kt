@@ -14,7 +14,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,7 +61,6 @@ import io.github.nodyssey.ui.resources.account_blocked_count
 import io.github.nodyssey.ui.resources.account_confirm_unblock_action
 import io.github.nodyssey.ui.resources.account_confirm_unblock_body
 import io.github.nodyssey.ui.resources.account_confirm_unblock_title
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.block_tab_titles
 import io.github.nodyssey.ui.resources.block_tab_users
 import io.github.nodyssey.ui.resources.block_title
@@ -75,11 +73,11 @@ import io.github.nodyssey.ui.resources.keywords_regex_placeholder
 import io.github.nodyssey.ui.resources.keywords_regex_toggle
 import io.github.nodyssey.ui.resources.keywords_remove
 import io.github.nodyssey.ui.resources.keywords_rule_regex
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
@@ -189,17 +187,10 @@ fun BlockListScreen(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.block_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->

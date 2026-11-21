@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -46,7 +45,6 @@ import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.shortMessage
 import io.github.nodyssey.ui.common.siteName
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_copy
 import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.action_retry
@@ -75,9 +73,9 @@ import io.github.nodyssey.ui.resources.invite_web_fallback
 import io.github.nodyssey.ui.resources.spend_got_it
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
@@ -142,17 +140,10 @@ fun InviteScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.invite_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->

@@ -13,7 +13,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Email
@@ -49,7 +48,6 @@ import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.action_retry
@@ -90,16 +88,18 @@ import io.github.nodyssey.ui.resources.mail_use_key
 import io.github.nodyssey.ui.resources.mail_verify_and_retry
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -205,20 +205,24 @@ fun MailInboxScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.mail_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-                actions = {
-                    if (state.connected) {
-                        IconButton(onClick = onRefresh, enabled = !state.loading) {
-                            Icon(Icons.Default.Refresh, stringResource(Res.string.action_refresh))
-                        }
-                    }
+                onBack = onBack,
+                actions = if (state.connected) {
+                    listOf(
+                        TopBarAction(
+                            glass = GlassAction(
+                                label = stringResource(Res.string.action_refresh),
+                                onClick = onRefresh,
+                                symbol = "arrow.clockwise",
+                                enabled = !state.loading,
+                            ),
+                            icon = Icons.Default.Refresh,
+                        ),
+                    )
+                } else {
+                    emptyList()
                 },
             )
         },
