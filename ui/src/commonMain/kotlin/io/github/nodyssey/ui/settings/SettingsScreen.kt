@@ -629,6 +629,7 @@ fun SettingsScreen(
             network,
             about,
         ),
+        showRowIconsOnIos = true,
     )
     SettingsPageScreen(page = page, onBack = onBack, modifier = modifier)
     if (pickingReadMarkColor) {

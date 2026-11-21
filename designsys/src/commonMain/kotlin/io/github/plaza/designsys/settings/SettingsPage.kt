@@ -20,6 +20,8 @@ class SettingsPage(
     val sections: List<SettingsSection>,
     /** A paragraph above the first section saying what the page is for. */
     val intro: String? = null,
+    /** The top-level iOS settings list draws leading symbols for rows that have an icon. */
+    val showRowIconsOnIos: Boolean = false,
 )
 
 @Immutable
@@ -92,7 +94,7 @@ sealed interface SettingsItem {
     val key: String
     val title: String
 
-    /** Drawn by the Compose rows only: a system settings list carries no icons below its top level. */
+    /** Drawn in Compose and as a system symbol on iOS pages that opt in. */
     val icon: ImageVector?
     val enabled: Boolean
 
