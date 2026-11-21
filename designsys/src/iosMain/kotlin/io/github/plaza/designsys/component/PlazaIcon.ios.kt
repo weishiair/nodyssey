@@ -30,7 +30,7 @@ import platform.UIKit.UIGraphicsImageRenderer
 import platform.UIKit.UIGraphicsImageRendererFormat
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageSymbolConfiguration
-import platform.UIKit.UIImageSymbolWeightRegular
+import platform.UIKit.UIImageSymbolWeightMedium
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -41,7 +41,7 @@ import kotlin.math.roundToInt
  */
 private const val GLYPH_FRACTION = 20f / 24f
 
-private val SYMBOL_WEIGHT = UIImageSymbolWeightRegular
+private val SYMBOL_WEIGHT = UIImageSymbolWeightMedium
 
 @Composable
 internal actual fun rememberSystemSymbolPainter(imageVector: ImageVector): Painter? {
