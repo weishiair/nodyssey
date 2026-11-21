@@ -14,14 +14,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -44,18 +41,18 @@ import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.my_content_all_boards
 import io.github.nodyssey.ui.resources.my_content_end
 import io.github.nodyssey.ui.resources.my_content_sort_newest
 import io.github.nodyssey.ui.resources.my_content_sort_oldest
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaChipDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.StatusAction
 import io.github.plaza.designsys.component.StatusView
@@ -100,17 +97,10 @@ internal fun <T : Any> MyContentScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = title,
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -223,7 +213,7 @@ private fun MenuChip(
             colors = PlazaChipDefaults.assistChipColors(),
             border = PlazaChipDefaults.border(),
             trailingIcon = {
-                Icon(
+                PlazaIcon(
                     Icons.Default.ArrowDropDown,
                     contentDescription = null,
                     modifier = Modifier.size(AssistChipDefaults.IconSize),

@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +33,7 @@ import io.github.nodyssey.ui.resources.mail_verification_code
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.rememberClipboardCopy
@@ -140,8 +140,8 @@ private fun MailCodeChip(code: String) {
                 color = MaterialTheme.colorScheme.primary,
             )
         },
-        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = stringResource(Res.string.mail_verification_code), Modifier.size(16.dp)) },
-        trailingIcon = { Icon(PlazaIcons.ContentCopy, contentDescription = stringResource(Res.string.mail_copy_code), Modifier.size(16.dp)) },
+        leadingIcon = { PlazaIcon(Icons.Default.Lock, contentDescription = stringResource(Res.string.mail_verification_code), Modifier.size(16.dp)) },
+        trailingIcon = { PlazaIcon(PlazaIcons.ContentCopy, contentDescription = stringResource(Res.string.mail_copy_code), Modifier.size(16.dp)) },
     )
 }
 
@@ -166,7 +166,7 @@ internal fun MailVerificationCodeCard(code: String) {
                     color = MaterialTheme.colorScheme.primary,
                 )
                 FilledTonalIconButton(onClick = { copy("verification-code", code, copied) }) {
-                    Icon(PlazaIcons.ContentCopy, stringResource(Res.string.mail_copy_code))
+                    PlazaIcon(PlazaIcons.ContentCopy, stringResource(Res.string.mail_copy_code))
                 }
             }
         }

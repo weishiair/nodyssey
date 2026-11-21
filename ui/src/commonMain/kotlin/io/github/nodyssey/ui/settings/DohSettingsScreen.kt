@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -124,6 +123,7 @@ import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
@@ -227,7 +227,7 @@ fun DohSettingsScreen(
                 state = appBarState,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
+                        PlazaIcon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.action_back),
                         )
@@ -592,7 +592,7 @@ private fun DohServerRow(
 @Composable
 private fun DragHandle(modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(width = 40.dp, height = 48.dp), contentAlignment = Alignment.Center) {
-        Icon(
+        PlazaIcon(
             imageVector = PlazaIcons.DragHandle,
             contentDescription = stringResource(Res.string.doh_drag_handle),
             modifier = Modifier.size(20.dp),

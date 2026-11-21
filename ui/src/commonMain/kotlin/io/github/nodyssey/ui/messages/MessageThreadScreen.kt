@@ -56,7 +56,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -177,13 +176,17 @@ import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
 import io.github.plaza.core.richtext.linkifyPlainText
 import io.github.plaza.core.richtext.parseMarkdown
+import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.BadgeChip
 import io.github.plaza.designsys.component.BadgeTone
 import io.github.plaza.designsys.component.EditorTextField
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.QuotePreview
@@ -396,7 +399,7 @@ fun MessageThreadScreen(
             state.syncError?.let { error ->
                 val recovery = siteErrorRecovery(error, onVerify = onVerify, onSignIn = onSignIn, onRetry = onRetryLoad)
                 ListItem(
-                    leadingContent = { Icon(PlazaIcons.ErrorCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    leadingContent = { PlazaIcon(PlazaIcons.ErrorCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     trailingContent = { recovery?.let { action -> TextButton(onClick = action.onClick) { Text(action.label) } } },
                     colors = ListItemDefaults.colors(containerColor = LocalPlazaLayers.current.raised),
                 ) {
@@ -500,10 +503,10 @@ private fun ScamReminderBanner(
         ListItem(
             onClick = { detailsOpen = true },
             leadingContent = {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
+                PlazaIcon(Icons.Default.Warning, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
             },
             trailingContent = {
-                Icon(
+                PlazaIcon(
                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = stringResource(Res.string.messages_scam_details),
                     tint = contentColor,
@@ -566,11 +569,16 @@ private fun ThreadTopBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = layers.raised),
                 navigationIcon = {
                     if (showBackButton) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.action_back),
-                            )
+                        AdaptiveGlassButton(
+                            action = GlassAction(label = stringResource(Res.string.action_back), onClick = onBack, symbol = "chevron.backward"),
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            IconButton(onClick = onBack) {
+                                PlazaIcon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(Res.string.action_back),
+                                )
+                            }
                         }
                     }
                 },
@@ -716,7 +724,7 @@ private fun MessageInfoSheet(
                         onDismiss()
                     }
                 }) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
+                    PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
                 }
             }
             content()
@@ -1035,7 +1043,7 @@ private fun BubbleMenuItem(
 ) {
     DropdownMenuItem(
         text = { Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
+        leadingIcon = { PlazaIcon(icon, contentDescription = null) },
         onClick = onClick,
     )
 }
@@ -1090,11 +1098,11 @@ private fun MessageStatusLine(
                     style = style,
                     color = muted,
                 )
-                Icon(PlazaIcons.Schedule, contentDescription = null, tint = muted, modifier = Modifier.size(13.dp))
+                PlazaIcon(PlazaIcons.Schedule, contentDescription = null, tint = muted, modifier = Modifier.size(13.dp))
             }
 
             SendStatus.FAILED -> {
-                Icon(
+                PlazaIcon(
                     PlazaIcons.ErrorCircle,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
@@ -1323,21 +1331,26 @@ private fun MessageInputBar(
     ) {
         // A toggle, so the key says which way it will go: + while the grid is away, ✕ on a tonal
         // disc while it is up, as 3e draws it.
-        IconToggleButton(
-            checked = panelOpen,
-            onCheckedChange = { onTogglePanel() },
-            colors =
-            IconButtonDefaults.iconToggleButtonColors(
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ),
+        AdaptiveGlassButton(
+            action = GlassAction(label = stringResource(Res.string.message_tools), onClick = onTogglePanel, symbol = if (panelOpen) "xmark" else "plus"),
             modifier = Modifier.size(INPUT_CONTROL_SIZE),
         ) {
-            Icon(
-                if (panelOpen) Icons.Default.Close else Icons.Default.Add,
-                contentDescription = stringResource(Res.string.message_tools),
-            )
+            IconToggleButton(
+                checked = panelOpen,
+                onCheckedChange = { onTogglePanel() },
+                colors =
+                IconButtonDefaults.iconToggleButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+                modifier = Modifier.size(INPUT_CONTROL_SIZE),
+            ) {
+                PlazaIcon(
+                    if (panelOpen) Icons.Default.Close else Icons.Default.Add,
+                    contentDescription = stringResource(Res.string.message_tools),
+                )
+            }
         }
         MessageDraftField(
             draftState = draftState,
@@ -1350,21 +1363,26 @@ private fun MessageInputBar(
                 .focusRequester(fieldFocus)
                 .onFocusChanged { if (it.isFocused) onFieldFocused() },
         )
-        FilledIconButton(
-            onClick = onSend,
-            enabled = canSend,
-            colors =
-            IconButtonDefaults.filledIconButtonColors(
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
+        AdaptiveGlassButton(
+            action = GlassAction(label = stringResource(Res.string.message_send), onClick = onSend, symbol = "arrow.up", enabled = canSend, prominent = true),
             modifier = Modifier.size(INPUT_CONTROL_SIZE),
         ) {
-            Icon(
-                Icons.AutoMirrored.Filled.Send,
-                contentDescription = stringResource(Res.string.message_send),
-                modifier = Modifier.size(20.dp),
-            )
+            FilledIconButton(
+                onClick = onSend,
+                enabled = canSend,
+                colors =
+                IconButtonDefaults.filledIconButtonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+                modifier = Modifier.size(INPUT_CONTROL_SIZE),
+            ) {
+                PlazaIcon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(Res.string.message_send),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
 }
@@ -1415,7 +1433,7 @@ private fun MessageDraftField(
                         onCheckedChange = { onToggleEmoji() },
                         modifier = Modifier.size(40.dp),
                     ) {
-                        Icon(
+                        PlazaIcon(
                             EditorAction.EMOJI.icon,
                             contentDescription = stringResource(EditorAction.EMOJI.label),
                             modifier = Modifier.size(20.dp),
@@ -1527,7 +1545,7 @@ private fun ToolTile(
                 .cardBorder(layers, MaterialTheme.shapes.largeIncreased),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            PlazaIcon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(
             text = label,
@@ -1546,28 +1564,46 @@ private fun ToolTile(
 private fun ThreadMenu(onOpenBrowser: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val layers = LocalPlazaLayers.current
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            shape = MaterialTheme.shapes.largeIncreased,
-            containerColor = layers.raised,
-            shadowElevation = if (layers.shadows) 8.dp else 0.dp,
-            border = layers.cardBorderStroke,
-        ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.action_open_in_browser)) },
-                onClick = {
-                    expanded = false
-                    onOpenBrowser()
-                },
-            )
+    AdaptiveGlassButton(action = threadMenuAction(onOpenBrowser), modifier = Modifier.size(40.dp)) {
+        Box {
+            IconButton(onClick = { expanded = true }) {
+                PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                shape = MaterialTheme.shapes.largeIncreased,
+                containerColor = layers.raised,
+                shadowElevation = if (layers.shadows) 8.dp else 0.dp,
+                border = layers.cardBorderStroke,
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.action_open_in_browser)) },
+                    onClick = {
+                        expanded = false
+                        onOpenBrowser()
+                    },
+                )
+            }
         }
     }
 }
+
+@Composable
+internal fun threadMenuAction(onOpenBrowser: () -> Unit): GlassAction =
+    GlassAction(
+        label = stringResource(Res.string.action_more),
+        onClick = {},
+        symbol = "ellipsis",
+        menu =
+        listOf(
+            GlassMenuAction(
+                label = stringResource(Res.string.action_open_in_browser),
+                onClick = onOpenBrowser,
+                symbol = "safari",
+            ),
+        ),
+    )
 
 /**
  * A bubble hugs its text; only the 86 % cap comes from the parent.

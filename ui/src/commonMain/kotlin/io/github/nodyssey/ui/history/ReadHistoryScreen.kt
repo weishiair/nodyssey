@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -21,7 +20,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -59,7 +57,6 @@ import io.github.nodyssey.data.ReadHistoryEntry
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_delete
 import io.github.nodyssey.ui.resources.action_more
@@ -87,16 +84,20 @@ import io.github.nodyssey.ui.resources.history_untitled
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.ChoiceRow
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.StatusView
 import io.github.plaza.designsys.component.ThreadRowTitle
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.groupSlice
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -174,7 +175,7 @@ fun ReadHistoryScreen(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.history_title),
                 state = appBarState,
                 // The one place the retention setting is visible without opening a menu: "how much
@@ -190,22 +191,15 @@ fun ReadHistoryScreen(
                         limitLabel(state.limit),
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-                actions = {
-                    HistoryMenu(
+                onBack = onBack,
+                actions = listOf(
+                    historyMenuAction(
                         limit = state.limit,
                         canClear = state.entries.isNotEmpty(),
                         onPickLimit = { pickingLimit = true },
                         onClearAll = { confirmClear = true },
-                    )
-                },
+                    ),
+                ),
             )
         },
     ) { padding ->
@@ -287,6 +281,39 @@ fun ReadHistoryScreen(
  * sat one mis-tap from 返回, which is not where a button that un-reads the whole feed belongs.
  */
 @Composable
+internal fun historyMenuAction(
+    limit: Int,
+    canClear: Boolean,
+    onPickLimit: () -> Unit,
+    onClearAll: () -> Unit,
+): TopBarAction = TopBarAction(
+    glass = GlassAction(
+        label = stringResource(Res.string.action_more),
+        onClick = {},
+        symbol = "ellipsis",
+        menu = listOfNotNull(
+            GlassMenuAction(
+                label = stringResource(Res.string.history_limit_title),
+                onClick = onPickLimit,
+                symbol = "clock.arrow.circlepath",
+                subtitle = limitLabel(limit),
+            ),
+            if (canClear) {
+                GlassMenuAction(
+                    label = stringResource(Res.string.history_clear_all),
+                    onClick = onClearAll,
+                    symbol = "trash",
+                    destructive = true,
+                )
+            } else {
+                null
+            },
+        ),
+    ),
+    compose = { HistoryMenu(limit, canClear, onPickLimit, onClearAll) },
+)
+
+@Composable
 private fun HistoryMenu(
     limit: Int,
     canClear: Boolean,
@@ -296,12 +323,12 @@ private fun HistoryMenu(
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
+            PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.history_limit_title)) },
-                leadingIcon = { Icon(PlazaIcons.History, contentDescription = null) },
+                leadingIcon = { PlazaIcon(PlazaIcons.History, contentDescription = null) },
                 trailingIcon = {
                     Text(
                         text = limitLabel(limit),
@@ -323,7 +350,7 @@ private fun HistoryMenu(
                         )
                     },
                     leadingIcon = {
-                        Icon(
+                        PlazaIcon(
                             Icons.Default.Delete,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
@@ -461,7 +488,7 @@ private fun RemoveBackdrop() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Delete,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onErrorContainer,

@@ -11,7 +11,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
+import io.github.plaza.designsys.component.NativeMenuFocus
 import io.github.plaza.designsys.component.interfaceStyle
+import io.github.plaza.designsys.component.releasesFocusForMenu
 import io.github.plaza.designsys.component.toUIColor
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
@@ -40,7 +42,6 @@ import platform.UIKit.UIButtonConfiguration
 import platform.UIKit.UIColor
 import platform.UIKit.UIContentSizeCategoryIsAccessibilityCategory
 import platform.UIKit.UIControlContentHorizontalAlignmentLeading
-import platform.UIKit.UIControlEventMenuActionTriggered
 import platform.UIKit.UIControlEventTouchUpInside
 import platform.UIKit.UIControlEventTouchUpOutside
 import platform.UIKit.UIControlEventValueChanged
@@ -50,7 +51,6 @@ import platform.UIKit.UIFontWeightSemibold
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageRenderingMode
 import platform.UIKit.UIImageView
-import platform.UIKit.UIKeyInputProtocol
 import platform.UIKit.UILabel
 import platform.UIKit.UILayoutConstraintAxisHorizontal
 import platform.UIKit.UILayoutConstraintAxisVertical
@@ -65,7 +65,6 @@ import platform.UIKit.UINavigationBarAppearance
 import platform.UIKit.UINavigationBarDelegateProtocol
 import platform.UIKit.UINavigationItem
 import platform.UIKit.UINavigationItemBackButtonDisplayModeMinimal
-import platform.UIKit.UIResponder
 import platform.UIKit.UIScrollView
 import platform.UIKit.UISegmentedControl
 import platform.UIKit.UISlider
@@ -187,7 +186,7 @@ private class NativeSettingsPageHost {
     private val table = UITableView(frame = CGRectZero.readValue(), style = UITableViewStyle.UITableViewStyleInsetGrouped)
     private val titleItem = UINavigationItem(title = "")
     private val rows = mutableMapOf<String, NativeSettingsRow>()
-    private val focus = NativeSettingsFocus()
+    private val focus = NativeMenuFocus()
     private var shape: List<SettingsSectionShape>? = null
     private var palette: NativeSettingsPalette? = null
     private var scrolled = false
@@ -355,7 +354,7 @@ private fun SettingsItem.Choice.drawsSegments(largeText: Boolean): Boolean =
 private class NativeSettingsRow(
     item: SettingsItem,
     largeText: Boolean,
-    private val focus: NativeSettingsFocus,
+    private val focus: NativeMenuFocus,
 ) {
     // UIAction retains this state, which owns no view; capturing the row would tie the cell to itself.
     private val state = NativeSettingsRowState(item)
@@ -772,54 +771,6 @@ private class NativeSettingsRow(
             setFrame(CGRectMake(0.0, 0.0, 32.0, 20.0))
         }
     }
-}
-
-/**
- * Keeps a pop-up menu from bringing up the software keyboard.
- *
- * With a hardware keyboard attached — or one the simulator believes is, as a remote session's does,
- * connecting and disconnecting under every keystroke — a menu turns on type-select
- * (`_UITypeSelectKeyInput`) against whatever holds first responder. Under Compose that is its
- * `OverlayInputView`, held for hardware key events and never released; type-select makes UIKit treat
- * it as needing a keyboard, and when the hardware one reads as disconnected the software one comes up.
- * A plain UIKit page has no first responder there and shows none, so the menu is opened from that same
- * state: the non-text responder is released as the menu is triggered, and handed back when the page
- * leaves so Compose keeps its key events. Compose takes the focus back on its own only when its window
- * or its layers change, neither of which a menu does.
- *
- * Remove when Compose Multiplatform stops holding first responder for hardware keys, or lets an
- * interop view opt out of it.
- */
-private class NativeSettingsFocus {
-    private var released: UIResponder? = null
-
-    fun releaseFor(view: UIView) {
-        val window = view.window ?: return
-        val current = firstResponder(window) ?: return
-        // A text field keeps its keyboard: that one is asked for.
-        if (current is UIKeyInputProtocol) return
-        if (current.resignFirstResponder()) released = current
-    }
-
-    fun restore() {
-        val responder = released ?: return
-        released = null
-        val window = (responder as? UIView)?.window ?: return
-        if (firstResponder(window) == null) responder.becomeFirstResponder()
-    }
-
-    private fun firstResponder(view: UIView): UIView? {
-        if (view.isFirstResponder()) return view
-        return view.subviews.firstNotNullOfOrNull { firstResponder(it as UIView) }
-    }
-}
-
-private fun UIButton.releasesFocusForMenu(focus: NativeSettingsFocus) {
-    // The handler holds the focus object and not the button: UIAction retains what it captures.
-    addAction(
-        UIAction.actionWithHandler { action -> (action?.sender as? UIView)?.let(focus::releaseFor) },
-        forControlEvents = UIControlEventMenuActionTriggered,
-    )
 }
 
 private class NativeSettingsSource(

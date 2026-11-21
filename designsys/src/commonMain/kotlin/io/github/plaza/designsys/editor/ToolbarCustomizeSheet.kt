@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -42,6 +41,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.SectionLabel
@@ -226,7 +226,7 @@ private fun EnabledKeys(
 @Composable
 private fun DragHandle(modifier: Modifier = Modifier) {
     val label = stringResource(Res.string.composer_toolbar_reorder)
-    Icon(
+    PlazaIcon(
         imageVector = PlazaIcons.DragHandle,
         contentDescription = label,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -263,7 +263,7 @@ private fun EnabledRow(
             modifier = Modifier.padding(start = Spacing.md, end = Spacing.sm),
         ) {
             handle()
-            Icon(
+            PlazaIcon(
                 imageVector = action.icon,
                 contentDescription = null,
                 modifier = Modifier.size(KEY_ICON_SIZE),
@@ -280,7 +280,7 @@ private fun EnabledRow(
                 // is a control the user goes looking for.
                 modifier = Modifier.alpha(if (canRemove) 1f else DISABLED_ALPHA),
             ) {
-                Icon(
+                PlazaIcon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource(Res.string.composer_toolbar_remove),
                     modifier = Modifier.size(18.dp),
@@ -306,7 +306,7 @@ private fun AvailableRow(
             // halves are the same list, so their glyphs have to share a column.
             .padding(start = Spacing.md + HANDLE_SIZE + Spacing.md, end = Spacing.sm),
     ) {
-        Icon(
+        PlazaIcon(
             imageVector = action.icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -319,7 +319,7 @@ private fun AvailableRow(
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = onAdd) {
-            Icon(
+            PlazaIcon(
                 imageVector = Icons.Default.Add,
                 contentDescription = stringResource(Res.string.composer_toolbar_add),
                 modifier = Modifier.size(20.dp),

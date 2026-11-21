@@ -33,7 +33,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -114,6 +113,7 @@ import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.collectPagesAtRest
 import io.github.nodyssey.ui.common.compactCount
+import io.github.nodyssey.ui.common.labelRes
 import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.readMarkCardColor
 import io.github.nodyssey.ui.common.readMarkTitleColor
@@ -146,14 +146,18 @@ import io.github.nodyssey.ui.resources.tab_profile
 import io.github.nodyssey.ui.settings.rememberSiteSwitch
 import io.github.nodyssey.ui.settings.siteSwitchRestartsApp
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaStat
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaFabHeight
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PrefetchAvatars
@@ -1056,7 +1060,7 @@ private fun AccountButton(
                     .cardBorder(LocalPlazaLayers.current, AccountAvatarShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(HeaderIconSize))
+                PlazaIcon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(HeaderIconSize))
             }
         }
     }
@@ -1101,7 +1105,7 @@ private fun SearchPill(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1119,6 +1123,19 @@ private fun SearchPill(
     }
 }
 
+internal fun sortMenuActions(
+    current: FeedSort,
+    labelFor: (FeedSort) -> String,
+    onSortChange: (FeedSort) -> Unit,
+): List<GlassMenuAction> =
+    FeedSortOrder.map { order ->
+        GlassMenuAction(
+            label = labelFor(order),
+            onClick = { onSortChange(order) },
+            selected = order == current,
+        )
+    }
+
 /** 排序, as a square-cornered button beside the search pill with its menu anchored under it. */
 @Composable
 private fun SortButton(
@@ -1128,37 +1145,71 @@ private fun SortButton(
     var menuOpen by remember { mutableStateOf(false) }
     val layers = LocalPlazaLayers.current
     val shape = MaterialTheme.shapes.medium
-    Box {
-        FilledIconButton(
-            onClick = { menuOpen = true },
-            shape = shape,
-            modifier = Modifier
-                .size(HeaderControlHeight)
-                .cardShadow(shape, layers.shadows)
-                // As the search pill beside it: on 墨水屏 the raised tone is the page's paper.
-                .cardBorder(layers, shape),
-            colors =
-            IconButtonDefaults.filledIconButtonColors(
-                containerColor = layers.raised,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-        ) {
-            Icon(
-                imageVector = PlazaIcons.SwapVert,
-                contentDescription = stringResource(Res.string.action_sort),
-                modifier = Modifier.size(HeaderIconSize),
-            )
-        }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            FeedSortOrder.forEach { order ->
-                SortMenuItem(order, sort) {
-                    onSortChange(it)
-                    menuOpen = false
+    val sortLabel = stringResource(Res.string.action_sort)
+    val sortLabels = FeedSortOrder.associateWith { stringResource(it.labelRes()) }
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = sortLabel,
+            onClick = {},
+            symbol = "arrow.up.arrow.down",
+            menu = sortMenuActions(sort, sortLabels::getValue, onSortChange),
+        ),
+        modifier = Modifier.size(HeaderControlHeight),
+    ) {
+        Box {
+            FilledIconButton(
+                onClick = { menuOpen = true },
+                shape = shape,
+                modifier = Modifier
+                    .size(HeaderControlHeight)
+                    .cardShadow(shape, layers.shadows)
+                    // As the search pill beside it: on 墨水屏 the raised tone is the page's paper.
+                    .cardBorder(layers, shape),
+                colors =
+                IconButtonDefaults.filledIconButtonColors(
+                    containerColor = layers.raised,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            ) {
+                PlazaIcon(
+                    imageVector = PlazaIcons.SwapVert,
+                    contentDescription = sortLabel,
+                    modifier = Modifier.size(HeaderIconSize),
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                FeedSortOrder.forEach { order ->
+                    SortMenuItem(order, sort) {
+                        onSortChange(it)
+                        menuOpen = false
+                    }
                 }
             }
         }
     }
 }
+
+internal fun siteMenuActions(
+    active: Site,
+    signedInLabel: String?,
+    nextLaunchLabel: String,
+    restartsApp: Boolean,
+    onSelect: (Site) -> Unit,
+): List<GlassMenuAction> =
+    Site.entries.map { site ->
+        val isCurrent = site == active
+        val subtitle = buildList {
+            add(site.domain)
+            if (isCurrent && signedInLabel != null) add(signedInLabel)
+            if (!isCurrent && !restartsApp) add(nextLaunchLabel)
+        }.joinToString(" · ")
+        GlassMenuAction(
+            label = site.displayName,
+            onClick = { onSelect(site) },
+            subtitle = subtitle,
+            selected = isCurrent,
+        )
+    }
 
 /**
  * 站点: which forum the feed below came from, and the way to the other one.
@@ -1182,94 +1233,115 @@ private fun SiteSwitcher(
     var menuOpen by remember { mutableStateOf(false) }
     val active = ActiveSite.current
     val switchSite = rememberSiteSwitch()
+    val switchLabel = stringResource(Res.string.action_switch_site)
+    val signedInLabel = account?.let { stringResource(Res.string.site_switch_signed_in_as, it.name) }
+    val nextLaunchLabel = stringResource(Res.string.site_switch_next_launch)
 
     Box(modifier) {
-        TextButton(onClick = { menuOpen = true }, contentPadding = PaddingValues(horizontal = Spacing.sm)) {
-            Text(
-                text = active.displayName,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+        AdaptiveGlassButton(
+            action = GlassAction(
+                label = "${active.displayName}, $switchLabel",
+                onClick = {},
+                symbol = "chevron.down",
+                title = active.displayName,
+                menuTitle = stringResource(Res.string.site_switch_separate_sessions),
+                menu = siteMenuActions(
+                    active = active,
+                    signedInLabel = signedInLabel,
+                    nextLaunchLabel = nextLaunchLabel,
+                    restartsApp = siteSwitchRestartsApp,
+                    onSelect = switchSite,
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-            )
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                // The button already reads out the site's name; the arrow only says it opens.
-                contentDescription = stringResource(Res.string.action_switch_site),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 2.dp).size(HeaderIconSize),
-            )
-        }
-        DropdownMenu(
-            expanded = menuOpen,
-            onDismissRequest = { menuOpen = false },
-            shape = MaterialTheme.shapes.largeIncreased,
-            containerColor = LocalPlazaLayers.current.card,
-            modifier = Modifier.widthIn(min = 280.dp),
+            ),
+            modifier = Modifier.heightIn(min = 44.dp),
         ) {
-            Site.entries.forEachIndexed { index, site ->
-                val isCurrent = site == active
-                SelectableMenuItem(
-                    selected = isCurrent,
-                    index = index,
-                    count = Site.entries.size,
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    site.displayName,
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                )
-                                Text(
-                                    site.domain,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            // Who is signed in, for the site that can say: the other one's cookies are
-                            // not read until it is switched to, so its line stays silent rather than
-                            // guessing.
-                            if (isCurrent && account != null) {
-                                Text(
-                                    text = stringResource(Res.string.site_switch_signed_in_as, account.name),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            // 下次启动生效 under the name it applies to rather than as a note
-                            // elsewhere on the screen: the sentence is only true of this entry, and
-                            // only on a platform that cannot restart itself.
-                            if (!isCurrent && !siteSwitchRestartsApp) {
-                                Text(
-                                    text = stringResource(Res.string.site_switch_next_launch),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    },
-                    onClick = {
-                        menuOpen = false
-                        switchSite(site)
-                    },
-                    leadingIcon = { SiteMonogram(site, index) },
-                    modifier = Modifier.heightIn(min = 64.dp),
+            TextButton(onClick = { menuOpen = true }, contentPadding = PaddingValues(horizontal = Spacing.sm)) {
+                Text(
+                    text = active.displayName,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+                PlazaIcon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    // The button already reads out the site's name; the arrow only says it opens.
+                    contentDescription = switchLabel,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 2.dp).size(HeaderIconSize),
                 )
             }
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = Spacing.xs),
-            )
-            Text(
-                text = stringResource(Res.string.site_switch_separate_sessions),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .padding(start = 18.dp, end = 18.dp, top = Spacing.xs, bottom = Spacing.sm),
-            )
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                shape = MaterialTheme.shapes.largeIncreased,
+                containerColor = LocalPlazaLayers.current.card,
+                modifier = Modifier.widthIn(min = 280.dp),
+            ) {
+                Site.entries.forEachIndexed { index, site ->
+                    val isCurrent = site == active
+                    SelectableMenuItem(
+                        selected = isCurrent,
+                        index = index,
+                        count = Site.entries.size,
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        site.displayName,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    )
+                                    Text(
+                                        site.domain,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                // Who is signed in, for the site that can say: the other one's cookies are
+                                // not read until it is switched to, so its line stays silent rather than
+                                // guessing.
+                                if (isCurrent && signedInLabel != null) {
+                                    Text(
+                                        text = signedInLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                // 下次启动生效 under the name it applies to rather than as a note
+                                // elsewhere on the screen: the sentence is only true of this entry, and
+                                // only on a platform that cannot restart itself.
+                                if (!isCurrent && !siteSwitchRestartsApp) {
+                                    Text(
+                                        text = nextLaunchLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            menuOpen = false
+                            switchSite(site)
+                        },
+                        leadingIcon = { SiteMonogram(site, index) },
+                        modifier = Modifier.heightIn(min = 64.dp),
+                    )
+                }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = Spacing.xs),
+                )
+                Text(
+                    text = stringResource(Res.string.site_switch_separate_sessions),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .widthIn(max = 280.dp)
+                        .padding(start = 18.dp, end = 18.dp, top = Spacing.xs, bottom = Spacing.sm),
+                )
+            }
         }
     }
 }
@@ -1490,7 +1562,7 @@ private fun PinnedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.PushPin,
                 contentDescription = stringResource(Res.string.post_badge_pinned),
                 tint = MaterialTheme.colorScheme.primary,
@@ -1503,7 +1575,7 @@ private fun PinnedRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Icon(
+            PlazaIcon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),

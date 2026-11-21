@@ -10,10 +10,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,7 +28,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.model.TitleKeywordKind
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.keywords_add_action
 import io.github.nodyssey.ui.resources.keywords_add_placeholder
 import io.github.nodyssey.ui.resources.keywords_alert_footer
@@ -39,10 +36,11 @@ import io.github.nodyssey.ui.resources.keywords_block_footer
 import io.github.nodyssey.ui.resources.keywords_block_title
 import io.github.nodyssey.ui.resources.keywords_empty
 import io.github.nodyssey.ui.resources.keywords_remove
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -82,14 +80,10 @@ fun TitleKeywordsScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(if (alerts) Res.string.keywords_alert_title else Res.string.keywords_block_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -134,7 +128,7 @@ fun TitleKeywordsScreen(
                             headlineContent = { Text(keyword, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             trailingContent = {
                                 IconButton(onClick = { onRemove(keyword) }) {
-                                    Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.keywords_remove, keyword))
+                                    PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.keywords_remove, keyword))
                                 }
                             },
                         )

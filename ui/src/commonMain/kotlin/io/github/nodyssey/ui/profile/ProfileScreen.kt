@@ -41,7 +41,6 @@ import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -151,10 +150,13 @@ import io.github.nodyssey.ui.resources.profile_tile_topics
 import io.github.nodyssey.ui.resources.profile_tools
 import io.github.nodyssey.ui.resources.settings_title
 import io.github.nodyssey.ui.resources.tab_profile
+import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -456,20 +458,31 @@ private fun SettingsAction(
     hasAppUpdate: Boolean,
     onClick: () -> Unit,
 ) {
-    Box {
-        IconButton(onClick = onClick) {
-            Icon(
-                Icons.Default.Settings,
-                contentDescription = stringResource(Res.string.settings_title),
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        if (hasAppUpdate) {
-            UpdateDot(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 10.dp, end = 8.dp),
-            )
+    val label = stringResource(Res.string.settings_title)
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = label,
+            onClick = onClick,
+            symbol = "gearshape",
+            badge = hasAppUpdate,
+        ),
+        modifier = Modifier.size(Sizes.minTouchTarget),
+    ) {
+        Box {
+            IconButton(onClick = onClick) {
+                PlazaIcon(
+                    Icons.Default.Settings,
+                    contentDescription = label,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            if (hasAppUpdate) {
+                UpdateDot(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 10.dp, end = 8.dp),
+                )
+            }
         }
     }
 }
@@ -625,7 +638,7 @@ private fun IdentityRow(
             )
         }
         if (onSwitchAccount == null) {
-            Icon(
+            PlazaIcon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -651,7 +664,7 @@ private fun AccountSwitchButton(onClick: () -> Unit) {
         contentPadding = ButtonDefaults.contentPaddingFor(height, hasStartIcon = true),
         modifier = Modifier.heightIn(min = height).semantics { contentDescription = description },
     ) {
-        Icon(PlazaIcons.SwapHoriz, contentDescription = null, modifier = Modifier.size(ButtonDefaults.iconSizeFor(height)))
+        PlazaIcon(PlazaIcons.SwapHoriz, contentDescription = null, modifier = Modifier.size(ButtonDefaults.iconSizeFor(height)))
         Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(height)))
         Text(stringResource(Res.string.accounts_switch), style = MaterialTheme.typography.labelMedium)
     }
@@ -699,8 +712,8 @@ private fun AttendanceBanner(
             Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
                 when {
                     busy -> PlazaSpinner(Modifier.describedAsLoading(), size = 18.dp, color = content)
-                    done -> Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(22.dp))
-                    else -> Icon(PlazaIcons.EventAvailable, contentDescription = null, modifier = Modifier.size(22.dp))
+                    done -> PlazaIcon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(22.dp))
+                    else -> PlazaIcon(PlazaIcons.EventAvailable, contentDescription = null, modifier = Modifier.size(22.dp))
                 }
             }
             Column(Modifier.weight(1f).padding(vertical = Spacing.sm)) {
@@ -888,7 +901,7 @@ private fun ProfileGridTile(
                 }
             },
         ) {
-            Icon(tile.icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            PlazaIcon(tile.icon, contentDescription = null, modifier = Modifier.size(20.dp))
         }
         Text(
             text = label,
@@ -1061,7 +1074,7 @@ private fun WelcomeMark() {
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(40.dp))
+            PlazaIcon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(40.dp))
         }
     }
 }
@@ -1084,7 +1097,7 @@ private fun SignedOutBenefit(
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
+                PlazaIcon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

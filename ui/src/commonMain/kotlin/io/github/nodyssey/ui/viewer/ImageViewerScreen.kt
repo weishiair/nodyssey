@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -73,6 +72,7 @@ import io.github.nodyssey.ui.resources.viewer_save_failed
 import io.github.nodyssey.ui.resources.viewer_save_no_permission
 import io.github.nodyssey.ui.resources.viewer_save_unsupported
 import io.github.nodyssey.ui.resources.viewer_saved
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.imageLoadFailureText
 import io.github.plaza.designsys.image.ImageLoadFailure
@@ -199,7 +199,7 @@ private fun ViewerTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onClose) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Close,
                 contentDescription = stringResource(Res.string.action_close),
                 tint = VIEWER_CONTENT,
@@ -216,13 +216,13 @@ private fun ViewerTopBar(
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = onSave) {
-            Icon(PlazaIcons.Download, contentDescription = stringResource(Res.string.viewer_save), tint = VIEWER_CONTENT)
+            PlazaIcon(PlazaIcons.Download, contentDescription = stringResource(Res.string.viewer_save), tint = VIEWER_CONTENT)
         }
         IconButton(onClick = onShare) {
-            Icon(Icons.Default.Share, contentDescription = stringResource(Res.string.action_share), tint = VIEWER_CONTENT)
+            PlazaIcon(Icons.Default.Share, contentDescription = stringResource(Res.string.action_share), tint = VIEWER_CONTENT)
         }
         IconButton(onClick = onOpenBrowser) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.OpenInNew,
                 contentDescription = stringResource(Res.string.action_open_in_browser),
                 tint = VIEWER_CONTENT,
@@ -386,7 +386,7 @@ private fun ImageFailure(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Warning,
                 contentDescription = null,
                 tint = VIEWER_WARNING,

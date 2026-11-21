@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.plaza.core.richtext.RichNode
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.richtext_action_open_in_browser
@@ -64,7 +64,7 @@ internal fun EmbeddedMediaCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.OpenInNew,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,

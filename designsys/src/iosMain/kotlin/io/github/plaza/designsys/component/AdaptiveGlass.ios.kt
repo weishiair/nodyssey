@@ -1,4 +1,8 @@
-@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@file:OptIn(
+    kotlinx.cinterop.ExperimentalForeignApi::class,
+    androidx.compose.ui.ExperimentalComposeUiApi::class,
+    kotlin.experimental.ExperimentalNativeApi::class,
+)
 
 package io.github.plaza.designsys.component
 
@@ -22,7 +26,9 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeGlass
+import platform.UIKit.NSDirectionalRectEdgeLeading
 import platform.UIKit.NSDirectionalRectEdgeTop
+import platform.UIKit.NSDirectionalRectEdgeTrailing
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.NSLineBreakByTruncatingTail
 import platform.UIKit.NSTextAlignmentCenter
@@ -48,9 +54,9 @@ import platform.UIKit.UILayoutConstraintAxisVertical
 import platform.UIKit.UILayoutPriorityDefaultLow
 import platform.UIKit.UILayoutPriorityRequired
 import platform.UIKit.UIMenu
+import platform.UIKit.UIMenuElementAttributesDestructive
 import platform.UIKit.UIMenuElementAttributesDisabled
 import platform.UIKit.UIMenuElementState
-import platform.UIKit.UINavigationBar
 import platform.UIKit.UINavigationBarAppearance
 import platform.UIKit.UINavigationItem
 import platform.UIKit.UIStackView
@@ -63,6 +69,8 @@ import platform.UIKit.accessibilityLabel
 import platform.UIKit.accessibilityTraits
 import platform.UIKit.accessibilityValue
 import platform.UIKit.labelColor
+import platform.UIKit.systemRedColor
+import kotlin.native.ref.WeakReference
 
 // Overlay placement is essential: the default UIKitView cuts a hole in the Metal canvas, so native
 // glass would sample an empty rectangle instead of the Compose content scrolling behind the button.
@@ -85,12 +93,13 @@ actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
         factory = { host.view },
-        modifier = modifier.remeasureRequester(remeasure),
+        modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
             host.update(action, accent.toUIColor(), dark, scale)
             remeasure.requestRemeasure()
         },
+        onRelease = { host.dispose() },
     )
 }
 
@@ -113,12 +122,13 @@ actual fun AdaptiveGlassToolbar(
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
         factory = { host.view },
-        modifier = modifier.remeasureRequester(remeasure),
+        modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
             host.update(actions, foreground.toUIColor(), surface.toUIColor(), dark, scale)
             remeasure.requestRemeasure()
         },
+        onRelease = { host.dispose() },
     )
 }
 
@@ -129,6 +139,7 @@ actual fun AdaptiveGlassTopBar(
     back: GlassAction?,
     actions: List<GlassAction>,
     modifier: Modifier,
+    subtitle: String?,
     fallback: @Composable () -> Unit,
 ) {
     if (!LocalPlazaLayers.current.nativeGlass) {
@@ -142,9 +153,10 @@ actual fun AdaptiveGlassTopBar(
     val currentActions by rememberUpdatedState(actions)
     val currentTitleAction by rememberUpdatedState(titleAction)
     val foreground = MaterialTheme.colorScheme.onSurface
+    val focus = remember { NativeMenuFocus() }
     UIKitView(
         factory = {
-            UINavigationBar().apply {
+            FocusReleasingNavigationBar(focus).apply {
                 // Compose is not a UIScrollView, so automatic scroll-edge tracking cannot choose
                 // the background. Use the standard system material in both bar appearances.
                 val appearance = UINavigationBarAppearance().apply { configureWithDefaultBackground() }
@@ -162,9 +174,12 @@ actual fun AdaptiveGlassTopBar(
                     UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(17.0 * scale)),
             )
             val item = UINavigationItem(title = title)
+            // UIKit's own iOS 26 subtitle; this bar only runs where native glass does, which is 26+.
+            item.subtitle = subtitle
             item.leftBarButtonItem = back?.barItem { currentBack }
+            val anchor = WeakReference<UIView>(bar)
             item.rightBarButtonItems = actions.asReversed().map { action ->
-                action.barItem { currentActions.firstOrNull { it.label == action.label } }
+                action.barItem(anchor) { currentActions.firstOrNull { it.label == action.label } }
             }
             if (titleAction != null) {
                 item.titleView = UIButton.buttonWithConfiguration(
@@ -189,6 +204,10 @@ actual fun AdaptiveGlassTopBar(
             }
             bar.setItems(listOf(item), animated = false)
         },
+        onRelease = {
+            focus.restore()
+            NativeMenuShield.lower()
+        },
     )
 }
 
@@ -212,12 +231,13 @@ actual fun AdaptiveGlassNotice(
     val remeasure = rememberUIKitInteropRemeasureRequester()
     UIKitView(
         factory = { host.view },
-        modifier = modifier.remeasureRequester(remeasure),
+        modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
             host.update(message, action, dismissAction, accent.toUIColor(), dark, scale)
             remeasure.requestRemeasure()
         },
+        onRelease = { host.dispose() },
     )
 }
 
@@ -238,7 +258,7 @@ fun NativeGlassTabBar(tabs: List<NativeGlassTab>, modifier: Modifier = Modifier)
     val host = remember(tabs.size) { NativeGlassTabBarHost(tabs.size) }
     UIKitView(
         factory = { host.view },
-        modifier = modifier,
+        modifier = modifier.clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
             host.view.overrideUserInterfaceStyle = interfaceStyle(dark)
@@ -332,10 +352,39 @@ private class NativeGlassTabButton {
 /** Keeps one UIButton while recomposition replaces its action, disabled state and menu. */
 internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: Boolean = false) {
     private val state = NativeGlassActionState(initial)
+    private val focus = NativeMenuFocus()
     val view: UIButton = UIButton.buttonWithConfiguration(
         UIButtonConfiguration.plainButtonConfiguration(),
         state.primaryAction(),
     )
+    private val badge = UIView().apply {
+        userInteractionEnabled = false
+        backgroundColor = UIColor.systemRedColor
+        layer.cornerRadius = BADGE_SIZE / 2
+        hidden = true
+        translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    init {
+        view.releasesFocusForMenu(focus)
+        view.addSubview(badge)
+        NSLayoutConstraint.activateConstraints(
+            listOf(
+                badge.widthAnchor.constraintEqualToConstant(BADGE_SIZE),
+                badge.heightAnchor.constraintEqualToConstant(BADGE_SIZE),
+                badge.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor, constant = -6.0),
+                badge.topAnchor.constraintEqualToAnchor(view.topAnchor, constant = 6.0),
+            ),
+        )
+    }
+
+    // The menu is the button's own, so it may only reach back to the button weakly.
+    private val anchor = WeakReference<UIView>(view)
+
+    fun dispose() {
+        focus.restore()
+        NativeMenuShield.lower()
+    }
 
     fun update(action: GlassAction, accent: UIColor, dark: Boolean, scale: Float) {
         state.action = action
@@ -351,19 +400,24 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
             title = action.title
             subtitle = action.subtitle
             image = action.symbol?.let { UIImage.systemImageNamed(it) }
+            // A titled button that opens a menu is a pull-down: a small chevron after the text.
+            val pullDown = action.menu.isNotEmpty() && action.title != null
+            imagePlacement = if (pullDown) NSDirectionalRectEdgeTrailing else NSDirectionalRectEdgeLeading
             // SF Symbols otherwise keep their large intrinsic size rather than following the text
             // transformers below; this is especially visible in a narrow vertical page rail.
             preferredSymbolConfigurationForImage = UIImageSymbolConfiguration.configurationWithPointSize(
                 (
-                    if (action.compact) {
+                    if (pullDown) {
+                        13.0
+                    } else if (action.compact) {
                         16.0
                     } else if (grouped) {
                         17.0
                     } else {
-                        20.0
+                        17.0
                     }
                     ) * scale,
-                weight = platform.UIKit.UIImageSymbolWeightRegular,
+                weight = if (pullDown) platform.UIKit.UIImageSymbolWeightSemibold else platform.UIKit.UIImageSymbolWeightRegular,
             )
             titleLineBreakMode = NSLineBreakByTruncatingTail
             subtitleLineBreakMode = NSLineBreakByTruncatingTail
@@ -388,8 +442,9 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         }
         val currentState = state
         view.menu = action.menu.takeIf { it.isNotEmpty() }?.let { menu ->
-            UIMenu.menuWithChildren(
-                menu.map { item ->
+            UIMenu.menuWithTitle(
+                title = action.menuTitle.orEmpty(),
+                children = listOf(NativeMenuShield.element(anchor::get)) + menu.map { item ->
                     item.uiAction {
                         // The menu may still be open when an async operation disables or changes an item.
                         currentState.action.takeIf { it.enabled && !it.loading }
@@ -399,6 +454,9 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
             )
         }
         view.showsMenuAsPrimaryAction = action.menu.isNotEmpty()
+        badge.hidden = !action.badge
+        // A configuration change can insert its background above earlier subviews.
+        view.bringSubviewToFront(badge)
         view.titleLabel?.numberOfLines = 1
         view.subtitleLabel?.numberOfLines = 1
         view.invalidateIntrinsicContentSize()
@@ -430,9 +488,10 @@ private class NativeGlassToolbarHost(vertical: Boolean) {
         view.overrideUserInterfaceStyle = interfaceStyle(dark)
         view.effect = glassEffect(interactive = true, tint = surface)
         while (buttons.size > actions.size) {
-            val button = buttons.removeAt(buttons.lastIndex).view
-            stack.removeArrangedSubview(button)
-            button.removeFromSuperview()
+            val host = buttons.removeAt(buttons.lastIndex)
+            host.dispose()
+            stack.removeArrangedSubview(host.view)
+            host.view.removeFromSuperview()
         }
         actions.forEachIndexed { index, action ->
             val host = buttons.getOrNull(index) ?: NativeGlassButtonHost(action, grouped = true).also {
@@ -444,6 +503,8 @@ private class NativeGlassToolbarHost(vertical: Boolean) {
             host.update(action, foreground, dark, scale)
         }
     }
+
+    fun dispose() = buttons.forEach { it.dispose() }
 }
 
 private class NativeGlassNoticeHost {
@@ -473,6 +534,7 @@ private class NativeGlassNoticeHost {
         val actions = listOfNotNull(action, dismiss)
         if (buttons.size != actions.size) {
             buttons.forEach {
+                it.dispose()
                 stack.removeArrangedSubview(it.view)
                 it.view.removeFromSuperview()
             }
@@ -485,6 +547,8 @@ private class NativeGlassNoticeHost {
         }
         buttons.zip(actions).forEach { (button, spec) -> button.update(spec, accent, dark, scale) }
     }
+
+    fun dispose() = buttons.forEach { it.dispose() }
 }
 
 private fun glassView(interactive: Boolean = false): UIVisualEffectView =
@@ -506,10 +570,14 @@ private fun pin(child: UIView, parent: UIView, inset: Double) {
     )
 }
 
-private fun GlassAction.barItem(current: () -> GlassAction?): UIBarButtonItem {
+private fun GlassAction.barItem(
+    anchor: WeakReference<UIView>? = null,
+    current: () -> GlassAction?,
+): UIBarButtonItem {
     val nativeMenu = menu.takeIf { it.isNotEmpty() }?.let { items ->
-        UIMenu.menuWithChildren(
-            items.map { item ->
+        UIMenu.menuWithTitle(
+            title = menuTitle.orEmpty(),
+            children = listOfNotNull(anchor?.let { NativeMenuShield.element(it::get) }) + items.map { item ->
                 item.uiAction { current()?.menu?.firstOrNull { it.label == item.label && it.enabled }?.onClick?.invoke() }
             },
         )
@@ -525,10 +593,17 @@ private fun GlassAction.barItem(current: () -> GlassAction?): UIBarButtonItem {
 }
 
 private fun GlassMenuAction.uiAction(onSelect: () -> Unit): UIAction =
-    UIAction.actionWithTitle(label, symbol?.let { UIImage.systemImageNamed(it) }, null) { onSelect() }.apply {
-        if (!enabled) attributes = UIMenuElementAttributesDisabled
+    UIAction.actionWithTitle(label, symbol?.let { UIImage.systemImageNamed(it) }, null) {
+        NativeMenuShield.lower()
+        onSelect()
+    }.apply {
+        this@uiAction.subtitle?.let { subtitle = it }
+        attributes = (if (enabled) 0uL else UIMenuElementAttributesDisabled) or
+            (if (destructive) UIMenuElementAttributesDestructive else 0uL)
         state = if (selected) UIMenuElementState.UIMenuElementStateOn else UIMenuElementState.UIMenuElementStateOff
     }
+
+private const val BADGE_SIZE = 8.0
 
 internal fun Color.toUIColor(): UIColor = UIColor(red = red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = alpha.toDouble())
 

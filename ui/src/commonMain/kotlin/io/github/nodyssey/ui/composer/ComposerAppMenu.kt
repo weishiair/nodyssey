@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,6 +18,7 @@ import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.composer_app_menu
 import io.github.nodyssey.ui.resources.composer_insert_stardust
 import io.github.nodyssey.ui.resources.composer_insert_vote
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import org.jetbrains.compose.resources.stringResource
 
@@ -38,7 +38,7 @@ fun ComposerAppMenu(
 
     Box(modifier) {
         IconButton(onClick = { open = true }, modifier = Modifier.size(KEY_SIZE), shape = MaterialTheme.shapes.medium) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.Apps,
                 contentDescription = stringResource(Res.string.composer_app_menu),
                 modifier = Modifier.size(KEY_SIZE / 2),
@@ -47,7 +47,7 @@ fun ComposerAppMenu(
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.composer_insert_vote)) },
-                leadingIcon = { Icon(PlazaIcons.Poll, contentDescription = null) },
+                leadingIcon = { PlazaIcon(PlazaIcons.Poll, contentDescription = null) },
                 onClick = {
                     open = false
                     onInsertVote()
@@ -55,7 +55,7 @@ fun ComposerAppMenu(
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.composer_insert_stardust)) },
-                leadingIcon = { Icon(PlazaIcons.QrCode, contentDescription = null) },
+                leadingIcon = { PlazaIcon(PlazaIcons.QrCode, contentDescription = null) },
                 onClick = {
                     open = false
                     onInsertStardust()

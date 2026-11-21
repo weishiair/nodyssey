@@ -16,12 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -47,7 +43,6 @@ import io.github.nodyssey.model.TermsBlock
 import io.github.nodyssey.model.TermsDocument
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.privacy_effective_date
 import io.github.nodyssey.ui.resources.privacy_keep_scrolling
@@ -57,9 +52,11 @@ import io.github.nodyssey.ui.resources.privacy_open_original
 import io.github.nodyssey.ui.resources.privacy_open_web_fallback
 import io.github.nodyssey.ui.resources.privacy_source
 import io.github.nodyssey.ui.resources.privacy_title
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -102,25 +99,20 @@ fun PrivacyScreen(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
             Column {
-                OneHandTopAppBar(
+                AdaptiveTopBar(
                     title = stringResource(Res.string.privacy_title),
                     state = appBarState,
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.action_back),
-                            )
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = onOpenOriginal) {
-                            Icon(
-                                PlazaIcons.OpenInNew,
-                                contentDescription = stringResource(Res.string.privacy_open_original),
-                            )
-                        }
-                    },
+                    onBack = onBack,
+                    actions = listOf(
+                        TopBarAction(
+                            glass = GlassAction(
+                                label = stringResource(Res.string.privacy_open_original),
+                                onClick = onOpenOriginal,
+                                symbol = "safari",
+                            ),
+                            icon = PlazaIcons.OpenInNew,
+                        ),
+                    ),
                 )
                 androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }

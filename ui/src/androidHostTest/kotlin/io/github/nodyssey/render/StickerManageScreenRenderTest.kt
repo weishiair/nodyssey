@@ -14,6 +14,8 @@ import io.github.nodyssey.data.testSettingsRepository
 import io.github.nodyssey.ui.composer.NodeSeekEmojiGroups
 import io.github.nodyssey.ui.sticker.FakeStickerHttp
 import io.github.nodyssey.ui.sticker.LocalStickerLibrary
+import io.github.nodyssey.ui.sticker.StickerAddRoute
+import io.github.nodyssey.ui.sticker.StickerAddViewModel
 import io.github.nodyssey.ui.sticker.StickerGroupRoute
 import io.github.nodyssey.ui.sticker.StickerGroupViewModel
 import io.github.nodyssey.ui.sticker.StickerManageRoute
@@ -85,10 +87,11 @@ class StickerManageScreenRenderTest {
 
     private fun render(
         name: String,
+        darkTheme: Boolean = false,
         content: @androidx.compose.runtime.Composable () -> Unit,
     ) {
         composeRule.setContent {
-            PlazaTheme(darkTheme = false) {
+            PlazaTheme(darkTheme = darkTheme) {
                 CompositionLocalProvider(LocalStickerLibrary provides library) { content() }
             }
         }
@@ -122,5 +125,21 @@ class StickerManageScreenRenderTest {
     fun `sources page`() {
         val viewModel = StickerManageViewModel(library, NodeSeekEmojiGroups)
         render("sticker-sources") { StickerSourcesRoute(viewModel = viewModel, onBack = {}) }
+    }
+
+    @Test
+    fun `sticker add in light`() {
+        val viewModel = StickerAddViewModel(library)
+        render("sticker-add") {
+            StickerAddRoute(viewModel = viewModel, onBack = {}, onDone = {})
+        }
+    }
+
+    @Test
+    fun `sticker add in dark`() {
+        val viewModel = StickerAddViewModel(library)
+        render("sticker-add-dark", darkTheme = true) {
+            StickerAddRoute(viewModel = viewModel, onBack = {}, onDone = {})
+        }
     }
 }

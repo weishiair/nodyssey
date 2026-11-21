@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +54,7 @@ import io.github.nodyssey.ui.resources.sign_in_2fa_title
 import io.github.nodyssey.ui.resources.sign_in_submitting
 import io.github.nodyssey.ui.resources.sign_in_use_email
 import io.github.nodyssey.ui.resources.sign_in_use_web
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.digitsOnly
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -100,7 +100,7 @@ fun TwoFactorScreen(
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
+                        PlazaIcon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.action_back),
                         )

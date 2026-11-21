@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -27,6 +26,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.fadingEndEdge
 import io.github.plaza.designsys.resources.Res
@@ -182,7 +182,7 @@ private fun Strip(
             appMenu?.invoke()
             onCustomize?.let { customize ->
                 IconButton(onClick = customize, modifier = Modifier.size(QuickKeySize)) {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.Build,
                         contentDescription = stringResource(Res.string.composer_toolbar_customize),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -207,12 +207,12 @@ private fun LinkTemplateMenu(
 ) {
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.composer_format_link)) },
-        leadingIcon = { Icon(PlazaIcons.Link, contentDescription = null) },
+        leadingIcon = { PlazaIcon(PlazaIcons.Link, contentDescription = null) },
         onClick = onLink,
     )
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.composer_link_menu_image)) },
-        leadingIcon = { Icon(PlazaIcons.Image, contentDescription = null) },
+        leadingIcon = { PlazaIcon(PlazaIcons.Image, contentDescription = null) },
         onClick = onImage,
     )
 }

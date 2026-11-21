@@ -13,7 +13,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Email
@@ -23,7 +22,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
@@ -49,7 +47,6 @@ import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.action_retry
@@ -90,16 +87,19 @@ import io.github.nodyssey.ui.resources.mail_use_key
 import io.github.nodyssey.ui.resources.mail_verify_and_retry
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -205,20 +205,24 @@ fun MailInboxScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.mail_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-                actions = {
-                    if (state.connected) {
-                        IconButton(onClick = onRefresh, enabled = !state.loading) {
-                            Icon(Icons.Default.Refresh, stringResource(Res.string.action_refresh))
-                        }
-                    }
+                onBack = onBack,
+                actions = if (state.connected) {
+                    listOf(
+                        TopBarAction(
+                            glass = GlassAction(
+                                label = stringResource(Res.string.action_refresh),
+                                onClick = onRefresh,
+                                symbol = "arrow.clockwise",
+                                enabled = !state.loading,
+                            ),
+                            icon = Icons.Default.Refresh,
+                        ),
+                    )
+                } else {
+                    emptyList()
                 },
             )
         },
@@ -239,7 +243,7 @@ fun MailInboxScreen(
                             Modifier.padding(LayerPageGutter),
                             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                         ) {
-                            Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            PlazaIcon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text(stringResource(Res.string.mail_connect_title), style = MaterialTheme.typography.headlineSmall)
                             Text(stringResource(Res.string.mail_authorize_hint), style = MaterialTheme.typography.bodyLarge)
                             Button(onClick = onAuthorize, enabled = !state.connecting) {
@@ -309,10 +313,10 @@ fun MailInboxScreen(
                                     onClick = { if (!state.markingAllRead) choosingMailbox = true },
                                     trailingContent = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                            PlazaIcon(Icons.Default.ArrowDropDown, contentDescription = null)
                                             Box {
                                                 IconButton(onClick = { showingMailboxActions = true }, enabled = !state.connecting) {
-                                                    Icon(
+                                                    PlazaIcon(
                                                         Icons.Default.MoreVert,
                                                         contentDescription = stringResource(Res.string.mail_options),
                                                     )
@@ -363,7 +367,7 @@ fun MailInboxScreen(
                                         text = { Text(stringResource(Res.string.mail_all_mailboxes)) },
                                         enabled = !state.markingAllRead,
                                         trailingIcon = {
-                                            if (state.selectedMailboxId == null) Icon(Icons.Default.Check, contentDescription = null)
+                                            if (state.selectedMailboxId == null) PlazaIcon(Icons.Default.Check, contentDescription = null)
                                         },
                                         onClick = {
                                             choosingMailbox = false
@@ -376,7 +380,7 @@ fun MailInboxScreen(
                                             enabled = !state.markingAllRead,
                                             trailingIcon = {
                                                 if (mailbox.id == state.selectedMailboxId) {
-                                                    Icon(
+                                                    PlazaIcon(
                                                         Icons.Default.Check,
                                                         contentDescription = null,
                                                     )

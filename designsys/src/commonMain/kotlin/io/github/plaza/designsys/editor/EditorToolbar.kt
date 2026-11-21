@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -33,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.composer_format_bold
@@ -127,7 +127,7 @@ internal fun ToolbarKey(
     // No explicit tint: the icon takes `LocalContentColor`, which IconButton sets to the lit or
     // unlit colour for a checkbox and the menu branch sets to this key's own colour.
     val content: @Composable () -> Unit = {
-        Icon(
+        PlazaIcon(
             imageVector = icon,
             contentDescription = contentDescription,
             modifier = Modifier.size(size / 2),

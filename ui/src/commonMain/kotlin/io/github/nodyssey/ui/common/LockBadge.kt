@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,6 +12,7 @@ import androidx.compose.ui.unit.sp
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.post_badge_locked
 import io.github.nodyssey.ui.resources.post_badge_locked_level
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.textScaledSize
 import io.github.plaza.designsys.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
@@ -32,7 +32,7 @@ fun LockBadge(
     description: String,
     modifier: Modifier = Modifier,
 ) {
-    Icon(
+    PlazaIcon(
         Icons.Default.Lock,
         contentDescription = description,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,

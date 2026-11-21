@@ -9,19 +9,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,7 +58,6 @@ import io.github.nodyssey.ui.resources.accounts_retry_save
 import io.github.nodyssey.ui.resources.accounts_switch
 import io.github.nodyssey.ui.resources.accounts_title
 import io.github.nodyssey.ui.resources.accounts_uid
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.auto_attendance_done
 import io.github.nodyssey.ui.resources.auto_attendance_failed
@@ -71,10 +67,12 @@ import io.github.nodyssey.ui.resources.auto_attendance_title
 import io.github.nodyssey.ui.resources.auto_attendance_verify
 import io.github.nodyssey.ui.settings.SettingsItemGap
 import io.github.nodyssey.ui.settings.SettingsPagePadding
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -144,9 +142,9 @@ fun AccountsScreen(
     Scaffold(
         containerColor = LocalPlazaLayers.current.page,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.accounts_title)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back)) } },
+            AdaptiveTopBar(
+                title = stringResource(Res.string.accounts_title),
+                onBack = onBack,
             )
         },
         snackbarHost = { PlazaSnackbarHost(snackbar) },
@@ -206,7 +204,7 @@ fun AccountsScreen(
                         leadingContent = { UserAvatar(account.avatarUrl, account.name, size = 40.dp) },
                         trailingContent = {
                             IconButton(onClick = { request(AccountAction(account, remove = true)) }) {
-                                Icon(Icons.Default.Delete, stringResource(Res.string.accounts_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                PlazaIcon(Icons.Default.Delete, stringResource(Res.string.accounts_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         },
                     )

@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -61,6 +60,7 @@ import io.github.nodyssey.ui.resources.report_compare_remove
 import io.github.nodyssey.ui.resources.report_score_rank
 import io.github.nodyssey.ui.resources.report_show_source
 import io.github.nodyssey.ui.resources.report_total_score
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.SpecRow
 import io.github.plaza.designsys.component.SpecTable
 import io.github.plaza.designsys.component.TonalTag
@@ -307,7 +307,7 @@ private fun ReportHeader(
                 animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                 label = "chevron",
             )
-            Icon(
+            PlazaIcon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription =
                 stringResource(if (expanded) Res.string.action_collapse else Res.string.action_expand),

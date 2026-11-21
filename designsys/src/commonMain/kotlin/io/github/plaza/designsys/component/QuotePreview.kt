@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 
 /**
@@ -78,7 +78,7 @@ fun QuotePreview(
             }
             onRemove?.let {
                 IconButton(onClick = it) {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.Close,
                         contentDescription = removeLabel,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,

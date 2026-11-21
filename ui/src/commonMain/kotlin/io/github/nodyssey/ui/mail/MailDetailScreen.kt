@@ -7,11 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -31,7 +27,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.isSafeMailLink
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.mail_attachment_hint
 import io.github.nodyssey.ui.resources.mail_connection_expired
@@ -56,9 +51,11 @@ import io.github.nodyssey.ui.resources.mail_open_website
 import io.github.nodyssey.ui.resources.mail_plain_text_hint
 import io.github.nodyssey.ui.resources.mail_to
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -109,21 +106,22 @@ fun MailDetailScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            val readAction = state.message?.let { mail ->
+                val label = stringResource(if (mail.isRead) Res.string.mail_mark_unread else Res.string.mail_mark_read)
+                TopBarAction(
+                    glass = GlassAction(label = label, onClick = onToggleRead, enabled = !state.updatingRead),
+                    compose = {
+                        TextButton(onClick = onToggleRead, enabled = !state.updatingRead) {
+                            Text(label)
+                        }
+                    },
+                )
+            }
+            AdaptiveTopBar(
                 title = stringResource(Res.string.mail_detail),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-                actions = {
-                    state.message?.let { mail ->
-                        TextButton(onClick = onToggleRead, enabled = !state.updatingRead) {
-                            Text(stringResource(if (mail.isRead) Res.string.mail_mark_unread else Res.string.mail_mark_read))
-                        }
-                    }
-                },
+                onBack = onBack,
+                actions = listOfNotNull(readAction),
             )
         },
     ) { padding ->

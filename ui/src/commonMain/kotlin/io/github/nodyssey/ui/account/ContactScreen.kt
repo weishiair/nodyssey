@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
@@ -19,8 +18,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -75,12 +72,12 @@ import io.github.nodyssey.ui.resources.account_telegram_unbind_confirm
 import io.github.nodyssey.ui.resources.account_telegram_unbind_title
 import io.github.nodyssey.ui.resources.account_telegram_unbound
 import io.github.nodyssey.ui.resources.account_value_unknown
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -187,17 +184,10 @@ fun ContactScreen(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.account_contact_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -277,7 +267,7 @@ private fun CurrentEmailRow(
         trailingIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (email.isNotEmpty() && verified) {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.Check,
                         contentDescription = stringResource(Res.string.account_email_verified),
                         tint = MaterialTheme.colorScheme.primary,
@@ -285,7 +275,7 @@ private fun CurrentEmailRow(
                     )
                 }
                 TextButton(onClick = onChange) {
-                    Icon(
+                    PlazaIcon(
                         PlazaIcons.OpenInNew,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
@@ -309,7 +299,7 @@ private fun DisabledPhoneCard() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.Sms,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -348,7 +338,7 @@ private fun TelegramCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
-                Icon(
+                PlazaIcon(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
@@ -412,7 +402,7 @@ private fun TelegramCard(
                 }
             } else {
                 Button(onClick = onRequestBind, enabled = binding != null) {
-                    Icon(PlazaIcons.Link, contentDescription = null, modifier = Modifier.size(17.dp))
+                    PlazaIcon(PlazaIcons.Link, contentDescription = null, modifier = Modifier.size(17.dp))
                     Text(
                         stringResource(Res.string.account_telegram_bind),
                         modifier = Modifier.padding(start = Spacing.xs),
@@ -439,7 +429,7 @@ private fun TelegramBindDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(PlazaIcons.OpenInNew, contentDescription = null) },
+        icon = { PlazaIcon(PlazaIcons.OpenInNew, contentDescription = null) },
         title = { Text(stringResource(Res.string.account_telegram_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -456,7 +446,7 @@ private fun TelegramBindDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     ) {
-                        Icon(
+                        PlazaIcon(
                             Icons.Default.Info,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,

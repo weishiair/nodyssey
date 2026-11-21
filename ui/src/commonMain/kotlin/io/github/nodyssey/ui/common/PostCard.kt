@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import io.github.nodyssey.ui.resources.post_new_reply_count
 import io.github.nodyssey.ui.resources.post_new_reply_delta
 import io.github.nodyssey.ui.resources.post_reply_count
 import io.github.plaza.designsys.component.MetaStat
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.textScaledSize
 import io.github.plaza.designsys.component.tonalTagTextStyle
@@ -81,7 +81,7 @@ internal fun PostBadges(
         LockBadge(level = summary.lockLevel, description = lockBadgeDescription(summary.lockLevel))
     }
     if (showAward && summary.isAwarded) {
-        Icon(
+        PlazaIcon(
             NodeSeekIcons.Award,
             contentDescription = stringResource(Res.string.post_badge_awarded),
             // The warm role rather than primary: 加精 is a mark the site puts on a thread, not an

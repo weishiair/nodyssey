@@ -11,10 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,7 +47,6 @@ import io.github.nodyssey.data.proxy.ProxyConnectionFailure
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.network_check_app_none
 import io.github.nodyssey.ui.resources.network_check_app_version
 import io.github.nodyssey.ui.resources.network_check_clearance
@@ -132,14 +128,17 @@ import io.github.nodyssey.ui.resources.proxy_test_failure_timeout
 import io.github.nodyssey.ui.resources.proxy_test_failure_tls
 import io.github.nodyssey.ui.resources.proxy_type_http
 import io.github.nodyssey.ui.resources.proxy_type_socks
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.IconBadge
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerDivider
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.SectionNotes
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -190,27 +189,23 @@ fun NetworkCheckScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.network_check_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { copy(copyLabel, sections.asShareText(), copied) },
-                        // Copying a half-finished report would put numbers next to 「…」 in a
-                        // thread and read as measurements that came back empty.
-                        enabled = !state.running,
-                    ) {
-                        Icon(PlazaIcons.ContentCopy, contentDescription = copyLabel)
-                    }
-                },
+                onBack = onBack,
+                actions = listOf(
+                    TopBarAction(
+                        glass = GlassAction(
+                            label = copyLabel,
+                            onClick = { copy(copyLabel, sections.asShareText(), copied) },
+                            symbol = "doc.on.doc",
+                            // Copying a half-finished report would put numbers next to 「…」 in a
+                            // thread and read as measurements that came back empty.
+                            enabled = !state.running,
+                        ),
+                        icon = PlazaIcons.ContentCopy,
+                    ),
+                ),
             )
         },
     ) { padding ->
@@ -290,8 +285,8 @@ private fun CheckSummaryCard(state: NetworkCheckUiState) {
             ) {
                 when {
                     state.running || forum == null -> PlazaSpinner(strokeWidth = 2.dp, size = 20.dp)
-                    failed -> Icon(PlazaIcons.ErrorCircle, contentDescription = null)
-                    else -> Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    failed -> PlazaIcon(PlazaIcons.ErrorCircle, contentDescription = null)
+                    else -> PlazaIcon(Icons.Default.CheckCircle, contentDescription = null)
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

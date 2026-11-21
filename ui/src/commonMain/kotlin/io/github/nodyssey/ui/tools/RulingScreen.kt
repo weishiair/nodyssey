@@ -13,11 +13,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingToolbarDefaults.floatingToolbarVerticalNestedScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalTextStyle
@@ -55,7 +53,6 @@ import io.github.nodyssey.ui.common.PageJumpSheet
 import io.github.nodyssey.ui.common.SiteErrorState
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_open_in_browser
 import io.github.nodyssey.ui.resources.page_jump_latest_read
 import io.github.nodyssey.ui.resources.page_jump_newest
@@ -89,13 +86,16 @@ import io.github.nodyssey.ui.resources.ruling_target_post
 import io.github.nodyssey.ui.resources.ruling_title
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.AppendSpinner
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -242,7 +242,9 @@ fun RulingScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            val openLabel = stringResource(Res.string.action_open_in_browser)
+            val openVisiblePage = { onOpenBrowser(visiblePage) }
+            AdaptiveTopBar(
                 title = stringResource(Res.string.ruling_title),
                 state = appBarState,
                 // A parameter rather than a hand-stacked Column: the subtitle then takes its type
@@ -250,23 +252,21 @@ fun RulingScreen(
                 // centred title — instead of two values chosen here, and it follows the title
                 // through the fold without this screen knowing how far along that fold is.
                 subtitle = stringResource(Res.string.ruling_subtitle),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onOpenBrowser(visiblePage) }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = stringResource(Res.string.action_open_in_browser),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
+                onBack = onBack,
+                actions = listOf(
+                    TopBarAction(
+                        glass = GlassAction(label = openLabel, onClick = openVisiblePage, symbol = "safari"),
+                        compose = {
+                            IconButton(onClick = openVisiblePage) {
+                                PlazaIcon(
+                                    Icons.AutoMirrored.Filled.ExitToApp,
+                                    contentDescription = openLabel,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                    ),
+                ),
             )
         },
     ) { padding ->

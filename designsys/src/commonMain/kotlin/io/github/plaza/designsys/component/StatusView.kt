@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
 
@@ -114,7 +114,7 @@ fun StatusView(
                             .background(containerColor),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
+                        PlazaIcon(
                             imageVector = icon,
                             // The blob is decoration; the title next to it already says what the state is.
                             contentDescription = null,
@@ -153,7 +153,7 @@ fun StatusView(
                             shapes = ButtonDefaults.shapesFor(ButtonDefaults.MediumContainerHeight),
                         ) {
                             it.icon?.let { glyph ->
-                                Icon(glyph, contentDescription = null, modifier = Modifier.size(20.dp))
+                                PlazaIcon(glyph, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(Spacing.sm))
                             }
                             Text(it.label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold))
@@ -169,7 +169,7 @@ fun StatusView(
                                 .heightIn(min = Sizes.minTouchTarget),
                         ) {
                             it.icon?.let { glyph ->
-                                Icon(glyph, contentDescription = null, modifier = Modifier.size(18.dp))
+                                PlazaIcon(glyph, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(Spacing.sm))
                             }
                             Text(it.label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold))

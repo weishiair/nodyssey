@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,7 +30,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -101,10 +101,13 @@ import io.github.nodyssey.ui.resources.notifications_one_hand_tip
 import io.github.nodyssey.ui.resources.notifications_one_hand_tip_settings
 import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.StatusAction
@@ -234,7 +237,7 @@ private fun OneHandTip(
                 ),
                 modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.sm).size(32.dp),
             ) {
-                Icon(
+                PlazaIcon(
                     Icons.Default.Close,
                     contentDescription = stringResource(Res.string.action_close),
                     modifier = Modifier.size(18.dp),
@@ -320,13 +323,25 @@ fun NotificationsScreen(
     val layers = LocalPlazaLayers.current
     val title = stringResource(Res.string.tab_notifications)
     val markAllRead: @Composable () -> Unit = {
-        TextButton(onClick = onMarkAllRead, enabled = state.hasUnread) {
-            Icon(PlazaIcons.DoneAll, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text(
-                stringResource(Res.string.notifications_mark_all_read),
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            )
+        val markAllReadLabel = stringResource(Res.string.notifications_mark_all_read)
+        AdaptiveGlassButton(
+            action = GlassAction(
+                label = markAllReadLabel,
+                onClick = onMarkAllRead,
+                symbol = "checkmark.circle",
+                title = markAllReadLabel,
+                enabled = state.hasUnread,
+            ),
+            modifier = Modifier.heightIn(min = 44.dp),
+        ) {
+            TextButton(onClick = onMarkAllRead, enabled = state.hasUnread) {
+                PlazaIcon(PlazaIcons.DoneAll, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text(
+                    markAllReadLabel,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                )
+            }
         }
     }
 
