@@ -61,8 +61,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -230,6 +228,8 @@ import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.AdaptiveGlassTopBar
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
+import io.github.plaza.designsys.component.AdaptivePullToRefreshIndicator
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
 import io.github.plaza.designsys.component.GlassAction
@@ -864,7 +864,7 @@ fun PostDetailScreen(
                         }
 
                     else ->
-                        PullToRefreshBox(
+                        AdaptivePullToRefreshBox(
                             isRefreshing = state.isRefreshing || state.isPrepending,
                             onRefresh = {
                                 pressHaptics.refreshTriggered()
@@ -873,7 +873,7 @@ fun PostDetailScreen(
                             modifier = Modifier.liquidGlassBackdropSource(threadBackdrop),
                             state = pullToRefreshState,
                             indicator = {
-                                PullToRefreshDefaults.Indicator(
+                                AdaptivePullToRefreshIndicator(
                                     state = pullToRefreshState,
                                     isRefreshing = state.isRefreshing || state.isPrepending,
                                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
