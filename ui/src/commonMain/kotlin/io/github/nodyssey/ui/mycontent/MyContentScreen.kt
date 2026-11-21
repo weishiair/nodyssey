@@ -19,7 +19,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -53,6 +52,7 @@ import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PlazaChipDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.StatusAction
 import io.github.plaza.designsys.component.StatusView
@@ -213,7 +213,7 @@ private fun MenuChip(
             colors = PlazaChipDefaults.assistChipColors(),
             border = PlazaChipDefaults.border(),
             trailingIcon = {
-                Icon(
+                PlazaIcon(
                     Icons.Default.ArrowDropDown,
                     contentDescription = null,
                     modifier = Modifier.size(AssistChipDefaults.IconSize),

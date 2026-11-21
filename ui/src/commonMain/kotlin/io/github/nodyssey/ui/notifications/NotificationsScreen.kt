@@ -30,7 +30,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -108,6 +107,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.StatusAction
@@ -237,7 +237,7 @@ private fun OneHandTip(
                 ),
                 modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.sm).size(32.dp),
             ) {
-                Icon(
+                PlazaIcon(
                     Icons.Default.Close,
                     contentDescription = stringResource(Res.string.action_close),
                     modifier = Modifier.size(18.dp),
@@ -335,7 +335,7 @@ fun NotificationsScreen(
             modifier = Modifier.heightIn(min = 44.dp),
         ) {
             TextButton(onClick = onMarkAllRead, enabled = state.hasUnread) {
-                Icon(PlazaIcons.DoneAll, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                PlazaIcon(PlazaIcons.DoneAll, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                 Text(
                     markAllReadLabel,

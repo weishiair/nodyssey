@@ -2,7 +2,6 @@ package io.github.nodyssey.ui.common
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SelectableDropdownMenuItem
@@ -15,6 +14,7 @@ import io.github.nodyssey.model.FeedSort
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.sort_by_post_time
 import io.github.nodyssey.ui.resources.sort_by_reply_time
+import io.github.plaza.designsys.component.PlazaIcon
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -44,7 +44,7 @@ internal fun SelectableMenuItem(
         modifier = modifier,
         enabled = enabled,
         leadingIcon = leadingIcon,
-        trailingContent = { if (selected) Icon(Icons.Default.Check, contentDescription = null) },
+        trailingContent = { if (selected) PlazaIcon(Icons.Default.Check, contentDescription = null) },
         colors =
         MenuDefaults.selectableItemColors(
             containerColor = Color.Transparent,

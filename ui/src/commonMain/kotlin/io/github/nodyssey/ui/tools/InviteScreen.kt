@@ -16,7 +16,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -76,6 +75,7 @@ import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTag
@@ -207,7 +207,7 @@ private fun PurchaseCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.Group,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
@@ -415,7 +415,7 @@ private fun CodeRow(
             }
         }
         IconButton(onClick = { onCopy(code.code) }) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.ContentCopy,
                 contentDescription = stringResource(Res.string.action_copy),
             )
@@ -442,7 +442,7 @@ private fun OutcomeDialog(
             val code = outcome.code
             AlertDialog(
                 onDismissRequest = onDismiss,
-                icon = { Icon(PlazaIcons.ConfirmationNumber, contentDescription = null) },
+                icon = { PlazaIcon(PlazaIcons.ConfirmationNumber, contentDescription = null) },
                 title = { Text(stringResource(Res.string.invite_bought_title)) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {

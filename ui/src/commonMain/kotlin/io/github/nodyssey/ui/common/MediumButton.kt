@@ -9,7 +9,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ProvideTextStyle
@@ -17,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSpinner
 
 internal enum class MediumButtonStyle { Filled, Tonal, Outlined }
@@ -60,7 +60,7 @@ internal fun MediumButton(
                     color = LocalContentColor.current,
                 )
             } else if (icon != null) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(leadingSize))
+                PlazaIcon(icon, contentDescription = null, modifier = Modifier.size(leadingSize))
             }
             if (busy || icon != null) Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(height)))
             content()

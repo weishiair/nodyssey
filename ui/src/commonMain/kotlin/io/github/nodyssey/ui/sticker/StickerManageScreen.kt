@@ -28,7 +28,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -145,6 +144,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.component.SectionLabel
@@ -223,7 +223,7 @@ fun StickerManageRoute(
                                     contentPadding = PaddingValues(start = 12.dp, end = 16.dp),
                                     modifier = Modifier.padding(end = Spacing.sm),
                                 ) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    PlazaIcon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.size(Spacing.xs))
                                     Text(stringResource(Res.string.sticker_manage_add))
                                 }
@@ -307,7 +307,7 @@ fun StickerManageRoute(
                     BackupTile(
                         title = stringResource(Res.string.sticker_backup_import),
                         subtitle = stringResource(Res.string.sticker_backup_import_desc),
-                        icon = { Icon(PlazaIcons.Download, contentDescription = null) },
+                        icon = { PlazaIcon(PlazaIcons.Download, contentDescription = null) },
                         onClick = {
                             viewModel.resetImport()
                             importOpen = true
@@ -523,7 +523,7 @@ internal fun GroupRow(
                 },
                 leadingContent = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
+                        PlazaIcon(
                             PlazaIcons.DragHandle,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -536,9 +536,9 @@ internal fun GroupRow(
                 supportingContent = { Text(groupSubtitle(item, brokenMine), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 trailingContent = {
                     if (item.hidden) {
-                        Icon(PlazaIcons.VisibilityOff, contentDescription = null, modifier = Modifier.size(20.dp))
+                        PlazaIcon(PlazaIcons.VisibilityOff, contentDescription = null, modifier = Modifier.size(20.dp))
                     } else {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(20.dp))
+                        PlazaIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(20.dp))
                     }
                 },
             ) {
@@ -602,7 +602,7 @@ internal fun GroupIcon(
     val base = modifier.size(GROUP_ICON_SIZE).clip(shape)
     when (item) {
         is StickerGroupItem.Mine -> Box(base.background(MaterialTheme.colorScheme.tertiaryContainer), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
+            PlazaIcon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
         }
 
         is StickerGroupItem.Folder -> {
@@ -639,7 +639,7 @@ private fun HideBackdrop(
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
+        PlazaIcon(
             if (hidden) PlazaIcons.Visibility else PlazaIcons.VisibilityOff,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -820,13 +820,13 @@ private fun ExportTile(
         BackupTile(
             title = stringResource(Res.string.sticker_backup_export),
             subtitle = stringResource(Res.string.sticker_backup_export_desc),
-            icon = { Icon(Icons.Default.Share, contentDescription = null) },
+            icon = { PlazaIcon(Icons.Default.Share, contentDescription = null) },
             onClick = { if (onSaveFile == null) onCopy() else menu = true },
         )
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.sticker_backup_copy)) },
-                leadingIcon = { Icon(PlazaIcons.ContentCopy, contentDescription = null) },
+                leadingIcon = { PlazaIcon(PlazaIcons.ContentCopy, contentDescription = null) },
                 onClick = {
                     menu = false
                     onCopy()
@@ -835,7 +835,7 @@ private fun ExportTile(
             if (onSaveFile != null) {
                 DropdownMenuItem(
                     text = { Text(stringResource(Res.string.sticker_backup_save_file)) },
-                    leadingIcon = { Icon(PlazaIcons.Download, contentDescription = null) },
+                    leadingIcon = { PlazaIcon(PlazaIcons.Download, contentDescription = null) },
                     onClick = {
                         menu = false
                         onSaveFile()
@@ -890,7 +890,7 @@ private fun ImportDialog(
                             enabled = outcome != ImportOutcome.Running,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Icon(PlazaIcons.FolderZip, contentDescription = null, modifier = Modifier.size(18.dp))
+                            PlazaIcon(PlazaIcons.FolderZip, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.size(Spacing.sm))
                             Text(stringResource(Res.string.sticker_backup_pick_file))
                         }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -40,6 +39,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.groupedRowTitleStyle
 import io.github.plaza.designsys.theme.Spacing
 
@@ -151,7 +151,7 @@ internal fun <T> SettingsMenuRow(
         showChevron = false,
         trailing = {
             Box {
-                Icon(menuIcon, contentDescription = null)
+                PlazaIcon(menuIcon, contentDescription = null)
                 DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
                     choices.forEachIndexed { index, (choice, label) ->
                         SelectableMenuItem(

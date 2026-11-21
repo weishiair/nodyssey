@@ -12,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -134,6 +133,7 @@ import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.IconBadge
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerDivider
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
@@ -285,8 +285,8 @@ private fun CheckSummaryCard(state: NetworkCheckUiState) {
             ) {
                 when {
                     state.running || forum == null -> PlazaSpinner(strokeWidth = 2.dp, size = 20.dp)
-                    failed -> Icon(PlazaIcons.ErrorCircle, contentDescription = null)
-                    else -> Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    failed -> PlazaIcon(PlazaIcons.ErrorCircle, contentDescription = null)
+                    else -> PlazaIcon(Icons.Default.CheckCircle, contentDescription = null)
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

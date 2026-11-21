@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -79,6 +78,7 @@ import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
@@ -373,7 +373,7 @@ private fun TitleRulesContent(
             onClick = { onRegexChange(!state.isRegex) },
             label = { Text(stringResource(Res.string.keywords_regex_toggle)) },
             leadingIcon = if (state.isRegex) {
-                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                { PlazaIcon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
             } else {
                 null
             },
@@ -396,7 +396,7 @@ private fun TitleRulesContent(
                     },
                     trailingContent = {
                         IconButton(onClick = { onRemove(rule) }) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.keywords_remove, rule.text))
+                            PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.keywords_remove, rule.text))
                         }
                     },
                 )
@@ -511,7 +511,7 @@ private fun BlockedEmptyState(text: String) {
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.VisibilityOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

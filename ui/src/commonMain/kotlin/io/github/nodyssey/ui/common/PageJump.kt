@@ -36,7 +36,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
@@ -93,6 +92,7 @@ import io.github.nodyssey.ui.resources.page_jump_unit_floor
 import io.github.nodyssey.ui.resources.page_jump_unit_page
 import io.github.plaza.designsys.component.AdaptiveGlassToolbar
 import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.theme.ControlShape
@@ -226,14 +226,14 @@ internal fun PageJumpRail(
                     enabled = previousEnabled,
                     contentDescription = stringResource(previousLabel),
                 ) {
-                    Icon(previousIcon, contentDescription = null)
+                    PlazaIcon(previousIcon, contentDescription = null)
                 }
                 PageKey(
                     onClick = onNext,
                     enabled = page < totalPages,
                     contentDescription = stringResource(Res.string.page_jump_next),
                 ) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                    PlazaIcon(Icons.Default.KeyboardArrowDown, contentDescription = null)
                 }
             }
         }
@@ -297,10 +297,10 @@ private fun FloatingPageJumpRail(
         )
         val shortcuts: @Composable () -> Unit = {
             IconButton(onClick = onPrevious, enabled = previousEnabled, modifier = Modifier.size(Sizes.minTouchTarget)) {
-                Icon(previousIcon, contentDescription = stringResource(previousLabel))
+                PlazaIcon(previousIcon, contentDescription = stringResource(previousLabel))
             }
             IconButton(onClick = onNext, enabled = page < totalPages, modifier = Modifier.size(Sizes.minTouchTarget)) {
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
+                PlazaIcon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
             }
         }
         val pageKey: @Composable () -> Unit = {
@@ -728,7 +728,7 @@ private fun PageNumberField(
             enabled = number != null,
             modifier = Modifier.size(GoButtonSize),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = stringResource(Res.string.page_jump_go),
             )
@@ -764,7 +764,7 @@ private fun UnitChip(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(unitLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Icon(PlazaIcons.SwapVert, contentDescription = null, modifier = Modifier.size(20.dp))
+            PlazaIcon(PlazaIcons.SwapVert, contentDescription = null, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -791,7 +791,7 @@ private fun JumpTile(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(destination.icon, contentDescription = null)
+            PlazaIcon(destination.icon, contentDescription = null)
             Column {
                 Text(
                     destination.label,

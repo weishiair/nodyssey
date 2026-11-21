@@ -32,7 +32,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -114,6 +113,7 @@ import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -415,7 +415,7 @@ private fun ComposerTopBar(
             },
             navigationIcon = {
                 IconButton(onClick = onClose, enabled = !isPublishing) {
-                    Icon(
+                    PlazaIcon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(Res.string.action_cancel),
                         modifier = Modifier.size(TopBarIconSize),
@@ -456,7 +456,7 @@ private fun ViewModeToggle(
             checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ),
     ) {
-        Icon(icon, contentDescription = stringResource(mode.labelRes), modifier = Modifier.size(TopBarIconSize))
+        PlazaIcon(icon, contentDescription = stringResource(mode.labelRes), modifier = Modifier.size(TopBarIconSize))
     }
 }
 
@@ -858,7 +858,7 @@ private fun ComposerChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            leading?.let { Icon(it, contentDescription = null, modifier = Modifier.padding(end = 2.dp).size(14.dp)) }
+            leading?.let { PlazaIcon(it, contentDescription = null, modifier = Modifier.padding(end = 2.dp).size(14.dp)) }
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
@@ -866,7 +866,7 @@ private fun ComposerChip(
                 fontWeight = if (filled) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
             )
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
+            PlazaIcon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -918,7 +918,7 @@ private fun DraftRecoveryDialog(
     val title = draft.title.ifBlank { stringResource(Res.string.composer_title_hint) }
     AlertDialog(
         onDismissRequest = {},
-        icon = { Icon(PlazaIcons.Drafts, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        icon = { PlazaIcon(PlazaIcons.Drafts, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(stringResource(Res.string.composer_restore_title)) },
         text = {
             Text(

@@ -19,7 +19,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
@@ -61,6 +60,7 @@ import io.github.nodyssey.ui.resources.post_reading_original_position
 import io.github.nodyssey.ui.resources.post_reply_action
 import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
@@ -203,7 +203,7 @@ private fun ThreadReadingControlsRow(
                     FloatingActionButtonDefaults.elevation(defaultElevation = if (einkMode) 0.dp else 2.dp)
                 },
             ) {
-                Icon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
+                PlazaIcon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
             }
         }
     }

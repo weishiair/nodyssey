@@ -18,7 +18,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -78,6 +77,7 @@ import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -267,7 +267,7 @@ private fun CurrentEmailRow(
         trailingIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (email.isNotEmpty() && verified) {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.Check,
                         contentDescription = stringResource(Res.string.account_email_verified),
                         tint = MaterialTheme.colorScheme.primary,
@@ -275,7 +275,7 @@ private fun CurrentEmailRow(
                     )
                 }
                 TextButton(onClick = onChange) {
-                    Icon(
+                    PlazaIcon(
                         PlazaIcons.OpenInNew,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
@@ -299,7 +299,7 @@ private fun DisabledPhoneCard() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.Sms,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -338,7 +338,7 @@ private fun TelegramCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
-                Icon(
+                PlazaIcon(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
@@ -402,7 +402,7 @@ private fun TelegramCard(
                 }
             } else {
                 Button(onClick = onRequestBind, enabled = binding != null) {
-                    Icon(PlazaIcons.Link, contentDescription = null, modifier = Modifier.size(17.dp))
+                    PlazaIcon(PlazaIcons.Link, contentDescription = null, modifier = Modifier.size(17.dp))
                     Text(
                         stringResource(Res.string.account_telegram_bind),
                         modifier = Modifier.padding(start = Spacing.xs),
@@ -429,7 +429,7 @@ private fun TelegramBindDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(PlazaIcons.OpenInNew, contentDescription = null) },
+        icon = { PlazaIcon(PlazaIcons.OpenInNew, contentDescription = null) },
         title = { Text(stringResource(Res.string.account_telegram_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -446,7 +446,7 @@ private fun TelegramBindDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     ) {
-                        Icon(
+                        PlazaIcon(
                             Icons.Default.Info,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -135,6 +134,7 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaStat
 import io.github.plaza.designsys.component.PillTabRow
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -365,7 +365,7 @@ internal fun spaceTopBarActions(
                 ),
                 compose = {
                     IconButton(onClick = onEditProfile) {
-                        Icon(
+                        PlazaIcon(
                             Icons.Default.Edit,
                             contentDescription = stringResource(Res.string.profile_edit),
                             modifier = Modifier.size(20.dp),
@@ -386,7 +386,7 @@ internal fun spaceTopBarActions(
                     // 备注 up here rather than as a third button on the card: beside 关注 and
                     // 私信 it squeezed all three into wrapping their labels a character a line.
                     IconButton(onClick = onEditNote) {
-                        Icon(
+                        PlazaIcon(
                             PlazaIcons.Badge,
                             contentDescription = stringResource(Res.string.user_note_action),
                             modifier = Modifier.size(20.dp),
@@ -413,7 +413,7 @@ private fun SpaceOverflowMenu(onOpenBrowser: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.OpenInNew,
                 contentDescription = stringResource(Res.string.action_more),
                 modifier = Modifier.size(20.dp),
@@ -782,7 +782,7 @@ private fun ReadmeCard(
             )
             if (foldable) {
                 IconButton(onClick = { readmeExpanded = !readmeExpanded }) {
-                    Icon(
+                    PlazaIcon(
                         if (readmeExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = toggleLabel,
                     )

@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -155,6 +154,7 @@ import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.ImageFallback
 import io.github.plaza.designsys.component.LayerCard
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -389,7 +389,7 @@ private fun ProviderCard(
                     label = { Text(stringResource(provider.nameRes())) },
                     leadingIcon =
                     if (isSelected) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                        { PlazaIcon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
                     } else {
                         null
                     },
@@ -546,7 +546,7 @@ private fun CredentialFields(
         if (provider == ImageHostProvider.CUSTOM) {
             TextButton(onClick = onToggleCustomFields) {
                 Text(stringResource(Res.string.imagehost_custom_fields))
-                Icon(
+                PlazaIcon(
                     imageVector = if (state.customFieldsExpanded) {
                         Icons.Default.KeyboardArrowUp
                     } else {
@@ -787,7 +787,7 @@ private fun ImageTile(
             ),
             modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Delete,
                 contentDescription = stringResource(Res.string.imagehost_delete_action),
                 modifier = Modifier.size(18.dp),

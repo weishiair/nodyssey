@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -59,6 +58,7 @@ import io.github.nodyssey.ui.resources.report_zoom_in
 import io.github.nodyssey.ui.resources.report_zoom_out
 import io.github.nodyssey.ui.resources.report_zoom_percent
 import io.github.plaza.core.ansi.AnsiSpan
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberTerminalText
@@ -165,16 +165,16 @@ private fun TerminalHeader(
             }
         }
         IconButton(onClick = { copy("report", source, confirmation) }) {
-            Icon(PlazaIcons.ContentCopy, stringResource(Res.string.action_copy), Modifier.size(18.dp))
+            PlazaIcon(PlazaIcons.ContentCopy, stringResource(Res.string.action_copy), Modifier.size(18.dp))
         }
         onExpand?.let {
             IconButton(onClick = it) {
-                Icon(PlazaIcons.Fullscreen, stringResource(Res.string.report_open_fullscreen), Modifier.size(20.dp))
+                PlazaIcon(PlazaIcons.Fullscreen, stringResource(Res.string.report_open_fullscreen), Modifier.size(20.dp))
             }
         }
         onDismiss?.let {
             IconButton(onClick = it) {
-                Icon(Icons.Default.Close, stringResource(Res.string.action_close), Modifier.size(20.dp))
+                PlazaIcon(Icons.Default.Close, stringResource(Res.string.action_close), Modifier.size(20.dp))
             }
         }
     }

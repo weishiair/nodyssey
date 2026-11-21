@@ -10,7 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
@@ -70,6 +69,7 @@ import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionNotes
@@ -144,7 +144,7 @@ fun ProxySettingsScreen(
                 state = appBarState,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
+                        PlazaIcon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.action_back),
                         )

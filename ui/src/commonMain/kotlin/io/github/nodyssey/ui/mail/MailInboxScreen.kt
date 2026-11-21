@@ -22,7 +22,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
@@ -95,6 +94,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
@@ -243,7 +243,7 @@ fun MailInboxScreen(
                             Modifier.padding(LayerPageGutter),
                             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                         ) {
-                            Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            PlazaIcon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text(stringResource(Res.string.mail_connect_title), style = MaterialTheme.typography.headlineSmall)
                             Text(stringResource(Res.string.mail_authorize_hint), style = MaterialTheme.typography.bodyLarge)
                             Button(onClick = onAuthorize, enabled = !state.connecting) {
@@ -313,10 +313,10 @@ fun MailInboxScreen(
                                     onClick = { if (!state.markingAllRead) choosingMailbox = true },
                                     trailingContent = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                            PlazaIcon(Icons.Default.ArrowDropDown, contentDescription = null)
                                             Box {
                                                 IconButton(onClick = { showingMailboxActions = true }, enabled = !state.connecting) {
-                                                    Icon(
+                                                    PlazaIcon(
                                                         Icons.Default.MoreVert,
                                                         contentDescription = stringResource(Res.string.mail_options),
                                                     )
@@ -367,7 +367,7 @@ fun MailInboxScreen(
                                         text = { Text(stringResource(Res.string.mail_all_mailboxes)) },
                                         enabled = !state.markingAllRead,
                                         trailingIcon = {
-                                            if (state.selectedMailboxId == null) Icon(Icons.Default.Check, contentDescription = null)
+                                            if (state.selectedMailboxId == null) PlazaIcon(Icons.Default.Check, contentDescription = null)
                                         },
                                         onClick = {
                                             choosingMailbox = false
@@ -380,7 +380,7 @@ fun MailInboxScreen(
                                             enabled = !state.markingAllRead,
                                             trailingIcon = {
                                                 if (mailbox.id == state.selectedMailboxId) {
-                                                    Icon(
+                                                    PlazaIcon(
                                                         Icons.Default.Check,
                                                         contentDescription = null,
                                                     )

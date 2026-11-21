@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -73,6 +72,7 @@ import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -204,7 +204,7 @@ fun AccountsScreen(
                         leadingContent = { UserAvatar(account.avatarUrl, account.name, size = 40.dp) },
                         trailingContent = {
                             IconButton(onClick = { request(AccountAction(account, remove = true)) }) {
-                                Icon(Icons.Default.Delete, stringResource(Res.string.accounts_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                PlazaIcon(Icons.Default.Delete, stringResource(Res.string.accounts_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         },
                     )

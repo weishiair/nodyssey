@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,6 +29,7 @@ import io.github.nodyssey.ui.resources.settings_read_mark_color_more
 import io.github.nodyssey.ui.resources.settings_read_mark_color_theme
 import io.github.nodyssey.ui.settings.theme.SeedColorSheet
 import io.github.nodyssey.ui.settings.theme.toHexString
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.settings.SettingsChoicePresentation
 import io.github.plaza.designsys.settings.SettingsItem
 import io.github.plaza.designsys.settings.SettingsOption
@@ -196,7 +196,7 @@ private fun Swatch(
 
 @Composable
 private fun Glyph(icon: ImageVector, tint: Color) {
-    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+    PlazaIcon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
 }
 
 /** Against the swatch, not against the page: the scheme's ink would vanish on half of these. */

@@ -45,7 +45,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -240,6 +239,7 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -1269,7 +1269,7 @@ private fun DetailTopBar(
                                         Modifier
                                     },
                                 ) {
-                                    Icon(
+                                    PlazaIcon(
                                         Icons.AutoMirrored.Filled.ArrowBack,
                                         contentDescription = stringResource(Res.string.action_back),
                                         modifier = Modifier.size(TopBarIconSize),
@@ -1305,7 +1305,7 @@ private fun DetailTopBar(
                                         onClick = onOpenInBrowser,
                                         modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
                                     ) {
-                                        Icon(
+                                        PlazaIcon(
                                             PlazaIcons.OpenInNew,
                                             contentDescription = stringResource(Res.string.action_open_in_browser),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1317,7 +1317,7 @@ private fun DetailTopBar(
                                             onClick = { menuOpen = true },
                                             modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
                                         ) {
-                                            Icon(
+                                            PlazaIcon(
                                                 Icons.Default.MoreVert,
                                                 contentDescription = stringResource(Res.string.action_more),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1718,7 +1718,7 @@ private fun BlockedFloorRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        Icon(
+        PlazaIcon(
             PlazaIcons.VisibilityOff,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1810,7 +1810,7 @@ private fun ThreadHeader(
             if (onOpenOriginalPost != null) {
                 TextButton(onClick = onOpenOriginalPost, contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)) {
                     Text(stringResource(Res.string.post_open_original), style = MaterialTheme.typography.labelSmall)
-                    Icon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.padding(start = 3.dp).size(13.dp))
+                    PlazaIcon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.padding(start = 3.dp).size(13.dp))
                 }
             }
         }
@@ -2874,7 +2874,7 @@ private fun OriginalReactionButton(
         if (pending) {
             PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = 16.dp)
         } else {
-            Icon(action.icon(filled = spent), contentDescription = stringResource(action.labelRes()), modifier = Modifier.size(16.dp))
+            PlazaIcon(action.icon(filled = spent), contentDescription = stringResource(action.labelRes()), modifier = Modifier.size(16.dp))
         }
         if (text.isNotEmpty()) {
             Text(
@@ -2994,7 +2994,7 @@ private fun FloorActionButton(
                 Res.string.post_reply_action -> (-0.5).dp
                 else -> 0.dp
             }
-            Icon(
+            PlazaIcon(
                 icon,
                 contentDescription = null,
                 modifier = Modifier.size(glyphSize).offset(y = glyphOffset),
@@ -3055,7 +3055,7 @@ private fun ReactionConfirmDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Icon(
+            PlazaIcon(
                 if (isChicken) NodeSeekIcons.ChickenLeg else PlazaIcons.ThumbDown,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
@@ -3249,7 +3249,7 @@ private fun FloorActionSheet(
                             onDismiss()
                             action()
                         },
-                        leadingContent = { Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                        leadingContent = { PlazaIcon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
                         headlineContent = {
                             Text(label, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium))
                         },
@@ -3307,7 +3307,7 @@ private fun ReactionTile(
         if (pending) {
             PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = ReactionTileIcon)
         } else {
-            Icon(action.icon(), contentDescription = null, modifier = Modifier.size(ReactionTileIcon))
+            PlazaIcon(action.icon(), contentDescription = null, modifier = Modifier.size(ReactionTileIcon))
         }
         // Two lines for the label and the price rather than one: a third of a phone's width holds
         // 点赞 and 扣 2 鸡腿, but not "Send a drumstick" or "Costs 2 drumsticks", and the price is the
@@ -3521,7 +3521,7 @@ internal fun FloorLabel(content: PostContent) {
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         if (content.isPinned) {
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.PushPin,
                 contentDescription = stringResource(Res.string.post_badge_pinned),
                 tint = MaterialTheme.colorScheme.primary,

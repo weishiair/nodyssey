@@ -1,13 +1,13 @@
 package io.github.nodyssey.ui.settings
 
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.component.GroupedRow
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 
 /**
@@ -41,7 +41,7 @@ internal fun AboutRow(
         trailing =
         trailing ?: if (external) {
             {
-                Icon(
+                PlazaIcon(
                     PlazaIcons.OpenInNew,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
