@@ -20,12 +20,13 @@ import platform.UIKit.UIAdaptivePresentationControllerDelegateProtocol
 import platform.UIKit.UIModalPresentationPageSheet
 import platform.UIKit.UIPresentationController
 import platform.UIKit.UISheetPresentationControllerDetent
-import platform.UIKit.UIViewController
 import platform.UIKit.presentationController
 import platform.UIKit.sheetPresentationController
 import platform.darwin.NSObject
 
-private class SheetDismissDelegate : NSObject(), UIAdaptivePresentationControllerDelegateProtocol {
+private class SheetDismissDelegate :
+    NSObject(),
+    UIAdaptivePresentationControllerDelegateProtocol {
     var onDismiss: () -> Unit = {}
 
     override fun presentationControllerDidDismiss(presentationController: UIPresentationController) {
