@@ -33,7 +33,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -42,7 +41,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -87,7 +85,6 @@ import io.github.nodyssey.ui.common.rememberNewClipboardText
 import io.github.nodyssey.ui.composer.MAX_IMAGES_PER_PICK
 import io.github.nodyssey.ui.composer.rememberImagePicker
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.composer_image_default_name
 import io.github.nodyssey.ui.resources.sticker_add
@@ -151,12 +148,12 @@ import io.github.nodyssey.ui.resources.sticker_upload_progress
 import io.github.nodyssey.ui.resources.sticker_upload_to
 import io.github.nodyssey.ui.resources.sticker_upload_waiting
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.ImageFallback
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaLoadingIndicator
 import io.github.plaza.designsys.component.SectionNote
@@ -229,14 +226,10 @@ fun StickerAddRoute(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.sticker_add),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->

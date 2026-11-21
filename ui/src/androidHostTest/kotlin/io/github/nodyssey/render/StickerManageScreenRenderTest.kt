@@ -126,6 +126,7 @@ class StickerManageScreenRenderTest {
         val viewModel = StickerManageViewModel(library, NodeSeekEmojiGroups)
         render("sticker-sources") { StickerSourcesRoute(viewModel = viewModel, onBack = {}) }
     }
+
     @Test
     fun `sticker add in light`() {
         render("sticker-add") {
@@ -139,5 +140,4 @@ class StickerManageScreenRenderTest {
             StickerAddRoute(viewModel = StickerAddViewModel(library), onBack = {}, onDone = {})
         }
     }
-
 }
