@@ -37,7 +37,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
@@ -102,6 +101,8 @@ import io.github.nodyssey.ui.resources.notifications_one_hand_tip_settings
 import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
+import io.github.plaza.designsys.component.AdaptiveSegmentedTabRow
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -383,12 +384,23 @@ fun NotificationsScreen(
                  */
                 if (!wide || state.isSignedIn) {
                     Surface(color = layers.page) {
-                        GroupTabs(
-                            tabs = tabs,
-                            currentPage = pagerState.currentPage,
-                            counts = state.counts,
-                            onTabChange = onTabChange,
-                        )
+                        AdaptiveSegmentedTabRow(
+                            tabs =
+                            tabs.map { tab ->
+                                TabLabel(tab.label(), state.counts.forTab(tab).takeIf { it > 0 }?.let { unreadLabel(it, MAX_BADGE) })
+                            },
+                            selectedIndex = pagerState.currentPage,
+                            onSelect = { onTabChange(tabs[it]) },
+                            selectionFraction = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = LayerPageGutter, vertical = Spacing.xs),
+                        ) {
+                            GroupTabs(
+                                tabs = tabs,
+                                currentPage = pagerState.currentPage,
+                                counts = state.counts,
+                                onTabChange = onTabChange,
+                            )
+                        }
                     }
                 }
             }
@@ -421,7 +433,7 @@ fun NotificationsScreen(
                         // [LoadingState] in the middle of the screen, and a spinner above a spinner
                         // reads as two different loads.
                         val pressHaptics = rememberPlatformHaptics()
-                        PullToRefreshBox(
+                        AdaptivePullToRefreshBox(
                             isRefreshing = state.isLoading && !state.isEmptyOf(tab),
                             onRefresh = {
                                 pressHaptics.refreshTriggered()

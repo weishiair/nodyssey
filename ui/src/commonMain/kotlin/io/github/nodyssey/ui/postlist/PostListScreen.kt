@@ -43,7 +43,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -147,6 +146,7 @@ import io.github.nodyssey.ui.settings.rememberSiteSwitch
 import io.github.nodyssey.ui.settings.siteSwitchRestartsApp
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
 import io.github.plaza.designsys.component.GlassAction
@@ -826,7 +826,7 @@ private fun BoardFeed(
                 urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
             )
             val pressHaptics = rememberPlatformHaptics()
-            PullToRefreshBox(
+            AdaptivePullToRefreshBox(
                 isRefreshing = refreshState is LoadState.Loading,
                 onRefresh = {
                     pressHaptics.refreshTriggered()

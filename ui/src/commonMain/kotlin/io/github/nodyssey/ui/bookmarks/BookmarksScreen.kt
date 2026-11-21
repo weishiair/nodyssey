@@ -32,7 +32,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -96,6 +95,7 @@ import io.github.nodyssey.ui.resources.history_undo
 import io.github.nodyssey.ui.resources.offline_manage
 import io.github.nodyssey.ui.resources.offline_status
 import io.github.plaza.core.net.SiteError
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GlassMenuAction
@@ -351,7 +351,7 @@ fun BookmarksScreen(
                     }
                 }
                 val pressHaptics = rememberPlatformHaptics()
-                PullToRefreshBox(
+                AdaptivePullToRefreshBox(
                     isRefreshing = state.isSyncing && state.entries.isNotEmpty(),
                     onRefresh = {
                         pressHaptics.refreshTriggered()

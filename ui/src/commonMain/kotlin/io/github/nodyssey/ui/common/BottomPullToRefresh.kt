@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.AdaptivePullToRefreshIndicator
 import io.github.plaza.designsys.component.rememberPlatformHaptics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -87,7 +88,7 @@ fun BottomPullToRefreshBox(
 
     Box(modifier.nestedScroll(connection)) {
         content()
-        PullToRefreshDefaults.Indicator(
+        AdaptivePullToRefreshIndicator(
             state = state,
             isRefreshing = isRefreshing,
             maxDistance = threshold,
