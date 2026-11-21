@@ -1,8 +1,11 @@
 package io.github.nodyssey.render
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.unit.Density
 import io.github.nodyssey.model.TermsBlock
 import io.github.nodyssey.model.TermsDocument
 import io.github.nodyssey.ui.settings.PrivacyScreen
@@ -28,15 +31,29 @@ class PrivacyScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean) {
-        PlazaTheme(darkTheme = darkTheme) {
-            PrivacyScreen(
-                state = STATE,
-                onBack = {},
-                onOpenOriginal = {},
-                onRetry = {},
-                onOpenWebFallback = {},
-            )
+    private fun Screen(
+        darkTheme: Boolean,
+        fontScale: Float = 1f,
+        systemFontScale: Float = 1f,
+    ) {
+        val body: @Composable () -> Unit = {
+            PlazaTheme(darkTheme = darkTheme, fontScale = fontScale) {
+                PrivacyScreen(
+                    state = STATE,
+                    onBack = {},
+                    onOpenOriginal = {},
+                    onRetry = {},
+                    onOpenWebFallback = {},
+                )
+            }
+        }
+        if (systemFontScale != 1f) {
+            val base = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(base.density, fontScale = systemFontScale)) {
+                body()
+            }
+        } else {
+            body()
         }
     }
 
@@ -52,6 +69,19 @@ class PrivacyScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = true) }
 
         composeRule.onRoot().captureRender("privacy-dark")
+    }
+
+    @Test
+    fun `privacy with large text in light`() {
+        composeRule.setContent {
+            Screen(
+                darkTheme = false,
+                fontScale = 1.5f,
+                systemFontScale = 1.35f,
+            )
+        }
+
+        composeRule.onRoot().captureRender("privacy-large-text-light")
     }
 
     private companion object {

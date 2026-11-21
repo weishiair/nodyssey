@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -208,17 +211,21 @@ private fun TermsContent(document: TermsDocument, modifier: Modifier = Modifier)
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TermsMetadata(effectiveDate: String?) {
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         effectiveDate?.let {
             Surface(
                 color = LocalPlazaLayers.current.raised,
-                shape = CircleShape,
+                // A 16dp corner stays a full pill on one line and avoids oval clipping when
+                // Accessibility XL wraps the date label across two lines.
+                shape = RoundedCornerShape(16.dp),
             ) {
                 Text(
                     stringResource(Res.string.privacy_effective_date, it),
