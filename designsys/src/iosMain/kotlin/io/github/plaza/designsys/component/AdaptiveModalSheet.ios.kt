@@ -66,7 +66,6 @@ actual fun AdaptiveModalSheet(
     val latestDismiss by rememberUpdatedState(onDismiss)
     val host = remember { SheetHostController() }
     DisposableEffect(Unit) {
-        val holder = NSMutableReference()
         host.onDismiss = { latestDismiss() }
         val compose =
             ComposeUIViewController {
@@ -90,5 +89,3 @@ actual fun AdaptiveModalSheet(
         }
     }
 }
-
-private class NSMutableReference
