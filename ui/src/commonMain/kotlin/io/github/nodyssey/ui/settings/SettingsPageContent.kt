@@ -78,6 +78,7 @@ import io.github.plaza.designsys.settings.SettingsSection
 import io.github.plaza.designsys.settings.SettingsSectionStyle
 import io.github.plaza.designsys.settings.nativeItem
 import io.github.plaza.designsys.settings.nativeSettingsPages
+import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.PostBody
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -130,7 +131,7 @@ internal fun SettingsPageScreen(
     layout: SettingsPageLayout = SettingsPageLayout.Standard,
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    if (snackbarHostState == null || !nativeSettingsPages) {
+    if (snackbarHostState == null || !nativeSettingsPages || LocalEinkMode.current) {
         AdaptiveSettingsPage(page = page, onBack = onBack, modifier = modifier) {
             ComposeSettingsPage(page = page, onBack = onBack, modifier = modifier, layout = layout, snackbarHostState = snackbarHostState)
         }

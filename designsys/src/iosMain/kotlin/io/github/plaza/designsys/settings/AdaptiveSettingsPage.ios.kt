@@ -7,21 +7,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import io.github.plaza.designsys.component.NativeMenuFocus
+import io.github.plaza.designsys.component.SfSymbolByIconName
 import io.github.plaza.designsys.component.interfaceStyle
 import io.github.plaza.designsys.component.releasesFocusForMenu
 import io.github.plaza.designsys.component.toUIColor
+import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
+import io.github.plaza.designsys.theme.LocalPlazaLayers
 import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.readValue
 import kotlinx.cinterop.useContents
+import platform.CoreGraphics.CGPointMake
 import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGRectZero
+import platform.CoreGraphics.CGSizeMake
 import platform.Foundation.NSIndexPath
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSNumber
@@ -84,6 +91,7 @@ import platform.UIKit.UISlider
 import platform.UIKit.UIStackView
 import platform.UIKit.UIStackViewAlignmentCenter
 import platform.UIKit.UIStackViewAlignmentFirstBaseline
+import platform.UIKit.UIStackViewAlignmentTop
 import platform.UIKit.UISwitch
 import platform.UIKit.UITableView
 import platform.UIKit.UITableViewCell
@@ -98,12 +106,11 @@ import platform.UIKit.UITextField
 import platform.UIKit.UITextFieldDelegateProtocol
 import platform.UIKit.UITextFieldViewMode
 import platform.UIKit.UIView
+import platform.UIKit.UIViewContentMode
 import platform.UIKit.labelColor
 import platform.UIKit.row
 import platform.UIKit.secondaryLabelColor
-import platform.UIKit.secondarySystemGroupedBackgroundColor
 import platform.UIKit.section
-import platform.UIKit.systemGroupedBackgroundColor
 import platform.UIKit.systemRedColor
 import platform.UIKit.tertiaryLabelColor
 import platform.darwin.NSInteger
@@ -127,6 +134,10 @@ actual fun AdaptiveSettingsPage(
     modifier: Modifier,
     fallback: @Composable () -> Unit,
 ) {
+    if (LocalEinkMode.current) {
+        fallback()
+        return
+    }
     // Compose follows Dynamic Type through the density's font scale, so reading it is what brings a
     // change of text size back here; the category itself is the system's to say.
     val systemFontScale = LocalDensity.current.fontScale
@@ -134,10 +145,17 @@ actual fun AdaptiveSettingsPage(
         remember(systemFontScale) {
             UIContentSizeCategoryIsAccessibilityCategory(UIApplication.sharedApplication.preferredContentSizeCategory)
         }
+    val layers = LocalPlazaLayers.current
+    val dark = LocalPlazaDarkTheme.current
+    // In pure white, Compose separates white cards with shadows. Give the table a slight contrast instead.
+    val pageColor =
+        if (!dark && layers.page == layers.card) Color.Black.copy(alpha = 0.03f).compositeOver(layers.page) else layers.page
     val palette =
         NativeSettingsPalette(
+            page = pageColor.toUIColor(),
+            card = layers.card.toUIColor(),
             accent = MaterialTheme.colorScheme.primary.toUIColor(),
-            dark = LocalPlazaDarkTheme.current,
+            dark = dark,
             scale = LocalPlazaFontScale.current.toDouble(),
             largeText = largeText,
         )
@@ -151,26 +169,20 @@ actual fun AdaptiveSettingsPage(
     )
 }
 
-/**
- * What of the app's theme reaches UIKit: the accent, light or dark, and the in-app text size.
- *
- * The surfaces are the system's grouped colours rather than [io.github.plaza.designsys.theme.PlazaLayers]:
- * the light layers put white cards on a page one step off white and separate them by shadow, which a
- * table does not draw, so the groups vanished into the page. System grey under white is what an
- * inset-grouped list is read by, and it follows dark mode through the interface style.
- */
 private data class NativeSettingsPalette(
+    val page: UIColor,
+    val card: UIColor,
     val accent: UIColor,
     val dark: Boolean,
     val scale: Double,
     /** An accessibility text size: rows stack their controls under the question, as 设置 does. */
     val largeText: Boolean,
 ) {
-    val page: UIColor get() = UIColor.systemGroupedBackgroundColor
-    val card: UIColor get() = UIColor.secondarySystemGroupedBackgroundColor
     val text: UIColor get() = UIColor.labelColor
     val secondaryText: UIColor get() = UIColor.secondaryLabelColor
     val disabledText: UIColor get() = UIColor.tertiaryLabelColor
+
+    fun iconTint(enabled: Boolean): UIColor = if (enabled) accent else disabledText
 }
 
 private fun NativeSettingsPalette.font(size: Double, semibold: Boolean = false): UIFont {
@@ -194,8 +206,17 @@ private class NativeSettingsState {
     fun row(indexPath: NSIndexPath): NativeSettingsRow = sections[indexPath.section.toInt()].rows[indexPath.row.toInt()]
 }
 
+private class NativeSettingsView : UIView(frame = CGRectZero.readValue()) {
+    var onLayout: (() -> Unit)? = null
+
+    override fun layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?.invoke()
+    }
+}
+
 private class NativeSettingsPageHost {
-    val view = UIView()
+    val view = NativeSettingsView()
     private val state = NativeSettingsState()
     private val source = NativeSettingsSource(state)
     private val barDelegate = NativeSettingsBarDelegate(state)
@@ -206,6 +227,7 @@ private class NativeSettingsPageHost {
     private val focus = NativeMenuFocus()
     private var shape: List<SettingsSectionShape>? = null
     private var palette: NativeSettingsPalette? = null
+    private var showRowIcons = false
     private var scrolled = false
     private var keyboardObserver: Any? = null
 
@@ -229,12 +251,13 @@ private class NativeSettingsPageHost {
                 bar.topAnchor.constraintEqualToAnchor(view.safeAreaLayoutGuide.topAnchor),
                 bar.leadingAnchor.constraintEqualToAnchor(view.leadingAnchor),
                 bar.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor),
-                table.topAnchor.constraintEqualToAnchor(bar.bottomAnchor),
+                table.topAnchor.constraintEqualToAnchor(bar.topAnchor),
                 table.leadingAnchor.constraintEqualToAnchor(view.leadingAnchor),
                 table.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor),
                 table.bottomAnchor.constraintEqualToAnchor(view.bottomAnchor),
             ),
         )
+        view.onLayout = ::updateTopInset
         keyboardObserver =
             NSNotificationCenter.defaultCenter.addObserverForName(
                 name = UIKeyboardWillChangeFrameNotification,
@@ -248,16 +271,16 @@ private class NativeSettingsPageHost {
                         val kbTop = keyboard.useContents { this.origin.y }
                         maxOf(0.0, this.size.height - kbTop)
                     }
-                val inset = UIEdgeInsetsMake(0.0, 0.0, bottom, 0.0)
-                table.contentInset = inset
-                table.scrollIndicatorInsets = inset
+                table.contentInset = table.contentInset.useContents { UIEdgeInsetsMake(top, left, bottom, right) }
+                table.scrollIndicatorInsets = table.scrollIndicatorInsets.useContents { UIEdgeInsetsMake(top, left, bottom, right) }
             }
     }
 
     fun update(page: SettingsPage, onBack: () -> Unit, palette: NativeSettingsPalette) {
         state.onBack = onBack
-        if (palette.largeText != this.palette?.largeText) {
-            // Rows are laid out for a text size when they are built; a different one builds them again.
+        if (palette.largeText != this.palette?.largeText || page.showRowIconsOnIos != showRowIcons) {
+            // Text size and leading icons determine the layout of rows with custom controls.
+            showRowIcons = page.showRowIconsOnIos
             rows.clear()
             shape = null
         }
@@ -284,7 +307,8 @@ private class NativeSettingsPageHost {
                         val item = listed.nativeItem
                         val id = "${listed.rowKind()}:${item.key}"
                         live += id
-                        rows.getOrPut(id) { NativeSettingsRow(item, palette.largeText, focus) }.also { resized = it.update(item, palette) || resized }
+                        rows.getOrPut(id) { NativeSettingsRow(item, palette.largeText, focus, showRowIcons) }
+                            .also { resized = it.update(item, palette) || resized }
                     },
                 )
             }
@@ -321,6 +345,8 @@ private class NativeSettingsPageHost {
     }
 
     fun dispose() {
+        view.onLayout = null
+        state.onScroll = {}
         keyboardObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
         keyboardObserver = null
         focus.restore()
@@ -329,6 +355,18 @@ private class NativeSettingsPageHost {
         bar.delegate = null
         rows.clear()
         state.sections = emptyList()
+    }
+
+    private fun updateTopInset() {
+        val height = bar.bounds.useContents { size.height }
+        if (height == table.contentInset.useContents { top }) return
+        val wasAtTop = table.contentOffset.useContents { y } <= -table.adjustedContentInset.useContents { top } + 0.5
+        table.contentInset = table.contentInset.useContents { UIEdgeInsetsMake(height, left, bottom, right) }
+        table.scrollIndicatorInsets = table.scrollIndicatorInsets.useContents { UIEdgeInsetsMake(height, left, bottom, right) }
+        if (wasAtTop) {
+            val top = table.adjustedContentInset.useContents { top }
+            table.setContentOffset(CGPointMake(table.contentOffset.useContents { x }, -top), animated = false)
+        }
     }
 
     /** Flush with the page at the top, the system bar material once rows pass under it — 设置's own behaviour. */
@@ -359,6 +397,8 @@ private class NativeSettingsPageHost {
 
 /** The widest a pop-up answer may grow beside its question, before the in-app text size. */
 private const val PICKER_MAX_WIDTH = 170.0
+private const val ROW_ICON_SIZE = 22.0
+private const val ROW_ICON_SPACING = 12.0
 
 /** The newest description of a row. UIAction handlers read it at the tap rather than capturing an old one. */
 private class NativeSettingsRowState(var item: SettingsItem)
@@ -369,19 +409,6 @@ private fun stack(views: List<UIView>, vertical: Boolean, spacing: Double): UISt
         this.spacing = spacing
         translatesAutoresizingMaskIntoConstraints = false
     }
-
-private fun UITableViewCell.pinToMargins(content: UIView) {
-    contentView.addSubview(content)
-    val margins = contentView.layoutMarginsGuide
-    NSLayoutConstraint.activateConstraints(
-        listOf(
-            content.leadingAnchor.constraintEqualToAnchor(margins.leadingAnchor),
-            content.trailingAnchor.constraintEqualToAnchor(margins.trailingAnchor),
-            content.topAnchor.constraintEqualToAnchor(margins.topAnchor, constant = 2.0),
-            content.bottomAnchor.constraintEqualToAnchor(margins.bottomAnchor, constant = -2.0),
-        ),
-    )
-}
 
 private fun multilineLabel(): UILabel =
     UILabel().apply {
@@ -405,6 +432,7 @@ private class NativeSettingsRow(
     item: SettingsItem,
     largeText: Boolean,
     private val focus: NativeMenuFocus,
+    private val showIcon: Boolean,
 ) {
     // UIAction retains this state, which owns no view; capturing the row would tie the cell to itself.
     private val state = NativeSettingsRowState(item)
@@ -422,6 +450,9 @@ private class NativeSettingsRow(
     private var sampleLabel: UILabel? = null
     private var spinner: UIActivityIndicatorView? = null
     private var stackedPicker = false
+    private var leadingIcon: UIImageView? = null
+    private var symbolName: String? = null
+    private var symbolImage: UIImage? = null
 
     init {
         // Read before any `apply`, where `state` would be a control's own UIControlState.
@@ -484,6 +515,35 @@ private class NativeSettingsRow(
         // Through key-value coding: UIView conforms to UIAccessibilityIdentification at runtime, but the
         // Kotlin binding declares the property only on the protocol, and the cast to it does not succeed.
         item.testTag?.let { tag -> cell.setValue(tag, forKey = "accessibilityIdentifier") }
+    }
+
+    private fun pinContent(content: UIView) {
+        val body =
+            if (showIcon) {
+                val icon = UIImageView(image = null).apply {
+                    contentMode = UIViewContentMode.UIViewContentModeScaleAspectFit
+                    hidden = true
+                    // The stack collapses the slot for rows without a symbol.
+                    widthAnchor.constraintEqualToConstant(ROW_ICON_SIZE).apply { priority = 999f }.active = true
+                    heightAnchor.constraintEqualToConstant(ROW_ICON_SIZE).active = true
+                }
+                leadingIcon = icon
+                stack(listOf(icon, content), vertical = false, spacing = ROW_ICON_SPACING).apply {
+                    alignment = UIStackViewAlignmentTop
+                }
+            } else {
+                content
+            }
+        cell.contentView.addSubview(body)
+        val margins = cell.contentView.layoutMarginsGuide
+        NSLayoutConstraint.activateConstraints(
+            listOf(
+                body.leadingAnchor.constraintEqualToAnchor(margins.leadingAnchor),
+                body.trailingAnchor.constraintEqualToAnchor(margins.trailingAnchor),
+                body.topAnchor.constraintEqualToAnchor(margins.topAnchor, constant = 2.0),
+                body.bottomAnchor.constraintEqualToAnchor(margins.bottomAnchor, constant = -2.0),
+            ),
+        )
     }
 
     var textField: UITextField? = null
@@ -569,7 +629,7 @@ private class NativeSettingsRow(
         textField = field
         titleLabel = title
         errorLabel = error
-        cell.pinToMargins(
+        pinContent(
             stack(
                 listOf(stack(listOf(title, field), vertical = false, spacing = 8.0), error),
                 vertical = true,
@@ -615,7 +675,7 @@ private class NativeSettingsRow(
         titleLabel = title
         descriptionLabel = description
         segments = control
-        cell.pinToMargins(stack(listOf(title, description, control), vertical = true, spacing = 6.0))
+        pinContent(stack(listOf(title, description, control), vertical = true, spacing = 6.0))
         cell.selectionStyle = UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone
     }
 
@@ -637,7 +697,7 @@ private class NativeSettingsRow(
         descriptionLabel = description
         picker = button
         stackedPicker = true
-        cell.pinToMargins(stack(listOf(title, description, button), vertical = true, spacing = 4.0))
+        pinContent(stack(listOf(title, description, button), vertical = true, spacing = 4.0))
         cell.selectionStyle = UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone
     }
 
@@ -676,7 +736,7 @@ private class NativeSettingsRow(
         descriptionLabel = description
         slider = control
         sampleLabel = sample
-        cell.pinToMargins(stack(listOf(top, description, control, sample), vertical = true, spacing = 6.0))
+        pinContent(stack(listOf(top, description, control, sample), vertical = true, spacing = 6.0))
         cell.selectionStyle = UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone
     }
 
@@ -700,6 +760,21 @@ private class NativeSettingsRow(
     fun update(item: SettingsItem, palette: NativeSettingsPalette): Boolean {
         state.item = item
         cell.backgroundColor = palette.card
+        val iconName = if (showIcon) item.icon?.name else null
+        // This setting controls the avatar on search results.
+        val nextSymbol = if (iconName == "PersonSearch") "person.crop.circle" else iconName?.let(SfSymbolByIconName::get)
+        val iconChanged = nextSymbol != symbolName
+        if (iconChanged) {
+            symbolName = nextSymbol
+            symbolImage = nextSymbol?.let { UIImage.systemImageNamed(it) }
+            leadingIcon?.image = symbolImage
+            leadingIcon?.hidden = symbolImage == null
+        }
+        leadingIcon?.tintColor = palette.iconTint(item.enabled)
+        return updateContent(item, palette) || iconChanged
+    }
+
+    private fun updateContent(item: SettingsItem, palette: NativeSettingsPalette): Boolean {
         val textColor = if (item.enabled) palette.text else palette.disabledText
         val secondaryColor = if (item.enabled) palette.secondaryText else palette.disabledText
         when (item) {
@@ -764,7 +839,7 @@ private class NativeSettingsRow(
         palette: NativeSettingsPalette,
         destructive: Boolean = false,
     ): Boolean {
-        val nextContent = listOf(title, description, value, enabled, destructive, palette)
+        val nextContent = listOf(title, description, value, enabled, destructive, palette, symbolName)
         if (nextContent == content) return false
         content = nextContent
         val configuration =
@@ -775,6 +850,13 @@ private class NativeSettingsRow(
             }
         configuration.text = title
         configuration.secondaryText = description ?: value
+        symbolImage?.let {
+            configuration.image = it
+            configuration.imageProperties.tintColor = palette.iconTint(enabled)
+            configuration.imageProperties.maximumSize = CGSizeMake(ROW_ICON_SIZE, ROW_ICON_SIZE)
+            configuration.imageProperties.reservedLayoutSize = CGSizeMake(ROW_ICON_SIZE, 0.0)
+            configuration.imageToTextPadding = ROW_ICON_SPACING
+        }
         configuration.textProperties.font = palette.font(17.0)
         configuration.textProperties.color =
             when {
