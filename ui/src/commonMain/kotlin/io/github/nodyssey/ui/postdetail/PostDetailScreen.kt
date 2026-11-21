@@ -250,6 +250,7 @@ import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberClipboardCopy
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.richtext.LocalRichTextAppearance
 import io.github.plaza.designsys.richtext.RichTextAppearance
 import io.github.plaza.designsys.theme.LocalEinkMode
@@ -826,6 +827,7 @@ fun PostDetailScreen(
                     )
                 }
                 val error = state.error
+                val pressHaptics = rememberPlatformHaptics()
                 when {
                     /*
                      * Only where nothing told us anything about this thread — a notification, a deep
@@ -864,7 +866,10 @@ fun PostDetailScreen(
                     else ->
                         PullToRefreshBox(
                             isRefreshing = state.isRefreshing || state.isPrepending,
-                            onRefresh = { if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh() },
+                            onRefresh = {
+                                pressHaptics.refreshTriggered()
+                                if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh()
+                            },
                             modifier = Modifier.liquidGlassBackdropSource(threadBackdrop),
                             state = pullToRefreshState,
                             indicator = {

@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.component.PlazaIcon
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaLayers
 import io.github.plaza.designsys.theme.cardShadow
@@ -117,6 +118,7 @@ fun GroupedListItem(
     contentPadding: PaddingValues = ListItemDefaults.ContentPadding,
 ) {
     val layers = LocalPlazaLayers.current
+    val pressHaptics = rememberPlatformHaptics()
     val textStart = remember { TextStart() }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val headline: @Composable () -> Unit = {
@@ -152,7 +154,10 @@ fun GroupedListItem(
     when {
         checked != null && onCheckedChange != null ->
             SegmentedListItem(
-                onClick = { onCheckedChange(!checked) },
+                onClick = {
+                    pressHaptics.toggle()
+                    onCheckedChange(!checked)
+                },
                 shapes = shapes,
                 modifier =
                 decorated.semantics {
