@@ -16,9 +16,11 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import io.github.plaza.designsys.component.AdaptiveModalSheet
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
@@ -42,6 +44,8 @@ internal fun PlazaSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
+    /** The sheet's panel colour — page for ordinary sheets, card where the sheet is one lifted card. */
+    containerColor: Color? = null,
     title: String? = null,
     subtitle: String? = null,
     action: (@Composable () -> Unit)? = null,
@@ -49,39 +53,56 @@ internal fun PlazaSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        modifier = modifier,
-        sheetState = sheetState,
-        shape = PlazaSheetDefaults.shape,
-        containerColor = layers.page,
-        dragHandle = dragHandle,
-    ) {
-        if (title != null) {
-            Row(
-                modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = Spacing.xl, end = if (action != null) Spacing.md else Spacing.xl, bottom = Spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
+    AdaptiveModalSheet(
+        onDismiss = onDismiss,
+        fallback = {
+            ModalBottomSheet(
+                onDismissRequest = onDismiss,
+                modifier = modifier,
+                sheetState = sheetState,
+                shape = PlazaSheetDefaults.shape,
+                containerColor = containerColor ?: layers.page,
+                dragHandle = dragHandle,
             ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                        modifier = Modifier.semantics { heading() },
-                    )
-                    subtitle?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                action?.invoke()
+                SheetBody(title, subtitle, action, content)
             }
-        }
-        content()
+        },
+    ) {
+        Column { SheetBody(title, subtitle, action, content) }
     }
+}
+
+@Composable
+private fun ColumnScope.SheetBody(
+    title: String?,
+    subtitle: String?,
+    action: (@Composable () -> Unit)?,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    if (title != null) {
+        Row(
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(start = Spacing.xl, end = if (action != null) Spacing.md else Spacing.xl, bottom = Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.semantics { heading() },
+                )
+                subtitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            action?.invoke()
+        }
+    }
+    content()
 }
