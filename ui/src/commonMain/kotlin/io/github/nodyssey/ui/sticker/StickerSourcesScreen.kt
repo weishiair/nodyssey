@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -40,7 +38,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nodyssey.data.sticker.StickerSourceError
 import io.github.nodyssey.data.sticker.StickerSubscription
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.sticker_manage_github
 import io.github.nodyssey.ui.resources.sticker_manage_list_separator
@@ -60,13 +57,15 @@ import io.github.nodyssey.ui.resources.sticker_sources_meta_total
 import io.github.nodyssey.ui.resources.sticker_sources_subscribe_new
 import io.github.nodyssey.ui.resources.sticker_update_action
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.AdaptiveTopBar
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.component.SectionNote
+import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -98,21 +97,27 @@ fun StickerSourcesRoute(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.sticker_manage_github),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
-                    }
-                },
-                actions = {
-                    FilledTonalButton(
-                        onClick = { viewModel.checkUpdates(force = true) },
-                        enabled = !checking && subscriptions.isNotEmpty(),
-                        modifier = Modifier.padding(end = Spacing.sm),
-                    ) { Text(stringResource(Res.string.sticker_sources_check_all)) }
-                },
+                onBack = onBack,
+                actions =
+                listOf(
+                    TopBarAction(
+                        glass = GlassAction(
+                            label = stringResource(Res.string.sticker_sources_check_all),
+                            onClick = { viewModel.checkUpdates(force = true) },
+                            enabled = !checking && subscriptions.isNotEmpty(),
+                        ),
+                        compose = {
+                            FilledTonalButton(
+                                onClick = { viewModel.checkUpdates(force = true) },
+                                enabled = !checking && subscriptions.isNotEmpty(),
+                                modifier = Modifier.padding(end = Spacing.sm),
+                            ) { Text(stringResource(Res.string.sticker_sources_check_all)) }
+                        },
+                    ),
+                ),
             )
         },
     ) { padding ->
