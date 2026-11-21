@@ -123,6 +123,9 @@ sealed interface SettingsItem {
         val onValueChange: (String) -> Unit,
         val placeholder: String? = null,
         val keyboard: SettingsKeyboard = SettingsKeyboard.Text,
+        /** Masks the input, for passwords and keys. */
+        val secure: Boolean = false,
+        /** Shown in red under the field while it holds a message, the cell growing for it. */
         val errorMessage: String? = null,
         override val icon: ImageVector? = null,
         override val enabled: Boolean = true,

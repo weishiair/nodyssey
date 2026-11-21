@@ -24,7 +24,9 @@ import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSIndexPath
 import platform.Foundation.NSNumber
-import platform.Foundation.NSRange
+import platform.Foundation.NSNotificationCenter
+import platform.Foundation.NSOperationQueue
+import platform.Foundation.NSValue
 import platform.Foundation.setValue
 import platform.UIKit.NSFontAttributeName
 import platform.UIKit.NSForegroundColorAttributeName
@@ -44,6 +46,8 @@ import platform.UIKit.UIButtonConfiguration
 import platform.UIKit.UIColor
 import platform.UIKit.UIContentSizeCategoryIsAccessibilityCategory
 import platform.UIKit.UIControlContentHorizontalAlignmentLeading
+import platform.UIKit.CGRectValue
+import platform.UIKit.UIControlEventEditingChanged
 import platform.UIKit.UIControlEventTouchUpInside
 import platform.UIKit.UIControlEventTouchUpOutside
 import platform.UIKit.UIControlEventValueChanged
@@ -53,9 +57,12 @@ import platform.UIKit.UIFontWeightSemibold
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageRenderingMode
 import platform.UIKit.UIImageView
+import platform.UIKit.UIEdgeInsetsMake
+import platform.UIKit.UIKeyboardFrameEndUserInfoKey
 import platform.UIKit.UIKeyboardTypeDecimalPad
 import platform.UIKit.UIKeyboardTypeDefault
 import platform.UIKit.UIKeyboardTypeURL
+import platform.UIKit.UIKeyboardWillChangeFrameNotification
 import platform.UIKit.UILabel
 import platform.UIKit.UILayoutConstraintAxisHorizontal
 import platform.UIKit.UILayoutConstraintAxisVertical
@@ -70,7 +77,7 @@ import platform.UIKit.UINavigationBarAppearance
 import platform.UIKit.UINavigationBarDelegateProtocol
 import platform.UIKit.UINavigationItem
 import platform.UIKit.UINavigationItemBackButtonDisplayModeMinimal
-import platform.UIKit.UIReturnKeyDone
+import platform.UIKit.UIReturnKeyType
 import platform.UIKit.UIScrollView
 import platform.UIKit.UISegmentedControl
 import platform.UIKit.UISlider
@@ -84,6 +91,7 @@ import platform.UIKit.UITableViewCellAccessoryType
 import platform.UIKit.UITableViewCellSelectionStyle
 import platform.UIKit.UITableViewCellStyle
 import platform.UIKit.UITableViewDataSourceProtocol
+import platform.UIKit.UITableViewScrollPosition
 import platform.UIKit.UITableViewDelegateProtocol
 import platform.UIKit.UITableViewStyle
 import platform.UIKit.UITextField
@@ -199,6 +207,7 @@ private class NativeSettingsPageHost {
     private var shape: List<SettingsSectionShape>? = null
     private var palette: NativeSettingsPalette? = null
     private var scrolled = false
+    private var keyboardObserver: Any? = null
 
     init {
         // A bar of its own rather than the navigation controller's: the shell keeps that one hidden,
@@ -226,6 +235,23 @@ private class NativeSettingsPageHost {
                 table.bottomAnchor.constraintEqualToAnchor(view.bottomAnchor),
             ),
         )
+        keyboardObserver =
+            NSNotificationCenter.defaultCenter.addObserverForName(
+                name = UIKeyboardWillChangeFrameNotification,
+                `object` = null,
+                queue = NSOperationQueue.mainQueue,
+            ) { note ->
+                val end = (note?.userInfo?.get(UIKeyboardFrameEndUserInfoKey) as? NSValue)?.CGRectValue() ?: return@addObserverForName
+                val keyboard = view.convertRect(end, fromView = null)
+                val bottom =
+                    view.bounds.useContents {
+                        val kbTop = keyboard.useContents { this.origin.y }
+                        maxOf(0.0, this.size.height - kbTop)
+                    }
+                val inset = UIEdgeInsetsMake(0.0, 0.0, bottom, 0.0)
+                table.contentInset = inset
+                table.scrollIndicatorInsets = inset
+            }
     }
 
     fun update(page: SettingsPage, onBack: () -> Unit, palette: NativeSettingsPalette) {
@@ -266,6 +292,19 @@ private class NativeSettingsPageHost {
         // for a paragraph of explanation, set in the same small print.
         state.sections = listOfNotNull(page.intro?.let { NativeSettingsSection(header = null, footer = it, rows = emptyList()) }) + sections
         rows.keys.retainAll(live)
+        // Text rows chain their return keys in page order: Next until the last field, which resigns.
+        val textRows = state.sections.flatMap { it.rows }.filter { it.isTextRow }
+        textRows.forEachIndexed { index, row ->
+            val next = textRows.getOrNull(index + 1)
+            row.nextTextField = { next?.textField }
+            row.textField?.returnKeyType =
+                if (next != null) UIReturnKeyType.UIReturnKeyNext else UIReturnKeyType.UIReturnKeyDone
+            row.scrollToMe = {
+                table.indexPathForCell(row.cell)?.let { ip ->
+                    table.scrollToRowAtIndexPath(ip, UITableViewScrollPosition.UITableViewScrollPositionMiddle, animated = true)
+                }
+            }
+        }
 
         val nextShape = page.shape()
         if (nextShape != shape) {
@@ -282,6 +321,8 @@ private class NativeSettingsPageHost {
     }
 
     fun dispose() {
+        keyboardObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
+        keyboardObserver = null
         focus.restore()
         table.dataSource = null
         table.delegate = null
@@ -445,28 +486,25 @@ private class NativeSettingsRow(
         item.testTag?.let { tag -> cell.setValue(tag, forKey = "accessibilityIdentifier") }
     }
 
-    private var textField: UITextField? = null
+    var textField: UITextField? = null
+        private set
+    val isTextRow: Boolean get() = state.item is SettingsItem.Text
     private var lastPushedValue: String? = null
+
+    /** The next [SettingsItem.Text] field in page order, for the return key's Next. */
+    var nextTextField: (() -> UITextField?)? = null
+    var scrollToMe: (() -> Unit)? = null
+
+    private var errorLabel: UILabel? = null
 
     private inner class TextFieldDelegate :
         NSObject(),
         UITextFieldDelegateProtocol {
-        override fun textFieldShouldChangeCharactersInRange(
-            textField: UITextField,
-            range: CValue<NSRange>,
-            replacementString: String,
-        ): Boolean {
-            val cur = textField.text ?: ""
-            val next =
-                cur.substring(0, range.location.toInt()) +
-                    replacementString +
-                    cur.substring((range.location + range.length).toInt().coerceAtMost(cur.length))
-            (state.item as? SettingsItem.Text)?.onValueChange(next)
-            return true
-        }
-
         override fun textFieldDidBeginEditing(textField: UITextField) {
+            // Compose's OverlayInputView holds first responder for hardware keys; editing takes it,
+            // and [NativeMenuFocus.restore] hands it back so page menus keep their type-select.
             focus.releaseFor(textField)
+            scrollToMe?.invoke()
         }
 
         override fun textFieldDidEndEditing(textField: UITextField) {
@@ -474,13 +512,19 @@ private class NativeSettingsRow(
         }
 
         override fun textFieldShouldReturn(textField: UITextField): Boolean {
-            textField.resignFirstResponder()
+            val next = nextTextField?.invoke()
+            if (next != null) next.becomeFirstResponder() else textField.resignFirstResponder()
             return true
         }
     }
 
     private fun buildTextField(rowState: NativeSettingsRowState) {
         val item = rowState.item as SettingsItem.Text
+        val title =
+            multilineLabel().apply {
+                text = item.title
+                font = UIFont.systemFontOfSize(17.0)
+            }
         val field =
             UITextField().apply {
                 delegate = TextFieldDelegate()
@@ -492,18 +536,53 @@ private class NativeSettingsRow(
                         SettingsKeyboard.Number -> UIKeyboardTypeDecimalPad
                         SettingsKeyboard.Text -> UIKeyboardTypeDefault
                     }
-                returnKeyType = UIReturnKeyDone
+                returnKeyType = UIReturnKeyType.UIReturnKeyDone
                 clearButtonMode = UITextFieldViewMode.UITextFieldViewModeWhileEditing
-                isEnabled = item.enabled
+                secureTextEntry = item.secure
+                enabled = item.enabled
                 textAlignment = NSTextAlignmentRight
+                adjustsFontForContentSizeCategory = true
                 font = UIFont.systemFontOfSize(17.0)
                 setContentHuggingPriority(50.0f, UILayoutConstraintAxisHorizontal)
+                setContentCompressionResistancePriority(751.0f, UILayoutConstraintAxisHorizontal)
+                addAction(
+                    UIAction.actionWithHandler { action ->
+                        val current = rowState.item as? SettingsItem.Text ?: return@actionWithHandler
+                        current.onValueChange((action?.sender as? UITextField)?.text ?: "")
+                    },
+                    forControlEvents = UIControlEventEditingChanged,
+                )
+            }
+        val error =
+            multilineLabel().apply {
+                text = item.errorMessage
+                hidden = item.errorMessage == null
+                textColor = UIColor.systemRedColor
+                font = UIFont.systemFontOfSize(13.0)
             }
         lastPushedValue = item.value
         textField = field
-        cell.contentView.addSubview(field)
-        cell.pinToMargins(field)
+        titleLabel = title
+        errorLabel = error
+        cell.pinToMargins(
+            stack(
+                listOf(stack(listOf(title, field), vertical = false, spacing = 8.0), error),
+                vertical = true,
+                spacing = 4.0,
+            ),
+        )
         cell.selectionStyle = UITableViewCellSelectionStyle.UITableViewCellSelectionStyleNone
+    }
+
+    private fun updateTextField(item: SettingsItem.Text, palette: NativeSettingsPalette): Boolean {
+        pushModelValue(item)
+        textField?.enabled = item.enabled
+        titleLabel?.textColor = if (item.enabled) palette.text else palette.disabledText
+        val label = errorLabel ?: return false
+        val changed = label.hidden != (item.errorMessage == null)
+        label.text = item.errorMessage
+        label.hidden = item.errorMessage == null
+        return changed
     }
 
     /** Model → field, only when the value differs and the user is not typing in it. */
@@ -511,7 +590,7 @@ private class NativeSettingsRow(
         if (item.value == lastPushedValue) return
         lastPushedValue = item.value
         val field = textField ?: return
-        if (!field.isFirstResponder()) field.text = item.value
+        if (!field.isFirstResponder) field.text = item.value
     }
 
     private fun buildSegments(rowState: NativeSettingsRowState) {
@@ -665,6 +744,8 @@ private class NativeSettingsRow(
                 cell.accessoryView = null
                 return listContent(item.title, item.description, item.value, item.enabled, palette)
             }
+
+            is SettingsItem.Text -> return updateTextField(item, palette)
 
             is SettingsItem.Custom -> error("a custom row reaches the system list as its native item")
         }
