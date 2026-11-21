@@ -49,6 +49,8 @@ import platform.UIKit.UIActivityIndicatorViewStyleMedium
 import platform.UIKit.UIApplication
 import platform.UIKit.UIBarPositionTopAttached
 import platform.UIKit.UIBarPositioningProtocol
+import platform.UIKit.UIBlurEffect
+import platform.UIKit.UIBlurEffectStyle
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
 import platform.UIKit.UIColor
@@ -383,7 +385,11 @@ private class NativeSettingsPageHost {
         val palette = palette ?: return
         val appearance =
             UINavigationBarAppearance().apply {
-                if (scrolled) configureWithDefaultBackground() else configureWithTransparentBackground()
+                configureWithTransparentBackground()
+                if (scrolled) {
+                    // A standalone bar has no navigation controller to apply the scroll-edge effect.
+                    backgroundEffect = UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemChromeMaterial)
+                }
                 titleTextAttributes =
                     mapOf(
                         NSFontAttributeName to palette.font(17.0, semibold = true),
