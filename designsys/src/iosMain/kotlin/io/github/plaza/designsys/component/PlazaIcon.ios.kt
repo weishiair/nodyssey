@@ -36,10 +36,11 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Material's icon grid draws the glyph inside a 20-of-24 keyline, so the symbol's target box is the
- * icon box scaled down the same way and the iOS glyph lands where the Material one would have.
+ * Point size as a fraction of the icon box, calibrated on the simulator so "circle" renders with an
+ * ink diameter of exactly 20/24 x the box — Material's keyline. SF Symbols share one optical size
+ * per point size, so every symbol lands at its natural size together.
  */
-private const val GLYPH_FRACTION = 20f / 24f
+internal const val SYMBOL_POINT_FRACTION = 0.825
 
 private val SYMBOL_WEIGHT = UIImageSymbolWeightMedium
 
@@ -60,8 +61,8 @@ private class SystemSymbolPainter(private val name: String) : Painter() {
     override val intrinsicSize: Size = Size.Unspecified
 
     override fun DrawScope.onDraw() {
-        val w = (size.width * GLYPH_FRACTION).roundToInt()
-        val h = (size.height * GLYPH_FRACTION).roundToInt()
+        val w = size.width.roundToInt()
+        val h = size.height.roundToInt()
         if (w <= 0 || h <= 0) return
         val bitmap = symbolBitmap(name, w, h) ?: return
         drawImage(
@@ -106,39 +107,74 @@ internal fun symbolBitmap(name: String, w: Int, h: Int): ImageBitmap? {
  * first render comes out under it, so the final draw only ever downscales), the glyph aspect-fitted
  * and centred into a w×h image, and that image copied out as RGBA premultiplied bytes.
  */
-internal fun symbolPixels(name: String, w: Int, h: Int): ByteArray? {
-    val target = max(w, h).toDouble()
-    var image =
-        UIImage.systemImageNamed(
-            name,
-            UIImageSymbolConfiguration.configurationWithPointSize(target, SYMBOL_WEIGHT),
-        )
+internal fun symbolPixels(name: String, w: Int, h: Int, pointFraction: Double = SYMBOL_POINT_FRACTION): ByteArray? {
+    val pt = min(w, h) * pointFraction
+    val image =
+        UIImage.systemImageNamed(name, UIImageSymbolConfiguration.configurationWithPointSize(pt, SYMBOL_WEIGHT))
             ?: return null
-    val first = image.size.useContents { max(width, height) }
-    if (first < target) {
-        image =
-            UIImage.systemImageNamed(
-                name,
-                UIImageSymbolConfiguration.configurationWithPointSize(target * target / max(first, 1.0), SYMBOL_WEIGHT),
-            )
-                ?: return null
-    }
+    val iw = image.size.useContents { width.roundToInt() }
+    val ih = image.size.useContents { height.roundToInt() }
+    if (iw <= 0 || ih <= 0) return null
     val format =
         UIGraphicsImageRendererFormat.defaultFormat().apply {
             scale = 1.0
             opaque = false
         }
     val rendered =
-        UIGraphicsImageRenderer(CGSizeMake(w.toDouble(), h.toDouble()), format)
-            .imageWithActions { _ ->
-                val dim = image.size.useContents { width to height }
-                val fit = min(w / dim.first, h / dim.second)
-                val dw = dim.first * fit
-                val dh = dim.second * fit
-                image.drawInRect(CGRectMake((w - dw) / 2.0, (h - dh) / 2.0, dw, dh))
+        UIGraphicsImageRenderer(CGSizeMake(iw.toDouble(), ih.toDouble()), format)
+            .imageWithActions { _ -> image.drawInRect(CGRectMake(0.0, 0.0, iw.toDouble(), ih.toDouble())) }
+    val cg = rendered.CGImage ?: return null
+    val src = rasterizePixels(cg, iw, ih) ?: return null
+    val (l, r, t, b) = inkBounds(src, iw, ih)
+    if (r < l || b < t) return null
+    val inkW = r - l + 1
+    val inkH = b - t + 1
+    val scale = min(1.0, min((w - 2.0) / inkW, (h - 2.0) / inkH))
+    val dw = max(1, (inkW * scale).roundToInt())
+    val dh = max(1, (inkH * scale).roundToInt())
+    val ink =
+        platform.CoreGraphics.CGImageCreateWithImageInRect(
+            cg,
+            CGRectMake(l.toDouble(), t.toDouble(), inkW.toDouble(), inkH.toDouble()),
+        ) ?: return null
+    val out = ByteArray(w * h * 4)
+    out.usePinned { pinned ->
+        val ctx =
+            CGBitmapContextCreate(
+                pinned.addressOf(0),
+                w.toULong(),
+                h.toULong(),
+                8uL,
+                (w * 4).toULong(),
+                CGColorSpaceCreateDeviceRGB(),
+                CGImageAlphaInfo.kCGImageAlphaPremultipliedLast.value or kCGBitmapByteOrder32Big,
+            ) ?: return null
+        CGContextDrawImage(
+            ctx,
+            CGRectMake((w - dw) / 2.0, (h - dh) / 2.0, dw.toDouble(), dh.toDouble()),
+            ink,
+        )
+    }
+    return out
+}
+
+/** Alpha bounding box of an RGBA premultiplied buffer: (left, right, top, bottom) inclusive. */
+internal fun inkBounds(px: ByteArray, w: Int, h: Int): IntArray {
+    var l = w
+    var r = -1
+    var t = h
+    var b = -1
+    for (y in 0 until h) {
+        for (x in 0 until w) {
+            if (px[(y * w + x) * 4 + 3].toInt() and 0xff != 0) {
+                if (x < l) l = x
+                if (x > r) r = x
+                if (y < t) t = y
+                if (y > b) b = y
             }
-    val cgImage = rendered.CGImage ?: return null
-    return rasterizePixels(cgImage, w, h)
+        }
+    }
+    return intArrayOf(l, r, t, b)
 }
 
 private fun rasterizeSymbol(name: String, w: Int, h: Int): ImageBitmap? =

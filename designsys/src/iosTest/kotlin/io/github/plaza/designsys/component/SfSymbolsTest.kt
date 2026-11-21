@@ -44,21 +44,42 @@ class SfSymbolsTest {
         assertTrue(dr - dl > db - dt, "ellipsis stretched: ${dr - dl}w × ${db - dt}h")
     }
 
-    private fun alphaBounds(pixels: ByteArray, w: Int): IntArray {
-        var l = w
-        var r = 0
-        var t = pixels.size / (w * 4)
-        var b = 0
-        for (y in 0 until pixels.size / (w * 4)) {
-            for (x in 0 until w) {
-                if (pixels[(y * w + x) * 4 + 3].toInt() and 0xff != 0) {
-                    l = minOf(l, x)
-                    r = maxOf(r, x)
-                    t = minOf(t, y)
-                    b = maxOf(b, y)
-                }
+    @Test
+    fun `circle matches the Material keyline`() {
+        val px = symbolPixels("circle", 72, 72)!!
+        val (l, r, t, b) = alphaBounds(px, 72)
+        val d = maxOf(r - l + 1, b - t + 1)
+        assertTrue(d in 59..61, "circle ink diameter $d, want 60±1")
+    }
+
+    @Test
+    fun `person variants share one optical size`() {
+        val one = inkBounds(symbolPixels("person.fill", 72, 72)!!, 72, 72)
+        val two = inkBounds(symbolPixels("person.2.fill", 72, 72)!!, 72, 72)
+        val h1 = one[3] - one[2] + 1.0
+        val h2 = two[3] - two[2] + 1.0
+        assertTrue(kotlin.math.abs(h1 - h2) / h1 < 0.15, "ink heights $h1 vs $h2 differ >15%")
+    }
+
+    @Test
+    fun `every mapped symbol renders non-empty ink inside the box`() {
+        val bad = mutableListOf<String>()
+        for (name in SfSymbolByIconName.values.toSet()) {
+            val px = symbolPixels(name, 72, 72)
+            if (px == null) {
+                bad += "$name: no render"
+                continue
+            }
+            val (l, r, t, b) = inkBounds(px, 72, 72)
+            if (r < l) {
+                bad += "$name: empty"
+            } else if (r - l + 1 > 71 || b - t + 1 > 71) {
+                bad += "$name: exceeds box"
             }
         }
-        return intArrayOf(l, r, t, b)
+        assertEquals(emptyList(), bad)
     }
+
+    private fun alphaBounds(pixels: ByteArray, w: Int): IntArray =
+        inkBounds(pixels, w, pixels.size / (w * 4))
 }
