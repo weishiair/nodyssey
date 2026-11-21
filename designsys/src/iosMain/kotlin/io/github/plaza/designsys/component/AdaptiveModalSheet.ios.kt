@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+@file:OptIn(ExperimentalForeignApi::class, BetaInteropApi::class, ExperimentalComposeUiApi::class)
 
 package io.github.plaza.designsys.component
 
@@ -9,44 +9,27 @@ import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.uikit.LocalUIViewController
 import androidx.compose.ui.window.ComposeUIViewController
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.nativeGlass
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
 import platform.UIKit.UIAdaptivePresentationControllerDelegateProtocol
-import platform.UIKit.UIApplication
-import platform.UIKit.UIColor
+import platform.UIKit.UIModalPresentationPageSheet
 import platform.UIKit.UIPresentationController
 import platform.UIKit.UISheetPresentationControllerDetent
 import platform.UIKit.UIViewController
+import platform.UIKit.presentationController
+import platform.UIKit.sheetPresentationController
 import platform.darwin.NSObject
 
-private class SheetHostController : UIViewController(nibName = null, bundle = null) {
-    var onDismiss: (() -> Unit)? = null
+private class SheetDismissDelegate : NSObject(), UIAdaptivePresentationControllerDelegateProtocol {
+    var onDismiss: () -> Unit = {}
 
-    private val delegate =
-        object : NSObject(), UIAdaptivePresentationControllerDelegateProtocol {
-            override fun presentationControllerDidDismiss(presentationController: UIPresentationController) {
-                onDismiss?.invoke()
-            }
-        }
-
-    init {
-        modalPresentationStyle = platform.UIKit.UIModalPresentationPageSheet
-    }
-
-    override fun viewDidLoad() {
-        super.viewDidLoad()
-        presentationController?.delegate = delegate
-        val sheet = sheetPresentationController
-        if (sheet != null) {
-            sheet.detents =
-                listOf(
-                    UISheetPresentationControllerDetent.mediumDetent(),
-                    UISheetPresentationControllerDetent.largeDetent(),
-                )
-            sheet.prefersGrabberVisible = true
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
-        }
+    override fun presentationControllerDidDismiss(presentationController: UIPresentationController) {
+        onDismiss()
     }
 }
 
@@ -56,36 +39,44 @@ actual fun AdaptiveModalSheet(
     fallback: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val layers = LocalPlazaLayers.current
-    if (!layers.nativeGlass) {
+    if (!LocalPlazaLayers.current.nativeGlass) {
         fallback()
         return
     }
+    // Captured so the sheet's own composition still sees the host's theme, strings and locals (R3).
     val captured = currentCompositionLocalContext
     val latestContent by rememberUpdatedState(content)
     val latestDismiss by rememberUpdatedState(onDismiss)
-    val host = remember { SheetHostController() }
+    val presenter = LocalUIViewController.current
+    // UIKit holds the presentation delegate weakly; remember keeps it alive for the sheet's life.
+    val delegate = remember { SheetDismissDelegate() }
     DisposableEffect(Unit) {
-        host.onDismiss = { latestDismiss() }
-        val compose =
+        delegate.onDismiss = { latestDismiss() }
+        val sheet =
             ComposeUIViewController {
                 CompositionLocalProvider(captured) { latestContent() }
             }
-        host.addChildViewController(compose)
-        compose.view.translatesAutoresizingMaskIntoConstraints = false
-        host.view.addSubview(compose.view)
-        compose.didMoveToParentViewController(host)
-        compose.view.backgroundColor = UIColor.clearColor
-        // Find the top-most presented controller.
-        var top = UIApplication.sharedApplication.keyWindow?.rootViewController
-        while (top?.presentedViewController != null) {
-            top = top.presentedViewController
+        sheet.modalPresentationStyle = UIModalPresentationPageSheet
+        sheet.sheetPresentationController?.let { ctl ->
+            ctl.detents =
+                listOf(
+                    UISheetPresentationControllerDetent.mediumDetent(),
+                    UISheetPresentationControllerDetent.largeDetent(),
+                )
+            ctl.prefersGrabberVisible = true
+            ctl.prefersScrollingExpandsWhenScrolledToEdge = true
         }
-        top?.presentViewController(host, animated = true, completion = null)
+        var top = presenter
+        while (top.presentedViewController != null) {
+            top = top.presentedViewController!!
+        }
+        // presentationController only exists once the presentation starts; the delegate that
+        // reports swipe-down dismissal goes on in the completion, when it is there to take it.
+        top.presentViewController(sheet, animated = true) {
+            sheet.presentationController?.delegate = delegate
+        }
         onDispose {
-            host.dismissViewControllerAnimated(true, completion = null)
-            compose.removeFromParentViewController()
-            compose.view.removeFromSuperview()
+            sheet.dismissViewControllerAnimated(true, completion = null)
         }
     }
 }
