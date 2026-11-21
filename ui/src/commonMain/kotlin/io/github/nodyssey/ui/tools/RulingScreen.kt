@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingToolbarDefaults.floatingToolbarVerticalNestedScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalTextStyle
@@ -93,6 +92,7 @@ import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TopBarAction
@@ -258,7 +258,7 @@ fun RulingScreen(
                         glass = GlassAction(label = openLabel, onClick = openVisiblePage, symbol = "safari"),
                         compose = {
                             IconButton(onClick = openVisiblePage) {
-                                Icon(
+                                PlazaIcon(
                                     Icons.AutoMirrored.Filled.ExitToApp,
                                     contentDescription = openLabel,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,

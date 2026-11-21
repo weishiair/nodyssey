@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,6 +60,7 @@ import io.github.nodyssey.ui.resources.composer_upload_network
 import io.github.nodyssey.ui.resources.composer_upload_not_configured
 import io.github.nodyssey.ui.resources.composer_upload_rejected
 import io.github.plaza.designsys.component.ImageFallback
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.theme.LocalEinkMode
@@ -199,7 +199,7 @@ private fun AttachmentCell(
                         .background(MaterialTheme.colorScheme.surfaceContainerLowest),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
+                    PlazaIcon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
@@ -228,7 +228,7 @@ private fun StatusGlyph(
     tint: Color,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        PlazaIcon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
@@ -300,7 +300,7 @@ private fun RemoveBadge(
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
+        PlazaIcon(
             imageVector = Icons.Default.Close,
             contentDescription = null,
             tint = Color.White,

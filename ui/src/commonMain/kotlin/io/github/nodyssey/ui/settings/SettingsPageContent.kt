@@ -22,7 +22,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -57,6 +56,7 @@ import io.github.plaza.designsys.component.IconBadge
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -162,7 +162,7 @@ private fun ComposeSettingsPage(
                 state = appBarState,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
+                        PlazaIcon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.action_back),
                         )
@@ -254,7 +254,7 @@ private fun leadingIcon(
     icon?.let {
         if (layout.mutedIcons) {
             {
-                Icon(
+                PlazaIcon(
                     imageVector = it,
                     contentDescription = null,
                     tint = tint ?: MaterialTheme.colorScheme.onSurfaceVariant,
@@ -262,7 +262,7 @@ private fun leadingIcon(
                 )
             }
         } else {
-            { Icon(it, contentDescription = null) }
+            { PlazaIcon(it, contentDescription = null) }
         }
     }
 
@@ -343,7 +343,7 @@ private fun ItemRow(
                 when {
                     item.external -> {
                         {
-                            Icon(
+                            PlazaIcon(
                                 PlazaIcons.OpenInNew,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -514,7 +514,7 @@ private fun CalloutItem(
         ) {
             item.icon?.let { icon ->
                 IconBadge(containerColor = scheme.tertiaryContainer, contentColor = scheme.onTertiaryContainer) {
-                    Icon(icon, contentDescription = null)
+                    PlazaIcon(icon, contentDescription = null)
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

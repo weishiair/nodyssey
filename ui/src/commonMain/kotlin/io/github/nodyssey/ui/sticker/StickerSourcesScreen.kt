@@ -17,7 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -62,6 +61,7 @@ import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.component.SectionNote
@@ -155,7 +155,7 @@ fun StickerSourcesRoute(
                         onClick = { navigation.openAdd(StickerAddTab.GITHUB, null) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        PlazaIcon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(Spacing.sm))
                         Text(stringResource(Res.string.sticker_sources_subscribe_new))
                     }
@@ -197,7 +197,7 @@ private fun SourceCard(
 ) {
     LayerCard(onClick = if (gone) null else onOpen, contentPadding = PaddingValues(Spacing.md)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            Icon(
+            PlazaIcon(
                 if (gone) PlazaIcons.FolderOff else PlazaIcons.FolderZip,
                 contentDescription = null,
                 tint = if (gone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
@@ -210,7 +210,7 @@ private fun SourceCard(
                     color = if (gone) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (!gone) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(20.dp))
+            if (!gone) PlazaIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(20.dp))
         }
         when {
             gone -> {

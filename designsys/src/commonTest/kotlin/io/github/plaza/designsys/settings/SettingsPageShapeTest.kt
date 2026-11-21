@@ -35,7 +35,7 @@ class SettingsPageShapeTest {
     )
 
     @Test
-    fun `flipping a switch, disabling a row or changing a count updates in place`() {
+    fun `flipping a switch or disabling a row or changing a count updates in place`() {
         assertEquals(page().shape(), page(wifiOnly = true, keywordCount = "3 个", enabled = false).shape())
     }
 
@@ -45,7 +45,7 @@ class SettingsPageShapeTest {
     }
 
     @Test
-    fun `new header text reloads the table, which is the only way UIKit redraws one`() {
+    fun `new header text reloads the table and that is the only way UIKit redraws one`() {
         assertNotEquals(page().shape(), page(header = "Check").shape())
     }
 
@@ -93,7 +93,7 @@ class SettingsPageShapeTest {
     }
 
     @Test
-    fun `segments and a menu are different cells, so switching between them reloads the table`() {
+    fun `segments and a menu are different cells so switching between them reloads the table`() {
         assertNotEquals(
             single(themeChoice(SettingsChoicePresentation.Segmented)).shape(),
             single(themeChoice(SettingsChoicePresentation.Menu)).shape(),

@@ -31,7 +31,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
@@ -95,6 +94,7 @@ import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.InlineStyle
 import io.github.plaza.core.richtext.RichNode
 import io.github.plaza.designsys.component.ImageFallback
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SkippedImagePlaceholder
@@ -430,7 +430,7 @@ private fun RichBlock(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
                         )
-                        Icon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        PlazaIcon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 node.children.forEach { child ->
@@ -656,7 +656,7 @@ private fun FoldBlock(
                 modifier = Modifier.size(Sizes.minTouchTarget),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
+                PlazaIcon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription =
                     stringResource(
@@ -947,7 +947,7 @@ private fun InlineImageError(
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
             modifier = Modifier.padding(horizontal = Spacing.md),
         ) {
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.BrokenImage,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1086,7 +1086,7 @@ fun CodeBlockView(node: RichNode.CodeBlock) {
                 .clickable(onClickLabel = copyLabel) { copy("code", node.code, confirmation) },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.ContentCopy,
                 contentDescription = copyLabel,
                 // Full strength rather than the [chrome] the language tag uses: with no plate behind

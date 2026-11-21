@@ -29,7 +29,6 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
@@ -55,6 +54,7 @@ import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.tab_home
 import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.nodyssey.ui.resources.tab_profile
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -122,7 +122,7 @@ fun NodysseyNavigationItems(
             selected = selected,
             onClick = { onSelect(destination) },
             icon = {
-                Icon(
+                PlazaIcon(
                     imageVector = if (selected) destination.selectedIcon else destination.icon,
                     contentDescription = null,
                     modifier = Modifier.size(NavigationIconSize),
@@ -269,7 +269,7 @@ internal fun BottomNavigationTabs(
                         }
                     },
                 ) {
-                    Icon(
+                    PlazaIcon(
                         imageVector = if (selected) destination.selectedIcon else destination.icon,
                         contentDescription = null,
                         tint = contentColor,

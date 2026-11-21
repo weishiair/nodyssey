@@ -20,7 +20,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -92,6 +91,7 @@ import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
@@ -323,12 +323,12 @@ private fun HistoryMenu(
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
+            PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.history_limit_title)) },
-                leadingIcon = { Icon(PlazaIcons.History, contentDescription = null) },
+                leadingIcon = { PlazaIcon(PlazaIcons.History, contentDescription = null) },
                 trailingIcon = {
                     Text(
                         text = limitLabel(limit),
@@ -350,7 +350,7 @@ private fun HistoryMenu(
                         )
                     },
                     leadingIcon = {
-                        Icon(
+                        PlazaIcon(
                             Icons.Default.Delete,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
@@ -488,7 +488,7 @@ private fun RemoveBackdrop() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Delete,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onErrorContainer,

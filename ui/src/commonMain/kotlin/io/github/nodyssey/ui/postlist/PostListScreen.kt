@@ -33,7 +33,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -158,6 +157,7 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaStat
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaFabHeight
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PrefetchAvatars
@@ -1060,7 +1060,7 @@ private fun AccountButton(
                     .cardBorder(LocalPlazaLayers.current, AccountAvatarShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(HeaderIconSize))
+                PlazaIcon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(HeaderIconSize))
             }
         }
     }
@@ -1105,7 +1105,7 @@ private fun SearchPill(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1171,7 +1171,7 @@ private fun SortButton(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
             ) {
-                Icon(
+                PlazaIcon(
                     imageVector = PlazaIcons.SwapVert,
                     contentDescription = sortLabel,
                     modifier = Modifier.size(HeaderIconSize),
@@ -1265,7 +1265,7 @@ private fun SiteSwitcher(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
-                Icon(
+                PlazaIcon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     // The button already reads out the site's name; the arrow only says it opens.
                     contentDescription = switchLabel,
@@ -1562,7 +1562,7 @@ private fun PinnedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.PushPin,
                 contentDescription = stringResource(Res.string.post_badge_pinned),
                 tint = MaterialTheme.colorScheme.primary,
@@ -1575,7 +1575,7 @@ private fun PinnedRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Icon(
+            PlazaIcon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),

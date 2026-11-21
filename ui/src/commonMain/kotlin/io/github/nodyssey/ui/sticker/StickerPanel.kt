@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -54,6 +53,7 @@ import io.github.nodyssey.ui.resources.sticker_mine_empty
 import io.github.nodyssey.ui.resources.sticker_name_label
 import io.github.nodyssey.ui.resources.sticker_rename_title
 import io.github.nodyssey.ui.resources.sticker_undo
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.editor.EmojiEntry
@@ -151,7 +151,7 @@ internal fun StickerPanelHost(
         if (sticker != null) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.sticker_menu_save_to_mine)) },
-                leadingIcon = { Icon(Icons.Default.FavoriteBorder, contentDescription = null) },
+                leadingIcon = { PlazaIcon(Icons.Default.FavoriteBorder, contentDescription = null) },
                 onClick = {
                     dismiss()
                     scope.launch {
@@ -240,17 +240,17 @@ private fun MineStickerMenu(
 ) {
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.sticker_menu_move_top)) },
-        leadingIcon = { Icon(PlazaIcons.VerticalAlignTop, contentDescription = null) },
+        leadingIcon = { PlazaIcon(PlazaIcons.VerticalAlignTop, contentDescription = null) },
         onClick = onMoveToTop,
     )
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.action_rename)) },
-        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+        leadingIcon = { PlazaIcon(Icons.Default.Edit, contentDescription = null) },
         onClick = onRename,
     )
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.action_delete)) },
-        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+        leadingIcon = { PlazaIcon(Icons.Default.Delete, contentDescription = null) },
         onClick = onDelete,
     )
 }
@@ -270,7 +270,7 @@ private fun AddStickerCell(
         modifier = modifier,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Add, contentDescription = stringResource(Res.string.sticker_add), modifier = Modifier.size(22.dp))
+            PlazaIcon(Icons.Default.Add, contentDescription = stringResource(Res.string.sticker_add), modifier = Modifier.size(22.dp))
         }
     }
 }

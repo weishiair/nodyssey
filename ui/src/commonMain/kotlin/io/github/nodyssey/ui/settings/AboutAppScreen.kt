@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -101,6 +100,7 @@ import io.github.plaza.core.update.releaseNotesText
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.IconBadge
 import io.github.plaza.designsys.component.LayerCard
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionNote
@@ -353,7 +353,7 @@ private fun AppIdentity(
                         size = 18.dp,
                     )
                 } else {
-                    Icon(PlazaIcons.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                    PlazaIcon(PlazaIcons.History, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.width(Spacing.sm))
                 Text(stringResource(if (updateChecksSupported) Res.string.about_check_updates else Res.string.about_open_releases))
@@ -434,7 +434,7 @@ private fun UpdateCard(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
-                    Icon(PlazaIcons.Download, contentDescription = null)
+                    PlazaIcon(PlazaIcons.Download, contentDescription = null)
                 }
                 Text(
                     stringResource(Res.string.about_update_new_version, release.versionName),
@@ -500,7 +500,7 @@ private fun UpdateCard(
                             modifier = Modifier.fillMaxWidth(),
                             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                         ) {
-                            Icon(PlazaIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                            PlazaIcon(PlazaIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(Spacing.sm))
                             Text(
                                 stringResource(

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import io.github.nodyssey.ui.resources.assets_sign_in_fixed_label
 import io.github.nodyssey.ui.resources.assets_sign_in_fixed_value
 import io.github.nodyssey.ui.resources.assets_sign_in_random_label
 import io.github.nodyssey.ui.resources.assets_sign_in_random_value
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
 import org.jetbrains.compose.resources.stringResource
@@ -50,7 +50,7 @@ fun AttendanceModeDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = modifier,
-        icon = { Icon(PlazaIcons.EventAvailable, contentDescription = null) },
+        icon = { PlazaIcon(PlazaIcons.EventAvailable, contentDescription = null) },
         title = { Text(stringResource(Res.string.assets_sign_in_choice_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -69,7 +69,7 @@ fun AttendanceModeDialog(
                             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
                             modifier = Modifier.weight(1f).heightIn(min = 96.dp),
                         ) {
-                            Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                            PlazaIcon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
                             Text(
                                 stringResource(
                                     if (random) Res.string.assets_sign_in_random_label else Res.string.assets_sign_in_fixed_label,

@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.composer_emoji_backspace
@@ -297,7 +297,7 @@ private fun GroupPill(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (icon != null) Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp))
+            if (icon != null) PlazaIcon(icon, contentDescription = null, modifier = Modifier.size(14.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelSmall,
@@ -323,7 +323,7 @@ private fun ManagePill(
         modifier = Modifier.height(28.dp).semantics { contentDescription = label },
     ) {
         Box(Modifier.padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+            PlazaIcon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -414,7 +414,7 @@ private fun BackspaceKey(
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
+        PlazaIcon(
             imageVector = PlazaIcons.Backspace,
             contentDescription = null,
             modifier = Modifier.size(18.dp),

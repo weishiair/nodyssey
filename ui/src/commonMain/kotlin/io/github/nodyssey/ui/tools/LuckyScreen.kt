@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -78,6 +77,7 @@ import io.github.nodyssey.ui.resources.lucky_title
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.digitsOnly
 import io.github.plaza.designsys.component.rememberClipboardCopy
@@ -335,7 +335,7 @@ private fun DrawTimeRow(
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onPickDate) {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.DateRange,
                         contentDescription = stringResource(Res.string.lucky_pick_date),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -468,7 +468,7 @@ private fun GeneratedLinkCard(
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = onCopy) {
-                        Icon(
+                        PlazaIcon(
                             PlazaIcons.ContentCopy,
                             contentDescription = stringResource(Res.string.action_copy_link),
                             modifier = Modifier.size(19.dp),

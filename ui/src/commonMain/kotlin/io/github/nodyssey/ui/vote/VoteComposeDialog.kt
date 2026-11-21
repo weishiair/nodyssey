@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -53,6 +52,7 @@ import io.github.nodyssey.ui.resources.vote_compose_question
 import io.github.nodyssey.ui.resources.vote_compose_remove_option
 import io.github.nodyssey.ui.resources.vote_compose_title
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -100,7 +100,7 @@ fun VoteComposeDialog(
 
     AlertDialog(
         onDismissRequest = { if (state !is VoteCreationState.InFlight) onDismiss() },
-        icon = { Icon(PlazaIcons.Poll, contentDescription = null) },
+        icon = { PlazaIcon(PlazaIcons.Poll, contentDescription = null) },
         title = { Text(stringResource(Res.string.vote_compose_title)) },
         text = {
             Column(
@@ -131,7 +131,7 @@ fun VoteComposeDialog(
                         // two-option vote reads as something the author has done wrong.
                         if (options.size > MIN_OPTIONS) {
                             IconButton(onClick = { options.removeAt(index) }) {
-                                Icon(
+                                PlazaIcon(
                                     Icons.Default.Close,
                                     contentDescription =
                                     stringResource(Res.string.vote_compose_remove_option, index + 1),
@@ -144,7 +144,7 @@ fun VoteComposeDialog(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { options.add("") }, enabled = options.size < MAX_OPTIONS) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        PlazaIcon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text(
                             stringResource(Res.string.vote_compose_add_option),
                             modifier = Modifier.padding(start = Spacing.xs),
@@ -190,7 +190,7 @@ fun VoteComposeDialog(
                             .padding(horizontal = Spacing.md, vertical = Spacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
+                        PlazaIcon(
                             PlazaIcons.ErrorCircle,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onErrorContainer,

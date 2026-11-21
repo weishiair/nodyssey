@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +44,7 @@ import io.github.plaza.designsys.component.GroupDividerInset
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaText
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.ThreadRowTitle
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
@@ -162,7 +162,7 @@ private fun TrackedThreadRow(
         },
         trailingContent = {
             IconButton(onClick = onUntrack) {
-                Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.tracked_threads_untrack, thread.title))
+                PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.tracked_threads_untrack, thread.title))
             }
         },
     )

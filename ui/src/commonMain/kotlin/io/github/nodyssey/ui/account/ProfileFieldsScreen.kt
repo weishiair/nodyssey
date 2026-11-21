@@ -25,7 +25,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -80,6 +79,7 @@ import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
@@ -371,7 +371,7 @@ private fun AvatarEditor(
                             .padding(3.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
+                            PlazaIcon(
                                 PlazaIcons.PhotoCamera,
                                 contentDescription = stringResource(Res.string.account_avatar_change),
                                 modifier = Modifier.size(15.dp),
@@ -381,7 +381,7 @@ private fun AvatarEditor(
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
                             text = { Text(stringResource(Res.string.account_avatar_take_photo)) },
-                            leadingIcon = { Icon(PlazaIcons.PhotoCamera, contentDescription = null) },
+                            leadingIcon = { PlazaIcon(PlazaIcons.PhotoCamera, contentDescription = null) },
                             onClick = {
                                 menuOpen = false
                                 picker.takePhoto()
@@ -389,7 +389,7 @@ private fun AvatarEditor(
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(Res.string.account_avatar_pick)) },
-                            leadingIcon = { Icon(PlazaIcons.Image, contentDescription = null) },
+                            leadingIcon = { PlazaIcon(PlazaIcons.Image, contentDescription = null) },
                             onClick = {
                                 menuOpen = false
                                 picker.pickImage()

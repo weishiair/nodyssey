@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
@@ -70,6 +69,7 @@ import io.github.nodyssey.ui.resources.settings_seed_pick_loading
 import io.github.nodyssey.ui.resources.settings_seed_save
 import io.github.nodyssey.ui.resources.settings_seed_sheet_title
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTagShape
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -146,7 +146,7 @@ internal fun SeedColorSheet(
         title = titleOverride ?: stringResource(Res.string.settings_seed_sheet_title),
         action = {
             TextButton(onClick = pickImageToSample) {
-                Icon(
+                PlazaIcon(
                     PlazaIcons.Colorize,
                     contentDescription = null,
                     modifier = Modifier.size(ButtonDefaults.IconSize),

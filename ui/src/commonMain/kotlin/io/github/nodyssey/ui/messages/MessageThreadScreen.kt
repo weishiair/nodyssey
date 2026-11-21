@@ -56,7 +56,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -187,6 +186,7 @@ import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.QuotePreview
@@ -399,7 +399,7 @@ fun MessageThreadScreen(
             state.syncError?.let { error ->
                 val recovery = siteErrorRecovery(error, onVerify = onVerify, onSignIn = onSignIn, onRetry = onRetryLoad)
                 ListItem(
-                    leadingContent = { Icon(PlazaIcons.ErrorCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    leadingContent = { PlazaIcon(PlazaIcons.ErrorCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     trailingContent = { recovery?.let { action -> TextButton(onClick = action.onClick) { Text(action.label) } } },
                     colors = ListItemDefaults.colors(containerColor = LocalPlazaLayers.current.raised),
                 ) {
@@ -503,10 +503,10 @@ private fun ScamReminderBanner(
         ListItem(
             onClick = { detailsOpen = true },
             leadingContent = {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
+                PlazaIcon(Icons.Default.Warning, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
             },
             trailingContent = {
-                Icon(
+                PlazaIcon(
                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = stringResource(Res.string.messages_scam_details),
                     tint = contentColor,
@@ -574,7 +574,7 @@ private fun ThreadTopBar(
                             modifier = Modifier.size(40.dp),
                         ) {
                             IconButton(onClick = onBack) {
-                                Icon(
+                                PlazaIcon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = stringResource(Res.string.action_back),
                                 )
@@ -724,7 +724,7 @@ private fun MessageInfoSheet(
                         onDismiss()
                     }
                 }) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
+                    PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
                 }
             }
             content()
@@ -1043,7 +1043,7 @@ private fun BubbleMenuItem(
 ) {
     DropdownMenuItem(
         text = { Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
+        leadingIcon = { PlazaIcon(icon, contentDescription = null) },
         onClick = onClick,
     )
 }
@@ -1098,11 +1098,11 @@ private fun MessageStatusLine(
                     style = style,
                     color = muted,
                 )
-                Icon(PlazaIcons.Schedule, contentDescription = null, tint = muted, modifier = Modifier.size(13.dp))
+                PlazaIcon(PlazaIcons.Schedule, contentDescription = null, tint = muted, modifier = Modifier.size(13.dp))
             }
 
             SendStatus.FAILED -> {
-                Icon(
+                PlazaIcon(
                     PlazaIcons.ErrorCircle,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
@@ -1346,7 +1346,7 @@ private fun MessageInputBar(
                 ),
                 modifier = Modifier.size(INPUT_CONTROL_SIZE),
             ) {
-                Icon(
+                PlazaIcon(
                     if (panelOpen) Icons.Default.Close else Icons.Default.Add,
                     contentDescription = stringResource(Res.string.message_tools),
                 )
@@ -1377,7 +1377,7 @@ private fun MessageInputBar(
                 ),
                 modifier = Modifier.size(INPUT_CONTROL_SIZE),
             ) {
-                Icon(
+                PlazaIcon(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = stringResource(Res.string.message_send),
                     modifier = Modifier.size(20.dp),
@@ -1433,7 +1433,7 @@ private fun MessageDraftField(
                         onCheckedChange = { onToggleEmoji() },
                         modifier = Modifier.size(40.dp),
                     ) {
-                        Icon(
+                        PlazaIcon(
                             EditorAction.EMOJI.icon,
                             contentDescription = stringResource(EditorAction.EMOJI.label),
                             modifier = Modifier.size(20.dp),
@@ -1545,7 +1545,7 @@ private fun ToolTile(
                 .cardBorder(layers, MaterialTheme.shapes.largeIncreased),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            PlazaIcon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(
             text = label,
@@ -1567,7 +1567,7 @@ private fun ThreadMenu(onOpenBrowser: () -> Unit) {
     AdaptiveGlassButton(action = threadMenuAction(onOpenBrowser), modifier = Modifier.size(40.dp)) {
         Box {
             IconButton(onClick = { expanded = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
+                PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
             }
             DropdownMenu(
                 expanded = expanded,

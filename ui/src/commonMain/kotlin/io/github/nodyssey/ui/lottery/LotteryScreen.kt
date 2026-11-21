@@ -32,7 +32,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
@@ -127,6 +126,7 @@ import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerPageGutter
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -241,7 +241,7 @@ fun LotteryRoute(
                                 if ("refresh" in pending) {
                                     PlazaSpinner(size = 22.dp)
                                 } else {
-                                    Icon(Icons.Default.Refresh, stringResource(Res.string.lottery_refresh))
+                                    PlazaIcon(Icons.Default.Refresh, stringResource(Res.string.lottery_refresh))
                                 }
                             }
                         },
@@ -251,12 +251,12 @@ fun LotteryRoute(
                         compose = {
                             Box {
                                 IconButton(onClick = { menuOpen = true }) {
-                                    Icon(Icons.Default.MoreVert, stringResource(Res.string.lottery_menu))
+                                    PlazaIcon(Icons.Default.MoreVert, stringResource(Res.string.lottery_menu))
                                 }
                                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                     DropdownMenuItem(
                                         text = { Text(stringResource(Res.string.lottery_create)) },
-                                        leadingIcon = { Icon(Icons.Default.Add, null) },
+                                        leadingIcon = { PlazaIcon(Icons.Default.Add, null) },
                                         onClick = {
                                             menuOpen = false
                                             onCreate()
@@ -264,7 +264,7 @@ fun LotteryRoute(
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(Res.string.lottery_help)) },
-                                        leadingIcon = { Icon(Icons.Default.Info, null) },
+                                        leadingIcon = { PlazaIcon(Icons.Default.Info, null) },
                                         onClick = {
                                             menuOpen = false
                                             helpOpen = true
@@ -284,7 +284,7 @@ fun LotteryRoute(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(PlazaIcons.Alarm, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                PlazaIcon(PlazaIcons.Alarm, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Text(
                     stringResource(Res.string.lottery_summary),
                     style = MaterialTheme.typography.bodyMedium,
@@ -342,7 +342,7 @@ fun LotteryRoute(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(Spacing.md),
                             ) {
-                                Icon(
+                                PlazaIcon(
                                     if (finished) Icons.Default.CheckCircle else PlazaIcons.Alarm,
                                     null,
                                     tint = MaterialTheme.colorScheme.primary,
@@ -446,7 +446,7 @@ internal fun LotteryCard(
                     },
                 ) {
                     Surface(shape = MaterialTheme.shapes.medium, color = colors.primaryContainer, contentColor = colors.onPrimaryContainer) {
-                        Icon(PlazaIcons.Alarm, null, modifier = Modifier.padding(Spacing.sm).size(24.dp))
+                        PlazaIcon(PlazaIcons.Alarm, null, modifier = Modifier.padding(Spacing.sm).size(24.dp))
                     }
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -461,7 +461,7 @@ internal fun LotteryCard(
                 if (onRemove != null) {
                     Box {
                         IconButton(onClick = { menuOpen = true }, enabled = !busy) {
-                            Icon(Icons.Default.MoreVert, stringResource(Res.string.lottery_menu))
+                            PlazaIcon(Icons.Default.MoreVert, stringResource(Res.string.lottery_menu))
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
@@ -491,7 +491,7 @@ internal fun LotteryCard(
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 if (entry != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Person, null, tint = colors.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        PlazaIcon(Icons.Default.Person, null, tint = colors.onSurfaceVariant, modifier = Modifier.size(16.dp))
                         Text(stringResource(Res.string.lottery_owner, entry.ownerName), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     }
                 }

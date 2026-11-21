@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -70,6 +69,7 @@ import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
@@ -189,7 +189,7 @@ fun AssetsScreen(
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.weight(1f),
                             )
-                            Icon(
+                            PlazaIcon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
@@ -419,7 +419,7 @@ private fun AttendanceState(
                     onClick = onRequestAttendance,
                     contentPadding = ButtonDefaults.SmallContentPadding,
                 ) {
-                    Icon(NodeSeekIcons.ChickenLeg, contentDescription = null, modifier = Modifier.size(18.dp))
+                    PlazaIcon(NodeSeekIcons.ChickenLeg, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(
                         stringResource(Res.string.profile_attendance_title),
                         modifier = Modifier.padding(start = 6.dp),

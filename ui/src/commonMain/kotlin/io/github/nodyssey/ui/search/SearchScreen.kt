@@ -42,7 +42,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
@@ -148,6 +147,7 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PillTabRow
 import io.github.plaza.designsys.component.PlazaChipDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.PrefetchAvatars
@@ -455,7 +455,7 @@ private fun SearchInputRow(
     ) {
         if (onBack != null) {
             IconButton(onClick = onBack) {
-                Icon(
+                PlazaIcon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(Res.string.action_back),
                     modifier = Modifier.size(SearchIconSize),
@@ -496,7 +496,7 @@ private fun SearchInputRow(
                 Row(modifier = Modifier.padding(end = Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                     if (queryState.text.isNotEmpty()) {
                         IconButton(onClick = { queryState.clearText() }, modifier = Modifier.size(SearchKeySize)) {
-                            Icon(
+                            PlazaIcon(
                                 Icons.Default.Close,
                                 contentDescription = stringResource(Res.string.search_clear_query),
                                 modifier = Modifier.size(SearchIconSize - 2.dp),
@@ -534,7 +534,7 @@ private fun OptionsButton(
                 if (active) Badge(containerColor = MaterialTheme.colorScheme.primary)
             },
         ) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.Tune,
                 contentDescription = stringResource(Res.string.search_advanced),
                 modifier = Modifier.size(SearchIconSize - 2.dp),
@@ -662,7 +662,7 @@ private fun ResultScopeRow(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
+                        PlazaIcon(
                             Icons.Default.Close,
                             contentDescription = stringResource(Res.string.search_clear_board, title),
                             modifier = Modifier.size(14.dp),
@@ -677,7 +677,7 @@ private fun ResultScopeRow(
                 selected = false,
                 onClick = onOpenOptions,
                 label = { Text(stringResource(Res.string.search_all_boards), style = scopeLabelStyle()) },
-                trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                trailingIcon = { PlazaIcon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 modifier = Modifier.height(ScopeChipHeight),
                 shape = MaterialTheme.shapes.small,
                 colors = PlazaChipDefaults.filterChipColors(),
@@ -692,7 +692,7 @@ private fun ResultScopeRow(
                     style = scopeLabelStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Icon(
+                PlazaIcon(
                     Icons.Default.ArrowDropDown,
                     contentDescription = stringResource(Res.string.action_sort),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -963,7 +963,7 @@ private fun HistoryRow(
         last = last,
         onClick = onClick,
         leadingContent = {
-            Icon(
+            PlazaIcon(
                 if (recent.target == SearchTarget.POSTS) PlazaIcons.History else PlazaIcons.PersonSearch,
                 contentDescription = null,
             )
@@ -972,7 +972,7 @@ private fun HistoryRow(
         supportingContent = { HistoryScope(recent, boards) },
         trailingContent = {
             IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.search_remove_recent, recent.query))
+                PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.search_remove_recent, recent.query))
             }
         },
     )
@@ -1084,7 +1084,7 @@ private fun AdvancedSearchSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                             ) {
-                                Icon(
+                                PlazaIcon(
                                     PlazaIcons.Schedule,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,

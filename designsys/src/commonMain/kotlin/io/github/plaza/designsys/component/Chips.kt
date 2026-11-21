@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.LocalPlazaExtraColors
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 
@@ -60,7 +60,7 @@ fun TonalTag(
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         icon?.let {
-            Icon(it, contentDescription = null, tint = contentColor, modifier = Modifier.size(textScaledSize(TONAL_TAG_FONT_SIZE)))
+            PlazaIcon(it, contentDescription = null, tint = contentColor, modifier = Modifier.size(textScaledSize(TONAL_TAG_FONT_SIZE)))
         }
         Text(
             text = text,

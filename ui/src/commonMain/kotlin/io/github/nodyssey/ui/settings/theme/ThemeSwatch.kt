@@ -10,7 +10,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +25,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.PlazaDefaultSeed
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -86,7 +86,7 @@ internal fun ThemeSwatch(
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
-                Icon(
+                PlazaIcon(
                     Icons.Default.Check,
                     contentDescription = label,
                     tint = contentColorOn(color),
@@ -188,7 +188,7 @@ internal fun PresetDot(
                     .background(scheme.primary),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
+                PlazaIcon(
                     Icons.Default.Check,
                     contentDescription = null,
                     tint = scheme.onPrimary,

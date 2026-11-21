@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -97,6 +96,7 @@ import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -333,7 +333,7 @@ private fun ReplyEditorSheet(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 IconButton(onClick = onDismiss, enabled = !state.isPublishing) {
-                    Icon(
+                    PlazaIcon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(Res.string.action_close),
                         modifier = Modifier.size(20.dp),
@@ -361,7 +361,7 @@ private fun ReplyEditorSheet(
                     },
                     enabled = !state.isPublishing,
                 ) {
-                    Icon(
+                    PlazaIcon(
                         imageVector = PlazaIcons.Visibility,
                         contentDescription = stringResource(Res.string.action_preview),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -383,7 +383,7 @@ private fun ReplyEditorSheet(
                     title = stringResource(Res.string.post_quote_reply, replyTo.author, "#${replyTo.floor}"),
                     excerpt = replyTo.excerpt,
                     leading = {
-                        Icon(
+                        PlazaIcon(
                             PlazaIcons.FormatQuote,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
@@ -541,7 +541,7 @@ private fun ReplyPreviewScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack, enabled = !state.isPublishing) {
-                        Icon(
+                        PlazaIcon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(Res.string.action_back),
                         )
@@ -713,7 +713,7 @@ private fun PublishReplyButton(
                     size = 14.dp,
                 )
             } else {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                PlazaIcon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
             }
             Text(
                 text = stringResource(if (isPublishing) Res.string.composer_publishing else Res.string.action_publish),

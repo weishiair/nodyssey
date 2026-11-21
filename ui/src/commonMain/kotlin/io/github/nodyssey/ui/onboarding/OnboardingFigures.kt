@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -33,6 +32,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.common.rememberReducedMotionEnabled
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
@@ -85,7 +85,7 @@ internal fun WelcomeFigure(active: Boolean) {
                         TextLine(widthFraction = 0.7f, tint = MaterialTheme.colorScheme.primary)
                         TextLine(widthFraction = 0.45f, tint = MaterialTheme.colorScheme.primary)
                     }
-                    Icon(
+                    PlazaIcon(
                         PlazaIcons.ContentCopy,
                         contentDescription = null,
                         modifier = Modifier.size(12.dp),
@@ -504,7 +504,7 @@ internal fun AppLinksFigure(active: Boolean) {
             }
         }
         Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.Link,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
@@ -666,7 +666,7 @@ private fun WrenchKey(lit: Float) {
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
+        PlazaIcon(
             Icons.Default.Build,
             contentDescription = null,
             modifier = Modifier.size(13.dp),

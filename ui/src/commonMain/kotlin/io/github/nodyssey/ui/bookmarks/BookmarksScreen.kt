@@ -19,7 +19,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -105,6 +104,7 @@ import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.OneHandAppBarState
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaExtendedFab
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.StatusView
@@ -508,7 +508,7 @@ internal fun bookmarksTopBarActions(
                 ),
                 compose = {
                     IconButton(onClick = onSearch) {
-                        Icon(
+                        PlazaIcon(
                             Icons.Default.Search,
                             contentDescription = searchLabel,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -540,7 +540,7 @@ internal fun bookmarksTopBarActions(
                     ),
                     compose = {
                         IconButton(onClick = onEnterSelection) {
-                            Icon(
+                            PlazaIcon(
                                 imageVector = PlazaIcons.Checklist,
                                 contentDescription = selectLabel,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -563,7 +563,7 @@ internal fun bookmarksTopBarActions(
                     ),
                     compose = {
                         IconButton(onClick = onManage) {
-                            Icon(
+                            PlazaIcon(
                                 imageVector = PlazaIcons.CloudDone,
                                 contentDescription = manageLabel,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -595,7 +595,7 @@ private fun BookmarksTopBar(
             title = { BookmarkSearchField(query = state.query.orEmpty(), onQuery = onQuery) },
             navigationIcon = {
                 IconButton(onClick = { onSearching(false) }) {
-                    Icon(
+                    PlazaIcon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(Res.string.action_close),
                     )
@@ -659,7 +659,7 @@ private fun BookmarkSearchField(
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQuery("") }) {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.Close,
                         contentDescription = stringResource(Res.string.bookmarks_search_clear),
                     )
@@ -687,7 +687,7 @@ private fun SortMenu(
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }, modifier = Modifier.size(Sizes.minTouchTarget)) {
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.Sort,
                 contentDescription = stringResource(Res.string.action_sort),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -729,7 +729,7 @@ private fun SelectionTopBar(
         },
         navigationIcon = {
             IconButton(onClick = onClose) {
-                Icon(
+                PlazaIcon(
                     Icons.Default.Close,
                     contentDescription = stringResource(Res.string.bookmarks_exit_selection),
                 )

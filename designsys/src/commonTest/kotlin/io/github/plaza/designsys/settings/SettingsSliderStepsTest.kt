@@ -17,7 +17,7 @@ class SettingsSliderStepsTest {
     }
 
     @Test
-    fun `stops follow the interval size, not whole numbers`() {
+    fun `stops follow the interval size and not whole numbers`() {
         // 20..90 with thirteen interior stops is 5sp apart — 表情大小.
         assertEquals(55f, snapToSteps(56.9f, 20f..90f, steps = 13))
     }

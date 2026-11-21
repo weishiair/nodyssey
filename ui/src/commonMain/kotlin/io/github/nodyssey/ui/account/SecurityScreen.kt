@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.Scaffold
@@ -76,6 +75,7 @@ import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
@@ -278,7 +278,7 @@ private fun TwoFactorDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(PlazaIcons.Shield, contentDescription = null) },
+        icon = { PlazaIcon(PlazaIcons.Shield, contentDescription = null) },
         title = { Text(stringResource(Res.string.account_confirm_2fa_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -395,7 +395,7 @@ private fun TwoFactorCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
-                Icon(
+                PlazaIcon(
                     PlazaIcons.Shield,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -429,7 +429,7 @@ private fun TwoFactorCard(
                 onClick = onBind,
                 enabled = !busy,
             ) {
-                Icon(PlazaIcons.QrCode, contentDescription = null, modifier = Modifier.size(17.dp))
+                PlazaIcon(PlazaIcons.QrCode, contentDescription = null, modifier = Modifier.size(17.dp))
                 Text(
                     text =
                     stringResource(
