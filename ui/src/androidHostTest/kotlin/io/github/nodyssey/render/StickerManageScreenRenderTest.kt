@@ -129,15 +129,17 @@ class StickerManageScreenRenderTest {
 
     @Test
     fun `sticker add in light`() {
+        val viewModel = StickerAddViewModel(library)
         render("sticker-add") {
-            StickerAddRoute(viewModel = StickerAddViewModel(library), onBack = {}, onDone = {})
+            StickerAddRoute(viewModel = viewModel, onBack = {}, onDone = {})
         }
     }
 
     @Test
     fun `sticker add in dark`() {
+        val viewModel = StickerAddViewModel(library)
         render("sticker-add-dark", darkTheme = true) {
-            StickerAddRoute(viewModel = StickerAddViewModel(library), onBack = {}, onDone = {})
+            StickerAddRoute(viewModel = viewModel, onBack = {}, onDone = {})
         }
     }
 }
