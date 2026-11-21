@@ -1,8 +1,8 @@
 # iOS 原生体验改造：开发文档
 
-> 状态：2026-11-19 起草，执行计划。试点（PR-0）为 PR #93；一期已完成，2026-11-20 经 PR #107 合入 `dev`。集成分支 `ios/native-experience`（§7.1）继续使用。
-> 第二批与二期的图标三项（PR-9、PR-10a、PR-10）已完成，2026-11-21 真机确认，收尾记录见 §5.4。
-> 范围：二期其余各项（PR-3、PR-6、PR-11、PR-12、PR-13）视反馈再定（§5.2）。
+> 状态：试点为 PR #93；一期于 2026-11-20 经 PR #107 合入 `dev`。第二批和 SF Symbols 的上一轮真机验收见 §5.4。
+> 2026-11-21，二期按实际交付范围收尾。原生面板、代理表单、设置视觉统一和主界面打磨已合入 `ios/native-experience`，见 §5.2 和 §5.5。
+> 集成分支等待本轮真机和模拟器验收。用户确认后，再跑全量门禁并另开合入 `dev` 的 PR。
 > 旧分支 `codex/ios-experience-integration` 的做法已放弃，本文不以它为基线；其中仍有价值的个别修复见 §10。
 
 本文写给两类读者：
@@ -154,7 +154,7 @@ ViewModel ── UiState ──▶ XxxScreen（@Composable，commonMain）
 模型在 `designsys/.../settings/SettingsPage.kt`，Compose 渲染器在 `ui/.../ui/settings/SettingsPageContent.kt`。
 
 ```kotlin
-SettingsPage(title, sections, intro = null)            // intro：页首说明（开源许可页顶部那段）
+SettingsPage(title, sections, intro = null, showRowIconsOnIos = false)
 SettingsSection(key, items = emptyList(), header = null, footer = null, style = Grouped)
 SettingsSectionStyle: Grouped | Prominent（主开关卡片）| Callout（指向页外的卡片）
 SettingsOption(label, swatch: Color? = null, enabled = true)   // 单选的一个答案；swatch 是已读标记那种色块
@@ -163,6 +163,7 @@ SettingsSample(text, fontSizeSp)                        // 滑块下跟着字号
 
 // 每种行都有：key、title、icon?、enabled、testTag?（Compose testTag / iOS accessibilityIdentifier）
 SettingsItem.Toggle(key, title, checked, onCheckedChange, description?)
+SettingsItem.Text(key, title, value, onValueChange, placeholder?, keyboard = Text, secure = false, errorMessage?)
 SettingsItem.Choice(key, title, options: List<SettingsOption>, selectedIndex, onSelect(Int),
                     prompt?, presentation = Sheet, description?)
 SettingsItem.Slider(key, title, value, range, steps, onValueChange(Float), onValueChangeFinished(),
@@ -178,7 +179,7 @@ SettingsPageLayout.Standard | Account | Licenses       // 只影响 Compose 的�
 ```
 
 - `key`：页面内唯一、跨重组稳定，用英文 kebab-case（如 `"wifi-only"`），**不要用下标或文案**。
-- `icon` 只在 Compose 渲染里画；iOS 设置子页按系统惯例不显示图标。
+- `intro` 是首个分组前的说明。设置首页用 `showRowIconsOnIos = true` 将 `icon` 解析为行首 SF Symbol，设置子页沿用默认值。
 - `value` 是"目的地当前的状态"（如「3 个」「4.3 MB」）：Android 画在副标题，iOS 画在右侧。
 - `description` 是解释性文字：两端都画在标题下方。`Choice(Sheet)` 没有 `description` 时，Android 副标题显示当前答案。
 - 区块 `footer`：有行时是区块下方的小字；没有行时（只有 header + footer）就是一段说明。
@@ -194,7 +195,8 @@ SettingsPageLayout.Standard | Account | Licenses       // 只影响 Compose 的�
   拿着同样的状态和回调，iOS 画它。每个 `Custom` 都是"一行两份画法"，能不用就不用，用了要在 PR 里说明。
 - `layout`：只为让既有页面迁移后 Android 逐像素不变，**不是**给新页面挑样式用的。新页面一律 `Standard`。
 - `snackbarHostState`：页面有提示消息时传入。Android 放在 `Scaffold` 里；iOS 叠在原生页上方。
-- **还没有的能力**：带标题的多段脚注（`SectionNotes`）、文本输入、保存/测试按钮、横幅，属于二期 PR-3。遇到就按 §7.6 停下报告。
+- `Text` 的 `SettingsKeyboard` 支持 `Text`、`Uri`、`Number`。`secure` 隐藏输入，`errorMessage` 在字段下显示校验错误。代理页的测试和保存分别使用 `Action`。
+- 需要带标题的多段脚注、独立横幅或可拖拽行时，按 §7.6 报告描述模型的缺口。
 
 ### 4.3 iOS 渲染器要点（`AdaptiveSettingsPage.ios.kt`）
 
@@ -202,12 +204,13 @@ SettingsPageLayout.Standard | Account | Licenses       // 只影响 Compose 的�
   （这样 shell 叠在页面上的 Compose 提示仍在最上层）。
 - **独立的 `UINavigationBar`**：shell 隐藏了导航控制器自带的栏。放两个 item 得到系统返回按钮；
   `navigationBar(_:shouldPop:)` 把返回交给 back stack 并返回 `false`；`positionForBar` 返回 `TopAttached`。
-  页面在顶部时栏透明，滚动后换成系统默认材质。
+  列表延伸到栏下，通过顶部 inset 留出导航栏高度。页面在顶部时栏透明，滚动后使用系统模糊材质。键盘避让只更新底部 inset。
 - **`UITableView(.insetGrouped)`**，单元格按 `kind:key` 常驻、不复用；
   `shape()` 不变时原地更新（保留开关动画和已打开的菜单），变化时才 `reloadData()`。
 - 开关 `UISwitch`（强调色），单选是弹出按钮 + `UIMenu`（菜单标题为 `prompt`），跳转行是系统箭头。
-- 颜色用系统分组色（`systemGroupedBackground` / `secondarySystemGroupedBackground` / `label` 系列），
-  只取 App 主题的强调色；字号 = 系统 Dynamic Type × App 内字号设置。
+- 页面和卡片用 `PlazaLayers.page` 与 `PlazaLayers.card`。浅色纯白模式下两色相同时，页面增加轻微灰阶差以区分分组。
+  文字使用 UIKit 的 `label` 系列，开关使用 App 强调色，字号由系统 Dynamic Type 和 App 内字号共同决定。
+- `LocalEinkMode` 开启时直接渲染实色 Compose 页面。
 - UIAction 只捕获不持有视图的状态对象，避免 ARC 循环（照现有写法）。
 
 ### 4.4 何时**不**迁移一个页面
@@ -360,22 +363,18 @@ C1 第 1 段（现在）
 一期结束的标志：上表全部合入集成分支 `ios/native-experience`，§9 中标为「一期」的目标全部通过，
 并从集成分支出一个 iOS 测试包给用户真机验收；通过后再由单独 PR 把集成分支合入 `dev`。
 
-### 5.2 二期（视一期反馈决定，暂不排期）
+### 5.2 二期交付状态
 
-| PR | 标题 | 负责 | 依赖 | 需要 Mac | 放到二期的原因 |
-|---|---|---|---|---|---|
-| ~~PR-3~~ | 描述模型扩展 B：表单（文本输入、按钮组、内联错误、键盘避让） | Devin | PR-0 | 是 | 原生输入框与 Compose 焦点的互操作风险高 |
-| ~~PR-6~~ | 迁移：代理、加密 DNS | Devin | PR-1、PR-3 | 是 | 用户进入频率低，依赖 PR-3 |
-| ~~PR-9~~ | SF Symbols 图标基础设施 `PlazaIcon` | Devin | — | 是 | **已完成**（#123，Devin） |
-| ~~PR-10a~~ | 图标清单与 SF Symbols 候选表（纯数据） | 协作 AI | — | 否 | **已完成**（#123，改由 Devin 做；见 `docs/ios-sf-symbols.md`） |
-| ~~PR-10~~ | 图标调用点替换与映射补全 | 协作 AI | PR-9、PR-10a | 否 | **已完成**（#123，Devin） |
-| PR-11 | iOS 点击反馈与触感 | Devin | — | 是 | 体感收益小于设置页 |
-| PR-12 | 原生底部面板 | Devin | — | 是 | 跨组合传递主题和状态，风险最高 |
-| PR-13 | 两处直接 `ModalBottomSheet` 改走 `PlazaSheet`（或说明不能改的原因） | 协作 AI | — | 否 | 随 PR-12 |
+| 任务 | 内容 | 合入状态 |
+|---|---|---|
+| PR-3 | 描述模型扩展 B：表单 | **已交付（缩减范围）** #128。文本输入、行内校验、键盘避让和回车切换 |
+| PR-6 | 代理与加密 DNS | **已交付（缩减范围）** #128。代理页使用原生表单，加密 DNS 保留 Compose |
+| PR-9 / PR-10a / PR-10 | SF Symbols 基础设施、清单与调用点迁移 | **已完成** #123，见 [图标清单](ios-sf-symbols.md) |
+| PR-11 | iOS 按压样式与触感 | **已交付 Part B** #126。开关与刷新接入系统触感，按压样式见 §10 R7 |
+| PR-12 | 原生底部面板 | **已完成** #127。iOS 26+ 的共享面板和工具栏自定义使用系统 sheet |
+| PR-13 | 直接使用 `ModalBottomSheet` 的两处面板 | **已交付（缩减范围）** #127。回帖面板接入，私信会话信息面板保留现有行为 |
 
-二期开始前，先根据一期反馈重新排序；不需要的项直接划掉。
-
-### 5.3 第二批分工（2026-11-20 定，当前执行范围）
+### 5.3 第二批分工（2026-11-20 定）
 
 一期已全部合入 `dev`（PR #107）。第二批针对 §2.3 的发现，只用现成组件或小幅扩展，不新增整页原生实现。
 目标分支仍是集成分支 `ios/native-experience`（§7.1）。交接方式同 §5.1：
@@ -441,10 +440,37 @@ C4 第 1 段（现在）
 
 **已知遗留**（都不是本批引入，留待后续）：
 
-- 超大字号下，隐私协议页"来自 …"来源一列被挤得很窄；追踪的帖子为空时，提示文字紧贴导航栏。
+- 隐私协议页的大字号来源排版、追踪帖子空状态间距及繁体标签边界的后续进展见 §5.5。
 - 渲染测试 `lottery-filter-won-phone`、`sticker-group-mine`、`sticker-manage`、`sticker-sources` 偶尔两次运行结果不同（未改动的提交上也会出现）。
 - Windows 上 `PreferencesViewModelTest` 与部分 DataStore、Room 迁移测试因临时文件重命名、路径格式失败；Linux CI 通过。
 - iOS 上未实测的页面：社区工具（NodeSeek 无入口）、邮件详情（打开会标记已读）、添加表情（只能从编辑器表情面板进入），由 Android 渲染逐像素一致和代码审查保证。
+
+### 5.5 二期与集成分支收尾（2026-11-21）
+
+第二批记录由 #124 补入本文。此后集成分支交付以下改动，链接包含各 PR 的验证记录。
+
+| PR / 合并提交 | 交付内容 | 验证记录 |
+|---|---|---|
+| [#126](https://github.com/weishiair/nodyssey/pull/126) · `785407fc` | `PlatformHaptics` 接入 Compose 设置开关与下拉刷新触发点。iOS 使用 UIKit 选中和冲击反馈，Android / JVM 使用空实现 | 模拟器复核开关与刷新流程，触感强度由真机验收 |
+| [#127](https://github.com/weishiair/nodyssey/pull/127) · `26bbfbfb` | `AdaptiveModalSheet` 在 iOS 26+ 使用 `UISheetPresentationController` 承载 Compose 内容，传入外层主题与 `CompositionLocal`，支持中 / 大高度和交互关闭。覆盖 `PlazaSheet`、回帖面板和工具栏自定义 | 模拟器覆盖关闭、键盘、嵌套面板、楼层操作和深色旋转 |
+| [#128](https://github.com/weishiair/nodyssey/pull/128) · `239d73be` | `SettingsItem.Text` 用 `UITextField` 支持文本、地址和数字、密码遮蔽、行内校验、Next / Done 及键盘避让。代理页接入表单，测试和保存复用 `Action` | `NetworkSettingsRenderTest` 4 张 Android 图逐像素一致。#129 复测代理页焦点与避让 |
+| [#129](https://github.com/weishiair/nodyssey/pull/129) · `c28cdb3a` | 原生设置页跟随 `PlazaLayers`，纯白分组增加轻微灰阶差，设置首页显示 SF Symbols。列表在导航栏后滚动，墨水屏切回实色 Compose | 37 张 Android 图逐像素一致。iOS 覆盖浅色、深色、纯白、纯黑、辅助功能 XL 和墨水屏，代理页输入框与保存可在键盘上方看到，菜单开关 20 次软键盘出现 0 次 |
+| [#130](https://github.com/weishiair/nodyssey/pull/130) · `98e1bb92` | 通知页「互动 / 私信」采用跟随 pager 偏移的胶囊分段条。首页、通知、收藏、信箱、搜索和帖子详情共用自适应刷新指示器，iOS 26+ 显示无底盘的 12 刻度菊花 | 100 张 Android 图逐像素一致。iOS 验证浅色、深色和辅助功能 XL 下的点选和双向滑动，逐帧核对首页与通知页的下拉及旋转动画 |
+
+**保留现有实现的页面和交互**
+
+- 加密 DNS 保留 Compose。服务器拖拽重排和预设选择需要可重排描述项或混合渲染，现有原生设置模型按整页接管。
+- 主题、动态取色、偏好设置，以及 §2.2 B 类页面保留自定义内容布局。列表管理页沿用现有编辑行为，内容页通过共享组件获得原生控件。
+- 私信会话信息面板保留 `ModalBottomSheet`。它只允许全展开，关闭按钮先等待 `SheetState.hide()`；共享原生面板提供中 / 大两档。私信的头像与警示卡片、表情分组编辑态、账号保存失败页文字关闭键沿用 §5.4 的顶栏例外。
+- 复杂确认框保留 Compose，继续支持富文本、输入、自定义按钮或异步确认，具体清单见附录 B。无对应 SF Symbol 的站点图标继续使用原矢量。
+- iOS 26 以下及墨水屏沿用自适应面板、通知分段条和下拉刷新组件的 Compose 回退。墨水屏的原生设置页也回退到实色 Compose。
+- 全局按压高亮保留现有实现，原因见 §10 R7。首页帖子卡片长按菜单留待独立验证纵向列表、横向板块切换、轻点进帖与菜单关闭的触摸分发。
+
+**验收状态**
+
+- #129 与 #130 已通过 GitHub `build`、`device-test`。Windows 上已知 DataStore 和 Room 基线问题与本轮 iOS 改动分开记录，见 §5.4。
+- 截至 `98e1bb92`，[#131](https://github.com/weishiair/nodyssey/pull/131) 的隐私协议大字号、追踪帖子空状态与系统繁体标签边界修复仍在独立 PR。
+- 本轮模拟器 Debug 与未签名真机 Release 从文档合入后的同一集成分支提交构建，版本保持 `1.3.12 (172)`。真机包名包含提交短 SHA。用户确认后再执行合入 `dev` 的门禁。
 
 ---
 
@@ -1039,15 +1065,16 @@ sys.exit(1 if failed else 0)
 
 | 编号 | 期 | 目标 | 检查方法 |
 |---|---|---|---|
-| G1 | 一期 | 一期 4 个设置页（设置首页、通知、账号设置、开源许可）是系统原生列表；二期再加代理、加密 DNS。要求：系统导航栏和玻璃返回、内嵌分组、`UISwitch`、系统选项（菜单或勾选列表）、分段、滑块、系统箭头 | 逐页截图；无障碍树里行是 `Cell`、开关是 `Switch` |
+| G1 | 一期及二期 | 设置首页、通知、账号设置、开源许可、代理使用系统原生列表。墨水屏使用实色 Compose | 逐页截图；无障碍树里行是 `Cell`、开关是 `Switch` |
 | G2 | 一期 | 打开任何选项都不会带出软键盘 | 模拟器上每个菜单连续开关 20 次，并在远程桌面下手动打开（§8）；真机测试包上每个带选项的页面各打开 5 次 |
 | G3 | 二期 | 表单页输入流畅：键盘不遮挡、回车切换、校验错误就近显示 | 代理页全流程 |
 | G4 | 一期 | 附录 B 中可替换的确认框全部是系统 `UIAlertController` | 逐个触发截图 |
-| G5 | 二期 | 底部面板是系统 sheet：拖动条、两档高度、下拉关闭 | 所有 `PlazaSheet` 面板逐一打开 |
+| G5 | 二期 | iOS 26+ 的共享面板使用系统拖动条、中 / 大两档和下拉关闭 | 逐一打开共享面板，按 §5.5 核对私信会话信息面板 |
 | G6 | 二期 | 图标为 SF Symbols；没有对应的保留原图标且有清单 | 首页、帖子、设置、我的、编辑器截图；映射解析测试通过 |
-| G7 | 二期 | 无水波纹，有按下高亮；开关、刷新、长按有触感 | 模拟器看高亮；真机感受触感 |
+| G7 | 二期 | 设置开关、刷新和通知分段切换提供系统触感 | 真机分别检查一次反馈是否适度，重复点选当前分段时检查无额外反馈 |
 | G8 | 一期 | 返回手势、深色、AX XL 字号、iPad 分栏、横屏、VoiceOver 在本期改动的页面都可用 | §8 检查表 |
 | G9 | 一期 | 原有功能不回退：登录、浏览、回帖、发帖、通知、签到、切换账号 | 冒烟走一遍 |
+| G10 | 二期 | 通知胶囊分段条同步点击与双向滑动，首页与通知页的刷新指示器逐格点亮、旋转 | 浅色、深色、辅助功能 XL 的截图与录屏 |
 
 ### 9.2 Android 不变
 
@@ -1072,21 +1099,21 @@ sys.exit(1 if failed else 0)
 
 | 编号 | 风险 / 问题 | 处理 |
 |---|---|---|
-| R1 | Compose 宿主内打开 `UIMenu` 带出软键盘（有硬件键盘时，键入筛选挂在 Compose 的第一响应者上） | 已修复（`NativeMenuFocus`，D6 起覆盖全部原生菜单）。§8 保留 20 次循环，并在远程桌面下手动检查；升级 Compose 后复查 |
-| R2 | 原生页内 `UITextField` 与 Compose 焦点互相干扰 | 已处理（PR-3）：`textFieldDidBeginEditing→NativeMenuFocus.releaseFor`、`DidEndEditing→restore`，同一遍历/恢复路径与原生菜单共用 |
-| R3 | 原生 sheet 内 Compose 内容拿不到页面的主题和 `CompositionLocal` | PR-12 先做技术验证，再决定是否全面替换 |
-| R4 | SF Symbols 栅格化的清晰度、性能、着色 | PR-9 先做小范围验证 |
-| R5 | Compose Multiplatform 是 alpha 版本，升级可能打破互操作行为 | 每次升级在 Mac 上跑 §8 检查表 |
-| R6 | 模拟器与真机差异（触感、键盘、性能） | 每阶段结束出一个测试包真机验证 |
-| R7 | iOS 按压高亮替代 ripple（PR-11 Part A） | **未做**：pinned material3 `1.5.0-alpha27` 字节码显示 `Surface` 直接调 `ripple()`，Material 组件不读 `LocalIndication`；`RippleConfiguration` 只调外观参数不能替换绘制形态；替换需反射/逐组件改 `indication=`，无主题级官方 API——按规则停于调研，Part B（`PlatformHaptics`）已交付（#126） |
+| R1 | Compose 宿主内打开 `UIMenu` 带出软键盘 | **已修复**。D2 和 D6 通过 `NativeMenuFocus` 释放 Compose 第一响应者。#129 的设置菜单 20 次开关出现 0 次软键盘，§8 继续保留硬件键盘检查 |
+| R2 | 原生 `UITextField` 与 Compose 焦点冲突，或键盘遮挡表单 | **已处理**。#128 在编辑开始和结束时复用 `NativeMenuFocus`，强引用 UIKit 的弱委托；#129 验证编辑行露出和滚动到底部操作，避让保留顶部 inset |
+| R3 | 原生 sheet 内 Compose 内容拿不到页面的主题和 `CompositionLocal` | **已处理**。#127 捕获 `currentCompositionLocalContext`，在面板控制器中恢复。私信面板例外见 §5.5 |
+| R4 | SF Symbols 栅格化的清晰度、性能、着色 | **已交付**。#123 验证映射解析并抽查实际页面。缓存按符号名和像素尺寸复用，空缺映射保留矢量，见 [图标清单](ios-sf-symbols.md) |
+| R5 | Compose Multiplatform alpha 升级可能改变 UIKit 互操作 | **持续复查**。升级时在 Mac 跑 §8 |
+| R6 | 模拟器与真机在触感、键盘、性能上的差异 | **待本轮真机验收**。用同一集成提交的真机包和模拟器安装验证 |
+| R7 | iOS 按压高亮替代 ripple（PR-11 Part A） | **保留现状**。固定的 Material 3 `1.5.0-alpha27` 中，`Surface` 直接调用 `ripple()`，`RippleConfiguration` 只调外观参数。全局换形态缺少公开主题 API。Part B 的 `PlatformHaptics` 已由 #126 交付 |
+| R8 | 点原生菜单外部的触摸透传给 Compose | **已修复**。#112 的 `NativeMenuShield` 拦截关闭菜单的触摸，新接入的原生菜单按 §8 复查 |
 
 **待用户确认**
 
-1. iOS 原生页面用系统分组底色（当前做法），还是跟随 App 主题的页面色？（主题色在浅色下分组看不出来，见 PR-0 记录）
-2. iOS 开关用 App 强调色（当前做法）还是系统绿色？
-3. ~~iOS 的单选：保留弹出菜单，还是统一改成推入勾选列表页？~~ 已定（2026-11-20）：保留弹出菜单，见任务 D2 的结论。
-4. 旧分支里确认有价值、dev 尚未包含的修复：繁体中文系统语言（`zh-Hant` / `zh-Hant-HK`）被错误回退成简体
-   （旧分支 `IosPreferredLanguages`）。建议单独开一个 `fix/` PR 按 dev 现状重写，不搬旧代码。
+- iOS 设置页底色已由 #129 统一到 App 主题。浅色纯白模式保留分组灰阶差。
+- iOS 开关目前沿用 App 强调色。本轮真机验收时一并确认。
+- iOS 单选保留弹出菜单，见任务 D2 的结论。
+- iOS 启动时将港澳繁体系统语言收窄到 `zh-TW` 已由 #101 处理。其余标签边界见 §5.5。
 
 ---
 
@@ -1114,7 +1141,9 @@ sys.exit(1 if failed else 0)
 | `LayerCard` 指向页外的卡片 | 只含一个 `Link` 的 `SettingsSection(style = Callout)` |
 | 区块下方 `Text(labelSmall)` | 有行的区块的 `footer` |
 | `SectionLabel` + `SectionNote`（没有卡片） | 没有行的区块：`header` + `footer` |
-| `SettingsTextField` / `SettingsTestSaveButtons` / `InlineBanner` | PR-3 的表单能力 |
+| `SettingsTextField` | `SettingsItem.Text`，校验文案传 `errorMessage` |
+| `SettingsTestSaveButtons` | 分别使用 `SettingsItem.Action`，测试时用 `loading` |
+| 独立 `InlineBanner` | 沿用原有 Compose 布局。字段错误可用 `Text.errorMessage` |
 
 ## 附录 B：确认框替换指南与清单
 
