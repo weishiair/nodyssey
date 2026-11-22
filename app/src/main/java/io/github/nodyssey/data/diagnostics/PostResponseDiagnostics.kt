@@ -90,6 +90,7 @@ internal class PostResponseDiagnosticsInterceptor(
                         },
                         cfRay = response.header("CF-Ray")?.takeIf(CF_RAY::matches),
                         cfMitigated = response.header("CF-Mitigated").equals("challenge", ignoreCase = true),
+                        cfOriginMillis = response.header("Server-Timing")?.let { CF_ORIGIN.find(it) }?.groupValues?.get(1)?.toIntOrNull(),
                         contentType = when (response.body.contentType()?.subtype?.lowercase()) {
                             "html" -> "html"
                             "json" -> "json"
@@ -99,7 +100,9 @@ internal class PostResponseDiagnosticsInterceptor(
                         sampledBytes = sampledBytes,
                         bodyFeatures = buildList {
                             if (config.markers.challenge.any(body::contains)) add("cf-challenge")
-                            if (body.contains("cf-error-details") || body.contains("Sorry, you have been blocked")) add("cf-block-page")
+                            if (config.markers.edgeBlock.any(body::contains)) add("cf-block-page")
+                            if (body.contains("cf-error-details")) add("cf-error-page")
+                            CF_ERROR_CODE.find(body)?.let { add("cf-error-${it.groupValues[1]}") }
                             if (body.contains("403 Forbidden") && body.contains("nginx")) add("nginx-forbidden")
                             if (config.markers.usablePage.any(body::contains)) add("site-page")
                         },
@@ -137,7 +140,15 @@ internal class PostResponseDiagnosticsInterceptor(
     private companion object {
         val POST_PATH = Regex("/post-[0-9]+-[0-9]+")
         val CF_RAY = Regex("[a-fA-F0-9]{16}-[A-Z]{3}")
-        val COOKIE_NAMES = setOf("session", "token", "cf_clearance", "pjwt", "smac", "colorscheme")
+
+        // `fog` is the site's own proof-of-work token, which only its page script can renew.
+        val COOKIE_NAMES = setOf("session", "token", "cf_clearance", "pjwt", "smac", "fog", "colorscheme")
+
+        /** Digits only: 1020 is a WAF rule, 1010 a browser signature, 1006–1008 an IP ban. */
+        val CF_ERROR_CODE = Regex("""(?:cf-error-code">|data-translate="error">Error</span>\s*<span>)\s*(\d{3,4})\s*<""")
+
+        /** 0 when the edge answered without asking the origin — a rule or worker rather than NodeSeek. */
+        val CF_ORIGIN = Regex("""cfOrigin;dur=(\d+)""")
         const val MAX_SAMPLE_BYTES = 32_768L
     }
 }

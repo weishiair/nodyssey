@@ -55,7 +55,7 @@ class PostResponseDiagnosticsTest {
             assertEquals(record.requestedUrl, record.finalUrl)
             assertTrue(record.cfMitigated)
             assertEquals(listOf("cf-challenge"), record.bodyFeatures)
-            assertEquals(listOf("pjwt", "session"), record.sentCookieNames)
+            assertEquals(listOf("fog", "pjwt", "session"), record.sentCookieNames)
             assertEquals(listOf("cf_clearance"), record.receivedCookieNames)
             assertEquals("127.0.0.1", record.remoteAddress)
             assertEquals(body.toByteArray().size, record.sampledBytes)
@@ -131,6 +131,37 @@ class PostResponseDiagnosticsTest {
         }
     }
 
+    /**
+     * The record has to say who refused: an edge rule (no origin time, Cloudflare's own page and
+     * code) needs the web view, an origin 403 does not. Losing either turns the record back into the
+     * bare status the screen already showed.
+     */
+    @Test
+    fun `an edge block records its code and that the origin was never asked`() = withServer { server, origin ->
+        server.createContext("/post-1-1") { exchange ->
+            val body =
+                """<html><head><title>Access denied | www.nodeseek.com used Cloudflare to restrict access</title></head>
+                <body><div id="cf-error-details"><h1><span data-translate="error">Error</span><span>1020</span></h1></div></body></html>"""
+                    .toByteArray()
+            exchange.responseHeaders.add("Server", "cloudflare")
+            exchange.responseHeaders.add("Server-Timing", "cfEdge;dur=4,cfOrigin;dur=0")
+            exchange.sendResponseHeaders(403, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        val records = mutableListOf<PostResponseDiagnostic>()
+        val observer = observer(origin, records::add)
+        val client = client(observer)
+        try {
+            client.newCall(Request.Builder().url("$origin/post-1-1").build()).execute().close()
+            val record = records.single()
+            assertEquals(listOf("cf-block-page", "cf-error-page", "cf-error-1020"), record.bodyFeatures)
+            assertEquals(0, record.cfOriginMillis)
+        } finally {
+            client.connectionPool.evictAll()
+            client.dispatcher.executorService.shutdown()
+        }
+    }
+
     @Test
     fun `a failed diagnostic write does not replace the server response`() = withServer { server, origin ->
         server.createContext("/") { exchange ->
@@ -188,6 +219,7 @@ class PostResponseDiagnosticsTest {
             override fun loadForRequest(url: HttpUrl): List<Cookie> = listOf(
                 Cookie.Builder().name("session").value("request-secret").hostOnlyDomain(url.host).build(),
                 Cookie.Builder().name("pjwt").value("request-secret").hostOnlyDomain(url.host).build(),
+                Cookie.Builder().name("fog").value("request-secret").hostOnlyDomain(url.host).build(),
             )
         })
         .build()

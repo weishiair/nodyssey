@@ -21,4 +21,6 @@ data class PostResponseDiagnostic(
     val protocol: String?,
     val tlsVersion: String?,
     val routeEchBytes: Int?,
+    /** `Server-Timing`'s `cfOrigin` duration; 0 means the edge answered on its own. Null on older records. */
+    val cfOriginMillis: Int? = null,
 )

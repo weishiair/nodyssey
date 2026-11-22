@@ -424,7 +424,7 @@ private fun postFailureSection(record: PostResponseDiagnostic?): CheckSection =
                 CheckLine(stringResource(Res.string.network_check_post_failure_final), record.finalUrl, stacked = true),
                 CheckLine(
                     stringResource(Res.string.network_check_post_failure_headers),
-                    "server=${record.server}; CF-Ray=${record.cfRay ?: "—"}; cf-mitigated-challenge=${record.cfMitigated}",
+                    "server=${record.server}; CF-Ray=${record.cfRay ?: "—"}; cf-mitigated-challenge=${record.cfMitigated}; cfOrigin=${record.cfOriginMillis?.let { "$it ms" } ?: "—"}",
                     stacked = true,
                 ),
                 CheckLine(
