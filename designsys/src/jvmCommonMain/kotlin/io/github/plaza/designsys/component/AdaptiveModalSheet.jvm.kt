@@ -8,5 +8,6 @@ actual fun AdaptiveModalSheet(
     onDismiss: () -> Unit,
     fallback: @Composable () -> Unit,
     containerColor: Color?,
+    fitContent: Boolean,
     content: @Composable () -> Unit,
 ) = fallback()

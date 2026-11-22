@@ -2,7 +2,7 @@
 
 > 状态：试点为 PR #93；一期于 2026-11-20 经 PR #107 合入 `dev`。第二批和 SF Symbols 的上一轮真机验收见 §5.4。
 > 2026-11-21，二期按实际交付范围收尾。原生面板、代理表单、设置视觉统一和主界面打磨已合入 `ios/native-experience`，见 §5.2 和 §5.5。
-> 集成分支等待本轮真机和模拟器验收。用户确认后，再跑全量门禁并另开合入 `dev` 的 PR。
+> 集成分支等待本轮真机和模拟器验收。用户确认后，再跑全量门禁并另开合入 `dev` 的 PR。2026-11-22 的追加改动见 §5.5 末尾。
 > 旧分支 `codex/ios-experience-integration` 的做法已放弃，本文不以它为基线；其中仍有价值的个别修复见 §10。
 
 本文写给两类读者：
@@ -456,6 +456,18 @@ C4 第 1 段（现在）
 | [#128](https://github.com/weishiair/nodyssey/pull/128) · `239d73be` | `SettingsItem.Text` 用 `UITextField` 支持文本、地址和数字、密码遮蔽、行内校验、Next / Done 及键盘避让。代理页接入表单，测试和保存复用 `Action` | `NetworkSettingsRenderTest` 4 张 Android 图逐像素一致。#129 复测代理页焦点与避让 |
 | [#129](https://github.com/weishiair/nodyssey/pull/129) · `c28cdb3a` | 原生设置页跟随 `PlazaLayers`，纯白分组增加轻微灰阶差，设置首页显示 SF Symbols。列表在导航栏后滚动，墨水屏切回实色 Compose | 37 张 Android 图逐像素一致。iOS 覆盖浅色、深色、纯白、纯黑、辅助功能 XL 和墨水屏，代理页输入框与保存可在键盘上方看到，菜单开关 20 次软键盘出现 0 次 |
 | [#130](https://github.com/weishiair/nodyssey/pull/130) · `98e1bb92` | 通知页「互动 / 私信」采用跟随 pager 偏移的胶囊分段条。首页、通知、收藏、信箱、搜索和帖子详情共用自适应刷新指示器，iOS 26+ 显示无底盘的 12 刻度菊花 | 100 张 Android 图逐像素一致。iOS 验证浅色、深色和辅助功能 XL 下的点选和双向滑动，逐帧核对首页与通知页的下拉及旋转动画 |
+
+**2026-11-22 追加**
+
+`a7026f1f` 之后有 4 个提交直接推到了集成分支，没有经过 PR 和 CI（违反 §7.1），由后续 PR 补验证：
+
+| 提交 | 交付内容 | 验证记录 |
+|---|---|---|
+| `cee1f4ee` | 回帖发布按钮放回弹层标题栏，回复预览时隐藏帖子顶栏，原生弹层为拖动条留出空间，标题和正文获得焦点时收起表情面板 | 新增 `ComposerEmojiFocusTest`；模拟器验证 |
+| `e0bd471b` | iOS 原生弹层里回复编辑器填满剩余高度，格式工具栏停在键盘上方 | 聚焦测试与模拟器验证 |
+| `eac5b19c` | 跳页与楼层定位弹层按内容定高，保留键盘避让和下滑关闭 | 模拟器验证数字输入与键盘 |
+| `6c48f98d` | 标签栏使用未着色的系统玻璃；普通顶栏与状态栏共用页面底色，帖子详情在滚动内容上方使用磨砂 | 模拟器对照邮箱顶栏与帖子滚动 |
+| `ios/native-sheet-cleanup` | 按内容定高的逻辑从 `ui/src/iosMain` 移入 `AdaptiveModalSheet(fitContent)`；`:ui` 的 local 转发集中到 `nativeSheetLocals()`，由 `NativeSheetLocalsTest` 守护（见 §10 R3） | 全量渲染 306 张 Android 图与 `a7026f1f` 逐像素一致；iOS 编译与面板复测待 Mac |
 
 **保留现有实现的页面和交互**
 
@@ -1101,7 +1113,7 @@ sys.exit(1 if failed else 0)
 |---|---|---|
 | R1 | Compose 宿主内打开 `UIMenu` 带出软键盘 | **已修复**。D2 和 D6 通过 `NativeMenuFocus` 释放 Compose 第一响应者。#129 的设置菜单 20 次开关出现 0 次软键盘，§8 继续保留硬件键盘检查 |
 | R2 | 原生 `UITextField` 与 Compose 焦点冲突，或键盘遮挡表单 | **已处理**。#128 在编辑开始和结束时复用 `NativeMenuFocus`，强引用 UIKit 的弱委托；#129 验证编辑行露出和滚动到底部操作，避让保留顶部 inset |
-| R3 | 原生 sheet 内 Compose 内容拿不到页面的主题和 `CompositionLocal` | **已处理**。#127 捕获 `currentCompositionLocalContext`，在面板控制器中恢复。私信面板例外见 §5.5 |
+| R3 | 原生 sheet 内 Compose 内容拿不到页面的主题和 `CompositionLocal` | **已处理**。原生 sheet 是独立组合，不能整体恢复 `currentCompositionLocalContext`（会覆盖 sheet 自己的 `LocalUIViewController`、焦点和 UIKit 互操作宿主）。`AdaptiveModalSheet.ios.kt` 逐个转发主题与 `:designsys` 的 local，`:ui` 的 local 由 `nativeSheetLocals()` 转发；`NativeSheetLocalsTest` 要求每个 iOS 可见的 local 要么转发、要么写明不转发的原因。私信面板例外见 §5.5 |
 | R4 | SF Symbols 栅格化的清晰度、性能、着色 | **已交付**。#123 验证映射解析并抽查实际页面。缓存按符号名和像素尺寸复用，空缺映射保留矢量，见 [图标清单](ios-sf-symbols.md) |
 | R5 | Compose Multiplatform alpha 升级可能改变 UIKit 互操作 | **持续复查**。升级时在 Mac 跑 §8 |
 | R6 | 模拟器与真机在触感、键盘、性能上的差异 | **待本轮真机验收**。用同一集成提交的真机包和模拟器安装验证 |
