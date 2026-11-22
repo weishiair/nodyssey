@@ -39,9 +39,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -324,6 +326,11 @@ fun NotificationsScreen(
     // top of the screen a step lighter, which read as the screen changing colour rather than depth.
     val layers = LocalPlazaLayers.current
     val title = stringResource(Res.string.tab_notifications)
+    // The top bar reads state published after each composition instead of capturing it, for the iOS
+    // Compose bug described beside 首页's (PostListScreen). Drop once that is fixed upstream.
+    val slotState = remember { mutableStateOf(state) }
+    SideEffect { slotState.value = state }
+    val currentState by slotState
     val markAllRead: @Composable () -> Unit = {
         val markAllReadLabel = stringResource(Res.string.notifications_mark_all_read)
         AdaptiveGlassButton(
@@ -332,11 +339,11 @@ fun NotificationsScreen(
                 onClick = onMarkAllRead,
                 symbol = "checkmark.circle",
                 title = markAllReadLabel,
-                enabled = state.hasUnread,
+                enabled = currentState.hasUnread,
             ),
             modifier = Modifier.heightIn(min = 44.dp),
         ) {
-            TextButton(onClick = onMarkAllRead, enabled = state.hasUnread) {
+            TextButton(onClick = onMarkAllRead, enabled = currentState.hasUnread) {
                 PlazaIcon(PlazaIcons.DoneAll, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                 Text(
@@ -355,7 +362,7 @@ fun NotificationsScreen(
                 if (wide) {
                     TopAppBar(
                         title = { Text(title) },
-                        actions = { if (state.isSignedIn) markAllRead() },
+                        actions = { if (currentState.isSignedIn) markAllRead() },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = layers.page),
                     )
                 } else {
@@ -382,12 +389,12 @@ fun NotificationsScreen(
                  * Drawn over an opaque strip of the page's colour, so rows scrolling up under the
                  * header do not show through between the tabs.
                  */
-                if (!wide || state.isSignedIn) {
+                if (!wide || currentState.isSignedIn) {
                     Surface(color = layers.page) {
                         AdaptiveSegmentedTabRow(
                             tabs =
                             tabs.map { tab ->
-                                TabLabel(tab.label(), state.counts.forTab(tab).takeIf { it > 0 }?.let { unreadLabel(it, MAX_BADGE) })
+                                TabLabel(tab.label(), currentState.counts.forTab(tab).takeIf { it > 0 }?.let { unreadLabel(it, MAX_BADGE) })
                             },
                             selectedIndex = pagerState.currentPage,
                             onSelect = { onTabChange(tabs[it]) },
@@ -397,7 +404,7 @@ fun NotificationsScreen(
                             GroupTabs(
                                 tabs = tabs,
                                 currentPage = pagerState.currentPage,
-                                counts = state.counts,
+                                counts = currentState.counts,
                                 onTabChange = onTabChange,
                             )
                         }

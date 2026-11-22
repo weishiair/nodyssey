@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -589,6 +590,13 @@ fun PostListScreen(
     // Expressive spatial springs overshoot past 0.dp on retraction; clamp before passing to padding.
     val safeBottomBarClearance = animatedBottomBarClearance.coerceAtLeast(0.dp)
 
+    // The top bar reads state published after each composition instead of capturing it. On iOS (Compose
+    // 1.13.0-alpha01) an invalidation raised mid-recomposition — a changed slot lambda, or a state written
+    // while composing — can be dropped for a Scaffold slot, leaving it on its first frame: the board strip
+    // with only 综合. Drop once that is fixed upstream.
+    val slotState = remember { mutableStateOf(state) }
+    SideEffect { slotState.value = state }
+    val currentState by slotState
     TabScaffold(
         modifier = modifier,
         snackbarHost = {
@@ -604,18 +612,18 @@ fun PostListScreen(
         topBar = { wide ->
             Column {
                 HomeHeader(
-                    sort = state.sort,
+                    sort = currentState.sort,
                     onSortChange = onSortChange,
                     onSearch = onSearch,
-                    account = state.account,
+                    account = currentState.account,
                     onAccountClick = onAccountClick,
                     scrollBehavior = topBarScrollBehavior,
                     wide = wide,
                 )
                 BoardStrip(
-                    boards = state.boards,
-                    parkedBoards = state.parkedBoards,
-                    selectedSlug = state.categorySlug,
+                    boards = currentState.boards,
+                    parkedBoards = currentState.parkedBoards,
+                    selectedSlug = currentState.categorySlug,
                     // The pill follows the finger: the page the pager is heading for, which moves on
                     // once a drag has gone a short way towards it (the pager's positional threshold,
                     // not halfway) and is the destination at once for a tap. The selection itself
@@ -623,10 +631,10 @@ fun PostListScreen(
                     // lit the new pill a beat after the page had arrived. 综合 is a page whose slug
                     // is null, so only a page that does not exist falls back to the selection.
                     highlightedSlug =
-                    if (pagerState.targetPage in boards.indices) {
-                        boards[pagerState.targetPage].slug
+                    if (pagerState.targetPage in currentState.boards.indices) {
+                        currentState.boards[pagerState.targetPage].slug
                     } else {
-                        state.categorySlug
+                        currentState.categorySlug
                     },
                     onBoardClick = onBoardClick,
                     onArrangementChange = onArrangementChange,
