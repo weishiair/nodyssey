@@ -23,13 +23,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import io.github.nodyssey.ui.compare.LocalOpenReportCompare
-import io.github.nodyssey.ui.compare.LocalReportCompareBasket
-import io.github.nodyssey.ui.composer.LocalImageHostRepository
-import io.github.nodyssey.ui.richtext.LocalReportFormat
-import io.github.nodyssey.ui.sticker.LocalImageActions
-import io.github.nodyssey.ui.sticker.LocalStickerLibrary
-import io.github.nodyssey.ui.sticker.LocalStickerNavigation
 import io.github.plaza.designsys.component.AdaptiveModalSheet
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -64,19 +57,7 @@ internal fun PlazaSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
-    val stickerLibrary = LocalStickerLibrary.current
-    val imageHostRepository = LocalImageHostRepository.current
-    val userNotes = LocalUserNotes.current
-    val reportFormat = LocalReportFormat.current
-    val reportCompareBasket = LocalReportCompareBasket.current
-    val readMarkPaint = LocalReadMarkPaint.current
-    val appName = LocalAppName.current
-    val openNetworkCheck = LocalOpenNetworkCheck.current
-    val openReportCompare = LocalOpenReportCompare.current
-    val imageActions = LocalImageActions.current
-    val stickerNavigation = LocalStickerNavigation.current
-    val bottomBarPosition = LocalBottomBarPosition.current
-    val iosPad = LocalIosPad.current
+    val sheetLocals = nativeSheetLocals()
     val panelColor = containerColor ?: layers.page
     AdaptiveModalSheet(
         onDismiss = onDismiss,
@@ -95,21 +76,7 @@ internal fun PlazaSheet(
         containerColor = panelColor,
         fitContent = fitNativeSheetContent,
     ) {
-        CompositionLocalProvider(
-            LocalStickerLibrary provides stickerLibrary,
-            LocalImageHostRepository provides imageHostRepository,
-            LocalUserNotes provides userNotes,
-            LocalReportFormat provides reportFormat,
-            LocalReportCompareBasket provides reportCompareBasket,
-            LocalReadMarkPaint provides readMarkPaint,
-            LocalAppName provides appName,
-            LocalOpenNetworkCheck provides openNetworkCheck,
-            LocalOpenReportCompare provides openReportCompare,
-            LocalImageActions provides imageActions,
-            LocalStickerNavigation provides stickerNavigation,
-            LocalBottomBarPosition provides bottomBarPosition,
-            LocalIosPad provides iosPad,
-        ) {
+        CompositionLocalProvider(*sheetLocals) {
             val focusManager = LocalFocusManager.current
             Column(
                 modifier = Modifier
