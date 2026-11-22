@@ -227,6 +227,7 @@ internal fun ThreadFloorJumpSheet(
     val title = stringResource(Res.string.post_floor_jump)
     PlazaSheet(
         onDismiss = onDismiss,
+        fitNativeSheetContent = true,
         sheetState = rememberBottomSheetState(
             initialValue = SheetValue.Hidden,
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),

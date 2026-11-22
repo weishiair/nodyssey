@@ -60,6 +60,7 @@ internal fun PlazaSheet(
     subtitle: String? = null,
     action: (@Composable () -> Unit)? = null,
     dragHandle: @Composable (() -> Unit)? = { PlazaSheetDefaults.DragHandle() },
+    fitNativeSheetContent: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
@@ -114,7 +115,13 @@ internal fun PlazaSheet(
                     .fillMaxSize()
                     .then(if (dismissesKeyboardOnBlankTap) Modifier.clearFocusOnBlankTap(focusManager) else Modifier),
             ) {
-                SheetBody(title, subtitle, action, content)
+                if (fitNativeSheetContent) {
+                    ContentHeightNativeSheet {
+                        Column { SheetBody(title, subtitle, action, content) }
+                    }
+                } else {
+                    SheetBody(title, subtitle, action, content)
+                }
             }
         }
     }

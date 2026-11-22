@@ -495,6 +495,7 @@ fun PageJumpSheet(
     val title = stringResource(Res.string.page_jump_title)
     PlazaSheet(
         onDismiss = onDismiss,
+        fitNativeSheetContent = true,
         sheetState =
         rememberBottomSheetState(
             initialValue = SheetValue.Hidden,
