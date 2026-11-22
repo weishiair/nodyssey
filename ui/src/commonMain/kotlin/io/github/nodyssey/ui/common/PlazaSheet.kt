@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -14,12 +15,21 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import io.github.nodyssey.ui.compare.LocalOpenReportCompare
+import io.github.nodyssey.ui.compare.LocalReportCompareBasket
+import io.github.nodyssey.ui.composer.LocalImageHostRepository
+import io.github.nodyssey.ui.richtext.LocalReportFormat
+import io.github.nodyssey.ui.sticker.LocalImageActions
+import io.github.nodyssey.ui.sticker.LocalStickerLibrary
+import io.github.nodyssey.ui.sticker.LocalStickerNavigation
 import io.github.plaza.designsys.component.AdaptiveModalSheet
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -53,6 +63,20 @@ internal fun PlazaSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layers = LocalPlazaLayers.current
+    val stickerLibrary = LocalStickerLibrary.current
+    val imageHostRepository = LocalImageHostRepository.current
+    val userNotes = LocalUserNotes.current
+    val reportFormat = LocalReportFormat.current
+    val reportCompareBasket = LocalReportCompareBasket.current
+    val readMarkPaint = LocalReadMarkPaint.current
+    val appName = LocalAppName.current
+    val openNetworkCheck = LocalOpenNetworkCheck.current
+    val openReportCompare = LocalOpenReportCompare.current
+    val imageActions = LocalImageActions.current
+    val stickerNavigation = LocalStickerNavigation.current
+    val bottomBarPosition = LocalBottomBarPosition.current
+    val iosPad = LocalIosPad.current
+    val panelColor = containerColor ?: layers.page
     AdaptiveModalSheet(
         onDismiss = onDismiss,
         fallback = {
@@ -61,14 +85,38 @@ internal fun PlazaSheet(
                 modifier = modifier,
                 sheetState = sheetState,
                 shape = PlazaSheetDefaults.shape,
-                containerColor = containerColor ?: layers.page,
+                containerColor = panelColor,
                 dragHandle = dragHandle,
             ) {
                 SheetBody(title, subtitle, action, content)
             }
         },
+        containerColor = panelColor,
     ) {
-        Column { SheetBody(title, subtitle, action, content) }
+        CompositionLocalProvider(
+            LocalStickerLibrary provides stickerLibrary,
+            LocalImageHostRepository provides imageHostRepository,
+            LocalUserNotes provides userNotes,
+            LocalReportFormat provides reportFormat,
+            LocalReportCompareBasket provides reportCompareBasket,
+            LocalReadMarkPaint provides readMarkPaint,
+            LocalAppName provides appName,
+            LocalOpenNetworkCheck provides openNetworkCheck,
+            LocalOpenReportCompare provides openReportCompare,
+            LocalImageActions provides imageActions,
+            LocalStickerNavigation provides stickerNavigation,
+            LocalBottomBarPosition provides bottomBarPosition,
+            LocalIosPad provides iosPad,
+        ) {
+            val focusManager = LocalFocusManager.current
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (dismissesKeyboardOnBlankTap) Modifier.clearFocusOnBlankTap(focusManager) else Modifier),
+            ) {
+                SheetBody(title, subtitle, action, content)
+            }
+        }
     }
 }
 

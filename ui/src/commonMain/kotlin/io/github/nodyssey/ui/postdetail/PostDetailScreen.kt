@@ -358,6 +358,7 @@ fun PostDetailRoute(
         voteContent = voteContent,
         stardustContent = stardustContent,
         replyOpen = replyState.visible,
+        replyPreviewing = replyState.visible && replyState.previewing,
         shareImage = shareImage,
         lotteryContent = {
             state.body?.takeIf { !it.isBlocked || state.showBlockedContent }?.let { lotteryContent(it, state.title, state.isSignedIn) }
@@ -462,6 +463,8 @@ fun PostDetailScreen(
     stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)? = null,
     /** Hides the bottom toolbar while the editor covers it. */
     replyOpen: Boolean = false,
+    /** Hides the floating glass top bar while full-screen reply preview covers the thread. */
+    replyPreviewing: Boolean = false,
     /** Body/comment links. Separate from [onOpenBrowser] so our own URLs can stay in the app. */
     onLinkClick: (String) -> Unit = onOpenBrowser,
     /** Opens the tapped author's space. */
@@ -774,23 +777,25 @@ fun PostDetailScreen(
                 )
             },
             topBar = {
-                DetailTopBar(
-                    title = state.title,
-                    showTitle = showCollapsedTitle,
-                    onTitleClick = openOriginalPost,
-                    postUrl = postUrl,
-                    onBack = onBack,
-                    onOpenInBrowser = { onOpenBrowser(postUrl) },
-                    onRefresh = { onRefreshPage(visiblePage) },
-                    showBackButton = showBackButton,
-                    tracked = state.tracked,
-                    onToggleTrack = onToggleTrack,
-                    onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
-                    collected = state.collected,
-                    collectPending = state.collectPending,
-                    onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
-                    pageColor = pageColor,
-                )
+                if (!replyPreviewing) {
+                    DetailTopBar(
+                        title = state.title,
+                        showTitle = showCollapsedTitle,
+                        onTitleClick = openOriginalPost,
+                        postUrl = postUrl,
+                        onBack = onBack,
+                        onOpenInBrowser = { onOpenBrowser(postUrl) },
+                        onRefresh = { onRefreshPage(visiblePage) },
+                        showBackButton = showBackButton,
+                        tracked = state.tracked,
+                        onToggleTrack = onToggleTrack,
+                        onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
+                        collected = state.collected,
+                        collectPending = state.collectPending,
+                        onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
+                        pageColor = pageColor,
+                    )
+                }
             },
         ) { padding ->
             // UIKit cannot track a Compose list's scroll edge. Keep native chrome over an opaque

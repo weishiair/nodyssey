@@ -56,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -547,6 +548,7 @@ private fun EditorContent(
                 titleState = titleState,
                 length = state.title.length,
                 onNext = { focusRequester.requestFocus() },
+                onFocused = { editorState.closePanels() },
             )
         }
         // One value for the field and the panel's backspace, so the two agree on what a sticker is.
@@ -556,6 +558,7 @@ private fun EditorContent(
             bodyState = bodyState,
             stickerPictures = stickerPictures,
             focusRequester = focusRequester,
+            onFieldFocused = { editorState.closePanels() },
             modifier = Modifier.weight(1f),
         )
         AttachmentTray(
@@ -642,16 +645,17 @@ private fun BodyArea(
     bodyState: TextFieldState,
     stickerPictures: InlinePictures,
     focusRequester: FocusRequester,
+    onFieldFocused: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (state.viewMode != ComposerViewMode.COMPARE) {
-        BodyField(bodyState, stickerPictures, focusRequester, modifier)
+        BodyField(bodyState, stickerPictures, focusRequester, onFieldFocused, modifier)
         return
     }
     // 对照: the site puts the two side by side, which needs a width a phone does not have. Stacked
     // keeps the pairing — edit above, result below — without shrinking either to an unreadable column.
     Column(modifier = modifier) {
-        BodyField(bodyState, stickerPictures, focusRequester, Modifier.weight(1f))
+        BodyField(bodyState, stickerPictures, focusRequester, onFieldFocused, Modifier.weight(1f))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         MarkdownPreviewBody(
             markdown = state.body,
@@ -670,6 +674,7 @@ private fun BodyField(
     bodyState: TextFieldState,
     stickerPictures: InlinePictures,
     focusRequester: FocusRequester,
+    onFieldFocused: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     EditorTextField(
@@ -681,6 +686,7 @@ private fun BodyField(
         modifier = modifier
             .readableWidth()
             .focusRequester(focusRequester)
+            .onFocusChanged { if (it.isFocused) onFieldFocused() }
             .padding(horizontal = PageMargin, vertical = Spacing.md),
         // The body owns the rest of the screen, so the placeholder is drawn against all of it rather
         // than against one line's worth.
@@ -694,6 +700,7 @@ private fun TitleField(
     length: Int,
     /** The keyboard's action key: on to the body, as a single-line title's used to. */
     onNext: () -> Unit,
+    onFocused: () -> Unit,
 ) {
     // Borderless and large (1d): the title is the first line of the page rather than a form field,
     // and at 22sp it already reads as the heading the thread will show. It wraps instead of
@@ -713,7 +720,10 @@ private fun TitleField(
         // Multi-line fields get a return key by default, and here it would only ever be dropped.
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
         onKeyboardAction = { onNext() },
-        modifier = Modifier.readableWidth().padding(start = PageMargin, end = PageMargin, top = Spacing.lg),
+        modifier = Modifier
+            .readableWidth()
+            .onFocusChanged { if (it.isFocused) onFocused() }
+            .padding(start = PageMargin, end = PageMargin, top = Spacing.lg),
         container = { content ->
             Row(verticalAlignment = Alignment.Bottom) {
                 Box(Modifier.weight(1f)) { content() }
