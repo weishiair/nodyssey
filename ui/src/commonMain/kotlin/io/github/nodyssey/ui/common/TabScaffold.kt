@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
@@ -23,7 +24,11 @@ import io.github.plaza.designsys.theme.Spacing
 internal val LocalIosPad = staticCompositionLocalOf { false }
 
 internal val TabContentMaxWidth = 720.dp
+internal val IosPadTabContentMaxWidth = 960.dp
 internal val WideTabMinWidth = 600.dp
+
+internal fun tabContentMaxWidth(isIosPad: Boolean, landscape: Boolean): Dp =
+    if (isIosPad && landscape) IosPadTabContentMaxWidth else TabContentMaxWidth
 
 /** Keeps the header, body and floating actions in the same column within the safe area. */
 @Composable
@@ -55,7 +60,8 @@ internal fun TabScaffold(
         contentAlignment = Alignment.TopCenter,
     ) {
         val wide = maxWidth >= WideTabMinWidth
-        val frame = if (wide) Modifier.padding(horizontal = Spacing.lg).widthIn(max = TabContentMaxWidth) else Modifier
+        val maxContentWidth = tabContentMaxWidth(LocalIosPad.current, landscape = maxWidth > maxHeight)
+        val frame = if (wide) Modifier.padding(horizontal = Spacing.lg).widthIn(max = maxContentWidth) else Modifier
         scaffold(frame.fillMaxSize(), wide)
     }
 }

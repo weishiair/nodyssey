@@ -86,12 +86,12 @@ import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
-import io.github.nodyssey.ui.common.TabContentMaxWidth
 import io.github.nodyssey.ui.common.UpdateDot
 import io.github.nodyssey.ui.common.WideTabMinWidth
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteName
+import io.github.nodyssey.ui.common.tabContentMaxWidth
 import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.accounts_switch
@@ -840,7 +840,7 @@ private val PROFILE_TWO_COLUMN_MAX_WIDTH = 1040.dp
 
 private fun profileContentWidth(availableWidth: Dp, isIosPad: Boolean, allowTwoColumns: Boolean): Dp =
     when {
-        isIosPad && availableWidth >= WideTabMinWidth -> minOf(TabContentMaxWidth, availableWidth - Spacing.lg * 2)
+        isIosPad && availableWidth >= WideTabMinWidth -> minOf(tabContentMaxWidth(isIosPad, landscape = allowTwoColumns), availableWidth - Spacing.lg * 2)
         allowTwoColumns && availableWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH -> PROFILE_TWO_COLUMN_MAX_WIDTH
         else -> Sizes.readableContentWidth
     }
