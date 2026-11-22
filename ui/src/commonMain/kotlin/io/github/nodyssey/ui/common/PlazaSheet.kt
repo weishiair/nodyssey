@@ -93,6 +93,7 @@ internal fun PlazaSheet(
             }
         },
         containerColor = panelColor,
+        fitContent = fitNativeSheetContent,
     ) {
         CompositionLocalProvider(
             LocalStickerLibrary provides stickerLibrary,
@@ -115,13 +116,7 @@ internal fun PlazaSheet(
                     .fillMaxSize()
                     .then(if (dismissesKeyboardOnBlankTap) Modifier.clearFocusOnBlankTap(focusManager) else Modifier),
             ) {
-                if (fitNativeSheetContent) {
-                    ContentHeightNativeSheet {
-                        Column { SheetBody(title, subtitle, action, content) }
-                    }
-                } else {
-                    SheetBody(title, subtitle, action, content)
-                }
+                SheetBody(title, subtitle, action, content)
             }
         }
     }
