@@ -30,20 +30,15 @@ import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeGlass
 import platform.UIKit.NSDirectionalRectEdgeLeading
-import platform.UIKit.NSDirectionalRectEdgeTop
 import platform.UIKit.NSDirectionalRectEdgeTrailing
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.NSLineBreakByTruncatingTail
-import platform.UIKit.NSTextAlignmentCenter
 import platform.UIKit.UIAccessibilityAnnouncementNotification
 import platform.UIKit.UIAccessibilityPostNotification
-import platform.UIKit.UIAccessibilityTraitButton
-import platform.UIKit.UIAccessibilityTraitSelected
 import platform.UIKit.UIAction
 import platform.UIKit.UIBarButtonItem
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
-import platform.UIKit.UIButtonConfigurationCornerStyleCapsule
 import platform.UIKit.UIButtonConfigurationSize
 import platform.UIKit.UIButtonConfigurationTitleAlignment
 import platform.UIKit.UIColor
@@ -63,14 +58,11 @@ import platform.UIKit.UIMenuElementState
 import platform.UIKit.UINavigationBarAppearance
 import platform.UIKit.UINavigationItem
 import platform.UIKit.UIStackView
-import platform.UIKit.UIStackViewDistributionFillEqually
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
 import platform.UIKit.UIVisualEffect
 import platform.UIKit.UIVisualEffectView
 import platform.UIKit.accessibilityLabel
-import platform.UIKit.accessibilityTraits
-import platform.UIKit.accessibilityValue
 import platform.UIKit.labelColor
 import platform.UIKit.systemRedColor
 import kotlin.native.ref.WeakReference
@@ -256,112 +248,6 @@ actual fun AdaptiveGlassNotice(
         },
         onRelease = { host.dispose() },
     )
-}
-
-/** The contents of one tab in a native glass capsule positioned by its Compose host. */
-data class NativeGlassTab(
-    val label: String,
-    val symbol: String,
-    val selected: Boolean,
-    val badge: Int?,
-    val onClick: () -> Unit,
-)
-
-@Composable
-fun NativeGlassTabBar(tabs: List<NativeGlassTab>, modifier: Modifier = Modifier) {
-    val dark = LocalPlazaDarkTheme.current
-    val colors = MaterialTheme.colorScheme
-    val host = remember(tabs.size) { NativeGlassTabBarHost(tabs.size) }
-    UIKitView(
-        factory = { host.view },
-        modifier = modifier.clipNativeToCompose(host.view),
-        properties = NativeGlassInterop,
-        update = {
-            host.view.overrideUserInterfaceStyle = interfaceStyle(dark)
-            host.buttons.zip(tabs).forEach { (button, tab) ->
-                button.update(
-                    tab,
-                    foreground = (if (tab.selected) colors.primary else colors.onSurface).toUIColor(),
-                    selection = colors.secondaryContainer.copy(alpha = if (dark) 0.56f else 0.68f).toUIColor(),
-                    badgeColor = colors.error.toUIColor(),
-                    badgeTextColor = colors.onError.toUIColor(),
-                )
-            }
-        },
-    )
-}
-
-private class NativeGlassTabBarHost(size: Int) {
-    val view = glassView(interactive = true)
-    val buttons = List(size) { NativeGlassTabButton() }
-
-    init {
-        plaza_set_glass_capsule(view, maximumRadius = 0.0)
-        val stack = UIStackView().apply {
-            axis = UILayoutConstraintAxisHorizontal
-            distribution = UIStackViewDistributionFillEqually
-            spacing = 4.0
-            buttons.forEach { addArrangedSubview(it.view) }
-        }
-        pin(stack, view.contentView, 4.0)
-    }
-}
-
-private class NativeGlassTabButton {
-    private val action = NativeGlassActionState(GlassAction(label = "", onClick = {}))
-    val view = UIButton.buttonWithConfiguration(UIButtonConfiguration.plainButtonConfiguration(), action.primaryAction())
-    private val badge = UILabel().apply {
-        userInteractionEnabled = false
-        textAlignment = NSTextAlignmentCenter
-        font = UIFont.systemFontOfSize(10.0, weight = platform.UIKit.UIFontWeightSemibold)
-        layer.cornerRadius = 8.0
-        clipsToBounds = true
-        translatesAutoresizingMaskIntoConstraints = false
-    }
-
-    init {
-        view.addSubview(badge)
-        NSLayoutConstraint.activateConstraints(
-            listOf(
-                badge.heightAnchor.constraintEqualToConstant(16.0),
-                badge.widthAnchor.constraintGreaterThanOrEqualToConstant(22.0),
-                badge.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor, constant = -4.0),
-                badge.topAnchor.constraintEqualToAnchor(view.topAnchor, constant = 2.0),
-            ),
-        )
-    }
-
-    fun update(tab: NativeGlassTab, foreground: UIColor, selection: UIColor, badgeColor: UIColor, badgeTextColor: UIColor) {
-        action.action = GlassAction(tab.label, tab.onClick)
-        view.accessibilityLabel = tab.label
-        view.accessibilityTraits = UIAccessibilityTraitButton or (if (tab.selected) UIAccessibilityTraitSelected else 0uL)
-        view.accessibilityValue = tab.badge?.toString()
-        view.configuration = UIButtonConfiguration.plainButtonConfiguration().apply {
-            title = tab.label
-            titleLineBreakMode = NSLineBreakByTruncatingTail
-            image = UIImage.systemImageNamed(tab.symbol)
-            imagePlacement = NSDirectionalRectEdgeTop
-            imagePadding = 2.0
-            preferredSymbolConfigurationForImage = UIImageSymbolConfiguration.configurationWithPointSize(
-                20.0,
-                weight = platform.UIKit.UIImageSymbolWeightRegular,
-            )
-            titleTextAttributesTransformer = { attributes ->
-                attributes.orEmpty() + (
-                    platform.UIKit.NSFontAttributeName to
-                        UIFont.systemFontOfSize(11.0, weight = platform.UIKit.UIFontWeightSemibold)
-                    )
-            }
-            cornerStyle = UIButtonConfigurationCornerStyleCapsule
-            baseForegroundColor = foreground
-            if (tab.selected) background = background.apply { backgroundColor = selection }
-        }
-        view.titleLabel?.numberOfLines = 1
-        badge.hidden = tab.badge == null
-        badge.text = tab.badge?.coerceAtMost(99)?.toString()
-        badge.backgroundColor = badgeColor
-        badge.textColor = badgeTextColor
-    }
 }
 
 /** Keeps one UIButton while recomposition replaces its action, disabled state and menu. */
