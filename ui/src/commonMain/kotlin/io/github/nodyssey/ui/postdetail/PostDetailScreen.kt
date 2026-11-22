@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -267,6 +268,7 @@ import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.glassFrostedBar
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
@@ -798,16 +800,17 @@ fun PostDetailScreen(
                 }
             },
         ) { padding ->
-            // UIKit cannot track a Compose list's scroll edge. Keep native chrome over an opaque
-            // header and lay the list below it rather than scrolling text through the title.
-            val frostedTopBar = LocalPlazaLayers.current.backdropGlass
-            val topInset = if (frostedTopBar) padding.calculateTopPadding() else 0.dp
+            // Keep the first row below the bar at rest, while allowing the glass to sample the
+            // list as it scrolls underneath.
+            val layers = LocalPlazaLayers.current
+            val drawsUnderTopBar = layers.nativeGlass || layers.backdropGlass
+            val topInset = if (drawsUnderTopBar) padding.calculateTopPadding() else 0.dp
             val bottomInset = padding.calculateBottomPadding()
             val viewportPadding = padding.withoutBottom()
             Box(
                 Modifier
                     // Draw the list through the home-indicator area, not above an empty page strip.
-                    .padding(if (frostedTopBar) viewportPadding.withoutTop() else viewportPadding)
+                    .padding(if (drawsUnderTopBar) viewportPadding.withoutTop() else viewportPadding)
                     .fillMaxSize(),
             ) {
                 // First in the Box, though it is never drawn: see [FloorShareCapture].
@@ -1214,6 +1217,9 @@ private fun DetailTopBar(
         }
     }
     ReadableTopBar { nativeInsets ->
+        if (layers.nativeGlass) {
+            Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(nativeInsets).background(pageColor))
+        }
         AdaptiveGlassTopBar(
             title = title.takeIf { showTitle }.orEmpty(),
             titleAction = onTitleClick?.takeIf { showTitle }?.let { GlassAction(openOriginalPostLabel, it) },
@@ -1222,7 +1228,8 @@ private fun DetailTopBar(
                 GlassAction(stringResource(Res.string.action_open_in_browser), onOpenInBrowser, symbol = "safari"),
                 GlassAction(stringResource(Res.string.action_more), {}, symbol = "ellipsis", menu = nativeMenu),
             ),
-            modifier = Modifier.fillMaxWidth().background(pageColor).windowInsetsPadding(nativeInsets).height(TopBarHeight),
+            modifier = Modifier.fillMaxWidth().windowInsetsPadding(nativeInsets).height(TopBarHeight),
+            blurBackground = true,
         ) {
             Box(
                 Modifier

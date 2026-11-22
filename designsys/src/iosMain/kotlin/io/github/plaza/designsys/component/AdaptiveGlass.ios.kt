@@ -38,6 +38,8 @@ import platform.UIKit.UIAccessibilityTraitButton
 import platform.UIKit.UIAccessibilityTraitSelected
 import platform.UIKit.UIAction
 import platform.UIKit.UIBarButtonItem
+import platform.UIKit.UIBlurEffect
+import platform.UIKit.UIBlurEffectStyle
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
 import platform.UIKit.UIButtonConfigurationCornerStyleCapsule
@@ -140,6 +142,7 @@ actual fun AdaptiveGlassTopBar(
     actions: List<GlassAction>,
     modifier: Modifier,
     subtitle: String?,
+    blurBackground: Boolean,
     fallback: @Composable () -> Unit,
 ) {
     if (!LocalPlazaLayers.current.nativeGlass) {
@@ -157,9 +160,7 @@ actual fun AdaptiveGlassTopBar(
     UIKitView(
         factory = {
             FocusReleasingNavigationBar(focus).apply {
-                // Compose is not a UIScrollView, so automatic scroll-edge tracking cannot choose
-                // the background. Use the standard system material in both bar appearances.
-                val appearance = UINavigationBarAppearance().apply { configureWithDefaultBackground() }
+                val appearance = UINavigationBarAppearance().apply { configureWithTransparentBackground() }
                 standardAppearance = appearance
                 scrollEdgeAppearance = appearance
             }
@@ -167,6 +168,17 @@ actual fun AdaptiveGlassTopBar(
         modifier = modifier,
         properties = NativeGlassInterop,
         update = { bar ->
+            if (blurBackground != (bar.standardAppearance.backgroundEffect != null)) {
+                // This standalone bar cannot track a Compose list's scroll edge.
+                val appearance = UINavigationBarAppearance().apply {
+                    configureWithTransparentBackground()
+                    if (blurBackground) {
+                        backgroundEffect = UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemMaterial)
+                    }
+                }
+                bar.standardAppearance = appearance
+                bar.scrollEdgeAppearance = appearance
+            }
             bar.overrideUserInterfaceStyle = interfaceStyle(dark)
             bar.tintColor = accent.toUIColor()
             bar.titleTextAttributes = mapOf(
@@ -254,7 +266,6 @@ data class NativeGlassTab(
 fun NativeGlassTabBar(tabs: List<NativeGlassTab>, modifier: Modifier = Modifier) {
     val dark = LocalPlazaDarkTheme.current
     val colors = MaterialTheme.colorScheme
-    val tint = LocalPlazaLayers.current.raised.copy(alpha = if (dark) 0.50f else 0.65f)
     val host = remember(tabs.size) { NativeGlassTabBarHost(tabs.size) }
     UIKitView(
         factory = { host.view },
@@ -262,7 +273,6 @@ fun NativeGlassTabBar(tabs: List<NativeGlassTab>, modifier: Modifier = Modifier)
         properties = NativeGlassInterop,
         update = {
             host.view.overrideUserInterfaceStyle = interfaceStyle(dark)
-            host.view.effect = glassEffect(interactive = true, tint = tint.toUIColor())
             host.buttons.zip(tabs).forEach { (button, tab) ->
                 button.update(
                     tab,

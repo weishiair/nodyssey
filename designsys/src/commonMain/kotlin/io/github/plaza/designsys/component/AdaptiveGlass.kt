@@ -61,6 +61,8 @@ expect fun AdaptiveGlassTopBar(
     modifier: Modifier = Modifier,
     /** A second line under the title, the system's own navigation subtitle. */
     subtitle: String? = null,
+    /** Apply system blur when the caller lays scrolling content behind this bar. */
+    blurBackground: Boolean = false,
     fallback: @Composable () -> Unit,
 )
 
