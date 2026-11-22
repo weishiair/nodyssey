@@ -6,6 +6,7 @@
 
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
@@ -38,8 +41,6 @@ import platform.UIKit.UIAccessibilityTraitButton
 import platform.UIKit.UIAccessibilityTraitSelected
 import platform.UIKit.UIAction
 import platform.UIKit.UIBarButtonItem
-import platform.UIKit.UIBlurEffect
-import platform.UIKit.UIBlurEffectStyle
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
 import platform.UIKit.UIButtonConfigurationCornerStyleCapsule
@@ -143,6 +144,7 @@ actual fun AdaptiveGlassTopBar(
     modifier: Modifier,
     subtitle: String?,
     blurBackground: Boolean,
+    barInsets: WindowInsets?,
     fallback: @Composable () -> Unit,
 ) {
     if (!LocalPlazaLayers.current.nativeGlass) {
@@ -157,28 +159,31 @@ actual fun AdaptiveGlassTopBar(
     val currentTitleAction by rememberUpdatedState(titleAction)
     val foreground = MaterialTheme.colorScheme.onSurface
     val focus = remember { NativeMenuFocus() }
+    val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
+    val insetTop = barInsets?.getTop(density)?.div(density.density)?.toDouble() ?: 0.0
+    val insetLeft = barInsets?.getLeft(density, direction)?.div(density.density)?.toDouble() ?: 0.0
+    val insetRight = barInsets?.getRight(density, direction)?.div(density.density)?.toDouble() ?: 0.0
     UIKitView(
         factory = {
-            FocusReleasingNavigationBar(focus).apply {
+            NativeTopBarHost(focus).apply {
                 val appearance = UINavigationBarAppearance().apply { configureWithTransparentBackground() }
-                standardAppearance = appearance
-                scrollEdgeAppearance = appearance
+                bar.standardAppearance = appearance
+                bar.scrollEdgeAppearance = appearance
             }
         },
         modifier = modifier,
         properties = NativeGlassInterop,
-        update = { bar ->
-            if (blurBackground != (bar.standardAppearance.backgroundEffect != null)) {
-                // This standalone bar cannot track a Compose list's scroll edge.
-                val appearance = UINavigationBarAppearance().apply {
-                    configureWithTransparentBackground()
-                    if (blurBackground) {
-                        backgroundEffect = UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemMaterial)
-                    }
-                }
-                bar.standardAppearance = appearance
-                bar.scrollEdgeAppearance = appearance
+        update = { host ->
+            // This standalone bar cannot track a Compose list's scroll edge, so the blur is fixed.
+            host.blurred = blurBackground
+            if (host.top != insetTop || host.left != insetLeft || host.right != insetRight) {
+                host.top = insetTop
+                host.left = insetLeft
+                host.right = insetRight
+                host.setNeedsLayout()
             }
+            val bar = host.bar
             bar.overrideUserInterfaceStyle = interfaceStyle(dark)
             bar.tintColor = accent.toUIColor()
             bar.titleTextAttributes = mapOf(

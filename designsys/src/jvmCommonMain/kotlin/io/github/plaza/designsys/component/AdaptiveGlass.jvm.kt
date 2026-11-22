@@ -1,5 +1,6 @@
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
@@ -23,6 +24,7 @@ actual fun AdaptiveGlassTopBar(
     modifier: Modifier,
     subtitle: String?,
     blurBackground: Boolean,
+    barInsets: WindowInsets?,
     fallback: @Composable () -> Unit,
 ) = fallback()
 
