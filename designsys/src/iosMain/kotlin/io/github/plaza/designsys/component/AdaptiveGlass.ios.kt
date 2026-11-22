@@ -83,6 +83,7 @@ actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback
     }
     val dark = LocalPlazaDarkTheme.current
     val accent = MaterialTheme.colorScheme.primary
+    val prominentBackground = if (dark) MaterialTheme.colorScheme.primaryContainer else accent
     val scale = LocalPlazaFontScale.current
     val host = remember { NativeGlassButtonHost(action) }
     val remeasure = rememberUIKitInteropRemeasureRequester()
@@ -91,7 +92,7 @@ actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback
         modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
-            host.update(action, accent.toUIColor(), dark, scale)
+            host.update(action, accent.toUIColor(), dark, scale, prominentBackground.toUIColor())
             remeasure.requestRemeasure()
         },
         onRelease = { host.dispose() },
@@ -287,7 +288,14 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         NativeMenuShield.lower()
     }
 
-    fun update(action: GlassAction, accent: UIColor, dark: Boolean, scale: Float) {
+    fun update(
+        action: GlassAction,
+        accent: UIColor,
+        dark: Boolean,
+        scale: Float,
+        // Material's dark primary is a pale tone made for text; filled behind white glass it glows.
+        prominentBackground: UIColor = accent,
+    ) {
         state.action = action
         view.overrideUserInterfaceStyle = interfaceStyle(dark)
         view.tintColor = accent
@@ -331,7 +339,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
                         UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(10.0 * scale))
                     )
             }
-            if (action.prominent) baseBackgroundColor = accent
+            if (action.prominent) baseBackgroundColor = prominentBackground
             titleTextAttributesTransformer = { attributes ->
                 val font = if (action.compact) {
                     UIFont.systemFontOfSize(13.0 * scale, weight = platform.UIKit.UIFontWeightSemibold)
