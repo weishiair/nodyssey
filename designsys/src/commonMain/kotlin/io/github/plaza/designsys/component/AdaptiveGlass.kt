@@ -1,5 +1,6 @@
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
@@ -63,6 +64,11 @@ expect fun AdaptiveGlassTopBar(
     subtitle: String? = null,
     /** Apply system blur when the caller lays scrolling content behind this bar. */
     blurBackground: Boolean = false,
+    /**
+     * Insets the bar's buttons and title inside [modifier]'s area, which the background then fills.
+     * Pass the status bar so one blur covers it and the bar together rather than meeting at a seam.
+     */
+    barInsets: WindowInsets? = null,
     fallback: @Composable () -> Unit,
 )
 

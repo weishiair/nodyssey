@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -1217,9 +1215,9 @@ private fun DetailTopBar(
         }
     }
     ReadableTopBar { nativeInsets ->
-        if (layers.nativeGlass) {
-            Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(nativeInsets).background(pageColor))
-        }
+        // One blur from the top of the screen down: the status bar is part of the bar's background,
+        // not a solid strip above it. The buttons and title stay inside the insets.
+        val statusBarHeight = with(LocalDensity.current) { nativeInsets.getTop(this).toDp() }
         AdaptiveGlassTopBar(
             title = title.takeIf { showTitle }.orEmpty(),
             titleAction = onTitleClick?.takeIf { showTitle }?.let { GlassAction(openOriginalPostLabel, it) },
@@ -1228,8 +1226,9 @@ private fun DetailTopBar(
                 GlassAction(stringResource(Res.string.action_open_in_browser), onOpenInBrowser, symbol = "safari"),
                 GlassAction(stringResource(Res.string.action_more), {}, symbol = "ellipsis", menu = nativeMenu),
             ),
-            modifier = Modifier.fillMaxWidth().windowInsetsPadding(nativeInsets).height(TopBarHeight),
+            modifier = Modifier.fillMaxWidth().height(statusBarHeight + TopBarHeight),
             blurBackground = true,
+            barInsets = nativeInsets,
         ) {
             Box(
                 Modifier

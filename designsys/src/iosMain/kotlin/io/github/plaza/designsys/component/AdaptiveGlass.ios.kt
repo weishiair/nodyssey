@@ -6,6 +6,7 @@
 
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
@@ -27,22 +30,15 @@ import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeGlass
 import platform.UIKit.NSDirectionalRectEdgeLeading
-import platform.UIKit.NSDirectionalRectEdgeTop
 import platform.UIKit.NSDirectionalRectEdgeTrailing
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.NSLineBreakByTruncatingTail
-import platform.UIKit.NSTextAlignmentCenter
 import platform.UIKit.UIAccessibilityAnnouncementNotification
 import platform.UIKit.UIAccessibilityPostNotification
-import platform.UIKit.UIAccessibilityTraitButton
-import platform.UIKit.UIAccessibilityTraitSelected
 import platform.UIKit.UIAction
 import platform.UIKit.UIBarButtonItem
-import platform.UIKit.UIBlurEffect
-import platform.UIKit.UIBlurEffectStyle
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
-import platform.UIKit.UIButtonConfigurationCornerStyleCapsule
 import platform.UIKit.UIButtonConfigurationSize
 import platform.UIKit.UIButtonConfigurationTitleAlignment
 import platform.UIKit.UIColor
@@ -62,14 +58,11 @@ import platform.UIKit.UIMenuElementState
 import platform.UIKit.UINavigationBarAppearance
 import platform.UIKit.UINavigationItem
 import platform.UIKit.UIStackView
-import platform.UIKit.UIStackViewDistributionFillEqually
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
 import platform.UIKit.UIVisualEffect
 import platform.UIKit.UIVisualEffectView
 import platform.UIKit.accessibilityLabel
-import platform.UIKit.accessibilityTraits
-import platform.UIKit.accessibilityValue
 import platform.UIKit.labelColor
 import platform.UIKit.systemRedColor
 import kotlin.native.ref.WeakReference
@@ -90,6 +83,7 @@ actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback
     }
     val dark = LocalPlazaDarkTheme.current
     val accent = MaterialTheme.colorScheme.primary
+    val prominentBackground = if (dark) MaterialTheme.colorScheme.primaryContainer else accent
     val scale = LocalPlazaFontScale.current
     val host = remember { NativeGlassButtonHost(action) }
     val remeasure = rememberUIKitInteropRemeasureRequester()
@@ -98,7 +92,7 @@ actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback
         modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
-            host.update(action, accent.toUIColor(), dark, scale)
+            host.update(action, accent.toUIColor(), dark, scale, prominentBackground.toUIColor())
             remeasure.requestRemeasure()
         },
         onRelease = { host.dispose() },
@@ -143,6 +137,7 @@ actual fun AdaptiveGlassTopBar(
     modifier: Modifier,
     subtitle: String?,
     blurBackground: Boolean,
+    barInsets: WindowInsets?,
     fallback: @Composable () -> Unit,
 ) {
     if (!LocalPlazaLayers.current.nativeGlass) {
@@ -157,28 +152,31 @@ actual fun AdaptiveGlassTopBar(
     val currentTitleAction by rememberUpdatedState(titleAction)
     val foreground = MaterialTheme.colorScheme.onSurface
     val focus = remember { NativeMenuFocus() }
+    val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
+    val insetTop = barInsets?.getTop(density)?.div(density.density)?.toDouble() ?: 0.0
+    val insetLeft = barInsets?.getLeft(density, direction)?.div(density.density)?.toDouble() ?: 0.0
+    val insetRight = barInsets?.getRight(density, direction)?.div(density.density)?.toDouble() ?: 0.0
     UIKitView(
         factory = {
-            FocusReleasingNavigationBar(focus).apply {
+            NativeTopBarHost(focus).apply {
                 val appearance = UINavigationBarAppearance().apply { configureWithTransparentBackground() }
-                standardAppearance = appearance
-                scrollEdgeAppearance = appearance
+                bar.standardAppearance = appearance
+                bar.scrollEdgeAppearance = appearance
             }
         },
         modifier = modifier,
         properties = NativeGlassInterop,
-        update = { bar ->
-            if (blurBackground != (bar.standardAppearance.backgroundEffect != null)) {
-                // This standalone bar cannot track a Compose list's scroll edge.
-                val appearance = UINavigationBarAppearance().apply {
-                    configureWithTransparentBackground()
-                    if (blurBackground) {
-                        backgroundEffect = UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemMaterial)
-                    }
-                }
-                bar.standardAppearance = appearance
-                bar.scrollEdgeAppearance = appearance
+        update = { host ->
+            // This standalone bar cannot track a Compose list's scroll edge, so the blur is fixed.
+            host.blurred = blurBackground
+            if (host.top != insetTop || host.left != insetLeft || host.right != insetRight) {
+                host.top = insetTop
+                host.left = insetLeft
+                host.right = insetRight
+                host.setNeedsLayout()
             }
+            val bar = host.bar
             bar.overrideUserInterfaceStyle = interfaceStyle(dark)
             bar.tintColor = accent.toUIColor()
             bar.titleTextAttributes = mapOf(
@@ -253,112 +251,6 @@ actual fun AdaptiveGlassNotice(
     )
 }
 
-/** The contents of one tab in a native glass capsule positioned by its Compose host. */
-data class NativeGlassTab(
-    val label: String,
-    val symbol: String,
-    val selected: Boolean,
-    val badge: Int?,
-    val onClick: () -> Unit,
-)
-
-@Composable
-fun NativeGlassTabBar(tabs: List<NativeGlassTab>, modifier: Modifier = Modifier) {
-    val dark = LocalPlazaDarkTheme.current
-    val colors = MaterialTheme.colorScheme
-    val host = remember(tabs.size) { NativeGlassTabBarHost(tabs.size) }
-    UIKitView(
-        factory = { host.view },
-        modifier = modifier.clipNativeToCompose(host.view),
-        properties = NativeGlassInterop,
-        update = {
-            host.view.overrideUserInterfaceStyle = interfaceStyle(dark)
-            host.buttons.zip(tabs).forEach { (button, tab) ->
-                button.update(
-                    tab,
-                    foreground = (if (tab.selected) colors.primary else colors.onSurface).toUIColor(),
-                    selection = colors.secondaryContainer.copy(alpha = if (dark) 0.56f else 0.68f).toUIColor(),
-                    badgeColor = colors.error.toUIColor(),
-                    badgeTextColor = colors.onError.toUIColor(),
-                )
-            }
-        },
-    )
-}
-
-private class NativeGlassTabBarHost(size: Int) {
-    val view = glassView(interactive = true)
-    val buttons = List(size) { NativeGlassTabButton() }
-
-    init {
-        plaza_set_glass_capsule(view, maximumRadius = 0.0)
-        val stack = UIStackView().apply {
-            axis = UILayoutConstraintAxisHorizontal
-            distribution = UIStackViewDistributionFillEqually
-            spacing = 4.0
-            buttons.forEach { addArrangedSubview(it.view) }
-        }
-        pin(stack, view.contentView, 4.0)
-    }
-}
-
-private class NativeGlassTabButton {
-    private val action = NativeGlassActionState(GlassAction(label = "", onClick = {}))
-    val view = UIButton.buttonWithConfiguration(UIButtonConfiguration.plainButtonConfiguration(), action.primaryAction())
-    private val badge = UILabel().apply {
-        userInteractionEnabled = false
-        textAlignment = NSTextAlignmentCenter
-        font = UIFont.systemFontOfSize(10.0, weight = platform.UIKit.UIFontWeightSemibold)
-        layer.cornerRadius = 8.0
-        clipsToBounds = true
-        translatesAutoresizingMaskIntoConstraints = false
-    }
-
-    init {
-        view.addSubview(badge)
-        NSLayoutConstraint.activateConstraints(
-            listOf(
-                badge.heightAnchor.constraintEqualToConstant(16.0),
-                badge.widthAnchor.constraintGreaterThanOrEqualToConstant(22.0),
-                badge.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor, constant = -4.0),
-                badge.topAnchor.constraintEqualToAnchor(view.topAnchor, constant = 2.0),
-            ),
-        )
-    }
-
-    fun update(tab: NativeGlassTab, foreground: UIColor, selection: UIColor, badgeColor: UIColor, badgeTextColor: UIColor) {
-        action.action = GlassAction(tab.label, tab.onClick)
-        view.accessibilityLabel = tab.label
-        view.accessibilityTraits = UIAccessibilityTraitButton or (if (tab.selected) UIAccessibilityTraitSelected else 0uL)
-        view.accessibilityValue = tab.badge?.toString()
-        view.configuration = UIButtonConfiguration.plainButtonConfiguration().apply {
-            title = tab.label
-            titleLineBreakMode = NSLineBreakByTruncatingTail
-            image = UIImage.systemImageNamed(tab.symbol)
-            imagePlacement = NSDirectionalRectEdgeTop
-            imagePadding = 2.0
-            preferredSymbolConfigurationForImage = UIImageSymbolConfiguration.configurationWithPointSize(
-                20.0,
-                weight = platform.UIKit.UIImageSymbolWeightRegular,
-            )
-            titleTextAttributesTransformer = { attributes ->
-                attributes.orEmpty() + (
-                    platform.UIKit.NSFontAttributeName to
-                        UIFont.systemFontOfSize(11.0, weight = platform.UIKit.UIFontWeightSemibold)
-                    )
-            }
-            cornerStyle = UIButtonConfigurationCornerStyleCapsule
-            baseForegroundColor = foreground
-            if (tab.selected) background = background.apply { backgroundColor = selection }
-        }
-        view.titleLabel?.numberOfLines = 1
-        badge.hidden = tab.badge == null
-        badge.text = tab.badge?.coerceAtMost(99)?.toString()
-        badge.backgroundColor = badgeColor
-        badge.textColor = badgeTextColor
-    }
-}
-
 /** Keeps one UIButton while recomposition replaces its action, disabled state and menu. */
 internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: Boolean = false) {
     private val state = NativeGlassActionState(initial)
@@ -396,7 +288,14 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         NativeMenuShield.lower()
     }
 
-    fun update(action: GlassAction, accent: UIColor, dark: Boolean, scale: Float) {
+    fun update(
+        action: GlassAction,
+        accent: UIColor,
+        dark: Boolean,
+        scale: Float,
+        // Material's dark primary is a pale tone made for text; filled behind white glass it glows.
+        prominentBackground: UIColor = accent,
+    ) {
         state.action = action
         view.overrideUserInterfaceStyle = interfaceStyle(dark)
         view.tintColor = accent
@@ -440,7 +339,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
                         UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(10.0 * scale))
                     )
             }
-            if (action.prominent) baseBackgroundColor = accent
+            if (action.prominent) baseBackgroundColor = prominentBackground
             titleTextAttributesTransformer = { attributes ->
                 val font = if (action.compact) {
                     UIFont.systemFontOfSize(13.0 * scale, weight = platform.UIKit.UIFontWeightSemibold)
