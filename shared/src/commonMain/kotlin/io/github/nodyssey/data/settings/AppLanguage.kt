@@ -50,7 +50,7 @@ enum class AppLanguage(val tag: String?) {
  * both halves the day Compose Resources can alias one bundle to several qualifiers.
  */
 fun isTraditionalChineseTag(tag: String): Boolean {
-    val subtags = tag.split('-', '_').filter { it.isNotEmpty() }
+    val subtags = tag.substringBefore('@').split('-', '_').filter { it.isNotEmpty() }
     val language = subtags.firstOrNull() ?: return false
     if (!language.equals("zh", ignoreCase = true)) return false
     val rest = subtags.drop(1)
@@ -63,17 +63,25 @@ fun isTraditionalChineseTag(tag: String): Boolean {
 
 /**
  * The language list a process should run under so that a Traditional Chinese reader whose device
- * names a region or script the app has no bundle for — `zh-Hant-HK`, `zh-MO`, a bare `zh-Hant` — is
- * handed `values-zh-rTW`; null when [preferred] already resolves, which is every list that does not
- * lead with such a tag. Only the first entry decides, as it does for the resource lookup; the rest
+ * names a script, region or extension the `values-zh-rTW` bundle cannot hit directly — including
+ * iOS Taiwan (`zh-Hant-TW`), `zh-Hant-HK`, `zh-MO@calendar=gregorian` or a bare `zh-Hant` — is
+ * handed `zh-TW`; null when [preferred] already leads with an exact `zh-TW` tag or is not
+ * Traditional Chinese. Only the first entry decides, as it does for the resource lookup; the rest
  * keep their order, without a second `zh-TW`.
  */
 fun narrowedForTraditionalChinese(preferred: List<String>): List<String>? {
-    val head = preferred.firstOrNull()?.substringBefore('@') ?: return null
+    val head = preferred.firstOrNull() ?: return null
     if (!isTraditionalChineseTag(head)) return null
-    if (head.split('-', '_').any { it.equals("TW", ignoreCase = true) }) return null
+    if (isExactTraditionalTag(head)) return null
     val traditional = checkNotNull(AppLanguage.TRADITIONAL_CHINESE.tag)
-    return listOf(traditional) + preferred.drop(1).filterNot { it.equals(traditional, ignoreCase = true) }
+    return listOf(traditional) + preferred.drop(1).filterNot(::isExactTraditionalTag)
+}
+
+private fun isExactTraditionalTag(tag: String): Boolean {
+    val subtags = tag.split('-', '_')
+    return subtags.size == 2 &&
+        subtags[0].equals("zh", ignoreCase = true) &&
+        subtags[1].equals("TW", ignoreCase = true)
 }
 
 /** The three regions whose Chinese is written in the traditional script. */
