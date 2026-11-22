@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -16,6 +17,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -98,6 +100,7 @@ import platform.Foundation.NSSelectorFromString
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationDidBecomeActiveNotification
+import platform.UIKit.UIColor
 import platform.UIKit.UIDevice
 import platform.UIKit.UIGestureRecognizer
 import platform.UIKit.UIGestureRecognizerDelegateProtocol
@@ -486,6 +489,19 @@ private class NativeShell(
                             LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
                         ) {
                             Box(Modifier.fillMaxSize()) {
+                                // The system tab bar's selected item wears the app's accent, which only
+                                // the composed theme knows (seed colours, dynamic colour).
+                                val accent = MaterialTheme.colorScheme.primary
+                                SideEffect {
+                                    if (activePage == page) {
+                                        systemTabs.tabBar.tintColor = UIColor.colorWithRed(
+                                            accent.red.toDouble(),
+                                            accent.green.toDouble(),
+                                            accent.blue.toDouble(),
+                                            accent.alpha.toDouble(),
+                                        )
+                                    }
+                                }
                                 entry.Content()
                                 ClipboardPostSnackbarOverlay(
                                     modifier = Modifier,
