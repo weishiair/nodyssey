@@ -126,7 +126,7 @@ class NodeSeekJsonClient(
     override suspend fun getJson(path: String, referer: String): String =
         withContext(dispatchers.io) {
             val response = transport.execute(xhrRequest(path, referer))
-            throwIfChallenge(path, response.body, response.header("cf-mitigated"))
+            throwIfChallenge(path, response)
             // Session-scoped endpoints answer 500, not 401, when the cookie is missing or stale.
             // "服务器错误" with a retry button would hide the one action that fixes it: signing in.
             if (response.code == 500 && isSessionScoped(path)) {
@@ -143,7 +143,7 @@ class NodeSeekJsonClient(
                 transport.execute(
                     xhrRequest(path, referer, method = "POST", body = HttpBody.Empty, origin = true),
                 )
-            throwIfChallenge(path, response.body, response.header("cf-mitigated"))
+            throwIfChallenge(path, response)
             // A page is no more an answer from the site than a challenge is, so the caller's
             // status-versus-body contract never sees one.
             throwIfNotJson(path, response.body)
@@ -156,7 +156,7 @@ class NodeSeekJsonClient(
                 transport.execute(
                     xhrRequest(path, referer, method = "POST", body = HttpBody.Text(body), origin = true),
                 )
-            throwIfChallenge(path, response.body, response.header("cf-mitigated"))
+            throwIfChallenge(path, response)
             if (response.code == 401 || response.code == 403) {
                 throw SiteException(SiteError.LoginRequired)
             }
@@ -186,7 +186,7 @@ class NodeSeekJsonClient(
                 )
             // Still thrown, and still before the status: a challenge is not an answer from the
             // site, so there is no site sentence for the caller to read.
-            throwIfChallenge(path, response.body, response.header("cf-mitigated"))
+            throwIfChallenge(path, response)
             throwIfNotJson(path, response.body)
             JsonPostResponse(code = response.code, body = response.body, sessionCookieNames = response.sessionCookieNames())
         }
@@ -220,7 +220,7 @@ class NodeSeekJsonClient(
                         extraHeaders = headers,
                     ),
                 )
-            throwIfChallenge(path, response.body, response.header("cf-mitigated"))
+            throwIfChallenge(path, response)
             if (response.code == 401 || response.code == 403) {
                 throw SiteException(SiteError.LoginRequired)
             }

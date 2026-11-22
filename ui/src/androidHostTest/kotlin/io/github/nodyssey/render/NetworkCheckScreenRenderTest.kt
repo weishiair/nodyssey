@@ -7,6 +7,7 @@ import io.github.nodyssey.data.diagnostics.AppIdentity
 import io.github.nodyssey.data.diagnostics.DeviceIdentity
 import io.github.nodyssey.data.diagnostics.NetworkEnvironment
 import io.github.nodyssey.data.diagnostics.NetworkTransport
+import io.github.nodyssey.data.diagnostics.PostResponseDiagnostic
 import io.github.nodyssey.data.diagnostics.ProbeResult
 import io.github.nodyssey.data.diagnostics.ProbeTiming
 import io.github.nodyssey.data.diagnostics.SessionSummary
@@ -39,14 +40,20 @@ class NetworkCheckScreenRenderTest {
     fun onlyWhenRendering() = assumeRendering()
 
     @Composable
-    private fun Screen(darkTheme: Boolean) {
+    private fun Screen(darkTheme: Boolean, withFailure: Boolean = false) {
         PlazaTheme(darkTheme = darkTheme) {
             NetworkCheckScreen(
-                state = NetworkCheckUiState(environment = ENVIRONMENT, forum = ANSWERED),
+                state = NetworkCheckUiState(environment = if (withFailure) null else ENVIRONMENT, forum = ANSWERED, postFailure = if (withFailure) FAILURE else null),
                 onBack = {},
                 onRerun = {},
             )
         }
+    }
+
+    @Test
+    fun `the retained post failure`() {
+        composeRule.setContent { Screen(darkTheme = false, withFailure = true) }
+        composeRule.onRoot().captureRender("network-check-post-failure")
     }
 
     @Test
@@ -64,6 +71,25 @@ class NetworkCheckScreenRenderTest {
     }
 
     private companion object {
+        val FAILURE = PostResponseDiagnostic(
+            1_794_643_682_000L,
+            "https://www.nodeseek.com/post-1053419-1",
+            "https://www.nodeseek.com/post-1053419-1",
+            403,
+            "cloudflare",
+            "a5a486a72c00ddc2-HKG",
+            false,
+            "html",
+            5_395,
+            listOf("cf-block-page"),
+            listOf("session", "pjwt", "smac", "colorscheme"),
+            emptyList(),
+            "172.67.174.37",
+            "h2",
+            "TLSv1.3",
+            71,
+        )
+
         val ENVIRONMENT =
             NetworkEnvironment(
                 device = DeviceIdentity("Xiaomi 14", "Android 15 (API 35)"),

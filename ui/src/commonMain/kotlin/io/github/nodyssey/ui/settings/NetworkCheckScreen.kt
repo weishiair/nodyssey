@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -33,6 +34,7 @@ import io.github.nodyssey.data.diagnostics.AppIdentity
 import io.github.nodyssey.data.diagnostics.DeviceIdentity
 import io.github.nodyssey.data.diagnostics.NetworkEnvironment
 import io.github.nodyssey.data.diagnostics.NetworkTransport
+import io.github.nodyssey.data.diagnostics.PostResponseDiagnostic
 import io.github.nodyssey.data.diagnostics.ProbeResult
 import io.github.nodyssey.data.diagnostics.ProbeStage
 import io.github.nodyssey.data.diagnostics.ProbeTiming
@@ -82,6 +84,18 @@ import io.github.nodyssey.ui.resources.network_check_native_ech
 import io.github.nodyssey.ui.resources.network_check_no
 import io.github.nodyssey.ui.resources.network_check_os
 import io.github.nodyssey.ui.resources.network_check_pending
+import io.github.nodyssey.ui.resources.network_check_post_failure_body
+import io.github.nodyssey.ui.resources.network_check_post_failure_clear
+import io.github.nodyssey.ui.resources.network_check_post_failure_connection
+import io.github.nodyssey.ui.resources.network_check_post_failure_final
+import io.github.nodyssey.ui.resources.network_check_post_failure_headers
+import io.github.nodyssey.ui.resources.network_check_post_failure_hint
+import io.github.nodyssey.ui.resources.network_check_post_failure_none
+import io.github.nodyssey.ui.resources.network_check_post_failure_received_cookies
+import io.github.nodyssey.ui.resources.network_check_post_failure_request
+import io.github.nodyssey.ui.resources.network_check_post_failure_sent_cookies
+import io.github.nodyssey.ui.resources.network_check_post_failure_time
+import io.github.nodyssey.ui.resources.network_check_post_failure_title
 import io.github.nodyssey.ui.resources.network_check_proxy
 import io.github.nodyssey.ui.resources.network_check_proxy_forum_only
 import io.github.nodyssey.ui.resources.network_check_proxy_local
@@ -145,6 +159,7 @@ import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
+import kotlin.time.Instant
 
 @Composable
 fun NetworkCheckRoute(
@@ -157,6 +172,7 @@ fun NetworkCheckRoute(
         state = state,
         onBack = onBack,
         onRerun = viewModel::run,
+        onClearPostFailure = viewModel::clearPostFailure,
         modifier = modifier,
     )
 }
@@ -179,6 +195,7 @@ fun NetworkCheckScreen(
     onBack: () -> Unit,
     onRerun: () -> Unit,
     modifier: Modifier = Modifier,
+    onClearPostFailure: () -> Unit = {},
 ) {
     val appBarState = rememberOneHandAppBarState()
     val sections = checkSections(state)
@@ -238,10 +255,17 @@ fun NetworkCheckScreen(
                 Text(stringResource(if (state.running) Res.string.network_check_running else Res.string.network_check_rerun))
             }
 
+            if (state.postFailure != null) {
+                TextButton(onClick = onClearPostFailure, enabled = !state.running, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(Res.string.network_check_post_failure_clear))
+                }
+            }
+
             SectionNotes(
                 title = stringResource(Res.string.network_check_hint_title),
                 lines =
                 listOf(
+                    stringResource(Res.string.network_check_post_failure_hint),
                     stringResource(Res.string.network_check_hint_layers),
                     stringResource(Res.string.network_check_hint_custom_tab),
                     stringResource(Res.string.network_check_hint_scope),
@@ -314,6 +338,16 @@ private fun CheckLineRow(
 ) {
     Column {
         if (!first) LayerDivider(startInset = Spacing.lg)
+        if (line.stacked) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(line.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(line.value, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp), color = MaterialTheme.colorScheme.onSurface)
+            }
+            return@Column
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -343,6 +377,7 @@ private data class CheckLine(
     val label: String,
     val value: String,
     val alert: Boolean = false,
+    val stacked: Boolean = false,
 )
 
 private data class CheckSection(
@@ -370,9 +405,43 @@ private fun List<CheckSection>.asShareText(): String =
 private fun checkSections(state: NetworkCheckUiState): List<CheckSection> =
     buildList {
         state.environment?.let { add(environmentSection(it)) }
+        add(postFailureSection(state.postFailure))
         add(probeSection(stringResource(Res.string.network_check_section_forum), state.forum))
         add(probeSection(stringResource(Res.string.network_check_section_updates), state.updates))
     }
+
+@Composable
+private fun postFailureSection(record: PostResponseDiagnostic?): CheckSection =
+    CheckSection(
+        title = stringResource(Res.string.network_check_post_failure_title),
+        lines = if (record == null) {
+            listOf(CheckLine(stringResource(Res.string.network_check_status), stringResource(Res.string.network_check_post_failure_none)))
+        } else {
+            listOf(
+                CheckLine(stringResource(Res.string.network_check_post_failure_time), Instant.fromEpochMilliseconds(record.recordedAtMillis).toString(), stacked = true),
+                CheckLine(stringResource(Res.string.network_check_status), "HTTP ${record.statusCode}", alert = true),
+                CheckLine(stringResource(Res.string.network_check_post_failure_request), record.requestedUrl, stacked = true),
+                CheckLine(stringResource(Res.string.network_check_post_failure_final), record.finalUrl, stacked = true),
+                CheckLine(
+                    stringResource(Res.string.network_check_post_failure_headers),
+                    "server=${record.server}; CF-Ray=${record.cfRay ?: "—"}; cf-mitigated-challenge=${record.cfMitigated}; cfOrigin=${record.cfOriginMillis?.let { "$it ms" } ?: "—"}",
+                    stacked = true,
+                ),
+                CheckLine(
+                    stringResource(Res.string.network_check_post_failure_body),
+                    "type=${record.contentType}; sample=${record.sampledBytes} B; features=${record.bodyFeatures.joinToString().ifEmpty { "—" }}",
+                    stacked = true,
+                ),
+                CheckLine(stringResource(Res.string.network_check_post_failure_sent_cookies), record.sentCookieNames.joinToString().ifEmpty { "—" }, stacked = true),
+                CheckLine(stringResource(Res.string.network_check_post_failure_received_cookies), record.receivedCookieNames.joinToString().ifEmpty { "—" }, stacked = true),
+                CheckLine(
+                    stringResource(Res.string.network_check_post_failure_connection),
+                    "${record.remoteAddress ?: "—"}; ${record.protocol ?: "—"}; TLS=${record.tlsVersion ?: "—"}; route_ech_bytes=${record.routeEchBytes ?: "—"}",
+                    stacked = true,
+                ),
+            )
+        },
+    )
 
 @Composable
 private fun environmentSection(environment: NetworkEnvironment): CheckSection {

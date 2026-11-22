@@ -196,7 +196,7 @@ class DefaultPostComposerRepository(
                 ),
             )
         val body = response.body
-        throwIfChallenge(NodeSeekSite.NEW_DISCUSSION_API_PATH, body, response.header("cf-mitigated"))
+        throwIfChallenge(NodeSeekSite.NEW_DISCUSSION_API_PATH, response)
         if (response.code == 401 || response.code == 403) {
             throw SiteException(SiteError.LoginRequired)
         }
@@ -244,7 +244,7 @@ class DefaultPostComposerRepository(
         val body = response.body
         // Challenge first, then status, then the body's own verdict — the same order and the
         // same reasons as [publish].
-        throwIfChallenge(NodeSeekSite.EDIT_DISCUSSION_API_PATH, body, response.header("cf-mitigated"))
+        throwIfChallenge(NodeSeekSite.EDIT_DISCUSSION_API_PATH, response)
         if (response.code == 401 || response.code == 403) throw SiteException(SiteError.LoginRequired)
         if (!response.isSuccessful) {
             throw SiteException(error = SiteError.Http(response.code), detail = parseErrorDetail(body))
