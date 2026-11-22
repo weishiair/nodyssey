@@ -134,6 +134,14 @@ data class PageMarkers(
     val rateLimit: List<String>,
     /** Left at the default unless a site fronts itself with something other than Cloudflare. */
     val challenge: List<String> = CLOUDFLARE_CHALLENGE_MARKERS,
+    /**
+     * The edge's own refusal page, which is not a challenge but is recovered from the same way.
+     *
+     * Kept apart from [challenge] because it only means anything on a 403: Cloudflare words its
+     * 1015 rate-limit page — a 429 — with the same "used Cloudflare to restrict access" title, and
+     * that one is the site's throttle to wait out, not a page to open. See [isEdgeBlock].
+     */
+    val edgeBlock: List<String> = CLOUDFLARE_BLOCK_MARKERS,
 )
 
 /**
@@ -157,4 +165,27 @@ val CLOUDFLARE_CHALLENGE_MARKERS =
         "cf-browser-verification",
         "Just a moment...",
         "Checking your browser before accessing",
+    )
+
+/**
+ * Cloudflare's block pages: a WAF rule's 「Sorry, you have been blocked」 and the 1xxx 「Access denied」
+ * family, which a rule, an IP rule or a browser-signature check answers with on a 403 and without a
+ * `cf-mitigated` header.
+ *
+ * Why they lead to the web view rather than to 重试: reported on 2026-11-22, a thread answered the app
+ * with HTTP 403 on every 重试 while 在网页中打开 rendered it at once. The two do not
+ * look alike to the edge — the web view is Chromium, runs the page's own detection scripts and
+ * resolves the site normally; the app is OkHttp over the fork's preferred-address DoH and ECH — so a
+ * rule that scores the client can refuse one and pass the other on the same cookies. Asking again
+ * from the app changes none of that; the web view is where the reader can see what was refused, and
+ * what it leaves in the shared jar is what the app's next request carries.
+ *
+ * Only the page's own markup. `cf-error-details` is the shared wrapper and also frames 520–526, which
+ * are the origin failing and have nothing for a web view to do.
+ */
+val CLOUDFLARE_BLOCK_MARKERS =
+    listOf(
+        "data-translate=\"block_headline\"",
+        "Sorry, you have been blocked",
+        "used Cloudflare to restrict access",
     )

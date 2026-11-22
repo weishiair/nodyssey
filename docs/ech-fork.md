@@ -32,6 +32,8 @@ Android 诊断包在真实的帖子 GET 请求返回 HTTP 4xx/5xx 时，自动�
 记录包含 UTC 时间、去除查询参数的帖子地址、HTTP 状态、固定错误页标记、CF-Ray、已知 Cookie 名称及当时的连接 IP／协议／ECH 配置长度。
 Cookie 值、正文、任意响应头和重定向后的非帖子路径均不保存；不自动上传，也不改变现有重试、验证和阅读逻辑。
 
+Cloudflare 的拦截页（WAF 规则的 Sorry, you have been blocked、1xxx Access denied）以 HTTP 403 返回且不带 `cf-mitigated` 头。它们和人机验证一样显示「需要验证」，主按钮在内置网页中打开被拒绝的地址，不再只给一个必然重复失败的「重试」；同样文案的 1015 限流页仍按 429 处理。
+
 ## 分支更新
 
 应用只从 `https://weishiair.github.io/nodyssey/` 的静态清单获取更新和更新日志，下载地址仅允许 `weishiair/nodyssey` 的 GitHub Release，下载后验证 SHA-256。
