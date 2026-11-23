@@ -123,6 +123,10 @@ kotlin {
             // scrolling containers and pass the backdrop down to floating bars and pills.
             api(libs.backdrop)
 
+            // Continuous-curvature capsules for floating glass chrome. `implementation`: the shape
+            // leaves this module as a plain `Shape` token, never as a Kyant type.
+            implementation(libs.kyant.shapes)
+
             // Avatars load over the network. Only `coil-compose` — the GIF and SVG decoders are a
             // decision about a particular site's content, so they stay with the app that needs them.
             implementation(libs.coil.compose)

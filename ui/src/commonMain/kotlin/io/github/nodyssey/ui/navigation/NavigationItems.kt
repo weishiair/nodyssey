@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -55,6 +54,7 @@ import io.github.nodyssey.ui.resources.tab_home
 import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.nodyssey.ui.resources.tab_profile
 import io.github.plaza.designsys.component.PlazaIcon
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -155,8 +155,8 @@ fun NodysseyNavigationItems(
 
 private val NavigationIconSize = 20.dp
 
-private val GlassBottomBarShape = CircleShape
-private val GlassPillIndicatorShape = CircleShape
+private val GlassBottomBarShape = FloatingCapsuleShape
+private val GlassPillIndicatorShape = FloatingCapsuleShape
 
 /** Safe-area positioning shared by the Compose and UIKit tab contents. */
 @Composable

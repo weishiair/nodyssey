@@ -62,6 +62,7 @@ import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -133,7 +134,7 @@ private fun ThreadReadingControlsRow(
                                 Modifier.glassChromeSurface(
                                     layers = layers,
                                     darkTheme = darkTheme,
-                                    shape = CircleShape,
+                                    shape = FloatingCapsuleShape,
                                     elevated = true,
                                     backdrop = backdrop,
                                 )
@@ -142,7 +143,7 @@ private fun ThreadReadingControlsRow(
                             },
                         )
                         .semantics { contentDescription = positionLabel },
-                    shape = CircleShape,
+                    shape = FloatingCapsuleShape,
                     color = if (layers.backdropGlass) Color.Transparent else layers.raised,
                     shadowElevation = if (einkMode || layers.backdropGlass) 0.dp else 2.dp,
                 ) {
@@ -156,7 +157,8 @@ private fun ThreadReadingControlsRow(
                 }
             }
         }
-        val fabShape = RoundedCornerShape(16.dp)
+        // A circle, like the back button: a floating square button has no long edge for a capsule.
+        val fabShape = CircleShape
         AdaptiveGlassButton(
             action = GlassAction(
                 label = stringResource(Res.string.post_reply_action),

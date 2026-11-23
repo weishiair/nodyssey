@@ -253,6 +253,7 @@ import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.richtext.LocalRichTextAppearance
 import io.github.plaza.designsys.richtext.RichTextAppearance
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -1296,7 +1297,7 @@ private fun DetailTopBar(
                                         Modifier.matchParentSize().padding(vertical = 4.dp).glassChromeSurface(
                                             layers = layers,
                                             darkTheme = darkTheme,
-                                            shape = CircleShape,
+                                            shape = FloatingCapsuleShape,
                                             elevated = true,
                                             backdrop = backdrop,
                                             surfaceTint = buttonTint,
