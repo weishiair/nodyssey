@@ -46,6 +46,7 @@ import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.ClipboardPost
 import io.github.nodyssey.ui.common.IosClipboardPostReader
+import io.github.nodyssey.ui.common.ListFabCentreAboveSafeArea
 import io.github.nodyssey.ui.common.LocalBottomBarSafeAreaOverlap
 import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.LocalIosPad
@@ -1219,11 +1220,17 @@ private class ShellTabBarController(
     // A bar along the bottom is measured from its top edge down to where the reading controls'
     // band ends, so both share a centre line: iOS 26's capsule fills the bar's frame from the
     // top but reaches only part of the way into the safe area, which the frame spans to the edge.
+    // An iPad's tabs float at the top (see `updateTabBar`) and this bottom bar stays hidden, so
+    // there is nothing down there to line up with: the band is centred where the list's 发帖
+    // button is instead, and a thread's reading controls share a line with the list beside it.
     private fun bottomBarHeight(): Double? {
-        if (tabBar.hidden) return null
         val bottom = view.bounds.useContents { size.height }
         val safeBottom = view.safeAreaInsets.useContents { this.bottom }
         val bandBottom = bottomBarInset(safeBottom.dp, bottomBarSafeAreaOverlap).value.toDouble()
+        if (isPad && respondsToSelector(NSSelectorFromString("setTabBarHidden:animated:"))) {
+            return 2 * (safeBottom + ListFabCentreAboveSafeArea.value - bandBottom)
+        }
+        if (tabBar.hidden) return null
         return tabBar.frame.useContents {
             val alongBottom = origin.y + size.height >= bottom - 0.5
             val height = if (alongBottom) bottom - origin.y - bandBottom else size.height - safeBottom

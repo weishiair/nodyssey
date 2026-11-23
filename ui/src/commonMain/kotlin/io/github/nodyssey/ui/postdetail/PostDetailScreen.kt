@@ -794,6 +794,7 @@ fun PostDetailScreen(
                         collectPending = state.collectPending,
                         onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
                         pageColor = pageColor,
+                        contentUnderBar = !atListTop,
                     )
                 }
             },
@@ -1170,6 +1171,8 @@ private fun DetailTopBar(
     collectPending: Boolean,
     onCollect: () -> Unit,
     pageColor: Color,
+    /** Whether the thread has scrolled under the bar: UIKit's bars stay clear at the scroll edge. */
+    contentUnderBar: Boolean = true,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val shareText = rememberShareText()
@@ -1227,7 +1230,7 @@ private fun DetailTopBar(
                 GlassAction(stringResource(Res.string.action_more), {}, symbol = "ellipsis", menu = nativeMenu),
             ),
             modifier = Modifier.fillMaxWidth().height(statusBarHeight + TopBarHeight),
-            blurBackground = true,
+            blurBackground = contentUnderBar,
             barInsets = nativeInsets,
         ) {
             Box(

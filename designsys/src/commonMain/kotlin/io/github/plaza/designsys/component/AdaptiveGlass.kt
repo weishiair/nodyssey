@@ -62,7 +62,10 @@ expect fun AdaptiveGlassTopBar(
     modifier: Modifier = Modifier,
     /** A second line under the title, the system's own navigation subtitle. */
     subtitle: String? = null,
-    /** Apply system blur when the caller lays scrolling content behind this bar. */
+    /**
+     * Apply system blur while the caller's scrolling content lies behind this bar. Pass false at the
+     * scroll edge, where UIKit's own bars are clear, so the bar matches the page around it.
+     */
     blurBackground: Boolean = false,
     /**
      * Insets the bar's buttons and title inside [modifier]'s area, which the background then fills.

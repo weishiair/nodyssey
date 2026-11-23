@@ -25,12 +25,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.data.settings.BottomBarPosition
+import io.github.plaza.designsys.component.PlazaFabHeight
+import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.nativeControls
 
 /** Navigation and the smaller reading controls sit on the same vertical centre line. */
 internal val FloatingBottomBarBandHeight = 58.dp
 private val FloatingBottomBarTopGap = 8.dp
 private val HomeIndicatorClearance = 13.dp
+
+/**
+ * How far above the safe area a list's floating action button is centred: the [Spacing.lg] margin
+ * the feed's page bar keeps, and half the button. Where no bar runs along the bottom, the reading
+ * controls of a thread are centred here too, so the two panes side by side share a line.
+ */
+internal val ListFabCentreAboveSafeArea = Spacing.lg + PlazaFabHeight / 2
 
 internal val LocalBottomBarPosition = compositionLocalOf { BottomBarPosition.MEDIUM }
 internal val LocalFixedBottomBarHeight = compositionLocalOf<Dp?> { null }

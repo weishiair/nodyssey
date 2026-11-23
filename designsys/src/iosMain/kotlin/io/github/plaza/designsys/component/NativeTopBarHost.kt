@@ -41,7 +41,9 @@ internal class NativeTopBarHost(focus: NativeMenuFocus) : UIView(frame = CGRectZ
         set(value) {
             if (field == value) return
             field = value
-            background.effect = if (value) UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemMaterial) else null
+            val effect = if (value) UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemMaterial) else null
+            // Faded in and out like a UIKit bar's own background crossing the scroll edge.
+            UIView.animateWithDuration(BLUR_FADE_SECONDS) { background.effect = effect }
         }
 
     /** The system's separator under the bar, for a blurred bar that content scrolls beneath. */
@@ -75,3 +77,5 @@ internal class NativeTopBarHost(focus: NativeMenuFocus) : UIView(frame = CGRectZ
     override fun hitTest(point: CValue<CGPoint>, withEvent: UIEvent?): UIView? =
         super.hitTest(point, withEvent)?.takeUnless { it == this || it == background }
 }
+
+private const val BLUR_FADE_SECONDS = 0.2
