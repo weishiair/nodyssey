@@ -48,10 +48,11 @@ internal val BottomBarPosition.bottomBarClearance
     get() = FloatingBottomBarTopGap + FloatingBottomBarBandHeight + bottomGap
 
 @Composable
-internal fun bottomBarInset(safeBottom: Dp): Dp {
-    val minimumInset = minOf(safeBottom, HomeIndicatorClearance)
-    return (safeBottom - LocalBottomBarSafeAreaOverlap.current).coerceAtLeast(minimumInset)
-}
+internal fun bottomBarInset(safeBottom: Dp): Dp = bottomBarInset(safeBottom, LocalBottomBarSafeAreaOverlap.current)
+
+/** [bottomBarInset] outside composition, for the iOS shell measuring its tab bar against the same base line. */
+internal fun bottomBarInset(safeBottom: Dp, overlap: Dp): Dp =
+    (safeBottom - overlap).coerceAtLeast(minOf(safeBottom, HomeIndicatorClearance))
 
 /** Additional space above the safe area already reserved by the page. */
 @Composable
