@@ -78,12 +78,6 @@ data class PlazaLayers(
     /** An outline for cards, where shadows cannot be drawn and tone cannot separate them (墨水屏). */
     val cardBorder: Color?,
     /**
-     * A card's lit top edge at night, where there is no shadow to lift it: a hairline that fades
-     * from the top down, so a card reads as a sheet catching light rather than a flat grey slab.
-     * Null by day, where [cardShadow] does that job, and wherever [cardBorder] is drawn instead.
-     */
-    val cardEdge: Brush? = null,
-    /**
      * 毛玻璃 — whether navigation bars and floating chrome controls wear a translucent liquid-glass
      * gradient and a directional specular rim highlight. Reading cards and floors remain solid.
      */
@@ -134,14 +128,11 @@ fun plazaLayers(
             PlazaLayers(
                 page = scheme.surface,
                 card = scheme.surfaceContainer,
-                // One step above the card, not two: `surfaceContainerHighest` made the search pill and
-                // the strip's buttons the brightest blocks on the page.
-                raised = scheme.surfaceContainerHigh,
+                raised = scheme.surfaceContainerHighest,
                 inset = scheme.surfaceContainerHigh,
                 divider = scheme.outlineVariant,
                 shadows = false,
                 cardBorder = null,
-                cardEdge = NightCardEdge,
                 frostedGlass = activeGlass,
                 glassTint = scheme.primary,
             )
@@ -157,7 +148,6 @@ fun plazaLayers(
                 divider = scheme.outlineVariant.copy(alpha = DIVIDER_ALPHA),
                 shadows = false,
                 cardBorder = null,
-                cardEdge = NightCardEdge,
                 frostedGlass = activeGlass,
                 glassTint = scheme.primary,
             )
@@ -191,19 +181,6 @@ fun plazaLayers(
 }
 
 private const val DIVIDER_ALPHA = 0.6f
-
-private val NightCardEdge =
-    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f), Color.White.copy(alpha = 0.03f)))
-
-/** [PlazaLayers.cardEdge]'s width: under a pixel on most phones, so it reads as light, not as a frame. */
-private val CardEdgeWidth = 0.5.dp
-
-/**
- * A content card's stroke: the 墨水屏 outline where there is one, otherwise the night edge, and
- * nothing by day.
- */
-val PlazaLayers.cardEdgeStroke: BorderStroke?
-    get() = cardBorderStroke ?: cardEdge?.let { BorderStroke(CardEdgeWidth, it) }
 
 /**
  * Defaults to the light layers of a stock scheme, so a composable previewed or tested outside

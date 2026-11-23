@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaLayers
-import io.github.plaza.designsys.theme.cardEdgeStroke
+import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 
 /**
@@ -74,7 +74,7 @@ fun LayerCard(
                 else -> layers.card
             },
         )
-    val border = layers.cardEdgeStroke
+    val border = layers.cardBorderStroke
     val shadowed = modifier.cardShadow(shape, layers.shadows)
     val body: @Composable ColumnScope.() -> Unit = {
         Column(

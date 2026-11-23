@@ -1,7 +1,6 @@
 package io.github.nodyssey.ui.postdetail
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -265,7 +264,6 @@ import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.asSignature
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardBorderStroke
-import io.github.plaza.designsys.theme.cardEdgeStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.glassFrostedBar
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
@@ -1137,7 +1135,6 @@ private fun ReplySurface(
             ).fillMaxWidth(),
         shape = if (cards) RoundedCornerShape(16.dp) else RectangleShape,
         color = if (highlighted) MaterialTheme.colorScheme.primaryContainer else LocalPlazaLayers.current.card,
-        border = if (cards) LocalPlazaLayers.current.cardEdgeStroke else null,
     ) {
         content()
     }
@@ -1959,12 +1956,6 @@ private fun ThreadOpeningPost(
             .padding(horizontal = if (replyStyle == PostReplyStyle.FLAT) 0.dp else 12.dp)
             .clip(if (replyStyle == PostReplyStyle.FLAT) RectangleShape else RoundedCornerShape(16.dp))
             .background(LocalPlazaLayers.current.card)
-            .then(
-                LocalPlazaLayers.current.cardEdgeStroke
-                    ?.takeIf { replyStyle != PostReplyStyle.FLAT }
-                    ?.let { Modifier.border(it, RoundedCornerShape(16.dp)) }
-                    ?: Modifier,
-            )
             .fillMaxWidth()
             .onPlaced { opening.coordinates = it }
             .floorLongPressSemantics(longPress),
