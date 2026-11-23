@@ -109,6 +109,8 @@ class SettingsRepository(
                     ?.let { runCatching { PostReplyStyle.valueOf(it) }.getOrNull() }
                     ?: PostReplyStyle.CARDS,
                 showAuthorAccountInfo = preferences[KEY_SHOW_AUTHOR_ACCOUNT_INFO] ?: true,
+                accountBadgeStyle = preferences[KEY_ACCOUNT_BADGE_STYLE]
+                    ?.let { runCatching { AccountBadgeStyle.valueOf(it) }.getOrNull() },
                 displayRefreshRate = (preferences[KEY_DISPLAY_REFRESH_RATE] ?: 0)
                     .takeIf { it in DISPLAY_REFRESH_RATE_CHOICES } ?: 0,
                 stickerUniformSize = preferences[KEY_STICKER_UNIFORM_SIZE] ?: true,
@@ -437,6 +439,9 @@ class SettingsRepository(
 
     suspend fun setShowAuthorAccountInfo(enabled: Boolean) = edit { it[KEY_SHOW_AUTHOR_ACCOUNT_INFO] = enabled }
 
+    /** 等级徽章颜色; see [UserSettings.accountBadgeStyle]. */
+    suspend fun setAccountBadgeStyle(style: AccountBadgeStyle) = edit { it[KEY_ACCOUNT_BADGE_STYLE] = style.name }
+
     suspend fun setSearchHistoryLimit(limit: Int) {
         dataStore.edit { preferences ->
             val selected = limit.takeIf { it in SEARCH_HISTORY_LIMIT_CHOICES } ?: DEFAULT_SEARCH_HISTORY_LIMIT
@@ -744,6 +749,7 @@ class SettingsRepository(
         private val KEY_PREDICTIVE_BACK = booleanPreferencesKey("predictive_back")
         private val KEY_POST_REPLY_STYLE = stringPreferencesKey("post_reply_style")
         private val KEY_SHOW_AUTHOR_ACCOUNT_INFO = booleanPreferencesKey("show_author_account_info")
+        private val KEY_ACCOUNT_BADGE_STYLE = stringPreferencesKey("account_badge_style")
         private val KEY_DISPLAY_REFRESH_RATE = intPreferencesKey("display_refresh_rate")
 
         /** Zero releases the window's refresh-rate preference to the OS. */
@@ -975,6 +981,12 @@ data class UserSettings(
     val postReplyStyle: PostReplyStyle = PostReplyStyle.CARDS,
     /** Enrich thread authors with cached public account facts only while this is enabled. */
     val showAuthorAccountInfo: Boolean = true,
+    /**
+     * 等级徽章颜色, or null where the reader has never chosen: the badge then keeps the look it had
+     * when 毛玻璃质感 decided it — natural with the glass in force, vivid without — so nobody's
+     * threads change colour on the update that made it a setting of its own.
+     */
+    val accountBadgeStyle: AccountBadgeStyle? = null,
     /** Android window preference; zero follows the system and e-ink always releases the vote. */
     val displayRefreshRate: Int = 0,
     /**
@@ -1135,6 +1147,12 @@ enum class BottomBarPosition { LOW, MEDIUM, HIGH }
  * avatar beside the whole reply. [CARDS] stays the default.
  */
 enum class PostReplyStyle { FLAT, CARDS, ORIGINAL }
+
+/**
+ * How the author's 等级 badge is coloured: [VIVID] fills it with its rank's gradient, [NATURAL]
+ * leaves a faint tint behind and colours only the rank.
+ */
+enum class AccountBadgeStyle { VIVID, NATURAL }
 
 /**
  * Where the seed comes from: one of the six presets, the system wallpaper (API 31+), or a colour the

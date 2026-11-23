@@ -2017,6 +2017,10 @@
     <string name="settings_post_reply_style_original">原版</string>
     <string name="settings_show_author_account_info">显示作者注册天数</string>
     <string name="settings_show_author_account_info_hint">在主帖和回复中显示作者等级与注册天数</string>
+    <string name="settings_account_badge_style">等级徽章颜色</string>
+    <string name="settings_account_badge_style_hint">鲜艳为渐变底色，自然为浅底彩字</string>
+    <string name="settings_account_badge_style_vivid">鲜艳</string>
+    <string name="settings_account_badge_style_natural">自然</string>
     <string name="sign_in_diagnostics">查看登录诊断</string>
     <string name="sign_in_diagnostics_privacy">仅保存在当前登录页，不会自动上传。不包含账号、密码、验证码或 Cookie；复制后可发给开发者排查。</string>
     <string name="sign_in_use_email">邮箱验证码登录</string>

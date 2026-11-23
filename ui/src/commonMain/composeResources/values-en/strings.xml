@@ -1741,6 +1741,10 @@
     <string name="settings_post_reply_style_original">Original</string>
     <string name="settings_show_author_account_info">Show account age</string>
     <string name="settings_show_author_account_info_hint">Show author levels and account age on posts and replies</string>
+    <string name="settings_account_badge_style">Level badge colour</string>
+    <string name="settings_account_badge_style_hint">Vivid fills the badge with a gradient; Natural tints only the level</string>
+    <string name="settings_account_badge_style_vivid">Vivid</string>
+    <string name="settings_account_badge_style_natural">Natural</string>
     <string name="sign_in_diagnostics">View sign-in diagnostics</string>
     <string name="sign_in_diagnostics_privacy">Kept only on this sign-in screen and never uploaded automatically. No account, password, verification code or cookies are included. Copy it to share with the developer.</string>
     <string name="sign_in_use_email">Sign in with an email code</string>
