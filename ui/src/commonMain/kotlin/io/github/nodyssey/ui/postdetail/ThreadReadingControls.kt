@@ -69,6 +69,7 @@ import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.nativeControls
 import org.jetbrains.compose.resources.stringResource
 
 /** Keep the original reading row; glass enters as a whole, like the bottom navigation. */
@@ -83,7 +84,7 @@ internal fun ThreadReadingControls(
     bottomInset: Dp = 0.dp,
 ) {
     val inset = bottomBarInset(bottomInset)
-    if (LocalPlazaLayers.current.frostedGlass) {
+    if (nativeControls || LocalPlazaLayers.current.frostedGlass) {
         val visibility = remember { MutableTransitionState(false) }
         visibility.targetState = visible
         FloatingBottomBarVisibility(visibleState = visibility, modifier = modifier) {

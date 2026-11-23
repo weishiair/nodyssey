@@ -46,7 +46,8 @@ Xcode 26.3，默认仍为 16.4，因此该包在 iOS 27 上仍采用旧设计。
 Android 的背景采样、模糊和折射只在 Compose 渲染器启用，iOS 不再运行这套离屏捕获。
 
 材质与布局分开判断：`backdropGlass` 控制 Compose 采样、折射、描边和浮动导航，
-`nativeGlass` 选择 UIKit 控件；`frostedGlass` 仍用于共用的主题配色、控件排列和间距。
+`nativeControls` 选择 UIKit 控件（所有 iOS，墨水屏除外），`nativeGlassAvailable` 只决定这些控件
+是否使用 iOS 26 的玻璃材质；`frostedGlass` 仍用于共用的主题配色、控件排列和间距。
 两端底部标签和帖子操作共用 58dp 高度带。三档位置从安全区向上留出 16dp、26dp 或 36dp，
 楼层定位和回复按钮保持横排。列表尾部、翻页与发帖控件按当前档位为底部控件留出空间。
 当前 Compose 的 UIKit interop 不传递父图层透明度，因此原生按钮只同步位移，
@@ -69,7 +70,10 @@ iOS 26+ 的发帖、私信、下载、转账、楼层定位、回复和发布按
 
 `UIKitView` 使用锁定的 Compose 版本提供的 `placedAsOverlay = true`，让原生玻璃采样下方的
 Compose 画布；默认的挖孔方式会令材质后面没有内容。iOS 外壳管理各标签的原生导航栈和切换。
-低于 iOS 26、关闭玻璃主题或启用墨水屏时，新控件回到普通样式，最低 iOS 版本仍为 16。
+低于 iOS 26 时仍是同一批 UIKit 控件，换用该系统自己的样式：按钮为系统灰色或填充胶囊，翻页栏和提示条为
+`systemMaterial` 模糊胶囊，帖子顶栏为带分隔线的磨砂导航栏，标签栏两种滚动状态都用系统默认磨砂背景，
+副标题用两行标题视图代替 iOS 26 的 `UINavigationItem.subtitle`。启用墨水屏时回到 Compose 实色控件。
+最低 iOS 版本仍为 16。
 
 `UICornerConfiguration`、`UIGlassEffect` 和玻璃按钮配置仅在 `:designsys` 的
 `PlazaNativeGlass.h` 中通过 Objective-C `@available(iOS 26.0, *)` 调用。Kotlin 只接收旧系统已有的

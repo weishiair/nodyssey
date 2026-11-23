@@ -25,8 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.data.settings.BottomBarPosition
-import io.github.plaza.designsys.theme.LocalPlazaLayers
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
 
 /** Navigation and the smaller reading controls sit on the same vertical centre line. */
 internal val FloatingBottomBarBandHeight = 58.dp
@@ -92,14 +91,14 @@ internal fun FloatingBottomBarVisibility(
     content: @Composable AnimatedVisibilityScope.() -> Unit,
 ) {
     // UIKitView in Compose 1.13 tracks layout bounds, but not a parent graphics layer's alpha.
-    // Keep the shared slide for native glass; remove this split when interop propagates fading.
-    val nativeGlass = LocalPlazaLayers.current.nativeGlass
+    // Keep the shared slide for native controls; remove this split when interop propagates fading.
+    val nativeChrome = nativeControls
     AnimatedVisibility(
         visibleState = visibleState,
         enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } +
-            if (nativeGlass) EnterTransition.None else fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+            if (nativeChrome) EnterTransition.None else fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
         exit = slideOutVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } +
-            if (nativeGlass) ExitTransition.None else fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec()),
+            if (nativeChrome) ExitTransition.None else fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec()),
         modifier = modifier,
         content = content,
     )

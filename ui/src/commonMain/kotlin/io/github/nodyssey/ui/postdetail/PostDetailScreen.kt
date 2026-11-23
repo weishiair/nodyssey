@@ -266,7 +266,7 @@ import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.glassFrostedBar
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
@@ -801,7 +801,7 @@ fun PostDetailScreen(
             // Keep the first row below the bar at rest, while allowing the glass to sample the
             // list as it scrolls underneath.
             val layers = LocalPlazaLayers.current
-            val drawsUnderTopBar = layers.nativeGlass || layers.backdropGlass
+            val drawsUnderTopBar = nativeControls || layers.backdropGlass
             val topInset = if (drawsUnderTopBar) padding.calculateTopPadding() else 0.dp
             val bottomInset = padding.calculateBottomPadding()
             val viewportPadding = padding.withoutBottom()

@@ -115,6 +115,7 @@ import platform.UIKit.UIImage
 import platform.UIKit.UIModalPresentationFullScreen
 import platform.UIKit.UINavigationController
 import platform.UIKit.UINavigationControllerDelegateProtocol
+import platform.UIKit.UITabBarAppearance
 import platform.UIKit.UITabBarController
 import platform.UIKit.UITabBarControllerDelegateProtocol
 import platform.UIKit.UITabBarItem
@@ -1176,6 +1177,18 @@ private class NativeShell(
 private class ShellTabBarController(
     onLayout: (width: Double, height: Double, bottomBarHeight: Double?) -> Unit,
 ) : UITabBarController(nibName = null, bundle = null) {
+    init {
+        // iOS 26 floats its glass bar over the content and needs nothing from here. Earlier systems
+        // switch to a clear bar whenever they think the content is scrolled to its edge, and they
+        // cannot see a Compose list scroll, so the bar would stay clear over the posts. Keep the
+        // system's blurred bar in both states instead — what those systems show mid-scroll.
+        if (!nativeGlassAvailable) {
+            val appearance = UITabBarAppearance().apply { configureWithDefaultBackground() }
+            tabBar.standardAppearance = appearance
+            tabBar.scrollEdgeAppearance = appearance
+        }
+    }
+
     private val layoutUpdates = WindowLayoutDispatcher(
         post = { update -> NSOperationQueue.mainQueue.addOperationWithBlock { update() } },
         onLayout = {
