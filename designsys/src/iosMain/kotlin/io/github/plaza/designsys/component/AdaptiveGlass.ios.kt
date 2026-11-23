@@ -6,6 +6,7 @@
 
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -15,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
@@ -143,6 +145,7 @@ actual fun AdaptiveGlassTopBar(
     modifier: Modifier,
     subtitle: String?,
     blurBackground: Boolean,
+    scrollEdgeColor: Color,
     barInsets: WindowInsets?,
     fallback: @Composable () -> Unit,
 ) {
@@ -163,14 +166,22 @@ actual fun AdaptiveGlassTopBar(
     val insetTop = barInsets?.getTop(density)?.div(density.density)?.toDouble() ?: 0.0
     val insetLeft = barInsets?.getLeft(density, direction)?.div(density.density)?.toDouble() ?: 0.0
     val insetRight = barInsets?.getRight(density, direction)?.div(density.density)?.toDouble() ?: 0.0
+    // A bar over scrolled content keeps the page's own colour rather than the system material,
+    // which read as a grey slab against the page and beside an iPad's list pane.
+    val edgeColor = scrollEdgeColor.takeOrElse { MaterialTheme.colorScheme.background }
+    val scrollEdge = blurBackground
     UIKitView(
         factory = { NativeTopBarHost(focus) },
-        modifier = modifier,
+        modifier = if (scrollEdge) {
+            modifier.background(edgeColor)
+        } else {
+            modifier
+        },
         properties = NativeGlassInterop,
         update = { host ->
             // This standalone bar cannot see a Compose list's scroll edge; the caller says when
             // content lies under it, and the blur follows the way a UIKit bar's own does.
-            host.blurred = blurBackground
+            host.blurred = false
             // Before iOS 26 a bar over scrolling content ends in the system's hairline.
             host.hairline = blurBackground && !nativeGlassAvailable
             if (host.top != insetTop || host.left != insetLeft || host.right != insetRight) {
