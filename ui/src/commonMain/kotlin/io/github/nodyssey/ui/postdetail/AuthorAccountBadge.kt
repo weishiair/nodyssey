@@ -9,6 +9,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -16,20 +17,47 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import io.github.nodyssey.data.settings.AccountBadgeStyle
+import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.post_author_age_days
 import io.github.plaza.designsys.component.BadgeChip
 import io.github.plaza.designsys.component.BadgeTone
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.nativeGlassAvailable
 import org.jetbrains.compose.resources.stringResource
+
+/**
+ * 等级徽章颜色 in force, filled by `NodysseyRoot` from [accountBadgeStyleInForce]. Null only outside
+ * it — previews and render tests — where the badge falls back to the theme's 毛玻璃质感.
+ */
+val LocalAccountBadgeStyle = staticCompositionLocalOf<AccountBadgeStyle?> { null }
+
+/** The style the badge wears: the reader's choice, or the look 毛玻璃质感 gave it before there was one. */
+internal fun UserSettings.accountBadgeStyleInForce(): AccountBadgeStyle =
+    accountBadgeStyleInForce(accountBadgeStyle, frostedGlass, einkMode, systemGlass = nativeGlassAvailable)
+
+/**
+ * An unchosen style follows the rule 毛玻璃质感 used to decide the badge by — the reader's switch,
+ * on wherever the system draws Liquid Glass, off on 墨水屏 — rather than the glass in force today,
+ * which every iOS now has on: an iOS 18 reader who had the switch off keeps the vivid badge.
+ */
+internal fun accountBadgeStyleInForce(
+    stored: AccountBadgeStyle?,
+    frostedGlass: Boolean,
+    einkMode: Boolean,
+    systemGlass: Boolean,
+): AccountBadgeStyle =
+    stored ?: if ((frostedGlass || systemGlass) && !einkMode) AccountBadgeStyle.NATURAL else AccountBadgeStyle.VIVID
 
 /** Account facts only: the colour identifies the rank, rather than judging the registration age. */
 @Composable
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 internal fun AuthorAccountBadge(level: Int?, days: Int?) {
     val darkTheme = LocalPlazaDarkTheme.current
-    val glass = LocalPlazaLayers.current.frostedGlass
+    val style = LocalAccountBadgeStyle.current
+        ?: if (LocalPlazaLayers.current.frostedGlass) AccountBadgeStyle.NATURAL else AccountBadgeStyle.VIVID
     val scheme = MaterialTheme.colorScheme
     val parts = buildList {
         if (level != null) add("Lv $level")
@@ -55,7 +83,7 @@ internal fun AuthorAccountBadge(level: Int?, days: Int?) {
         exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
         label = "author-account-info",
     ) {
-        if (glass) {
+        if (style == AccountBadgeStyle.NATURAL) {
             val rankColor = palette?.let {
                 if (darkTheme) it.darkContent else lerp(scheme.onSurface, it.hue, 0.45f)
             } ?: scheme.onSurfaceVariant

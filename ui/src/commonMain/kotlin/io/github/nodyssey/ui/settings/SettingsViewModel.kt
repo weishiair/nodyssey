@@ -22,6 +22,7 @@ import io.github.nodyssey.data.proxy.ProxySettings
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.proxy.routes
 import io.github.nodyssey.data.session.SessionRepository
+import io.github.nodyssey.data.settings.AccountBadgeStyle
 import io.github.nodyssey.data.settings.AppLanguage
 import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.data.settings.ReadMarkStyle
@@ -184,6 +185,10 @@ class SettingsViewModel(
 
     fun setPostReplyStyle(value: PostReplyStyle) {
         viewModelScope.launch { settings.setPostReplyStyle(value) }
+    }
+
+    fun setAccountBadgeStyle(value: AccountBadgeStyle) {
+        viewModelScope.launch { settings.setAccountBadgeStyle(value) }
     }
 
     fun setShowAuthorAccountInfo(value: Boolean) {

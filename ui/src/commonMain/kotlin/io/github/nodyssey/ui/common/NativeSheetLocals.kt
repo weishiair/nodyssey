@@ -8,6 +8,7 @@ import io.github.nodyssey.ui.compare.LocalReportOrigin
 import io.github.nodyssey.ui.composer.LocalImageHostRepository
 import io.github.nodyssey.ui.notifications.LocalSelectedConversationUid
 import io.github.nodyssey.ui.notifications.LocalSelectedInteractionId
+import io.github.nodyssey.ui.postdetail.LocalAccountBadgeStyle
 import io.github.nodyssey.ui.postlist.LocalSelectedPostId
 import io.github.nodyssey.ui.richtext.LocalReportFormat
 import io.github.nodyssey.ui.sticker.LocalImageActions
@@ -26,6 +27,7 @@ import io.github.nodyssey.ui.sticker.LocalStickerNavigation
  */
 @Composable
 internal fun nativeSheetLocals(): Array<ProvidedValue<*>> = arrayOf(
+    LocalAccountBadgeStyle provides LocalAccountBadgeStyle.current,
     LocalAppName provides LocalAppName.current,
     LocalBottomBarPosition provides LocalBottomBarPosition.current,
     LocalImageActions provides LocalImageActions.current,

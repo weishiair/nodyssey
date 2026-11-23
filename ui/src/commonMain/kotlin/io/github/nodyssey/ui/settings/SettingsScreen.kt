@@ -21,6 +21,7 @@ import io.github.nodyssey.data.attendance.AutoAttendanceConfig
 import io.github.nodyssey.data.attendance.AutoAttendanceState
 import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.proxy.ProxyType
+import io.github.nodyssey.data.settings.AccountBadgeStyle
 import io.github.nodyssey.data.settings.AppLanguage
 import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.data.settings.ReadMarkStyle
@@ -32,6 +33,7 @@ import io.github.nodyssey.ui.account.shortNameRes
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
 import io.github.nodyssey.ui.common.rememberDisplayRefreshRates
 import io.github.nodyssey.ui.common.rememberFileSizeLabel
+import io.github.nodyssey.ui.postdetail.accountBadgeStyleInForce
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.doh_paused_for_proxy
 import io.github.nodyssey.ui.resources.imagehost_connected
@@ -48,6 +50,10 @@ import io.github.nodyssey.ui.resources.proxy_type_socks
 import io.github.nodyssey.ui.resources.settings_about
 import io.github.nodyssey.ui.resources.settings_about_app
 import io.github.nodyssey.ui.resources.settings_about_app_update
+import io.github.nodyssey.ui.resources.settings_account_badge_style
+import io.github.nodyssey.ui.resources.settings_account_badge_style_hint
+import io.github.nodyssey.ui.resources.settings_account_badge_style_natural
+import io.github.nodyssey.ui.resources.settings_account_badge_style_vivid
 import io.github.nodyssey.ui.resources.settings_app_links
 import io.github.nodyssey.ui.resources.settings_app_links_summary_off
 import io.github.nodyssey.ui.resources.settings_app_links_summary_on
@@ -180,6 +186,7 @@ fun SettingsRoute(
         onPredictiveBackChange = viewModel::setPredictiveBack,
         onPostReplyStyleChange = viewModel::setPostReplyStyle,
         onShowAuthorAccountInfoChange = viewModel::setShowAuthorAccountInfo,
+        onAccountBadgeStyleChange = viewModel::setAccountBadgeStyle,
         onSearchHistoryLimitChange = viewModel::setSearchHistoryLimit,
         onEinkModeChange = viewModel::setEinkMode,
         supportedRefreshRates = rememberDisplayRefreshRates(),
@@ -249,6 +256,7 @@ fun SettingsScreen(
     onPredictiveBackChange: (Boolean) -> Unit = {},
     onPostReplyStyleChange: (PostReplyStyle) -> Unit = {},
     onShowAuthorAccountInfoChange: (Boolean) -> Unit = {},
+    onAccountBadgeStyleChange: (AccountBadgeStyle) -> Unit = {},
     onSearchHistoryLimitChange: (Int) -> Unit = {},
     /** Null hides 识别剪贴板中的帖子: a platform where reading the clipboard costs a prompt each time. */
     onClipboardPostPromptChange: ((Boolean) -> Unit)? = null,
@@ -449,6 +457,15 @@ fun SettingsScreen(
                 onCheckedChange = onShowAuthorAccountInfoChange,
             ),
         )
+        // Only the badge's colour; it has nothing to colour while the badge is hidden.
+        if (settings.showAuthorAccountInfo) {
+            add(
+                accountBadgeStyleChoice(
+                    selected = settings.accountBadgeStyleInForce(),
+                    onSelect = onAccountBadgeStyleChange,
+                ),
+            )
+        }
         add(
             SettingsItem.Toggle(
                 key = "predictive-back",
@@ -811,6 +828,21 @@ private fun reportFormatChoice(selected: ReportFormat, onSelect: (ReportFormat) 
         selected = selected,
         onSelect = onSelect,
         presentation = SettingsChoicePresentation.Segmented,
+    )
+
+@Composable
+private fun accountBadgeStyleChoice(selected: AccountBadgeStyle, onSelect: (AccountBadgeStyle) -> Unit): SettingsItem.Choice =
+    settingsChoice(
+        key = "account-badge-style",
+        title = stringResource(Res.string.settings_account_badge_style),
+        choices = listOf(
+            AccountBadgeStyle.VIVID to stringResource(Res.string.settings_account_badge_style_vivid),
+            AccountBadgeStyle.NATURAL to stringResource(Res.string.settings_account_badge_style_natural),
+        ),
+        selected = selected,
+        onSelect = onSelect,
+        presentation = SettingsChoicePresentation.Segmented,
+        description = stringResource(Res.string.settings_account_badge_style_hint),
     )
 
 /** The app offers 通栏, 轻卡片 and 原版 in that order. */

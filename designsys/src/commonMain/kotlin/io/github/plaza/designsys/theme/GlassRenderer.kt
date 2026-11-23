@@ -33,13 +33,16 @@ val PlazaLayers.backdropGlass: Boolean
 val nativeGlassAvailable: Boolean
     get() = platformGlassRenderer == GlassRenderer.Native
 
-/** Whether 毛玻璃质感 is the reader's choice here; where UIKit draws Liquid Glass the system controls always do. */
+/**
+ * Whether 毛玻璃质感 is the reader's choice here. Where UIKit draws the controls — every iOS — the
+ * system decides their material, Liquid Glass or the earlier blur, and the switch would change nothing.
+ */
 val frostedGlassConfigurable: Boolean
-    get() = !nativeGlassAvailable
+    get() = !platformNativeControls
 
-/** The 毛玻璃质感 actually in force: always on where the system draws glass, never on 墨水屏. */
+/** The 毛玻璃质感 actually in force: always on where UIKit draws the controls, never on 墨水屏. */
 fun frostedGlassInForce(setting: Boolean, einkMode: Boolean): Boolean =
-    frostedGlassInForce(setting, einkMode, nativeGlassAvailable)
+    frostedGlassInForce(setting, einkMode, platformNativeControls)
 
-internal fun frostedGlassInForce(setting: Boolean, einkMode: Boolean, nativeGlass: Boolean): Boolean =
-    (setting || nativeGlass) && !einkMode
+internal fun frostedGlassInForce(setting: Boolean, einkMode: Boolean, systemControls: Boolean): Boolean =
+    (setting || systemControls) && !einkMode
