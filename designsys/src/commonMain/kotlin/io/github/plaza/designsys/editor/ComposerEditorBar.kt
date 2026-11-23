@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,7 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassRimBorderStroke
+import io.github.plaza.designsys.theme.nativeGlass
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -137,6 +139,8 @@ private fun Strip(
     val darkTheme = LocalPlazaDarkTheme.current
     val scroll = rememberScrollState()
     // Recessed rather than raised: the strip is part of the page the writer is typing on.
+    // On native glass it floats as a capsule instead; it already sits above the keyboard because
+    // both composers apply imePadding upstream, so no insets here.
     Surface(
         color =
         if (layers.backdropGlass) {
@@ -144,9 +148,9 @@ private fun Strip(
         } else {
             layers.inset
         },
-        shape = LayerCardShape,
+        shape = if (layers.nativeGlass) CircleShape else LayerCardShape,
         border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
-        modifier = modifier.fillMaxWidth().padding(BarMargin),
+        modifier = modifier.fillMaxWidth().padding(if (layers.nativeGlass) CapsuleMargin else BarMargin),
     ) {
         Row(
             modifier = Modifier
@@ -218,4 +222,5 @@ private fun LinkTemplateMenu(
 }
 
 private val BarMargin = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp)
+private val CapsuleMargin = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
 private val QuickKeySize = 40.dp

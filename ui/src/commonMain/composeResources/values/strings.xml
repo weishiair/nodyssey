@@ -104,6 +104,8 @@
     <string name="post_edited_at">编辑于 %1$s</string>
 
     <!-- Post composer -->
+    <string name="composer_title_edit">编辑帖子</string>
+    <string name="composer_title_new">发帖</string>
     <string name="composer_title_hint">一句话说清主题</string>
     <string name="composer_body_hint">写下正文，支持 Markdown…</string>
     <string name="composer_title_count">%1$d/%2$d</string>
