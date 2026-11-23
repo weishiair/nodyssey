@@ -28,8 +28,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
-import io.github.plaza.designsys.theme.LocalPlazaLayers
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
@@ -47,7 +46,7 @@ private val IosSpinnerStrokeWidth = 2.2.dp
 /**
  * Adaptive [PullToRefreshBox]: preserves Material's disc-and-arrow indicator on Android/JVM/non-glass
  * surfaces and draws an iOS 12-tick radial spinner without a disc backdrop when
- * [io.github.plaza.designsys.theme.PlazaLayers.nativeGlass] is active.
+ * [io.github.plaza.designsys.theme.nativeControls] are in force.
  */
 @Composable
 fun AdaptivePullToRefreshBox(
@@ -82,7 +81,7 @@ fun AdaptivePullToRefreshBox(
 
 /**
  * Adaptive pull-to-refresh indicator matching [PullToRefreshDefaults.Indicator] when
- * `!LocalPlazaLayers.current.nativeGlass`, or a disc-free 12-tick radial iOS spinner otherwise.
+ * `!nativeControls`, or a disc-free 12-tick radial iOS spinner otherwise.
  */
 @Composable
 fun AdaptivePullToRefreshIndicator(
@@ -100,7 +99,7 @@ fun AdaptivePullToRefreshIndicator(
         containerColor = containerColor,
         color = color,
         maxDistance = maxDistance,
-        useIosStyle = LocalPlazaLayers.current.nativeGlass,
+        useIosStyle = nativeControls,
     )
 }
 
@@ -112,7 +111,7 @@ internal fun AdaptivePullToRefreshIndicatorContent(
     containerColor: Color = PullToRefreshDefaults.indicatorContainerColor,
     color: Color = PullToRefreshDefaults.indicatorColor,
     maxDistance: Dp = PullToRefreshDefaults.IndicatorMaxDistance,
-    useIosStyle: Boolean = LocalPlazaLayers.current.nativeGlass,
+    useIosStyle: Boolean = nativeControls,
 ) {
     if (!useIosStyle) {
         PullToRefreshDefaults.Indicator(

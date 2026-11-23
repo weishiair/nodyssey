@@ -10,9 +10,12 @@ import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGRectZero
 import platform.UIKit.UIBlurEffect
 import platform.UIKit.UIBlurEffectStyle
+import platform.UIKit.UIColor
 import platform.UIKit.UIEvent
+import platform.UIKit.UINavigationBarAppearance
 import platform.UIKit.UIView
 import platform.UIKit.UIVisualEffectView
+import platform.UIKit.separatorColor
 
 /**
  * A standalone navigation bar over one background that may reach past it.
@@ -31,6 +34,7 @@ internal class NativeTopBarHost(focus: NativeMenuFocus) : UIView(frame = CGRectZ
     init {
         addSubview(background)
         addSubview(bar)
+        applyAppearance()
     }
 
     var blurred: Boolean = false
@@ -39,6 +43,24 @@ internal class NativeTopBarHost(focus: NativeMenuFocus) : UIView(frame = CGRectZ
             field = value
             background.effect = if (value) UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemMaterial) else null
         }
+
+    /** The system's separator under the bar, for a blurred bar that content scrolls beneath. */
+    var hairline: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            applyAppearance()
+        }
+
+    // The bar draws no background of its own: Compose's page or [background] is behind it.
+    private fun applyAppearance() {
+        val appearance = UINavigationBarAppearance().apply {
+            configureWithTransparentBackground()
+            if (hairline) shadowColor = UIColor.separatorColor
+        }
+        bar.standardAppearance = appearance
+        bar.scrollEdgeAppearance = appearance
+    }
 
     override fun layoutSubviews() {
         super.layoutSubviews()

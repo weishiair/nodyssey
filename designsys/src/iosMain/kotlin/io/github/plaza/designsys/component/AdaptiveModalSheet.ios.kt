@@ -48,7 +48,7 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaExtraColors
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.UIKit.UIAdaptivePresentationControllerDelegateProtocol
@@ -78,7 +78,7 @@ actual fun AdaptiveModalSheet(
     fitContent: Boolean,
     content: @Composable () -> Unit,
 ) {
-    if (!LocalPlazaLayers.current.nativeGlass) {
+    if (!nativeControls) {
         fallback()
         return
     }

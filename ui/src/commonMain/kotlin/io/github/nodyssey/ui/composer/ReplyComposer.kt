@@ -118,7 +118,7 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassRimBorderStroke
 import io.github.plaza.designsys.theme.glassSheetBrush
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -322,8 +322,8 @@ private fun ReplyEditorSheet(
             windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
         }
     val dismiss = { if (!state.isPublishing) onDismiss() }
-    val nativeGlass = LocalPlazaLayers.current.nativeGlass
-    val fillNativeSheet = nativeGlass && !asCard
+    val nativeChrome = nativeControls
+    val fillNativeSheet = nativeChrome && !asCard
     // The native sheet opens with nothing focused in it: ask for the body once the field is
     // attached, so the keyboard rises with the sheet, the way Messages opens a reply.
     LaunchedEffect(fillNativeSheet, state.visible) {
@@ -350,7 +350,7 @@ private fun ReplyEditorSheet(
                 // it was the reason that strip had to squeeze its keys to 42dp.
                 Row(
                     modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget)
-                        .padding(start = Spacing.xs, end = if (nativeGlass) Spacing.lg else Spacing.md),
+                        .padding(start = Spacing.xs, end = if (nativeChrome) Spacing.lg else Spacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
@@ -517,7 +517,7 @@ private fun ReplyEditorSheet(
                 bodyState = bodyState,
                 editorState = editorState,
                 // The strip already has an 8dp gutter; align it with the reply's 16dp text inset.
-                barModifier = if (nativeGlass) Modifier.padding(start = Spacing.sm, end = Spacing.sm, top = Spacing.sm) else Modifier,
+                barModifier = if (nativeChrome) Modifier.padding(start = Spacing.sm, end = Spacing.sm, top = Spacing.sm) else Modifier,
                 onPickImages = onPickImages,
                 onPickHostedImages = onPickHostedImages,
                 onFormatted = { bodyFocus.requestFocus() },

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -35,12 +36,13 @@ import io.github.plaza.designsys.theme.PlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardShadow
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
+import io.github.plaza.designsys.theme.nativeGlassAvailable
 import kotlin.math.roundToInt
 
 /**
- * Adaptive segmented tab switch: renders an iOS-style capsule track with a sliding thumb when
- * [PlazaLayers.nativeGlass] is active, and invokes [fallback] unchanged everywhere else.
+ * Adaptive segmented tab switch: renders an iOS-style track with a sliding thumb when
+ * [nativeControls] are in force, and invokes [fallback] unchanged everywhere else.
  */
 @Composable
 fun AdaptiveSegmentedTabRow(
@@ -57,7 +59,7 @@ fun AdaptiveSegmentedTabRow(
         onSelect = onSelect,
         modifier = modifier,
         selectionFraction = selectionFraction,
-        useCapsuleStyle = LocalPlazaLayers.current.nativeGlass,
+        useCapsuleStyle = nativeControls,
         haptics = rememberPlatformHaptics(),
         fallback = fallback,
     )
@@ -70,7 +72,7 @@ internal fun AdaptiveSegmentedTabRowContent(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     selectionFraction: (() -> Float)? = null,
-    useCapsuleStyle: Boolean = LocalPlazaLayers.current.nativeGlass,
+    useCapsuleStyle: Boolean = nativeControls,
     haptics: PlatformHaptics = rememberPlatformHaptics(),
     fallback: @Composable () -> Unit,
 ) {
@@ -85,6 +87,9 @@ internal fun AdaptiveSegmentedTabRowContent(
     val clampedSelected = selectedIndex.coerceIn(0, tabs.lastIndex)
     val thumbColor = segmentedThumbColor(layers)
     val trackColor = segmentedTrackColor(layers, thumbColor, darkTheme)
+    // iOS 26's segmented control is a capsule; the ones before it are rounded rectangles.
+    val trackShape = if (nativeGlassAvailable) CircleShape else LegacyTrackShape
+    val thumbShape = if (nativeGlassAvailable) CircleShape else LegacyThumbShape
 
     val animatedFraction by animateFloatAsState(
         targetValue = clampedSelected.toFloat(),
@@ -96,8 +101,8 @@ internal fun AdaptiveSegmentedTabRowContent(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CircleShape)
-            .background(trackColor, CircleShape)
+            .clip(trackShape)
+            .background(trackColor, trackShape)
             .padding(CapsuleThumbInset),
     ) {
         // Slide the thumb during layout so pager scroll progress moves without recomposing tabs.
@@ -125,9 +130,9 @@ internal fun AdaptiveSegmentedTabRowContent(
                         placeable.placeRelative(x = x, y = 0)
                     }
                 }
-                .cardShadow(CircleShape, layers.shadows)
-                .background(thumbColor, CircleShape)
-                .cardBorder(layers, CircleShape),
+                .cardShadow(thumbShape, layers.shadows)
+                .background(thumbColor, thumbShape)
+                .cardBorder(layers, thumbShape),
         )
 
         Row(
@@ -141,7 +146,7 @@ internal fun AdaptiveSegmentedTabRowContent(
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = CapsuleSegmentMinHeight)
-                        .clip(CircleShape)
+                        .clip(thumbShape)
                         .selectable(
                             selected = selected,
                             onClick = {
@@ -214,3 +219,5 @@ private fun segmentedTrackColor(
 
 private val CapsuleThumbInset = 3.dp
 private val CapsuleSegmentMinHeight = 34.dp
+private val LegacyTrackShape = RoundedCornerShape(9.dp)
+private val LegacyThumbShape = RoundedCornerShape(7.dp)

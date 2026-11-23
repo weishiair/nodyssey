@@ -389,6 +389,12 @@ C1 第 1 段（现在）
 - iOS 26+ 只剩一条渲染路径，验收量减半；
 - 该开关默认关闭，多数 iOS 用户目前看到的是 Material 版本。
 
+**用户已定（2026-11-23）**：iOS 26 以下同样使用系统控件，只是不带液态玻璃。门槛拆成两层：
+`nativeControls`（所有 iOS，墨水屏除外）决定是否由 UIKit 绘制顶栏、浮动按钮、工具栏、提示条、菜单和底部面板；
+`nativeGlassAvailable`（iOS 26+）只决定这些控件用玻璃材质，还是用同一控件在旧系统上的样式：
+系统灰色 / 填充胶囊按钮、`systemMaterial` 模糊胶囊、带分隔线的磨砂导航栏、两行标题视图（`UINavigationItem.subtitle` 是 iOS 26 的 API）、
+圆角矩形分段条和磨砂标签栏。`PlazaLayers.nativeGlass` 已删除。Android / JVM 上 `nativeControls` 恒为 false，渲染不变。
+
 #### Devin 的任务
 
 | 任务 | 内容 | 依赖 | 顺序 |

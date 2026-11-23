@@ -39,7 +39,7 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassRimBorderStroke
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -139,7 +139,7 @@ private fun Strip(
     val darkTheme = LocalPlazaDarkTheme.current
     val scroll = rememberScrollState()
     // Recessed rather than raised: the strip is part of the page the writer is typing on.
-    // On native glass it floats as a capsule instead; it already sits above the keyboard because
+    // With native controls it floats as a capsule instead; it already sits above the keyboard because
     // both composers apply imePadding upstream, so no insets here.
     Surface(
         color =
@@ -148,9 +148,9 @@ private fun Strip(
         } else {
             layers.inset
         },
-        shape = if (layers.nativeGlass) CircleShape else LayerCardShape,
+        shape = if (nativeControls) CircleShape else LayerCardShape,
         border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
-        modifier = modifier.fillMaxWidth().padding(if (layers.nativeGlass) CapsuleMargin else BarMargin),
+        modifier = modifier.fillMaxWidth().padding(if (nativeControls) CapsuleMargin else BarMargin),
     ) {
         Row(
             modifier = Modifier

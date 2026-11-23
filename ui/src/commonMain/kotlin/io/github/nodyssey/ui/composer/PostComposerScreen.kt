@@ -136,7 +136,7 @@ import io.github.plaza.designsys.theme.CommentBody
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.cardBorderStroke
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
 import io.github.plaza.designsys.theme.paddingWithKeyboard
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
@@ -447,7 +447,7 @@ private fun ComposerTopBar(
                 expandedHeight = TopBarHeight,
             )
         }
-        if (LocalPlazaLayers.current.nativeGlass) {
+        if (nativeControls) {
             val statusBarHeight = with(LocalDensity.current) { barInsets.getTop(this).toDp() }
             val publishLabel =
                 stringResource(
@@ -873,7 +873,7 @@ private fun ComposerOptions(
         }
         // Not offered on an edit: `edit-discussion` takes no board, and moving a thread between
         // boards is a moderator action rather than something its author can do here.
-        val nativeGlass = LocalPlazaLayers.current.nativeGlass
+        val nativeChrome = nativeControls
         if (!state.isEditing) {
             val boardLabel =
                 state.boardTitle?.let { stringResource(Res.string.composer_board_target, it) }
@@ -899,7 +899,7 @@ private fun ComposerOptions(
                     }
                 }
             }
-            if (nativeGlass) {
+            if (nativeChrome) {
                 AdaptiveGlassButton(
                     action =
                     GlassAction(
@@ -946,7 +946,7 @@ private fun ComposerOptions(
                 }
             }
         }
-        if (nativeGlass) {
+        if (nativeChrome) {
             AdaptiveGlassButton(
                 action =
                 GlassAction(
