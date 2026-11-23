@@ -130,50 +130,50 @@ private data class TerminalPalette(
 /**
  * The sixteen colours as text on [TerminalGround].
  *
- * The web terminal's xterm palette — the same vivid green, yellow and red the NodeSeek post page
- * shows — on a black ground. Index 0 is grey rather than black: a terminal's own black is its
- * background, so `ESC[30m` drawn literally would be invisible, and the scripts do use it — as the
- * ink inside a coloured badge, where it survives here as a legible dark grey.
+ * The Tango palette the NodeSeek post page draws these reports in — olive green, mustard, brick
+ * red and teal rather than xterm's saturated primaries — on a pure black ground. Indexes 0 and 8
+ * are a mid grey rather than Tango's near-blacks: a terminal's own black is its background, so
+ * `ESC[30m` drawn literally would be invisible, and the scripts do use it.
  */
 private val DarkTerminalPalette =
     TerminalPalette(
         foreground =
         listOf(
-            Color(0xFF7F7F7F),
-            Color(0xFFCD0000),
-            Color(0xFF00CD00),
-            Color(0xFFCDCD00),
-            Color(0xFF0000EE),
-            Color(0xFFCD00CD),
-            Color(0xFF00CDCD),
-            Color(0xFFE5E5E5),
-            Color(0xFF7F7F7F),
-            Color(0xFFFF0000),
-            Color(0xFF00FF00),
-            Color(0xFFFFFF00),
-            Color(0xFF5C5CFF),
-            Color(0xFFFF00FF),
-            Color(0xFF00FFFF),
-            Color(0xFFFFFFFF),
+            Color(0xFF888A85),
+            Color(0xFFCC0000),
+            Color(0xFF4E9A06),
+            Color(0xFFC4A000),
+            Color(0xFF3465A4),
+            Color(0xFF75507B),
+            Color(0xFF06989A),
+            Color(0xFFD3D7CF),
+            Color(0xFF888A85),
+            Color(0xFFEF2929),
+            Color(0xFF8AE234),
+            Color(0xFFFCE94F),
+            Color(0xFF729FCF),
+            Color(0xFFAD7FA8),
+            Color(0xFF34E2E2),
+            Color(0xFFEEEEEC),
         ),
         background =
         listOf(
-            Color(0xFF1A1A1A),
-            Color(0xFFAA0000),
-            Color(0xFF00E676),
-            Color(0xFFFFEB3B),
-            Color(0xFF0000AA),
-            Color(0xFFAA00AA),
-            Color(0xFF00AAAA),
-            Color(0xFFFFFFFF),
-            Color(0xFF333333),
-            Color(0xFFFF5555),
-            Color(0xFF00FF00),
-            Color(0xFFFFFF00),
-            Color(0xFF5555FF),
-            Color(0xFFFF55FF),
-            Color(0xFF00FFFF),
-            Color(0xFFFFFFFF),
+            Color(0xFF2E3436),
+            Color(0xFFCC0000),
+            Color(0xFF4E9A06),
+            Color(0xFFC4A000),
+            Color(0xFF3465A4),
+            Color(0xFF75507B),
+            Color(0xFF06989A),
+            Color(0xFFD3D7CF),
+            Color(0xFF555753),
+            Color(0xFFEF2929),
+            Color(0xFF8AE234),
+            Color(0xFFFCE94F),
+            Color(0xFF729FCF),
+            Color(0xFFAD7FA8),
+            Color(0xFF34E2E2),
+            Color(0xFFEEEEEC),
         ),
         chipInk = Color(0xFF000000),
     )
