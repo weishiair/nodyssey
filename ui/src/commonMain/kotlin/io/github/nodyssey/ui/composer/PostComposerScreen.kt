@@ -58,6 +58,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -104,7 +105,9 @@ import io.github.nodyssey.ui.resources.composer_restore_title
 import io.github.nodyssey.ui.resources.composer_saving
 import io.github.nodyssey.ui.resources.composer_select_board
 import io.github.nodyssey.ui.resources.composer_title_count
+import io.github.nodyssey.ui.resources.composer_title_edit
 import io.github.nodyssey.ui.resources.composer_title_hint
+import io.github.nodyssey.ui.resources.composer_title_new
 import io.github.nodyssey.ui.resources.composer_view_compare
 import io.github.nodyssey.ui.resources.composer_view_content
 import io.github.nodyssey.ui.resources.composer_view_preview
@@ -112,7 +115,11 @@ import io.github.nodyssey.ui.stardust.StardustReceiveComposeDialog
 import io.github.nodyssey.ui.vote.VoteComposeDialog
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
+import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.AdaptiveGlassTopBar
 import io.github.plaza.designsys.component.EditorTextField
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
@@ -129,6 +136,7 @@ import io.github.plaza.designsys.theme.CommentBody
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.cardBorderStroke
+import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.paddingWithKeyboard
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
@@ -399,44 +407,119 @@ private fun ComposerTopBar(
     onPublish: () -> Unit,
 ) {
     ReadableTopBar { barInsets ->
-        TopAppBar(
-            windowInsets = barInsets,
-            title = {
-                draftStatus?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        // The slot is what the two view toggles and 发布 leave, which in English or at a
-                        // large text size is less than the sentence; cut, it should say so.
-                        overflow = TextOverflow.Ellipsis,
+        val materialBar: @Composable () -> Unit = {
+            TopAppBar(
+                windowInsets = barInsets,
+                title = {
+                    draftStatus?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            // The slot is what the two view toggles and 发布 leave, which in English or at a
+                            // large text size is less than the sentence; cut, it should say so.
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onClose, enabled = !isPublishing) {
+                        PlazaIcon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(Res.string.action_cancel),
+                            modifier = Modifier.size(TopBarIconSize),
+                        )
+                    }
+                },
+                actions = {
+                    ViewModeToggle(ComposerViewMode.COMPARE, PlazaIcons.VerticalSplit, viewMode, onViewModeChange)
+                    ViewModeToggle(ComposerViewMode.PREVIEW, PlazaIcons.Visibility, viewMode, onViewModeChange)
+                    PublishButton(
+                        isPublishing = isPublishing,
+                        enabled = canPublish,
+                        isEditing = isEditing,
+                        onClick = onPublish,
                     )
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = onClose, enabled = !isPublishing) {
-                    PlazaIcon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.action_cancel),
-                        modifier = Modifier.size(TopBarIconSize),
-                    )
-                }
-            },
-            actions = {
-                ViewModeToggle(ComposerViewMode.COMPARE, PlazaIcons.VerticalSplit, viewMode, onViewModeChange)
-                ViewModeToggle(ComposerViewMode.PREVIEW, PlazaIcons.Visibility, viewMode, onViewModeChange)
-                PublishButton(
-                    isPublishing = isPublishing,
-                    enabled = canPublish,
-                    isEditing = isEditing,
-                    onClick = onPublish,
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.card),
+                // The thread's bar height (2b), as 3c draws this one: a status line, two toggles and 发布.
+                expandedHeight = TopBarHeight,
+            )
+        }
+        if (LocalPlazaLayers.current.nativeGlass) {
+            val statusBarHeight = with(LocalDensity.current) { barInsets.getTop(this).toDp() }
+            val publishLabel =
+                stringResource(
+                    when {
+                        isPublishing && isEditing -> Res.string.composer_saving
+                        isPublishing -> Res.string.composer_publishing
+                        isEditing -> Res.string.action_save
+                        else -> Res.string.action_publish
+                    },
                 )
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.card),
-            // The thread's bar height (2b), as 3c draws this one: a status line, two toggles and 发布.
-            expandedHeight = TopBarHeight,
-        )
+            AdaptiveGlassTopBar(
+                title =
+                stringResource(
+                    if (isEditing) Res.string.composer_title_edit else Res.string.composer_title_new,
+                ),
+                titleAction = null,
+                back =
+                GlassAction(
+                    label = stringResource(Res.string.action_cancel),
+                    onClick = onClose,
+                    symbol = "xmark",
+                    enabled = !isPublishing,
+                ),
+                actions =
+                listOf(
+                    GlassAction(
+                        label = stringResource(Res.string.composer_view_compare),
+                        onClick = {
+                            onViewModeChange(
+                                if (viewMode == ComposerViewMode.COMPARE) {
+                                    ComposerViewMode.CONTENT
+                                } else {
+                                    ComposerViewMode.COMPARE
+                                },
+                            )
+                        },
+                        symbol = "rectangle.split.2x1",
+                    ),
+                    GlassAction(
+                        label = stringResource(Res.string.composer_view_preview),
+                        onClick = {
+                            onViewModeChange(
+                                if (viewMode == ComposerViewMode.PREVIEW) {
+                                    ComposerViewMode.CONTENT
+                                } else {
+                                    ComposerViewMode.PREVIEW
+                                },
+                            )
+                        },
+                        symbol = "eye",
+                    ),
+                    GlassAction(
+                        label = publishLabel,
+                        title = publishLabel,
+                        onClick = onPublish,
+                        symbol = "arrow.up",
+                        enabled = canPublish,
+                        loading = isPublishing,
+                        prominent = true,
+                        compact = true,
+                    ),
+                ),
+                subtitle = draftStatus,
+                modifier = Modifier.fillMaxWidth().height(statusBarHeight + TopBarHeight),
+                blurBackground = true,
+                barInsets = barInsets,
+            ) {
+                materialBar()
+            }
+            return@ReadableTopBar
+        }
+        materialBar()
     }
 }
 
@@ -790,47 +873,101 @@ private fun ComposerOptions(
         }
         // Not offered on an edit: `edit-discussion` takes no board, and moving a thread between
         // boards is a moderator action rather than something its author can do here.
+        val nativeGlass = LocalPlazaLayers.current.nativeGlass
         if (!state.isEditing) {
+            val boardLabel =
+                state.boardTitle?.let { stringResource(Res.string.composer_board_target, it) }
+                    ?: stringResource(Res.string.composer_select_board)
+            val boardChipBox: @Composable () -> Unit = {
+                Box {
+                    ComposerChip(
+                        label = boardLabel,
+                        filled = state.boardTitle != null,
+                        error = boardMissing,
+                        onClick = { boardMenuOpen = true },
+                    )
+                    DropdownMenu(expanded = boardMenuOpen, onDismissRequest = { boardMenuOpen = false }) {
+                        state.boards.forEach { board ->
+                            DropdownMenuItem(
+                                text = { Text(board.title) },
+                                onClick = {
+                                    onBoardSelect(board)
+                                    boardMenuOpen = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            if (nativeGlass) {
+                AdaptiveGlassButton(
+                    action =
+                    GlassAction(
+                        label = boardLabel,
+                        title = boardLabel,
+                        onClick = {},
+                        symbol = "square.grid.2x2",
+                        menu =
+                        state.boards.map { board ->
+                            GlassMenuAction(
+                                label = board.title,
+                                onClick = { onBoardSelect(board) },
+                                selected = board.slug == state.boardSlug,
+                            )
+                        },
+                    ),
+                ) {
+                    boardChipBox()
+                }
+            } else {
+                boardChipBox()
+            }
+        }
+        val permLabel = permissionLabel(state.permission)
+        val permChipBox: @Composable () -> Unit = {
             Box {
                 ComposerChip(
-                    label = state.boardTitle?.let { stringResource(Res.string.composer_board_target, it) }
-                        ?: stringResource(Res.string.composer_select_board),
-                    filled = state.boardTitle != null,
-                    error = boardMissing,
-                    onClick = { boardMenuOpen = true },
+                    label = permLabel,
+                    filled = false,
+                    error = false,
+                    leading = if (state.permission == PostPermission.PUBLIC) PlazaIcons.Public else Icons.Default.Lock,
+                    onClick = { permissionMenuOpen = true },
                 )
-                DropdownMenu(expanded = boardMenuOpen, onDismissRequest = { boardMenuOpen = false }) {
-                    state.boards.forEach { board ->
+                DropdownMenu(expanded = permissionMenuOpen, onDismissRequest = { permissionMenuOpen = false }) {
+                    state.permissionOptions.forEach { permission ->
                         DropdownMenuItem(
-                            text = { Text(board.title) },
+                            text = { Text(permissionLabel(permission)) },
                             onClick = {
-                                onBoardSelect(board)
-                                boardMenuOpen = false
+                                onPermissionSelect(permission)
+                                permissionMenuOpen = false
                             },
                         )
                     }
                 }
             }
         }
-        Box {
-            ComposerChip(
-                label = permissionLabel(state.permission),
-                filled = false,
-                error = false,
-                leading = if (state.permission == PostPermission.PUBLIC) PlazaIcons.Public else Icons.Default.Lock,
-                onClick = { permissionMenuOpen = true },
-            )
-            DropdownMenu(expanded = permissionMenuOpen, onDismissRequest = { permissionMenuOpen = false }) {
-                state.permissionOptions.forEach { permission ->
-                    DropdownMenuItem(
-                        text = { Text(permissionLabel(permission)) },
-                        onClick = {
-                            onPermissionSelect(permission)
-                            permissionMenuOpen = false
-                        },
-                    )
-                }
+        if (nativeGlass) {
+            AdaptiveGlassButton(
+                action =
+                GlassAction(
+                    label = permLabel,
+                    title = permLabel,
+                    onClick = {},
+                    symbol = if (state.permission == PostPermission.PUBLIC) "globe" else "lock",
+                    menu =
+                    state.permissionOptions.map { permission ->
+                        GlassMenuAction(
+                            label = permissionLabel(permission),
+                            onClick = { onPermissionSelect(permission) },
+                            selected = permission == state.permission,
+                        )
+                    },
+                ),
+            ) {
+                permChipBox()
             }
+        } else {
+            permChipBox()
         }
     }
 }

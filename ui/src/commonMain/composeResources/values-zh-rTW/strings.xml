@@ -93,6 +93,8 @@
     <string name="post_edited">已編輯</string>
     <string name="post_edited_at">編輯於 %1$s</string>
 
+    <string name="composer_title_edit">編輯帖子</string>
+    <string name="composer_title_new">發帖</string>
     <string name="composer_title_hint">一句話說清主題</string>
     <string name="composer_body_hint">寫下內文，支援 Markdown…</string>
     <string name="composer_select_board">選擇版塊</string>

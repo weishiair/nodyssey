@@ -98,6 +98,8 @@
     <string name="post_edited">Edited</string>
     <string name="post_edited_at">Edited %1$s</string>
 
+    <string name="composer_title_edit">Edit post</string>
+    <string name="composer_title_new">New post</string>
     <string name="composer_title_hint">One line that says what this is about</string>
     <string name="composer_body_hint">Write the body — Markdown works…</string>
     <string name="composer_select_board">Choose a board</string>
