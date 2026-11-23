@@ -50,6 +50,7 @@ import io.github.nodyssey.ui.common.LocalBottomBarSafeAreaOverlap
 import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
+import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.common.clipboardPostToOffer
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
 import io.github.nodyssey.ui.composer.PendingComposerShare
@@ -1215,11 +1216,17 @@ private class ShellTabBarController(
     }
 
     // Ignore the hidden bar's offscreen frame and keep the last visible height while reading.
+    // A bar along the bottom is measured from its top edge down to where the reading controls'
+    // band ends, so both share a centre line: iOS 26's capsule fills the bar's frame from the
+    // top but reaches only part of the way into the safe area, which the frame spans to the edge.
     private fun bottomBarHeight(): Double? {
         if (tabBar.hidden) return null
         val bottom = view.bounds.useContents { size.height }
+        val safeBottom = view.safeAreaInsets.useContents { this.bottom }
+        val bandBottom = bottomBarInset(safeBottom.dp, bottomBarSafeAreaOverlap).value.toDouble()
         return tabBar.frame.useContents {
-            val height = size.height - view.safeAreaInsets.useContents { this.bottom }
+            val alongBottom = origin.y + size.height >= bottom - 0.5
+            val height = if (alongBottom) bottom - origin.y - bandBottom else size.height - safeBottom
             height.takeIf { it > 0 && origin.y + size.height <= bottom }
         }
     }
@@ -1231,8 +1238,14 @@ private class ShellTabBarController(
  */
 private val isPad: Boolean = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad
 
-/** Lets the middle preset match UIKit's original floating tab bar above the home indicator. */
-private val FloatingTabSafeAreaOverlap = 21.dp
+/**
+ * How far iOS 26's floating tab bar reaches into the bottom safe area: its capsule ends 21pt above
+ * the edge of a 34pt home-indicator inset. The reading controls end on the same line.
+ */
+private val FloatingTabSafeAreaOverlap = 13.dp
+
+private val bottomBarSafeAreaOverlap: Dp
+    get() = if (nativeGlassAvailable) FloatingTabSafeAreaOverlap else 0.dp
 
 @Composable
 private fun DeviceLocals(
@@ -1242,7 +1255,7 @@ private fun DeviceLocals(
 ) {
     CompositionLocalProvider(
         LocalFixedBottomBarHeight provides fixedBottomBarHeight,
-        LocalBottomBarSafeAreaOverlap provides if (nativeGlassAvailable) FloatingTabSafeAreaOverlap else 0.dp,
+        LocalBottomBarSafeAreaOverlap provides bottomBarSafeAreaOverlap,
     ) {
         Box(modifier) {
             if (isPad) {
