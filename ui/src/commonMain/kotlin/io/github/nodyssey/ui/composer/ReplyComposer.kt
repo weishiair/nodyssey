@@ -315,14 +315,18 @@ private fun ReplyEditorSheet(
     // than a phone's sheet rising from the bottom edge of one column under a scrim that greys out the
     // whole window. Height counts as well as width: a phone on its side is wide, but a centred card
     // over its keyboard would leave the editor a sliver.
+    // iOS keeps UIKit's sheet everywhere: on an iPad it is the centred page sheet Mail replies in,
+    // and UIKit, not an IME inset, keeps it clear of the keyboard — a floating keyboard included,
+    // which the card's inset mistook for a docked one and shoved the card under the tab bar.
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
-    val asCard =
-        with(density) {
-            windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
-        }
-    val dismiss = { if (!state.isPublishing) onDismiss() }
     val nativeChrome = nativeControls
+    val asCard =
+        !nativeChrome &&
+            with(density) {
+                windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
+            }
+    val dismiss = { if (!state.isPublishing) onDismiss() }
     val fillNativeSheet = nativeChrome && !asCard
     // The native sheet opens with nothing focused in it: ask for the body once the field is
     // attached, so the keyboard rises with the sheet, the way Messages opens a reply.
