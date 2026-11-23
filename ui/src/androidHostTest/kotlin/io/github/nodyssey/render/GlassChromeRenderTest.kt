@@ -65,6 +65,7 @@ class GlassChromeRenderTest {
         readMarkedCards: Boolean = false,
         threadTools: Boolean = false,
         bottomChromeVisible: Boolean = true,
+        navDestination: TopLevelDestination = TopLevelDestination.HOME,
     ) {
         PlazaTheme(darkTheme = darkTheme, pureWhite = true, frostedGlass = frostedGlass, einkMode = einkMode) {
             val layers = LocalPlazaLayers.current
@@ -121,7 +122,7 @@ class GlassChromeRenderTest {
                                 visibleState = visibility,
                                 modifier = Modifier.align(Alignment.BottomCenter),
                             ) {
-                                FloatingBottomNavigationBar(current = TopLevelDestination.HOME, onSelect = {})
+                                FloatingBottomNavigationBar(current = navDestination, onSelect = {})
                             }
                         }
                     }
@@ -192,6 +193,22 @@ class GlassChromeRenderTest {
         composeRule.onRoot().captureRender("glass-$name-motion-mid")
         composeRule.mainClock.advanceTimeBy(600)
         composeRule.onRoot().captureRender("glass-$name-motion-end")
+    }
+
+    @Test
+    fun `bottom navigation indicator slides between tabs`() {
+        val current = mutableStateOf(TopLevelDestination.HOME)
+        composeRule.mainClock.autoAdvance = false
+        composeRule.setContent { Scene(darkTheme = true, navDestination = current.value) }
+        composeRule.onRoot().captureRender("glass-nav-indicator-000")
+        composeRule.runOnIdle { current.value = TopLevelDestination.entries.last() }
+        composeRule.mainClock.advanceTimeByFrame()
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(120)
+        composeRule.waitForIdle()
+        composeRule.onRoot().captureRender("glass-nav-indicator-mid")
+        composeRule.mainClock.advanceTimeBy(600)
+        composeRule.onRoot().captureRender("glass-nav-indicator-end")
     }
 
     @Test
