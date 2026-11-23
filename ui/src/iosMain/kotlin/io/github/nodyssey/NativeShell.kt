@@ -80,7 +80,9 @@ import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeGlassAvailable
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.ObjCSignatureOverride
+import kotlinx.cinterop.cValue
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -96,8 +98,13 @@ import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
+import platform.Foundation.NSRunLoop
+import platform.Foundation.NSRunLoopCommonModes
 import platform.Foundation.NSSelectorFromString
 import platform.Foundation.NSURL
+import platform.QuartzCore.CADisplayLink
+import platform.QuartzCore.CAFrameRateRange
+import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationDidBecomeActiveNotification
 import platform.UIKit.UIColor
@@ -113,6 +120,8 @@ import platform.UIKit.UITabBarControllerDelegateProtocol
 import platform.UIKit.UITabBarItem
 import platform.UIKit.UIUserInterfaceIdiomPad
 import platform.UIKit.UIUserInterfaceStyle
+import platform.UIKit.UIView
+import platform.UIKit.UIViewAnimationOptionCurveEaseOut
 import platform.UIKit.UIViewController
 import platform.UIKit.addChildViewController
 import platform.UIKit.didMoveToParentViewController
@@ -124,6 +133,8 @@ import platform.UIKit.transitionCoordinator
 import platform.UIKit.willMoveToParentViewController
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
+import kotlin.math.PI
+import kotlin.math.exp
 
 /**
  * The iOS app: one system navigation stack per tab, with one Compose screen in each pushed
@@ -364,6 +375,9 @@ private class NativeShell(
      */
     private var syncing = false
 
+    /** The root-pane squeeze still playing, if any; see [PaneSqueeze]. */
+    private var squeeze: PaneSqueeze? = null
+
     // UIKit holds delegates weakly; these fields are what keeps them alive.
     private val tabBarDelegate = TabBarDelegate()
     private val navigationDelegates = TopLevelDestination.entries.associateWith { NavigationDelegate(it) }
@@ -388,6 +402,8 @@ private class NativeShell(
     fun close() {
         if (closed) return
         closed = true
+        squeeze?.finish()
+        squeeze = null
         scope.cancel()
         foregroundObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
         splits.values.forEach { pairs ->
@@ -565,14 +581,46 @@ private class NativeShell(
         deferredSyncs.remove(destination)
         val mirror = mirrors.getValue(destination)
         val keys = stacks.getValue(destination).toList()
-        val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
+        // The regrouped layout is read before reconcile: a collapse defers the UIKit swap until
+        // the squeeze has played out, and reconcile must not run before the pair is swapped for real.
         val layout = paneGroups(keys, listDetailExpanded, ::paneKindOf)
         val onScreen = navigationController.view.window != null
         // The tab's list controller moves between navigation stacks when the first detail opens or
-        // closes. As on resize, UIKit must finish that transfer before drawing the reused page.
+        // closes. As on resize, UIKit must finish that transfer before drawing the reused page, so
+        // the regroup itself stays instant — [PaneSqueeze] plays the motion inside the pair, the
+        // list re-laying out at each intermediate width as the detail pushes it from the right.
         val wasRootSplit = groups.getValue(destination).firstOrNull() is PaneGroup.Split
         val isRootSplit = layout.firstOrNull() is PaneGroup.Split
         val animated = onScreen && !needsRelayout && wasRootSplit == isRootSplit
+        // A new swap or a relayout ends whatever squeeze is still playing by jumping it to the
+        // end; an interrupted collapse leaves the pair fully open, so the swap below still runs.
+        squeeze?.finish()
+        squeeze = null
+        if (
+            onScreen && !needsRelayout && wasRootSplit && !isRootSplit &&
+            !UIAccessibilityIsReduceMotionEnabled()
+        ) {
+            // Closing the pair plays first: the details slide off the right edge while the list
+            // widens back. The actual swap happens on a second pass — this same path — where the
+            // pair is already fully open and the full-width page takes its place invisibly.
+            splits.values
+                .firstOrNull { it.controller == navigationController.viewControllers.firstOrNull() }
+                ?.takeIf { it.controller.detailsOffset == 0.0 }
+                ?.let { rootSplit ->
+                    squeeze =
+                        PaneSqueeze(
+                            from = 0.0,
+                            to = rootSplit.controller.fullyOpenOffset,
+                            apply = { rootSplit.controller.detailsOffset = it },
+                            onEnd = {
+                                squeeze = null
+                                sync(destination)
+                            },
+                        )
+                    return
+                }
+        }
+        val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
 
         syncing = true
         try {
@@ -607,6 +655,31 @@ private class NativeShell(
             }
         } finally {
             syncing = false
+        }
+        (layout.firstOrNull() as? PaneGroup.Split)?.let { group ->
+            val rootSplit = splits.getValue(pages[group.listIndex])
+            when {
+                onScreen && !needsRelayout && !wasRootSplit && !UIAccessibilityIsReduceMotionEnabled() -> {
+                    // Frame one of the pair must look exactly like the page it replaces: laid out
+                    // fully open — list spanning the window, details just off the right edge —
+                    // then the incoming pane pushes the list into its column.
+                    navigationController.view.layoutIfNeeded()
+                    rootSplit.controller.detailsOffset = rootSplit.controller.fullyOpenOffset
+                    val from = rootSplit.controller.detailsOffset
+                    squeeze =
+                        PaneSqueeze(
+                            from = from,
+                            to = 0.0,
+                            apply = { rootSplit.controller.detailsOffset = it },
+                            onEnd = { squeeze = null },
+                        )
+                }
+
+                rootSplit.controller.detailsOffset != 0.0 -> {
+                    // A pair that stayed the root through an interrupted collapse returns to rest.
+                    rootSplit.controller.detailsOffset = 0.0
+                }
+            }
         }
         updateTabBar()
         refreshActivePage()
@@ -694,6 +767,9 @@ private class NativeShell(
         private val navigationDelegate = DetailsDelegate(destination, this)
         private val popGestureDelegate = DetailsPopGestureDelegate(details)
 
+        /** The picture of the outgoing detail still fading over its replacement. */
+        private var swapOverlay: UIView? = null
+
         init {
             details.delegate = navigationDelegate
             // The view first, for the reason the tabs' own controllers load theirs first.
@@ -707,6 +783,7 @@ private class NativeShell(
         /** How many details are on the right, the placeholder not counted. */
         val detailCount: Int get() = details.viewControllers.count { it != placeholder }
 
+        @OptIn(ExperimentalForeignApi::class)
         fun show(
             pages: List<UIViewController>,
             animated: Boolean,
@@ -717,16 +794,110 @@ private class NativeShell(
             if (current == target) return
             // A push or a pop when the two share their first page. Otherwise it is a swap — out of
             // the placeholder, or a row of the list replacing what was open — and a swap does not
-            // slide: there is nothing to go back to, and Mail does not slide either.
+            // slide: there is nothing to go back to, and Mail does not slide either. A swap on
+            // screen cross-fades a snapshot of the outgoing detail instead.
             val sameRoot = current.isNotEmpty() && current.first() == target.first()
+            val fading = animated && !sameRoot && controller.view.window != null
+            val old = if (fading) details.view.snapshotViewAfterScreenUpdates(false) else null
             // Pages released by the outer stack can still have their views in its hierarchy.
             target.filter { it !in current }.forEach { it.view.removeFromSuperview() }
             details.setViewControllers(target, animated = animated && sameRoot)
+            swapOverlay?.removeFromSuperview()
+            swapOverlay = null
+            if (old != null) {
+                old.userInteractionEnabled = false
+                old.setFrame(details.view.frame)
+                controller.view.addSubview(old)
+                swapOverlay = old
+                UIView.animateWithDuration(
+                    duration = 0.2,
+                    delay = 0.0,
+                    options = UIViewAnimationOptionCurveEaseOut,
+                    animations = { old.alpha = 0.0 },
+                    completion = {
+                        old.removeFromSuperview()
+                        if (swapOverlay === old) swapOverlay = null
+                    },
+                )
+            }
         }
 
         /** Gives the pages back, to be drawn full-window or released. */
         fun empty() {
             controller.releasePages()
+        }
+    }
+
+    /**
+     * The motion for a root-pane change the controllers cannot animate: rather than the swap —
+     * which stays instant, since UIKit cannot carry a view between containers mid-flight — a
+     * [CADisplayLink] ticks a critically damped spring that pushes the pair's details pane in
+     * from (or out to) the right edge while the list page re-lays out at each width. [finish]
+     * jumps to the end value and invalidates the link so no running link retains its target; the
+     * end callback is for natural completion only, so an interrupting sync never re-enters.
+     */
+    @OptIn(ExperimentalForeignApi::class)
+    private class PaneSqueeze(
+        private val from: Double,
+        private val to: Double,
+        private val apply: (Double) -> Unit,
+        private val onEnd: () -> Unit,
+    ) {
+        private val target = SqueezeTarget(this)
+        private var link: CADisplayLink? = null
+        private var startTimestamp = Double.NaN
+        private var done = false
+
+        private class SqueezeTarget(
+            private val owner: PaneSqueeze,
+        ) : NSObject() {
+            @ObjCAction
+            fun tick(link: CADisplayLink) {
+                owner.tick(link)
+            }
+        }
+
+        init {
+            val link = CADisplayLink.displayLinkWithTarget(target, NSSelectorFromString("tick:"))
+            link.preferredFrameRateRange =
+                cValue<CAFrameRateRange> {
+                    minimum = 80.0f
+                    maximum = 120.0f
+                    preferred = 120.0f
+                }
+            link.addToRunLoop(NSRunLoop.mainRunLoop, NSRunLoopCommonModes)
+            this.link = link
+        }
+
+        private fun tick(link: CADisplayLink) {
+            if (done) return
+            if (startTimestamp.isNaN()) startTimestamp = link.timestamp
+            val t = link.timestamp - startTimestamp
+            // Critically damped spring, response 0.42s: p(t) = 1 − (1 + ωt)·e^(−ωt).
+            val w = 2.0 * PI / 0.42
+            val p = 1.0 - (1.0 + w * t) * exp(-w * t)
+            if (p > 0.999 || t >= 0.6) {
+                complete()
+            } else {
+                apply(from + (to - from) * p)
+            }
+        }
+
+        private fun complete() {
+            if (done) return
+            done = true
+            apply(to)
+            link?.invalidate()
+            link = null
+            onEnd()
+        }
+
+        fun finish() {
+            if (done) return
+            done = true
+            apply(to)
+            link?.invalidate()
+            link = null
         }
     }
 

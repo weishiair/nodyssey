@@ -35,6 +35,23 @@ internal class PaneSplitController(
     private val divider = UIView()
     private var list: UIViewController? = null
 
+    /**
+     * How far the details pane sits right of its resting position, in points. Animating this
+     * squeezes the list between the window's left edge and the sliding detail, so the first
+     * thread opening reads as the right pane pushing the list into its column rather than a cut.
+     */
+    var detailsOffset = 0.0
+        set(value) {
+            if (field == value) return
+            field = value
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
+        }
+
+    /** The offset at which the details pane is just off the right edge and the list spans the window. */
+    val fullyOpenOffset: Double
+        get() = view.bounds.useContents { size.width - LIST_PANE_WIDTH }
+
     override fun viewDidLoad() {
         super.viewDidLoad()
         adopt(details)
@@ -84,9 +101,18 @@ internal class PaneSplitController(
         val hairline = 1.0 / scale
         view.bounds.useContents {
             val height = size.height
-            list?.view?.setFrame(CGRectMake(0.0, 0.0, LIST_PANE_WIDTH, height))
-            divider.setFrame(CGRectMake(LIST_PANE_WIDTH, 0.0, hairline, height))
-            details.view.setFrame(CGRectMake(LIST_PANE_WIDTH + hairline, 0.0, size.width - LIST_PANE_WIDTH - hairline, height))
+            // The details pane keeps its resting width at every offset — the thread is laid out
+            // once — while the list takes whatever room is left and re-lays out at each width.
+            list?.view?.setFrame(CGRectMake(0.0, 0.0, LIST_PANE_WIDTH + detailsOffset, height))
+            divider.setFrame(CGRectMake(LIST_PANE_WIDTH + detailsOffset, 0.0, hairline, height))
+            details.view.setFrame(
+                CGRectMake(
+                    LIST_PANE_WIDTH + hairline + detailsOffset,
+                    0.0,
+                    size.width - LIST_PANE_WIDTH - hairline,
+                    height,
+                ),
+            )
         }
     }
 
