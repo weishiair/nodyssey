@@ -1231,6 +1231,7 @@ private fun DetailTopBar(
             ),
             modifier = Modifier.fillMaxWidth().height(statusBarHeight + TopBarHeight),
             blurBackground = contentUnderBar,
+            scrollEdgeColor = pageColor,
             barInsets = nativeInsets,
         ) {
             Box(
