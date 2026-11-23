@@ -78,6 +78,12 @@ data class PlazaLayers(
     /** An outline for cards, where shadows cannot be drawn and tone cannot separate them (墨水屏). */
     val cardBorder: Color?,
     /**
+     * A card's lit top edge at night, where there is no shadow to lift it: a hairline that fades
+     * from the top down, so a card reads as a sheet catching light rather than a flat grey slab.
+     * Null by day, where [cardShadow] does that job, and wherever [cardBorder] is drawn instead.
+     */
+    val cardEdge: Brush? = null,
+    /**
      * 毛玻璃 — whether navigation bars and floating chrome controls wear a translucent liquid-glass
      * gradient and a directional specular rim highlight. Reading cards and floors remain solid.
      */
@@ -128,11 +134,14 @@ fun plazaLayers(
             PlazaLayers(
                 page = scheme.surface,
                 card = scheme.surfaceContainer,
-                raised = scheme.surfaceContainerHighest,
+                // One step above the card, not two: `surfaceContainerHighest` made the search pill and
+                // the strip's buttons the brightest blocks on the page.
+                raised = scheme.surfaceContainerHigh,
                 inset = scheme.surfaceContainerHigh,
                 divider = scheme.outlineVariant,
                 shadows = false,
                 cardBorder = null,
+                cardEdge = NightCardEdge,
                 frostedGlass = activeGlass,
                 glassTint = scheme.primary,
             )
@@ -148,6 +157,7 @@ fun plazaLayers(
                 divider = scheme.outlineVariant.copy(alpha = DIVIDER_ALPHA),
                 shadows = false,
                 cardBorder = null,
+                cardEdge = NightCardEdge,
                 frostedGlass = activeGlass,
                 glassTint = scheme.primary,
             )
@@ -181,6 +191,19 @@ fun plazaLayers(
 }
 
 private const val DIVIDER_ALPHA = 0.6f
+
+private val NightCardEdge =
+    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f), Color.White.copy(alpha = 0.03f)))
+
+/** [PlazaLayers.cardEdge]'s width: under a pixel on most phones, so it reads as light, not as a frame. */
+private val CardEdgeWidth = 0.5.dp
+
+/**
+ * A content card's stroke: the 墨水屏 outline where there is one, otherwise the night edge, and
+ * nothing by day.
+ */
+val PlazaLayers.cardEdgeStroke: BorderStroke?
+    get() = cardBorderStroke ?: cardEdge?.let { BorderStroke(CardEdgeWidth, it) }
 
 /**
  * Defaults to the light layers of a stock scheme, so a composable previewed or tested outside
@@ -436,8 +459,8 @@ enum class GlassSurfaceStyle {
 
 private fun PlazaLayers.glassSurfaceTint(darkTheme: Boolean, style: GlassSurfaceStyle): Color {
     val alpha = when (style) {
-        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.40f else 0.38f
-        GlassSurfaceStyle.Control -> if (darkTheme) 0.44f else 0.40f
+        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.70f else 0.64f
+        GlassSurfaceStyle.Control -> if (darkTheme) 0.74f else 0.68f
         GlassSurfaceStyle.Notice -> if (darkTheme) 0.90f else 0.92f
     }
     val color = when {
@@ -476,9 +499,9 @@ fun Modifier.glassChromeSurface(
             layers.glassSurfaceTint(darkTheme, style)
         }
     val rimStrength = when (style) {
-        GlassSurfaceStyle.Navigation -> 0.75f
-        GlassSurfaceStyle.Control -> 0.60f
-        GlassSurfaceStyle.Notice -> 0.18f
+        GlassSurfaceStyle.Navigation -> 0.32f
+        GlassSurfaceStyle.Control -> 0.26f
+        GlassSurfaceStyle.Notice -> 0.14f
     }
     val surface = if (elevated) {
         dropShadow(
@@ -501,17 +524,18 @@ fun Modifier.glassChromeSurface(
                 vibrancy()
                 blur(
                     when (style) {
-                        GlassSurfaceStyle.Navigation -> 8.dp
-                        GlassSurfaceStyle.Control -> 6.dp
-                        GlassSurfaceStyle.Notice -> 14.dp
+                        GlassSurfaceStyle.Navigation -> 24.dp
+                        GlassSurfaceStyle.Control -> 20.dp
+                        GlassSurfaceStyle.Notice -> 24.dp
                     }.toPx(),
                 )
-                if (isRuntimeShaderSupported() && style != GlassSurfaceStyle.Notice) {
-                    val navigation = style == GlassSurfaceStyle.Navigation
+                // Only the navigation capsule bends what is behind it, and only at its rim. Over a
+                // dense list a strong lens and colour fringing read as a plastic bubble, not glass.
+                if (isRuntimeShaderSupported() && style == GlassSurfaceStyle.Navigation) {
                     lens(
-                        refractionHeight = (if (navigation) 12.dp else 6.dp).toPx(),
-                        refractionAmount = (if (navigation) 20.dp else 12.dp).toPx(),
-                        chromaticAberration = navigation,
+                        refractionHeight = 8.dp.toPx(),
+                        refractionAmount = 10.dp.toPx(),
+                        chromaticAberration = false,
                     )
                 }
             },

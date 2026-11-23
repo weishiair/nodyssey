@@ -47,7 +47,7 @@ private const val MARK_TINT_CHROMA = 16f
 
 private const val MARK_TINT_TONE_LIGHT = 88f
 
-private const val MARK_TINT_TONE_DARK = 26f
+private const val MARK_TINT_TONE_DARK = 18f
 
 /** Whether [isRead] rows are the half this style paints. */
 private fun ReadMarkPaint.tints(isRead: Boolean): Boolean =
