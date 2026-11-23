@@ -436,8 +436,8 @@ enum class GlassSurfaceStyle {
 
 private fun PlazaLayers.glassSurfaceTint(darkTheme: Boolean, style: GlassSurfaceStyle): Color {
     val alpha = when (style) {
-        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.70f else 0.64f
-        GlassSurfaceStyle.Control -> if (darkTheme) 0.74f else 0.68f
+        GlassSurfaceStyle.Navigation -> 0.45f
+        GlassSurfaceStyle.Control -> 0.50f
         GlassSurfaceStyle.Notice -> if (darkTheme) 0.90f else 0.92f
     }
     val color = when {
