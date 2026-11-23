@@ -168,7 +168,8 @@ actual fun AdaptiveGlassTopBar(
         modifier = modifier,
         properties = NativeGlassInterop,
         update = { host ->
-            // This standalone bar cannot track a Compose list's scroll edge, so the blur is fixed.
+            // This standalone bar cannot see a Compose list's scroll edge; the caller says when
+            // content lies under it, and the blur follows the way a UIKit bar's own does.
             host.blurred = blurBackground
             // Before iOS 26 a bar over scrolling content ends in the system's hairline.
             host.hairline = blurBackground && !nativeGlassAvailable
