@@ -2,7 +2,6 @@ package io.github.nodyssey.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,15 +31,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavKey
@@ -157,6 +164,7 @@ private val NavigationIconSize = 20.dp
 
 private val GlassBottomBarShape = FloatingCapsuleShape
 private val GlassPillIndicatorShape = FloatingCapsuleShape
+private val TabGap = 4.dp
 
 /** Safe-area positioning shared by the Compose and UIKit tab contents. */
 @Composable
@@ -207,6 +215,20 @@ internal fun BottomNavigationTabs(
     val backdrop = LocalLiquidGlassBackdrop.current
     val scheme = MaterialTheme.colorScheme
 
+    val selectedIndex = TopLevelDestination.entries.indexOf(current)
+    var lastSelectedIndex by remember { mutableIntStateOf(0) }
+    SideEffect { if (selectedIndex >= 0) lastSelectedIndex = selectedIndex }
+    val position by animateFloatAsState(
+        targetValue = (if (selectedIndex >= 0) selectedIndex else lastSelectedIndex).toFloat(),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "glassNavIndicator",
+    )
+    val indicatorAlpha by animateFloatAsState(
+        targetValue = if (current == null) 0f else 1f,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+        label = "glassNavIndicatorAlpha",
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -220,8 +242,22 @@ internal fun BottomNavigationTabs(
                 style = GlassSurfaceStyle.Navigation,
             )
             .padding(horizontal = 5.dp, vertical = 4.dp)
+            .drawBehind {
+                // One shared indicator for the whole bar: the selection travels between tabs
+                // instead of a pill fading in and out in place.
+                val n = TopLevelDestination.entries.size
+                val gap = TabGap.toPx()
+                val itemWidth = (size.width - gap * (n - 1)) / n
+                val left = position * (itemWidth + gap)
+                val leftPx = if (layoutDirection == LayoutDirection.Rtl) size.width - left - itemWidth else left
+                val outline = GlassPillIndicatorShape.createOutline(Size(itemWidth, size.height), layoutDirection, this)
+                val indicatorColor = scheme.secondaryContainer.copy(alpha = (if (darkTheme) 0.56f else 0.68f) * indicatorAlpha)
+                translate(left = leftPx) {
+                    drawOutline(outline = outline, color = indicatorColor)
+                }
+            }
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(TabGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TopLevelDestination.entries.forEach { destination ->
@@ -230,16 +266,6 @@ internal fun BottomNavigationTabs(
                 targetValue = if (selected) 1.02f else 1f,
                 animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
                 label = "glassNavTabScale",
-            )
-            val pillColor by animateColorAsState(
-                targetValue =
-                if (selected) {
-                    scheme.secondaryContainer.copy(alpha = if (darkTheme) 0.56f else 0.68f)
-                } else {
-                    Color.Transparent
-                },
-                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
-                label = "glassNavTabPill",
             )
             val contentColor by animateColorAsState(
                 targetValue = if (selected) scheme.primary else scheme.onSurface,
@@ -257,7 +283,6 @@ internal fun BottomNavigationTabs(
                         scaleY = scale
                     }
                     .clip(GlassPillIndicatorShape)
-                    .background(pillColor, GlassPillIndicatorShape)
                     .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(destination) }),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
