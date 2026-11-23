@@ -220,6 +220,12 @@ class PostDetailScreenRenderTest {
     }
 
     @Test
+    fun `neutral dark opening post under glass chrome`() {
+        composeRule.setContent { Screen(darkTheme = true, state = SHORT_STATE, pureWhite = true, frostedGlass = true) }
+        composeRule.onRoot().captureRender("post-detail-neutral-dark-glass")
+    }
+
+    @Test
     fun `neutral dark loading card`() {
         composeRule.setContent { Screen(darkTheme = true, state = LOADING_STATE, pureWhite = true) }
         composeRule.onRoot().captureRender("post-detail-neutral-dark-loading")

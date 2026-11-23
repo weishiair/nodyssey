@@ -4,6 +4,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import com.kyant.shapes.Capsule
+import com.kyant.shapes.RoundedCornerStyle
 
 /**
  * The Material 3 shape scale, at the radii the design doc specifies.
@@ -26,6 +28,17 @@ val PlazaShapes =
  * of these at 14dp, and Material's scale steps from `medium` (12) straight to `large` (16).
  */
 val ControlShape: Shape = RoundedCornerShape(14.dp)
+
+/**
+ * Floating glass chrome that is wider than it is tall — the navigation capsule, 翻页栏, an extended
+ * FAB, a header's action group.
+ *
+ * A continuous-curvature (G2) capsule rather than a circular one: the curve eases out of the long
+ * edges instead of jumping onto a half circle, which is what keeps a translucent pill from reading
+ * as a moulded plastic part. Only floating chrome takes it; cards and controls keep their circular
+ * corners. A square control keeps `CircleShape` — a continuous capsule on a square is a squircle.
+ */
+val FloatingCapsuleShape: Shape = Capsule(RoundedCornerStyle.Continuous)
 
 /**
  * The status-screen shape family.

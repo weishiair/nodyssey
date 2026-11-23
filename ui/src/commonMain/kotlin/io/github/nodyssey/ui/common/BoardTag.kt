@@ -11,6 +11,7 @@ import io.github.nodyssey.ui.resources.board_family_flagged
 import io.github.nodyssey.ui.resources.board_family_technical
 import io.github.nodyssey.ui.resources.board_family_trade
 import io.github.plaza.designsys.component.TonalTag
+import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaExtraColors
 import org.jetbrains.compose.resources.StringResource
 
@@ -22,10 +23,10 @@ import org.jetbrains.compose.resources.StringResource
  * glance whether a row is a trade post or a technical one. Grouping by *kind* keeps that signal and
  * costs nothing in scanability.
  *
- * Each family comes in two strengths, the tonal and the filled one Material pairs under every brand
- * role. The tags, and every pill on the home strip, wear the tonal [container]; the strip's selected
- * pill wears the filled [accent], so picking a board deepens its colour rather than trading it for
- * the inverse fill the app's other chips select with.
+ * Each family comes in two strengths: a translucent wash of its brand role, and the role itself.
+ * The tags, and every pill on the home strip, wear the wash [container] with the role as ink; the
+ * strip's selected pill wears the filled [accent], so picking a board deepens its colour rather than
+ * trading it for the inverse fill the app's other chips select with.
  */
 @Immutable
 internal data class BoardFamilyColors(
@@ -105,20 +106,22 @@ internal fun boardFamilyOf(slug: String?, title: String?): BoardFamily =
 internal fun boardFamilyColors(family: BoardFamily): BoardFamilyColors {
     val scheme = MaterialTheme.colorScheme
     val extra = LocalPlazaExtraColors.current
-    return when (family) {
-        BoardFamily.Technical ->
-            BoardFamilyColors(scheme.primaryContainer, scheme.onPrimaryContainer, scheme.primary, scheme.onPrimary)
-
-        BoardFamily.Trade ->
-            BoardFamilyColors(scheme.tertiaryContainer, scheme.onTertiaryContainer, scheme.tertiary, scheme.onTertiary)
-
-        BoardFamily.Everyday ->
-            BoardFamilyColors(scheme.secondaryContainer, scheme.onSecondaryContainer, scheme.secondary, scheme.onSecondary)
-
-        BoardFamily.Flagged ->
-            BoardFamilyColors(extra.warningContainer, extra.onWarningContainer, extra.warning, extra.onWarning)
-    }
+    val (accent, onAccent) =
+        when (family) {
+            BoardFamily.Technical -> scheme.primary to scheme.onPrimary
+            BoardFamily.Trade -> scheme.tertiary to scheme.onTertiary
+            BoardFamily.Everyday -> scheme.secondary to scheme.onSecondary
+            BoardFamily.Flagged -> extra.warning to extra.onWarning
+        }
+    // A wash of the accent with the accent as ink, rather than the opaque `*Container` role: a
+    // dozen solid containers on one screen read as stickers, a tinted wash reads as a label.
+    val wash = accent.copy(alpha = if (LocalPlazaDarkTheme.current) DARK_WASH_ALPHA else LIGHT_WASH_ALPHA)
+    return BoardFamilyColors(container = wash, content = accent, accent = accent, onAccent = onAccent)
 }
+
+private const val DARK_WASH_ALPHA = 0.16f
+
+private const val LIGHT_WASH_ALPHA = 0.11f
 
 /**
  * A tonal board tag.
