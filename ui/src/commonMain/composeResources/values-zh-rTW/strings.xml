@@ -398,7 +398,11 @@
     <string name="settings_search_avatar_size">頭像大小</string>
     <string name="settings_search_avatar_preview">用頭像找人，往往比認名字快</string>
     <string name="settings_text_preview">這是閱讀字級的預覽，文章內文和清單標題會按這個大小顯示。</string>
-    <string name="settings_content">內容</string>
+    <string name="settings_section_lists">列表</string>
+    <string name="settings_section_thread">貼文</string>
+    <string name="settings_section_interaction">操作</string>
+    <string name="settings_section_compose">發文</string>
+    <string name="settings_section_storage">儲存空間</string>
     <string name="settings_app_links">站內連結</string>
     <string name="settings_app_links_hint_on">已開啟：在別的 App 裡點 NodeSeek 的文章、使用者、通知連結會直接進來</string>
     <string name="settings_app_links_summary_on">在 App 內開啟</string>

@@ -63,7 +63,6 @@ import io.github.nodyssey.ui.resources.settings_clear_cache
 import io.github.nodyssey.ui.resources.settings_clear_cache_size
 import io.github.nodyssey.ui.resources.settings_clipboard_post
 import io.github.nodyssey.ui.resources.settings_clipboard_post_hint
-import io.github.nodyssey.ui.resources.settings_content
 import io.github.nodyssey.ui.resources.settings_doh_entry
 import io.github.nodyssey.ui.resources.settings_doh_summary_chain
 import io.github.nodyssey.ui.resources.settings_eink
@@ -111,6 +110,11 @@ import io.github.nodyssey.ui.resources.settings_search_avatar_size
 import io.github.nodyssey.ui.resources.settings_search_history_limit
 import io.github.nodyssey.ui.resources.settings_search_history_limit_count
 import io.github.nodyssey.ui.resources.settings_search_history_limit_hint
+import io.github.nodyssey.ui.resources.settings_section_compose
+import io.github.nodyssey.ui.resources.settings_section_interaction
+import io.github.nodyssey.ui.resources.settings_section_lists
+import io.github.nodyssey.ui.resources.settings_section_storage
+import io.github.nodyssey.ui.resources.settings_section_thread
 import io.github.nodyssey.ui.resources.settings_show_author_account_info
 import io.github.nodyssey.ui.resources.settings_show_author_account_info_hint
 import io.github.nodyssey.ui.resources.settings_show_home_pinned_posts
@@ -290,6 +294,25 @@ fun SettingsScreen(
         // takes over so the stored settings are still easy to find when e-ink is turned off.
         add(themeSettingsLink(settings, onClick = onOpenTheme))
 
+        // Keep the override below the controls it disables so readers see their stored settings first.
+        add(
+            SettingsItem.Toggle(
+                key = "eink",
+                title = stringResource(Res.string.settings_eink),
+                description = stringResource(Res.string.settings_eink_hint),
+                icon = PlazaIcons.Contrast,
+                checked = settings.einkMode,
+                onCheckedChange = onEinkModeChange,
+            ),
+        )
+        supportedRefreshRates?.let { supported ->
+            add(displayRefreshRateChoice(settings.displayRefreshRate, supported, !settings.einkMode, onDisplayRefreshRateChange))
+        }
+        // Language belongs with the rest of the app's appearance and closes the group.
+        add(appLanguageChoice(settings.appLanguage, onAppLanguageChange))
+    }
+    // What a list of threads shows and how a read one is told apart.
+    val lists = buildList<SettingsItem> {
         // The four read-mark styles fit in a menu. A colour row is useful only for styles that paint a block.
         add(
             settingsChoice(
@@ -312,74 +335,39 @@ fun SettingsScreen(
                 ),
             )
         }
-        // Keep the override below the controls it disables so readers see their stored settings first.
         add(
             SettingsItem.Toggle(
-                key = "eink",
-                title = stringResource(Res.string.settings_eink),
-                description = stringResource(Res.string.settings_eink_hint),
-                icon = PlazaIcons.Contrast,
-                checked = settings.einkMode,
-                onCheckedChange = onEinkModeChange,
-            ),
-        )
-        supportedRefreshRates?.let { supported ->
-            add(displayRefreshRateChoice(settings.displayRefreshRate, supported, !settings.einkMode, onDisplayRefreshRateChange))
-        }
-        // One switch controls the position of the title on every screen that uses the app bar.
-        if (LocalOneHandModeAvailable.current) {
-            add(
-                SettingsItem.Toggle(
-                    key = "one-hand",
-                    title = stringResource(Res.string.settings_one_hand),
-                    description = stringResource(Res.string.settings_one_hand_hint),
-                    icon = PlazaIcons.PanTool,
-                    checked = settings.oneHandMode,
-                    onCheckedChange = onOneHandModeChange,
-                ),
-            )
-        }
-        add(
-            SettingsItem.Slider(
-                key = "font-size",
-                title = stringResource(Res.string.settings_body_size),
-                value = bodyFontSize,
-                valueLabel = bodyFontSize.roundToInt().toString(),
-                range = BODY_FONT_SIZE_RANGE,
-                // The 14..24sp slider has nine stops between its ends.
-                steps = BODY_FONT_SIZE_STEPS,
-                onValueChange = { bodyFontSize = it },
-                onValueChangeFinished = { onFontScaleChange(bodySizeToFontScale(bodyFontSize)) },
-                sample = SettingsSample(stringResource(Res.string.settings_text_preview), bodyFontSize),
-                testTag = BODY_FONT_SIZE_SLIDER_TAG,
+                key = "home-page-bar",
+                title = stringResource(Res.string.settings_home_page_bar),
+                description = stringResource(Res.string.settings_home_page_bar_hint),
+                icon = PlazaIcons.LastPage,
+                checked = settings.homePageBar,
+                onCheckedChange = onHomePageBarChange,
             ),
         )
         add(
             SettingsItem.Toggle(
-                key = "sticker-uniform",
-                title = stringResource(Res.string.settings_sticker_uniform),
-                description = stringResource(Res.string.settings_sticker_uniform_hint),
-                icon = PlazaIcons.Mood,
-                checked = settings.stickerUniformSize,
-                onCheckedChange = onStickerUniformSizeChange,
+                key = "home-pinned-posts",
+                title = stringResource(Res.string.settings_show_home_pinned_posts),
+                description = stringResource(Res.string.settings_show_home_pinned_posts_hint),
+                icon = PlazaIcons.PushPin,
+                checked = settings.showHomePinnedPosts,
+                onCheckedChange = onShowHomePinnedPostsChange,
             ),
         )
-        if (settings.stickerUniformSize) {
-            add(
-                SettingsItem.Slider(
-                    key = "sticker-size",
-                    title = stringResource(Res.string.settings_sticker_size),
-                    value = stickerSize,
-                    valueLabel = stickerSize.roundToInt().toString(),
-                    range = STICKER_SIZE_RANGE,
-                    // 20..90sp in 5sp stops gives fourteen intervals and thirteen interior stops.
-                    steps = STICKER_SIZE_STEPS,
-                    onValueChange = { stickerSize = it },
-                    onValueChangeFinished = { onStickerSizeChange(stickerSize.roundToInt()) },
-                    testTag = STICKER_SIZE_SLIDER_TAG,
-                ).withPreview { StickerSizePreview(stickerSize.roundToInt()) },
-            )
-        }
+        add(
+            SettingsItem.Link(
+                key = "block-keywords",
+                title = stringResource(Res.string.keywords_block_title),
+                value = if (state.blockKeywordCount == 0) {
+                    stringResource(Res.string.keywords_summary_none)
+                } else {
+                    stringResource(Res.string.keywords_summary_count, state.blockKeywordCount)
+                },
+                onClick = onOpenBlockKeywords,
+                icon = PlazaIcons.VisibilityOff,
+            ),
+        )
         // A face helps a reader scan a result list and uses space the title could take.
         add(
             SettingsItem.Toggle(
@@ -407,43 +395,22 @@ fun SettingsScreen(
                 ).withPreview { SearchAvatarPreview(searchAvatarSize.roundToInt()) },
             )
         }
-        // Language belongs with the rest of the app's appearance and closes the group.
-        add(appLanguageChoice(settings.appLanguage, onAppLanguageChange))
     }
-    val content = buildList<SettingsItem> {
-        appLinkHandlingEnabled?.let { enabled ->
-            add(
-                SettingsItem.Link(
-                    key = "app-links",
-                    title = stringResource(Res.string.settings_app_links),
-                    description = stringResource(
-                        if (enabled) Res.string.settings_app_links_summary_on else Res.string.settings_app_links_summary_off,
-                    ),
-                    onClick = onOpenAppLinkSettings,
-                    icon = PlazaIcons.Link,
-                ),
-            )
-        }
-        // This becomes the first card where the platform has no App Links setting.
-        add(reportFormatChoice(settings.reportFormat, onReportFormatChange))
+    // How a thread itself reads.
+    val thread = buildList<SettingsItem> {
         add(
-            SettingsItem.Toggle(
-                key = "home-page-bar",
-                title = stringResource(Res.string.settings_home_page_bar),
-                description = stringResource(Res.string.settings_home_page_bar_hint),
-                icon = PlazaIcons.LastPage,
-                checked = settings.homePageBar,
-                onCheckedChange = onHomePageBarChange,
-            ),
-        )
-        add(
-            SettingsItem.Toggle(
-                key = "home-pinned-posts",
-                title = stringResource(Res.string.settings_show_home_pinned_posts),
-                description = stringResource(Res.string.settings_show_home_pinned_posts_hint),
-                icon = PlazaIcons.PushPin,
-                checked = settings.showHomePinnedPosts,
-                onCheckedChange = onShowHomePinnedPostsChange,
+            SettingsItem.Slider(
+                key = "font-size",
+                title = stringResource(Res.string.settings_body_size),
+                value = bodyFontSize,
+                valueLabel = bodyFontSize.roundToInt().toString(),
+                range = BODY_FONT_SIZE_RANGE,
+                // The 14..24sp slider has nine stops between its ends.
+                steps = BODY_FONT_SIZE_STEPS,
+                onValueChange = { bodyFontSize = it },
+                onValueChangeFinished = { onFontScaleChange(bodySizeToFontScale(bodyFontSize)) },
+                sample = SettingsSample(stringResource(Res.string.settings_text_preview), bodyFontSize),
+                testTag = BODY_FONT_SIZE_SLIDER_TAG,
             ),
         )
         add(postReplyStyleChoice(settings.postReplyStyle, onPostReplyStyleChange))
@@ -466,17 +433,74 @@ fun SettingsScreen(
                 ),
             )
         }
+        add(reportFormatChoice(settings.reportFormat, onReportFormatChange))
         add(
             SettingsItem.Toggle(
-                key = "predictive-back",
-                title = stringResource(Res.string.settings_predictive_back),
-                description = stringResource(Res.string.settings_predictive_back_hint),
-                icon = Icons.AutoMirrored.Filled.ArrowBack,
-                checked = settings.predictiveBack,
-                onCheckedChange = onPredictiveBackChange,
+                key = "sticker-uniform",
+                title = stringResource(Res.string.settings_sticker_uniform),
+                description = stringResource(Res.string.settings_sticker_uniform_hint),
+                icon = PlazaIcons.Mood,
+                checked = settings.stickerUniformSize,
+                onCheckedChange = onStickerUniformSizeChange,
             ),
         )
-        add(searchHistoryLimitChoice(settings.searchHistoryLimit, onSearchHistoryLimitChange))
+        if (settings.stickerUniformSize) {
+            add(
+                SettingsItem.Slider(
+                    key = "sticker-size",
+                    title = stringResource(Res.string.settings_sticker_size),
+                    value = stickerSize,
+                    valueLabel = stickerSize.roundToInt().toString(),
+                    range = STICKER_SIZE_RANGE,
+                    // 20..90sp in 5sp stops gives fourteen intervals and thirteen interior stops.
+                    steps = STICKER_SIZE_STEPS,
+                    onValueChange = { stickerSize = it },
+                    onValueChangeFinished = { onStickerSizeChange(stickerSize.roundToInt()) },
+                    testTag = STICKER_SIZE_SLIDER_TAG,
+                ).withPreview { StickerSizePreview(stickerSize.roundToInt()) },
+            )
+        }
+    }
+    val interaction = buildList<SettingsItem> {
+        // One switch controls the position of the title on every screen that uses the app bar.
+        if (LocalOneHandModeAvailable.current) {
+            add(
+                SettingsItem.Toggle(
+                    key = "one-hand",
+                    title = stringResource(Res.string.settings_one_hand),
+                    description = stringResource(Res.string.settings_one_hand_hint),
+                    icon = PlazaIcons.PanTool,
+                    checked = settings.oneHandMode,
+                    onCheckedChange = onOneHandModeChange,
+                ),
+            )
+        }
+        // Only where Compose runs the back stack; UIKit owns the iOS gesture and its animation.
+        if (platformHasPredictiveBack) {
+            add(
+                SettingsItem.Toggle(
+                    key = "predictive-back",
+                    title = stringResource(Res.string.settings_predictive_back),
+                    description = stringResource(Res.string.settings_predictive_back_hint),
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    checked = settings.predictiveBack,
+                    onCheckedChange = onPredictiveBackChange,
+                ),
+            )
+        }
+        appLinkHandlingEnabled?.let { enabled ->
+            add(
+                SettingsItem.Link(
+                    key = "app-links",
+                    title = stringResource(Res.string.settings_app_links),
+                    description = stringResource(
+                        if (enabled) Res.string.settings_app_links_summary_on else Res.string.settings_app_links_summary_off,
+                    ),
+                    onClick = onOpenAppLinkSettings,
+                    icon = PlazaIcons.Link,
+                ),
+            )
+        }
         onClipboardPostPromptChange?.let { onChange ->
             add(
                 SettingsItem.Toggle(
@@ -489,29 +513,9 @@ fun SettingsScreen(
                 ),
             )
         }
-        add(
-            SettingsItem.Link(
-                key = "block-keywords",
-                title = stringResource(Res.string.keywords_block_title),
-                value = if (state.blockKeywordCount == 0) {
-                    stringResource(Res.string.keywords_summary_none)
-                } else {
-                    stringResource(Res.string.keywords_summary_count, state.blockKeywordCount)
-                },
-                onClick = onOpenBlockKeywords,
-                icon = PlazaIcons.VisibilityOff,
-            ),
-        )
-        add(
-            SettingsItem.Toggle(
-                key = "wifi-images",
-                title = stringResource(Res.string.settings_wifi_images),
-                description = stringResource(Res.string.settings_wifi_images_hint),
-                icon = PlazaIcons.Wifi,
-                checked = settings.imagesOnWifiOnly,
-                onCheckedChange = onImagesOnWifiOnlyChange,
-            ),
-        )
+        add(searchHistoryLimitChoice(settings.searchHistoryLimit, onSearchHistoryLimitChange))
+    }
+    val compose = buildList<SettingsItem> {
         add(
             SettingsItem.Link(
                 key = "image-host",
@@ -524,6 +528,18 @@ fun SettingsScreen(
             ),
         )
         stickersLink(onOpenStickers)?.let { add(it) }
+    }
+    val storage = buildList<SettingsItem> {
+        add(
+            SettingsItem.Toggle(
+                key = "wifi-images",
+                title = stringResource(Res.string.settings_wifi_images),
+                description = stringResource(Res.string.settings_wifi_images_hint),
+                icon = PlazaIcons.Wifi,
+                checked = settings.imagesOnWifiOnly,
+                onCheckedChange = onImagesOnWifiOnlyChange,
+            ),
+        )
         add(
             SettingsItem.Action(
                 key = "clear-cache",
@@ -640,7 +656,11 @@ fun SettingsScreen(
         title = stringResource(Res.string.settings_title),
         sections = listOf(
             SettingsSection(key = "appearance", header = stringResource(Res.string.settings_appearance), items = appearance),
-            SettingsSection(key = "content", header = stringResource(Res.string.settings_content), items = content),
+            SettingsSection(key = "lists", header = stringResource(Res.string.settings_section_lists), items = lists),
+            SettingsSection(key = "thread", header = stringResource(Res.string.settings_section_thread), items = thread),
+            SettingsSection(key = "interaction", header = stringResource(Res.string.settings_section_interaction), items = interaction),
+            SettingsSection(key = "compose", header = stringResource(Res.string.settings_section_compose), items = compose),
+            SettingsSection(key = "storage", header = stringResource(Res.string.settings_section_storage), items = storage),
             autoAttendanceSection(attendanceConfig, attendanceState, onAutoAttendanceEnabledChange, onAutoAttendanceModeChange),
             notifications,
             network,
