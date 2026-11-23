@@ -404,7 +404,11 @@
     <string name="settings_search_avatar_size">Avatar size</string>
     <string name="settings_search_avatar_preview">A face is often easier to spot than a name</string>
     <string name="settings_text_preview">This is a preview of the reading size: post text and list titles are shown at this size.</string>
-    <string name="settings_content">Content</string>
+    <string name="settings_section_lists">Lists</string>
+    <string name="settings_section_thread">Threads</string>
+    <string name="settings_section_interaction">Interaction</string>
+    <string name="settings_section_compose">Posting</string>
+    <string name="settings_section_storage">Storage</string>
     <string name="settings_app_links">Site links</string>
     <string name="settings_app_links_hint_on">On: NodeSeek post, user and notification links tapped in other apps open here</string>
     <string name="settings_app_links_summary_on">Opens in the app</string>

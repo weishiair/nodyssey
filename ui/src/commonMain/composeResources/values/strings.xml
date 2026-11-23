@@ -501,7 +501,11 @@
     <string name="settings_search_avatar_preview">用头像找人，往往比认名字快</string>
     <!-- 阅读字号的预览句：说明自己在预览什么，不借一段假帖子 -->
     <string name="settings_text_preview">这是阅读字号的预览，帖子正文和列表标题会按这个大小显示。</string>
-    <string name="settings_content">内容</string>
+    <string name="settings_section_lists">列表</string>
+    <string name="settings_section_thread">帖子</string>
+    <string name="settings_section_interaction">操作</string>
+    <string name="settings_section_compose">发帖</string>
+    <string name="settings_section_storage">存储</string>
     <string name="settings_app_links">站内链接</string>
     <string name="settings_app_links_hint_on">已开启：在别的 App 里点 NodeSeek 的帖子、用户、通知链接会直接进来</string>
     <!-- 设置主页「站内链接」的第二行：系统把 NodeSeek 链接交给本 App / 仍交给浏览器 -->
