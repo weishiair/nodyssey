@@ -192,7 +192,8 @@
     <string name="post_reply_preview_title">預覽 · 回覆</string>
     <string name="post_reply_preview_title_floor">預覽 · 回覆 #%1$d</string>
     <string name="post_reply_draft_saved">草稿已儲存 %1$s</string>
-    <string name="post_reply_quote_remove">移除回覆對象</string>
+    <string name="post_reply_add_target">新增回覆對象</string>
+    <string name="post_reply_quote_remove">移除回覆對象 %1$s</string>
     <string name="post_reply_publish_failed">發布失敗：%1$s，草稿已保留</string>
     <string name="post_reply_publish_unavailable">評論發布介面尚未接入</string>
     <string name="post_reaction_like">按讚</string>

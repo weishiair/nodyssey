@@ -373,7 +373,7 @@ fun PostDetailRoute(
         covered = replyCovered,
         onDismiss = replyViewModel::close,
         bodyState = replyViewModel.bodyState,
-        onClearReplyTo = replyViewModel::clearReplyTo,
+        onRemoveReplyTarget = replyViewModel::removeReplyTarget,
         onPreviewChange = replyViewModel::setPreviewing,
         onPickImages = replyViewModel::addImages,
         onRemoveAttachment = replyViewModel::removeAttachment,
@@ -1516,11 +1516,13 @@ private fun ThreadList(
                         )
                     }
                 }
-            // The opening post keeps the site's own set: no 回复 or 引用 of it, 编辑 on your own.
+            val onReply = body?.takeUnless { it.isMine }?.toFloorReference()?.let { target ->
+                { onReplyToFloor(target) }
+            }
             val onMore = body?.let {
                 {
                     onOpenFloorActions(
-                        FloorActions(it, onReply = null, onQuote = null, onEdit = onEdit, postTitle = state.title),
+                        FloorActions(it, onReply = onReply, onQuote = null, onEdit = onEdit, postTitle = state.title),
                     )
                 }
             }
@@ -1542,6 +1544,7 @@ private fun ThreadList(
                     pendingReaction = body?.let { state.pendingReactionFor(it) },
                     onReact = { action -> body?.let { onReact(it, action) } },
                     onAuthorClick = onAuthorClick,
+                    onReply = onReply,
                     onMore = onMore,
                     collected = state.collected,
                     collectionCount = state.collectionCount,
@@ -1571,6 +1574,7 @@ private fun ThreadList(
                     pendingReaction = body?.let { state.pendingReactionFor(it) },
                     onReact = { action -> body?.let { onReact(it, action) } },
                     onAuthorClick = onAuthorClick,
+                    onReply = onReply,
                     onMore = onMore,
                     collected = state.collected,
                     collectionCount = state.collectionCount,
@@ -1947,6 +1951,7 @@ private fun ThreadOpeningPost(
     pendingReaction: ReactionAction?,
     onReact: (ReactionAction) -> Unit,
     onAuthorClick: (Long) -> Unit,
+    onReply: (() -> Unit)?,
     /** Opens the post's 1c panel; null until there is a post to act on. */
     onMore: (() -> Unit)?,
     /* Collection is whole-thread, so it belongs on the opening post and nowhere else. */
@@ -2083,6 +2088,7 @@ private fun ThreadOpeningPost(
                 collectionCount = collectionCount,
                 collectPending = collectPending,
                 onCollect = onCollect,
+                onReply = onReply,
                 onMore = onMore,
                 modifier = Modifier.floorLongPress(longPress),
             )
@@ -2114,6 +2120,7 @@ private fun OriginalOpeningPost(
     pendingReaction: ReactionAction?,
     onReact: (ReactionAction) -> Unit,
     onAuthorClick: (Long) -> Unit,
+    onReply: (() -> Unit)?,
     /** Opens the post's 1c panel; null until there is a post to act on. */
     onMore: (() -> Unit)?,
     collected: Boolean?,
@@ -2235,6 +2242,7 @@ private fun OriginalOpeningPost(
             collectionCount = collectionCount,
             collectPending = collectPending,
             onCollect = onCollect,
+            onReply = onReply,
             onMore = onMore,
             modifier = Modifier.floorLongPress(longPress),
         )
@@ -2785,6 +2793,7 @@ private fun OpeningPostActions(
     collectionCount: Int?,
     collectPending: Boolean,
     onCollect: () -> Unit,
+    onReply: (() -> Unit)?,
     onMore: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -2807,6 +2816,7 @@ private fun OpeningPostActions(
                 onClick = onCollect.takeUnless { collectPending },
             )
         }
+        if (onReply != null) FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply)
         if (onMore != null) FloorMoreButton(onMore)
     }
 }
@@ -2825,6 +2835,7 @@ private fun OriginalOpeningActions(
     collectionCount: Int?,
     collectPending: Boolean,
     onCollect: () -> Unit,
+    onReply: (() -> Unit)?,
     onMore: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -2867,6 +2878,7 @@ private fun OriginalOpeningActions(
                         compact = true,
                     )
                 }
+                if (onReply != null) FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply, compact = true)
                 if (onMore != null) FloorMoreButton(onMore, compact = true)
             }
         }
@@ -3140,9 +3152,7 @@ private fun CommentPinDialog(pinned: Boolean, onDismiss: () -> Unit, onConfirm: 
 /**
  * What a floor's 1c panel can do besides the three marks, as that floor's own row already wired it.
  *
- * Built where the row is, because that is where the answers are: whether this account wrote the
- * floor (编辑 instead of 回复), which site page carries its Markdown, and whether it is the opening
- * post — which the site offers neither 回复 nor 引用 of.
+ * Built with the row, which knows the floor's author, page and available actions.
  */
 private class FloorActions(
     val content: PostContent,

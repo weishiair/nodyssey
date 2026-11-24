@@ -234,7 +234,8 @@
     <string name="post_reply_preview_title">预览 · 回复</string>
     <string name="post_reply_preview_title_floor">预览 · 回复 #%1$d</string>
     <string name="post_reply_draft_saved">草稿已保存 %1$s</string>
-    <string name="post_reply_quote_remove">移除回复对象</string>
+    <string name="post_reply_add_target">添加回复对象</string>
+    <string name="post_reply_quote_remove">移除回复对象 %1$s</string>
     <string name="post_reply_publish_failed">发布失败：%1$s，草稿已保留</string>
     <string name="post_reply_publish_unavailable">评论发布接口尚未接入</string>
     <string name="post_quote_prefix">#%1$d</string>

@@ -15,6 +15,7 @@ import io.github.nodyssey.data.ProfileRepository
 import io.github.nodyssey.data.VoteRepository
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.CommentDraft
+import io.github.nodyssey.data.composer.CommentDraftReplyTarget
 import io.github.nodyssey.data.composer.CommentSubmission
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.ImageUploadQueue
@@ -50,18 +51,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
- * A floor being answered, as either of the site's two actions takes it.
+ * A floor that can be addressed or quoted.
  *
- * The two are not two flavours of the same thing, and the editor treats them differently on purpose:
- *
- * - 回复 names **one** floor. It becomes [ReplyComposerUiState.replyTo], shown as a chip, and on the
- *   wire it opens the comment with `@name` and a link to that floor. Answering a second floor
- *   replaces the first, because a comment can only address one.
- * - 引用 collects **as many floors as you like**. Each tap drops another blockquote into the body
- *   text, exactly where the site's own 引用 button would put it, and from then on it is ordinary
- *   editable text — reorder it, type between the blocks, delete one.
+ * 回复 adds a target to [ReplyComposerUiState.replyTargets]. 引用 adds an editable blockquote to
+ * the body.
  */
 data class FloorReference(
     val floor: Int,
@@ -102,6 +99,8 @@ class ReplyComposerViewModel(
 
     private val uploads = ImageUploadQueue(viewModelScope, uploader)
 
+    private val draftRestoreMutex = Mutex()
+    private var draftRestored = false
     private var saveJob: Job? = null
     private var publishJob: Job? = null
 
@@ -126,16 +125,19 @@ class ReplyComposerViewModel(
             .launchIn(viewModelScope)
     }
 
-    /**
-     * Opens the sheet, restoring whatever was left behind.
-     *
-     * A [replyTo] passed in wins over the stored one — tapping 回复 on a different floor is a new
-     * intent, and silently answering the previous floor would be worse than losing the old context.
-     */
+    /** Opens the draft and adds [replyTo] once per floor. */
     fun open(replyTo: FloorReference? = null) {
         viewModelScope.launch {
             restoreDraft()
-            _uiState.update { it.copy(visible = true, previewing = false, replyTo = replyTo ?: it.replyTo) }
+            val added = replyTo?.takeUnless { target -> _uiState.value.replyTargets.any { it.floor == target.floor } }
+            _uiState.update {
+                it.copy(
+                    visible = true,
+                    previewing = false,
+                    replyTargets = if (added == null) it.replyTargets else it.replyTargets + added,
+                )
+            }
+            if (added != null) scheduleSave()
         }
     }
 
@@ -158,26 +160,23 @@ class ReplyComposerViewModel(
         }
     }
 
-    /**
-     * Puts a stored draft back, once, before the sheet becomes visible.
-     *
-     * Skipped when something has already been typed: a draft saved earlier must not overwrite the
-     * reply in progress, which is also why 引用 can be tapped repeatedly without re-restoring.
-     */
-    private suspend fun restoreDraft() {
-        if (_uiState.value.body.isNotBlank()) return
-        val stored = repository.draft(postId).first() ?: return
-        bodyState.editFromViewModel {
-            replace(0, length, stored.body)
-            placeCursorAtEnd()
+    /** Sets the initial draft before applying any floor actions, including when the body is empty. */
+    private suspend fun restoreDraft() = draftRestoreMutex.withLock {
+        if (draftRestored) return@withLock
+        repository.draft(postId).first()?.let { stored ->
+            bodyState.editFromViewModel {
+                replace(0, length, stored.body)
+                placeCursorAtEnd()
+            }
+            _uiState.update {
+                it.copy(
+                    body = stored.body,
+                    savedAtMillis = stored.savedAtMillis.takeIf { millis -> millis > 0 },
+                    replyTargets = stored.toReplyTargets(),
+                )
+            }
         }
-        _uiState.update {
-            it.copy(
-                body = stored.body,
-                savedAtMillis = stored.savedAtMillis.takeIf { millis -> millis > 0 },
-                replyTo = stored.toReplyTarget(),
-            )
-        }
+        draftRestored = true
     }
 
     /**
@@ -244,7 +243,10 @@ class ReplyComposerViewModel(
         _uiState.update { it.copy(visible = false, previewing = false) }
     }
 
-    fun clearReplyTo() = mutate { it.copy(replyTo = null) }
+    fun removeReplyTarget(floor: Int) {
+        if (_uiState.value.isPublishing) return
+        mutate { it.copy(replyTargets = it.replyTargets.filterNot { target -> target.floor == floor }) }
+    }
 
     fun setPreviewing(previewing: Boolean) {
         _uiState.update { it.copy(previewing = previewing) }
@@ -277,7 +279,7 @@ class ReplyComposerViewModel(
                     CommentSubmission(
                         postId = postId,
                         body = state.copy(body = body).submissionBody,
-                        quotedFloor = state.replyTo?.floor,
+                        quotedFloor = state.replyTargets.singleOrNull()?.floor,
                     ),
                 )
             }.onSuccess { floor ->
@@ -314,13 +316,13 @@ class ReplyComposerViewModel(
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
             delay(AUTOSAVE_DELAY_MILLIS)
-            val state = _uiState.value
-            if (state.body.isBlank()) {
+            val draft = _uiState.value.toDraft()
+            if (!draft.hasContent) {
                 repository.deleteDraft(postId)
                 _uiState.update { it.copy(savedAtMillis = null) }
                 return@launch
             }
-            repository.saveDraft(postId, state.toDraft())
+            repository.saveDraft(postId, draft)
             _uiState.update { it.copy(savedAtMillis = clock.nowMillis()) }
         }
     }
@@ -359,13 +361,12 @@ class ReplyComposerViewModel(
 }
 
 data class ReplyComposerUiState(
-    /** Fixed for the lifetime of the editor; [submissionBody] needs it to link the answered floor. */
+    /** Fixed for the lifetime of the editor; [submissionBody] uses it to link the addressed floors. */
     val postId: Long = 0L,
     val visible: Boolean = false,
     val previewing: Boolean = false,
     val body: String = "",
-    /** The single floor 回复 addresses. 引用 is not here — it lives in [body] as Markdown. */
-    val replyTo: FloorReference? = null,
+    val replyTargets: List<FloorReference> = emptyList(),
     val savedAtMillis: Long? = null,
     val isPublishing: Boolean = false,
     val publishError: SiteError? = null,
@@ -390,26 +391,16 @@ data class ReplyComposerUiState(
             attachments.none { it.status == UploadStatus.UPLOADING || it.status == UploadStatus.WAITING }
 
     /**
-     * What actually gets sent: the body as typed, with the 回复 reference in front of it.
-     *
-     * Any 引用 blocks are already *in* [body] — [ReplyComposerViewModel.quote] put them there — so
-     * this only has the one thing left to add. The shape is the site's, read off a real comment
-     * rather than invented (fixture `post-703863-1.html` floor #8):
-     * `@ipv4 [#7](/post-703863-1#7) 想要十几刀年付的中盘鸡` — mention, floor link and answer on one
-     * line. The mention is the entire point of 回复: it is what puts the answer in the other reader's
-     * 回复我的, and what the site folds back into its "@ipv4 #7" reference chip.
-     *
-     * The one case that cannot share the line is a body that opens with a quote, because a `>` has to
-     * start a line to be a blockquote at all. There the reference becomes its own paragraph above it.
-     *
-     * The floor link stays site-relative for the same reason the rest of the shape does: that is what
-     * the site's own editor writes, so a reply from here is indistinguishable from one written there.
+     * Prefixes the body with the site's mention and floor-link pairs in selection order.
+     * A leading blockquote needs its own paragraph so Markdown can still read its `>` marker.
      */
     val submissionBody: String
-        get() = replyTo?.let { target ->
-            val reference = floorReference(postId, target.floor, target.author)
-            if (body.trimStart().startsWith(">")) "$reference\n\n" else "$reference "
-        }.orEmpty() + body
+        get() {
+            if (replyTargets.isEmpty()) return body
+            val references = replyTargets.joinToString(" ") { floorReference(postId, it.floor, it.author) }
+            val separator = if (body.trimStart().startsWith(">")) "\n\n" else " "
+            return references + separator + body
+        }
 }
 
 /** `@name [#7](/post-703863-1#7)`, the reference both actions are built out of. */
@@ -438,13 +429,11 @@ internal fun FloorReference.toQuoteBlock(postId: Long): String = buildString {
 
 private fun ReplyComposerUiState.toDraft() = CommentDraft(
     body = body,
-    replyToFloor = replyTo?.floor,
-    replyToAuthor = replyTo?.author,
-    replyToText = replyTo?.excerpt,
     savedAtMillis = savedAtMillis ?: 0L,
+    replyTargets = replyTargets.map { CommentDraftReplyTarget(it.floor, it.author, it.excerpt) },
 )
 
-private fun CommentDraft.toReplyTarget(): FloorReference? {
-    val floor = replyToFloor ?: return null
-    return FloorReference(floor = floor, author = replyToAuthor.orEmpty(), excerpt = replyToText.orEmpty())
-}
+private fun CommentDraft.toReplyTargets(): List<FloorReference> =
+    replyTargets.map { FloorReference(it.floor, it.author, it.excerpt) }.ifEmpty {
+        listOfNotNull(replyToFloor?.let { FloorReference(it, replyToAuthor.orEmpty(), replyToText.orEmpty()) })
+    }

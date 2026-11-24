@@ -198,7 +198,8 @@
     <string name="post_reply_preview_title">Preview · reply</string>
     <string name="post_reply_preview_title_floor">Preview · reply to #%1$d</string>
     <string name="post_reply_draft_saved">Draft saved %1$s</string>
-    <string name="post_reply_quote_remove">Clear the floor being replied to</string>
+    <string name="post_reply_add_target">Add people</string>
+    <string name="post_reply_quote_remove">Remove reply target %1$s</string>
     <string name="post_reply_publish_failed">Could not publish: %1$s. Your draft is kept.</string>
     <string name="post_reply_publish_unavailable">Posting comments is not wired up yet</string>
     <string name="post_reaction_like">Like</string>
