@@ -194,7 +194,10 @@ jobs:
           api-level: 36
           arch: x86_64
           profile: pixel_7
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          # ANGLE over SwiftShader rather than SwiftShader's own GLES translator: the latter
+          # segfaults the whole emulator process when the frosted-glass chrome draws its sheen and
+          # rim gradients together, which surfaces as "device not found" and a 30-minute hang.
+          emulator-options: -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none
           # The `||` tail runs while the emulator is still alive — the runner tears it down when
           # the step ends, so a later `if: failure()` step would have nothing to ask. `/data/anr`
           # is where the platform writes the main-thread stacks of a wedged app, and the smoke's
