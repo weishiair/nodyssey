@@ -98,6 +98,8 @@
     <string name="post_edited">Edited</string>
     <string name="post_edited_at">Edited %1$s</string>
 
+    <string name="composer_title_edit">Edit post</string>
+    <string name="composer_title_new">New post</string>
     <string name="composer_title_hint">One line that says what this is about</string>
     <string name="composer_body_hint">Write the body — Markdown works…</string>
     <string name="composer_select_board">Choose a board</string>
@@ -402,7 +404,11 @@
     <string name="settings_search_avatar_size">Avatar size</string>
     <string name="settings_search_avatar_preview">A face is often easier to spot than a name</string>
     <string name="settings_text_preview">This is a preview of the reading size: post text and list titles are shown at this size.</string>
-    <string name="settings_content">Content</string>
+    <string name="settings_section_lists">Lists</string>
+    <string name="settings_section_thread">Threads</string>
+    <string name="settings_section_interaction">Interaction</string>
+    <string name="settings_section_compose">Posting</string>
+    <string name="settings_section_storage">Storage</string>
     <string name="settings_app_links">Site links</string>
     <string name="settings_app_links_hint_on">On: NodeSeek post, user and notification links tapped in other apps open here</string>
     <string name="settings_app_links_summary_on">Opens in the app</string>
@@ -1739,6 +1745,10 @@
     <string name="settings_post_reply_style_original">Original</string>
     <string name="settings_show_author_account_info">Show account age</string>
     <string name="settings_show_author_account_info_hint">Show author levels and account age on posts and replies</string>
+    <string name="settings_account_badge_style">Level badge colour</string>
+    <string name="settings_account_badge_style_hint">Vivid fills the badge with a gradient; Natural tints only the level</string>
+    <string name="settings_account_badge_style_vivid">Vivid</string>
+    <string name="settings_account_badge_style_natural">Natural</string>
     <string name="sign_in_diagnostics">View sign-in diagnostics</string>
     <string name="sign_in_diagnostics_privacy">Kept only on this sign-in screen and never uploaded automatically. No account, password, verification code or cookies are included. Copy it to share with the developer.</string>
     <string name="sign_in_use_email">Sign in with an email code</string>

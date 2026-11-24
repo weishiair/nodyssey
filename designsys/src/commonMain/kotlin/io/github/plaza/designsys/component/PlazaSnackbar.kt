@@ -36,6 +36,7 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.nativeControls
 import org.jetbrains.compose.resources.stringResource
 
 /** Material owns the queue, accessibility announcements, timeout and entrance/exit motion. */
@@ -52,7 +53,7 @@ fun PlazaSnackbar(
     snackbarData: SnackbarData,
     modifier: Modifier = Modifier,
 ) {
-    if (!LocalPlazaLayers.current.frostedGlass) {
+    if (!nativeControls && !LocalPlazaLayers.current.frostedGlass) {
         Snackbar(snackbarData, modifier)
         return
     }

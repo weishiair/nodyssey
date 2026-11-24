@@ -52,7 +52,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -139,6 +138,7 @@ import io.github.nodyssey.ui.resources.search_remove_recent
 import io.github.nodyssey.ui.resources.search_user_hint
 import io.github.nodyssey.ui.resources.search_user_history_scope
 import io.github.nodyssey.ui.resources.search_users_tab
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
 import io.github.plaza.designsys.component.ChoiceSegments
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerCard
@@ -154,6 +154,7 @@ import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.UnderlineTabRow
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -829,9 +830,13 @@ private fun PostResults(
             urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
         )
     }
-    PullToRefreshBox(
+    val pressHaptics = rememberPlatformHaptics()
+    AdaptivePullToRefreshBox(
         isRefreshing = posts.loadState.refresh is LoadState.Loading,
-        onRefresh = posts::refresh,
+        onRefresh = {
+            pressHaptics.refreshTriggered()
+            posts.refresh()
+        },
     ) {
         LazyColumn(
             state = listState,

@@ -104,6 +104,8 @@
     <string name="post_edited_at">编辑于 %1$s</string>
 
     <!-- Post composer -->
+    <string name="composer_title_edit">编辑帖子</string>
+    <string name="composer_title_new">发帖</string>
     <string name="composer_title_hint">一句话说清主题</string>
     <string name="composer_body_hint">写下正文，支持 Markdown…</string>
     <string name="composer_title_count">%1$d/%2$d</string>
@@ -499,7 +501,11 @@
     <string name="settings_search_avatar_preview">用头像找人，往往比认名字快</string>
     <!-- 阅读字号的预览句：说明自己在预览什么，不借一段假帖子 -->
     <string name="settings_text_preview">这是阅读字号的预览，帖子正文和列表标题会按这个大小显示。</string>
-    <string name="settings_content">内容</string>
+    <string name="settings_section_lists">列表</string>
+    <string name="settings_section_thread">帖子</string>
+    <string name="settings_section_interaction">操作</string>
+    <string name="settings_section_compose">发帖</string>
+    <string name="settings_section_storage">存储</string>
     <string name="settings_app_links">站内链接</string>
     <string name="settings_app_links_hint_on">已开启：在别的 App 里点 NodeSeek 的帖子、用户、通知链接会直接进来</string>
     <!-- 设置主页「站内链接」的第二行：系统把 NodeSeek 链接交给本 App / 仍交给浏览器 -->
@@ -2027,6 +2033,10 @@
     <string name="settings_post_reply_style_original">原版</string>
     <string name="settings_show_author_account_info">显示作者注册天数</string>
     <string name="settings_show_author_account_info_hint">在主帖和回复中显示作者等级与注册天数</string>
+    <string name="settings_account_badge_style">等级徽章颜色</string>
+    <string name="settings_account_badge_style_hint">鲜艳为渐变底色，自然为浅底彩字</string>
+    <string name="settings_account_badge_style_vivid">鲜艳</string>
+    <string name="settings_account_badge_style_natural">自然</string>
     <string name="sign_in_diagnostics">查看登录诊断</string>
     <string name="sign_in_diagnostics_privacy">仅保存在当前登录页，不会自动上传。不包含账号、密码、验证码或 Cookie；复制后可发给开发者排查。</string>
     <string name="sign_in_use_email">邮箱验证码登录</string>

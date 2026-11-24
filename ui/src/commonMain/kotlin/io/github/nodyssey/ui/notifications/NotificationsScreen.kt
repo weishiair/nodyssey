@@ -37,12 +37,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -102,6 +103,8 @@ import io.github.nodyssey.ui.resources.notifications_one_hand_tip_settings
 import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
+import io.github.plaza.designsys.component.AdaptiveSegmentedTabRow
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -117,6 +120,7 @@ import io.github.plaza.designsys.component.UnderlineTabRow
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.groupedListItemColors
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -322,6 +326,11 @@ fun NotificationsScreen(
     // top of the screen a step lighter, which read as the screen changing colour rather than depth.
     val layers = LocalPlazaLayers.current
     val title = stringResource(Res.string.tab_notifications)
+    // The top bar reads state published after each composition instead of capturing it, for the iOS
+    // Compose bug described beside 首页's (PostListScreen). Drop once that is fixed upstream.
+    val slotState = remember { mutableStateOf(state) }
+    SideEffect { slotState.value = state }
+    val currentState by slotState
     val markAllRead: @Composable () -> Unit = {
         val markAllReadLabel = stringResource(Res.string.notifications_mark_all_read)
         AdaptiveGlassButton(
@@ -330,11 +339,11 @@ fun NotificationsScreen(
                 onClick = onMarkAllRead,
                 symbol = "checkmark.circle",
                 title = markAllReadLabel,
-                enabled = state.hasUnread,
+                enabled = currentState.hasUnread,
             ),
             modifier = Modifier.heightIn(min = 44.dp),
         ) {
-            TextButton(onClick = onMarkAllRead, enabled = state.hasUnread) {
+            TextButton(onClick = onMarkAllRead, enabled = currentState.hasUnread) {
                 PlazaIcon(PlazaIcons.DoneAll, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                 Text(
@@ -353,7 +362,7 @@ fun NotificationsScreen(
                 if (wide) {
                     TopAppBar(
                         title = { Text(title) },
-                        actions = { if (state.isSignedIn) markAllRead() },
+                        actions = { if (currentState.isSignedIn) markAllRead() },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = layers.page),
                     )
                 } else {
@@ -380,14 +389,25 @@ fun NotificationsScreen(
                  * Drawn over an opaque strip of the page's colour, so rows scrolling up under the
                  * header do not show through between the tabs.
                  */
-                if (!wide || state.isSignedIn) {
+                if (!wide || currentState.isSignedIn) {
                     Surface(color = layers.page) {
-                        GroupTabs(
-                            tabs = tabs,
-                            currentPage = pagerState.currentPage,
-                            counts = state.counts,
-                            onTabChange = onTabChange,
-                        )
+                        AdaptiveSegmentedTabRow(
+                            tabs =
+                            tabs.map { tab ->
+                                TabLabel(tab.label(), currentState.counts.forTab(tab).takeIf { it > 0 }?.let { unreadLabel(it, MAX_BADGE) })
+                            },
+                            selectedIndex = pagerState.currentPage,
+                            onSelect = { onTabChange(tabs[it]) },
+                            selectionFraction = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = LayerPageGutter, vertical = Spacing.xs),
+                        ) {
+                            GroupTabs(
+                                tabs = tabs,
+                                currentPage = pagerState.currentPage,
+                                counts = currentState.counts,
+                                onTabChange = onTabChange,
+                            )
+                        }
                     }
                 }
             }
@@ -419,9 +439,13 @@ fun NotificationsScreen(
                         // `isEmpty` keeps the first load out of the indicator: that one already draws
                         // [LoadingState] in the middle of the screen, and a spinner above a spinner
                         // reads as two different loads.
-                        PullToRefreshBox(
+                        val pressHaptics = rememberPlatformHaptics()
+                        AdaptivePullToRefreshBox(
                             isRefreshing = state.isLoading && !state.isEmptyOf(tab),
-                            onRefresh = onRetry,
+                            onRefresh = {
+                                pressHaptics.refreshTriggered()
+                                onRetry()
+                            },
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             // Inside the refresh box rather than on the `Scaffold`, which is the

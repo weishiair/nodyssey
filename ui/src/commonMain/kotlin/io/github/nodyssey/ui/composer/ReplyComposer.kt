@@ -34,7 +34,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,11 +48,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
@@ -68,6 +69,7 @@ import androidx.compose.ui.window.DialogProperties
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.PickedImage
 import io.github.nodyssey.data.composer.UploadFailure
+import io.github.nodyssey.ui.common.PlazaSheet
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.resources.Res
@@ -98,6 +100,7 @@ import io.github.nodyssey.ui.vote.VoteComposeDialog
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.AdaptiveGlassTopBar
 import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.InlineBanner
@@ -126,7 +129,7 @@ import io.github.plaza.designsys.theme.glassRimBorderStroke
 import io.github.plaza.designsys.theme.glassSheetBrush
 import io.github.plaza.designsys.theme.glassSheetRimBorderStroke
 import io.github.plaza.designsys.theme.glassSheetRimBrush
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -323,16 +326,33 @@ private fun ReplyEditorSheet(
     // than a phone's sheet rising from the bottom edge of one column under a scrim that greys out the
     // whole window. Height counts as well as width: a phone on its side is wide, but a centred card
     // over its keyboard would leave the editor a sliver.
+    // iOS keeps UIKit's sheet everywhere: on an iPad it is the centred page sheet Mail replies in,
+    // and UIKit, not an IME inset, keeps it clear of the keyboard — a floating keyboard included,
+    // which the card's inset mistook for a docked one and shoved the card under the tab bar.
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
+    val nativeChrome = nativeControls
     val asCard =
-        with(density) {
-            windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
-        }
+        !nativeChrome &&
+            with(density) {
+                windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
+            }
     val dismiss = { if (!state.isPublishing) onDismiss() }
+    val fillNativeSheet = nativeChrome && !asCard
+    // The native sheet opens with nothing focused in it: ask for the body once the field is
+    // attached, so the keyboard rises with the sheet, the way Messages opens a reply.
+    LaunchedEffect(fillNativeSheet, state.visible) {
+        if (fillNativeSheet && state.visible) {
+            withFrameNanos { }
+            try {
+                bodyFocus.requestFocus()
+            } catch (_: IllegalStateException) {
+                // The requester is not attached yet; the keyboard stays down this once.
+            }
+        }
+    }
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current
-    val nativeGlass = layers.nativeGlass
     val glassIconCircle: @Composable (@Composable () -> Unit) -> Unit = { icon ->
         if (layers.backdropGlass) {
             val fill = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (darkTheme) 0.56f else 0.82f)
@@ -352,63 +372,111 @@ private fun ReplyEditorSheet(
     }
     val editor: @Composable (Modifier) -> Unit = { editorModifier ->
         Column(modifier = editorModifier.fillMaxWidth()) {
-            // The post editor's top bar in miniature: ✕ · where the reply goes · 预览 · 发布. 发布
-            // moved up here from the end of the formatting strip, which is what let the strip go —
-            // it was the reason that strip had to squeeze its keys to 42dp.
-            Row(
-                modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget)
-                    .padding(start = Spacing.xs, end = if (nativeGlass) Spacing.lg else Spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                IconButton(
-                    onClick = onDismiss,
-                    enabled = !state.isPublishing,
+            val headerTitle =
+                // The author is in the target chip right under this, so the header names the
+                // floor only — and falls back to plain 回复 the moment that chip is dismissed.
+                state.replyTo?.let {
+                    stringResource(Res.string.post_reply_editor_title_to_floor, it.floor)
+                } ?: stringResource(Res.string.post_reply_editor_title)
+            val headerRow: @Composable () -> Unit = {
+                // The post editor's top bar in miniature: ✕ · where the reply goes · 预览 · 发布. 发布
+                // moved up here from the end of the formatting strip, which is what let the strip go —
+                // it was the reason that strip had to squeeze its keys to 42dp.
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget)
+                        .padding(start = Spacing.xs, end = if (nativeChrome) Spacing.lg else Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    glassIconCircle {
-                        PlazaIcon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(Res.string.action_close),
-                            modifier = Modifier.size(if (layers.backdropGlass) 18.dp else 20.dp),
-                        )
+                    IconButton(onClick = onDismiss, enabled = !state.isPublishing) {
+                        glassIconCircle {
+                            PlazaIcon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(Res.string.action_close),
+                                modifier = Modifier.size(if (layers.backdropGlass) 18.dp else 20.dp),
+                            )
+                        }
                     }
+                    Text(
+                        text = headerTitle,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(
+                        onClick = {
+                            // The preview covers the sheet, so the IME has to be gone before it rises —
+                            // otherwise it comes back to a keyboard over a screen that has no field.
+                            keyboard?.hide()
+                            onPreview()
+                        },
+                        enabled = !state.isPublishing,
+                    ) {
+                        glassIconCircle {
+                            PlazaIcon(
+                                imageVector = PlazaIcons.Visibility,
+                                contentDescription = stringResource(Res.string.action_preview),
+                                tint = if (layers.backdropGlass) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    PublishReplyButton(
+                        isPublishing = state.isPublishing,
+                        enabled = state.canPublish,
+                        onClick = onPublish,
+                    )
                 }
-                Text(
-                    // The author is in the target chip right under this, so the header names the
-                    // floor only — and falls back to plain 回复 the moment that chip is dismissed.
-                    text = state.replyTo?.let {
-                        stringResource(Res.string.post_reply_editor_title_to_floor, it.floor)
-                    } ?: stringResource(Res.string.post_reply_editor_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(
-                    onClick = {
-                        // The preview covers the sheet, so the IME has to be gone before it rises —
-                        // otherwise it comes back to a keyboard over a screen that has no field.
-                        keyboard?.hide()
-                        onPreview()
-                    },
-                    enabled = !state.isPublishing,
+            }
+            if (fillNativeSheet) {
+                // The native sheet's bar is a system navigation bar: the same ✕, title, 预览 and a
+                // prominent 发布, with the Compose row kept as the non-native fallback.
+                val publishLabel =
+                    stringResource(if (state.isPublishing) Res.string.composer_publishing else Res.string.action_publish)
+                AdaptiveGlassTopBar(
+                    title = headerTitle,
+                    titleAction = null,
+                    back =
+                    GlassAction(
+                        label = stringResource(Res.string.action_close),
+                        onClick = onDismiss,
+                        symbol = "xmark",
+                        enabled = !state.isPublishing,
+                    ),
+                    actions =
+                    listOf(
+                        GlassAction(
+                            label = stringResource(Res.string.action_preview),
+                            onClick = {
+                                // The preview covers the sheet, so the IME has to be gone before
+                                // it rises — same reason as the row's button.
+                                keyboard?.hide()
+                                onPreview()
+                            },
+                            symbol = "eye",
+                            enabled = !state.isPublishing,
+                        ),
+                        GlassAction(
+                            label = publishLabel,
+                            title = publishLabel,
+                            onClick = onPublish,
+                            symbol = "arrow.up",
+                            enabled = state.canPublish,
+                            loading = state.isPublishing,
+                            prominent = true,
+                            compact = true,
+                        ),
+                    ),
+                    // The native bar measures nothing in Compose; give it the row's height.
+                    modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget),
                 ) {
-                    glassIconCircle {
-                        PlazaIcon(
-                            imageVector = PlazaIcons.Visibility,
-                            contentDescription = stringResource(Res.string.action_preview),
-                            tint = if (layers.backdropGlass) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+                    headerRow()
                 }
-                PublishReplyButton(
-                    isPublishing = state.isPublishing,
-                    enabled = state.canPublish,
-                    onClick = onPublish,
-                )
+            } else {
+                headerRow()
             }
             // The dismissible 回复 target (6d), recessed into the sheet (2c): it is a reference to
             // something outside the reply, not part of it. Only 回复 gets one, because only 回复 is a
@@ -443,8 +511,15 @@ private fun ReplyEditorSheet(
                 inlinePictures = stickerPictures,
                 modifier = Modifier
                     .readableWidth()
-                    .heightIn(min = MIN_EDITOR_HEIGHT, max = MAX_EDITOR_HEIGHT)
+                    .then(
+                        if (fillNativeSheet) {
+                            Modifier.weight(1f)
+                        } else {
+                            Modifier.heightIn(min = MIN_EDITOR_HEIGHT, max = MAX_EDITOR_HEIGHT)
+                        },
+                    )
                     .focusRequester(bodyFocus)
+                    .onFocusChanged { if (it.isFocused) editorState.closePanels() }
                     .padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.sm),
             )
             AttachmentTray(
@@ -480,7 +555,7 @@ private fun ReplyEditorSheet(
                 bodyState = bodyState,
                 editorState = editorState,
                 // The strip already has an 8dp gutter; align it with the reply's 16dp text inset.
-                barModifier = if (nativeGlass) Modifier.padding(start = Spacing.sm, end = Spacing.sm, top = Spacing.sm) else Modifier,
+                barModifier = if (nativeChrome) Modifier.padding(start = Spacing.sm, end = Spacing.sm, top = Spacing.sm) else Modifier,
                 onPickImages = onPickImages,
                 onPickHostedImages = onPickHostedImages,
                 onFormatted = { bodyFocus.requestFocus() },
@@ -544,10 +619,10 @@ private fun ReplyEditorSheet(
             } else {
                 PlazaSheetDefaults.shape
             }
-        ModalBottomSheet(
+        PlazaSheet(
             // Guarded like the close button and the BackHandler: while a publish is in flight, a swipe
             // or scrim tap must not be the one dismiss path that still works.
-            onDismissRequest = dismiss,
+            onDismiss = dismiss,
             sheetState = rememberBottomSheetState(
                 initialValue = SheetValue.Hidden,
                 enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
@@ -556,11 +631,12 @@ private fun ReplyEditorSheet(
             // thread, and only its bar and the emoji panel under it recede.
             containerColor = sheetContainerColor,
             shape = sheetShape,
-            dragHandle = { PlazaSheetDefaults.DragHandle() },
         ) {
             // Material clips the whole sheet, including its handle, to one outer shape. Painting
             // another full-width background below the handle creates a second, square-edged panel.
-            editor(Modifier.imePadding())
+            // UIKit's detent fixes the sheet height. Let the body take the remaining space so
+            // the formatting strip stays against the keyboard instead of above unused sheet space.
+            editor(if (fillNativeSheet) Modifier.fillMaxSize().imePadding() else Modifier.imePadding())
         }
     }
 }

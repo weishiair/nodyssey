@@ -1,11 +1,14 @@
 package io.github.nodyssey.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -24,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -92,23 +97,44 @@ fun TrackedThreadsRoute(
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .readableWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = LayerPageGutter, vertical = Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
-            if (threads.isEmpty()) {
-                Text(
-                    stringResource(Res.string.tracked_threads_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = Spacing.xs),
-                )
-            } else {
+        if (threads.isEmpty()) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .readableWidth(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(min = maxHeight)
+                        .padding(
+                            start = Spacing.xl,
+                            end = Spacing.xl,
+                            top = Spacing.xl,
+                            bottom = EMPTY_STATE_BOTTOM_LIFT,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        stringResource(Res.string.tracked_threads_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .readableWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = LayerPageGutter, vertical = Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
                 Column {
                     threads.forEachIndexed { index, thread ->
                         TrackedThreadRow(
@@ -124,6 +150,8 @@ fun TrackedThreadsRoute(
         }
     }
 }
+
+private val EMPTY_STATE_BOTTOM_LIFT = 72.dp
 
 /**
  * One followed thread, drawn the way 收藏 draws a collected one: the title, then the board, the

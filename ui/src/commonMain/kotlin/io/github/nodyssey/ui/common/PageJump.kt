@@ -106,6 +106,7 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.nativeControls
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -183,7 +184,7 @@ internal fun PageJumpRail(
     previousNativeSymbol: String = "chevron.up",
     vertical: Boolean,
 ) {
-    if (LocalPlazaLayers.current.frostedGlass || !vertical) {
+    if (nativeControls || LocalPlazaLayers.current.frostedGlass || !vertical) {
         FloatingPageJumpRail(
             expanded = expanded,
             page = page,
@@ -496,6 +497,7 @@ fun PageJumpSheet(
     val title = stringResource(Res.string.page_jump_title)
     PlazaSheet(
         onDismiss = onDismiss,
+        fitNativeSheetContent = true,
         sheetState =
         rememberBottomSheetState(
             initialValue = SheetValue.Hidden,

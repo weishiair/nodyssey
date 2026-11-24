@@ -93,6 +93,8 @@
     <string name="post_edited">已編輯</string>
     <string name="post_edited_at">編輯於 %1$s</string>
 
+    <string name="composer_title_edit">編輯帖子</string>
+    <string name="composer_title_new">發帖</string>
     <string name="composer_title_hint">一句話說清主題</string>
     <string name="composer_body_hint">寫下內文，支援 Markdown…</string>
     <string name="composer_select_board">選擇版塊</string>
@@ -396,7 +398,11 @@
     <string name="settings_search_avatar_size">頭像大小</string>
     <string name="settings_search_avatar_preview">用頭像找人，往往比認名字快</string>
     <string name="settings_text_preview">這是閱讀字級的預覽，文章內文和清單標題會按這個大小顯示。</string>
-    <string name="settings_content">內容</string>
+    <string name="settings_section_lists">列表</string>
+    <string name="settings_section_thread">貼文</string>
+    <string name="settings_section_interaction">操作</string>
+    <string name="settings_section_compose">發文</string>
+    <string name="settings_section_storage">儲存空間</string>
     <string name="settings_app_links">站內連結</string>
     <string name="settings_app_links_hint_on">已開啟：在別的 App 裡點 NodeSeek 的文章、使用者、通知連結會直接進來</string>
     <string name="settings_app_links_summary_on">在 App 內開啟</string>
@@ -1731,6 +1737,10 @@
     <string name="settings_post_reply_style_original">原版</string>
     <string name="settings_show_author_account_info">顯示作者註冊天數</string>
     <string name="settings_show_author_account_info_hint">在主文和回覆中顯示作者等級與註冊天數</string>
+    <string name="settings_account_badge_style">等級徽章顏色</string>
+    <string name="settings_account_badge_style_hint">鮮豔為漸層底色，自然為淺底彩字</string>
+    <string name="settings_account_badge_style_vivid">鮮豔</string>
+    <string name="settings_account_badge_style_natural">自然</string>
     <string name="sign_in_diagnostics">查看登入診斷</string>
     <string name="sign_in_diagnostics_privacy">僅保存在目前登入頁，不會自動上傳。不包含帳號、密碼、驗證碼或 Cookie；複製後可傳給開發者排查。</string>
     <string name="sign_in_use_email">信箱驗證碼登入</string>

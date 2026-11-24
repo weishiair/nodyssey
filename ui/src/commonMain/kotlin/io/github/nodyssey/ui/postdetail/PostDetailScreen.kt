@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -62,8 +61,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -231,6 +228,8 @@ import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.AdaptiveGlassTopBar
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
+import io.github.plaza.designsys.component.AdaptivePullToRefreshIndicator
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
 import io.github.plaza.designsys.component.GlassAction
@@ -251,6 +250,7 @@ import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberClipboardCopy
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.richtext.LocalRichTextAppearance
 import io.github.plaza.designsys.richtext.RichTextAppearance
 import io.github.plaza.designsys.theme.FloatingCapsuleShape
@@ -268,6 +268,7 @@ import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.glassFloatingTopBarScrim
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.nativeControls
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
@@ -359,6 +360,7 @@ fun PostDetailRoute(
         voteContent = voteContent,
         stardustContent = stardustContent,
         replyOpen = replyState.visible,
+        replyPreviewing = replyState.visible && replyState.previewing,
         shareImage = shareImage,
         lotteryContent = {
             state.body?.takeIf { !it.isBlocked || state.showBlockedContent }?.let { lotteryContent(it, state.title, state.isSignedIn) }
@@ -463,6 +465,8 @@ fun PostDetailScreen(
     stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)? = null,
     /** Hides the bottom toolbar while the editor covers it. */
     replyOpen: Boolean = false,
+    /** Hides the floating glass top bar while full-screen reply preview covers the thread. */
+    replyPreviewing: Boolean = false,
     /** Body/comment links. Separate from [onOpenBrowser] so our own URLs can stay in the app. */
     onLinkClick: (String) -> Unit = onOpenBrowser,
     /** Opens the tapped author's space. */
@@ -775,35 +779,39 @@ fun PostDetailScreen(
                 )
             },
             topBar = {
-                DetailTopBar(
-                    title = state.title,
-                    showTitle = showCollapsedTitle,
-                    onTitleClick = openOriginalPost,
-                    postUrl = postUrl,
-                    onBack = onBack,
-                    onOpenInBrowser = { onOpenBrowser(postUrl) },
-                    onRefresh = { onRefreshPage(visiblePage) },
-                    showBackButton = showBackButton,
-                    tracked = state.tracked,
-                    onToggleTrack = onToggleTrack,
-                    onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
-                    collected = state.collected,
-                    collectPending = state.collectPending,
-                    onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
-                    pageColor = pageColor,
-                )
+                if (!replyPreviewing) {
+                    DetailTopBar(
+                        title = state.title,
+                        showTitle = showCollapsedTitle,
+                        onTitleClick = openOriginalPost,
+                        postUrl = postUrl,
+                        onBack = onBack,
+                        onOpenInBrowser = { onOpenBrowser(postUrl) },
+                        onRefresh = { onRefreshPage(visiblePage) },
+                        showBackButton = showBackButton,
+                        tracked = state.tracked,
+                        onToggleTrack = onToggleTrack,
+                        onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
+                        collected = state.collected,
+                        collectPending = state.collectPending,
+                        onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
+                        pageColor = pageColor,
+                        contentUnderBar = !atListTop,
+                    )
+                }
             },
         ) { padding ->
-            // UIKit cannot track a Compose list's scroll edge. Keep native chrome over an opaque
-            // header and lay the list below it rather than scrolling text through the title.
-            val frostedTopBar = LocalPlazaLayers.current.backdropGlass
-            val topInset = if (frostedTopBar) padding.calculateTopPadding() else 0.dp
+            // Keep the first row below the bar at rest, while allowing the glass to sample the
+            // list as it scrolls underneath.
+            val layers = LocalPlazaLayers.current
+            val drawsUnderTopBar = nativeControls || layers.backdropGlass
+            val topInset = if (drawsUnderTopBar) padding.calculateTopPadding() else 0.dp
             val bottomInset = padding.calculateBottomPadding()
             val viewportPadding = padding.withoutBottom()
             Box(
                 Modifier
                     // Draw the list through the home-indicator area, not above an empty page strip.
-                    .padding(if (frostedTopBar) viewportPadding.withoutTop() else viewportPadding)
+                    .padding(if (drawsUnderTopBar) viewportPadding.withoutTop() else viewportPadding)
                     .fillMaxSize(),
             ) {
                 // First in the Box, though it is never drawn: see [FloorShareCapture].
@@ -828,6 +836,7 @@ fun PostDetailScreen(
                     )
                 }
                 val error = state.error
+                val pressHaptics = rememberPlatformHaptics()
                 when {
                     /*
                      * Only where nothing told us anything about this thread — a notification, a deep
@@ -864,13 +873,16 @@ fun PostDetailScreen(
                         }
 
                     else ->
-                        PullToRefreshBox(
+                        AdaptivePullToRefreshBox(
                             isRefreshing = state.isRefreshing || state.isPrepending,
-                            onRefresh = { if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh() },
+                            onRefresh = {
+                                pressHaptics.refreshTriggered()
+                                if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh()
+                            },
                             modifier = Modifier.liquidGlassBackdropSource(threadBackdrop),
                             state = pullToRefreshState,
                             indicator = {
-                                PullToRefreshDefaults.Indicator(
+                                AdaptivePullToRefreshIndicator(
                                     state = pullToRefreshState,
                                     isRefreshing = state.isRefreshing || state.isPrepending,
                                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
@@ -1161,6 +1173,8 @@ private fun DetailTopBar(
     collectPending: Boolean,
     onCollect: () -> Unit,
     pageColor: Color,
+    /** Whether the thread has scrolled under the bar: UIKit's bars stay clear at the scroll edge. */
+    contentUnderBar: Boolean = true,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val shareText = rememberShareText()
@@ -1199,6 +1213,9 @@ private fun DetailTopBar(
         }
     }
     ReadableTopBar { nativeInsets ->
+        // One blur from the top of the screen down: the status bar is part of the bar's background,
+        // not a solid strip above it. The buttons and title stay inside the insets.
+        val statusBarHeight = with(LocalDensity.current) { nativeInsets.getTop(this).toDp() }
         AdaptiveGlassTopBar(
             title = title.takeIf { showTitle }.orEmpty(),
             titleAction = onTitleClick?.takeIf { showTitle }?.let { GlassAction(openOriginalPostLabel, it) },
@@ -1207,7 +1224,10 @@ private fun DetailTopBar(
                 GlassAction(stringResource(Res.string.action_open_in_browser), onOpenInBrowser, symbol = "safari"),
                 GlassAction(stringResource(Res.string.action_more), {}, symbol = "ellipsis", menu = nativeMenu),
             ),
-            modifier = Modifier.fillMaxWidth().background(pageColor).windowInsetsPadding(nativeInsets).height(TopBarHeight),
+            modifier = Modifier.fillMaxWidth().height(statusBarHeight + TopBarHeight),
+            blurBackground = contentUnderBar,
+            scrollEdgeColor = pageColor,
+            barInsets = nativeInsets,
         ) {
             val topScrimAlpha by animateFloatAsState(
                 targetValue = if (showTitle) 1f else 0f,

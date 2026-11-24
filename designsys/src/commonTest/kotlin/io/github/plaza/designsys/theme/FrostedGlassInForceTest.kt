@@ -9,15 +9,15 @@ import kotlin.test.assertEquals
  */
 class FrostedGlassInForceTest {
     @Test
-    fun `system glass turns it on regardless of the stored choice`() {
-        assertEquals(true, frostedGlassInForce(setting = false, einkMode = false, nativeGlass = true))
-        assertEquals(true, frostedGlassInForce(setting = true, einkMode = false, nativeGlass = true))
+    fun `system controls turn it on regardless of the stored choice`() {
+        assertEquals(true, frostedGlassInForce(setting = false, einkMode = false, systemControls = true))
+        assertEquals(true, frostedGlassInForce(setting = true, einkMode = false, systemControls = true))
     }
 
     @Test
     fun `elsewhere it is the stored choice and eink always wins`() {
-        assertEquals(false, frostedGlassInForce(setting = true, einkMode = true, nativeGlass = true))
-        assertEquals(false, frostedGlassInForce(setting = false, einkMode = false, nativeGlass = false))
-        assertEquals(true, frostedGlassInForce(setting = true, einkMode = false, nativeGlass = false))
+        assertEquals(false, frostedGlassInForce(setting = true, einkMode = true, systemControls = true))
+        assertEquals(false, frostedGlassInForce(setting = false, einkMode = false, systemControls = false))
+        assertEquals(true, frostedGlassInForce(setting = true, einkMode = false, systemControls = false))
     }
 }

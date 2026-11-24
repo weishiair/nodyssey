@@ -29,7 +29,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -87,6 +86,7 @@ import io.github.nodyssey.ui.resources.mail_use_key
 import io.github.nodyssey.ui.resources.mail_verify_and_retry
 import io.github.plaza.core.net.UserAgent
 import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GroupCard
@@ -101,6 +101,7 @@ import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
@@ -228,9 +229,13 @@ fun MailInboxScreen(
         },
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
     ) { padding ->
-        PullToRefreshBox(
+        val pressHaptics = rememberPlatformHaptics()
+        AdaptivePullToRefreshBox(
             isRefreshing = state.loading,
-            onRefresh = onRefresh,
+            onRefresh = {
+                pressHaptics.refreshTriggered()
+                onRefresh()
+            },
             enabled = state.connected && !state.loadingMore,
             modifier = Modifier.padding(padding).fillMaxSize().readableWidth(),
         ) {

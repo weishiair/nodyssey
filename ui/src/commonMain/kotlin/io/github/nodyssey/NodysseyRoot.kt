@@ -38,6 +38,8 @@ import io.github.nodyssey.ui.compare.rememberReportCompareBasket
 import io.github.nodyssey.ui.composer.LocalImageHostRepository
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
+import io.github.nodyssey.ui.postdetail.LocalAccountBadgeStyle
+import io.github.nodyssey.ui.postdetail.accountBadgeStyleInForce
 import io.github.nodyssey.ui.richtext.LocalReportFormat
 import io.github.nodyssey.ui.settings.ApplyAppLanguage
 import io.github.nodyssey.ui.settings.ProvideAppLanguage
@@ -266,6 +268,8 @@ internal fun NodysseyChrome(
                     style = settings.readMarkStyle,
                     color = settings.readMarkColor?.let { Color(it) },
                 ),
+                // 等级徽章颜色: a badge is drawn on every floor of a thread, by four row layouts.
+                LocalAccountBadgeStyle provides settings.accountBadgeStyleInForce(),
                 // 我的表情 rides here for the reason the basket does: three editors draw the panel and
                 // every post body's long press can add to it. See `LocalStickerLibrary`.
                 LocalStickerLibrary provides container.stickerLibrary,

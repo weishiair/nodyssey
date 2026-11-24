@@ -24,6 +24,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.AdaptivePullToRefreshIndicator
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.pow
@@ -65,6 +67,7 @@ fun BottomPullToRefreshBox(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val pressHaptics = rememberPlatformHaptics()
     val thresholdPx = with(LocalDensity.current) { threshold.toPx() }
     val latestOnRefresh by rememberUpdatedState(onRefresh)
     val connection = remember(state, scope) { BottomPullToRefreshConnection(scope, state) }
@@ -72,7 +75,10 @@ fun BottomPullToRefreshBox(
         connection.thresholdPx = thresholdPx
         connection.isRefreshing = isRefreshing
         connection.enabled = enabled
-        connection.onRefresh = { latestOnRefresh() }
+        connection.onRefresh = {
+            pressHaptics.refreshTriggered()
+            latestOnRefresh()
+        }
     }
     // The indicator parks at the threshold for as long as the load runs, and retracts when it lands —
     // including the load that ends before the finger is even lifted.
@@ -82,7 +88,7 @@ fun BottomPullToRefreshBox(
 
     Box(modifier.nestedScroll(connection)) {
         content()
-        PullToRefreshDefaults.Indicator(
+        AdaptivePullToRefreshIndicator(
             state = state,
             isRefreshing = isRefreshing,
             maxDistance = threshold,

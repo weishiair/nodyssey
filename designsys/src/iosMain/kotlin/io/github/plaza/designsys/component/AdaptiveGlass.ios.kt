@@ -6,6 +6,8 @@
 
 package io.github.plaza.designsys.component
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +16,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
@@ -25,19 +30,20 @@ import io.github.plaza.designsys.nativeglass.plaza_set_glass_capsule
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.nativeControls
+import io.github.plaza.designsys.theme.nativeGlassAvailable
+import kotlinx.cinterop.useContents
+import platform.QuartzCore.kCACornerCurveContinuous
 import platform.UIKit.NSDirectionalRectEdgeLeading
-import platform.UIKit.NSDirectionalRectEdgeTop
 import platform.UIKit.NSDirectionalRectEdgeTrailing
 import platform.UIKit.NSLayoutConstraint
 import platform.UIKit.NSLineBreakByTruncatingTail
-import platform.UIKit.NSTextAlignmentCenter
 import platform.UIKit.UIAccessibilityAnnouncementNotification
 import platform.UIKit.UIAccessibilityPostNotification
-import platform.UIKit.UIAccessibilityTraitButton
-import platform.UIKit.UIAccessibilityTraitSelected
 import platform.UIKit.UIAction
 import platform.UIKit.UIBarButtonItem
+import platform.UIKit.UIBlurEffect
+import platform.UIKit.UIBlurEffectStyle
 import platform.UIKit.UIButton
 import platform.UIKit.UIButtonConfiguration
 import platform.UIKit.UIButtonConfigurationCornerStyleCapsule
@@ -57,18 +63,15 @@ import platform.UIKit.UIMenu
 import platform.UIKit.UIMenuElementAttributesDestructive
 import platform.UIKit.UIMenuElementAttributesDisabled
 import platform.UIKit.UIMenuElementState
-import platform.UIKit.UINavigationBarAppearance
 import platform.UIKit.UINavigationItem
 import platform.UIKit.UIStackView
-import platform.UIKit.UIStackViewDistributionFillEqually
+import platform.UIKit.UIStackViewAlignmentCenter
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
-import platform.UIKit.UIVisualEffect
 import platform.UIKit.UIVisualEffectView
 import platform.UIKit.accessibilityLabel
-import platform.UIKit.accessibilityTraits
-import platform.UIKit.accessibilityValue
 import platform.UIKit.labelColor
+import platform.UIKit.secondaryLabelColor
 import platform.UIKit.systemRedColor
 import kotlin.native.ref.WeakReference
 
@@ -82,12 +85,13 @@ private val NativeGlassInterop = UIKitInteropProperties(
 
 @Composable
 actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback: @Composable () -> Unit) {
-    if (!LocalPlazaLayers.current.nativeGlass || (action.symbol == null && action.title == null)) {
+    if (!nativeControls || (action.symbol == null && action.title == null)) {
         fallback()
         return
     }
     val dark = LocalPlazaDarkTheme.current
     val accent = MaterialTheme.colorScheme.primary
+    val prominentBackground = if (dark) MaterialTheme.colorScheme.primaryContainer else accent
     val scale = LocalPlazaFontScale.current
     val host = remember { NativeGlassButtonHost(action) }
     val remeasure = rememberUIKitInteropRemeasureRequester()
@@ -96,7 +100,7 @@ actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback
         modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
         properties = NativeGlassInterop,
         update = {
-            host.update(action, accent.toUIColor(), dark, scale)
+            host.update(action, accent.toUIColor(), dark, scale, prominentBackground.toUIColor())
             remeasure.requestRemeasure()
         },
         onRelease = { host.dispose() },
@@ -110,7 +114,7 @@ actual fun AdaptiveGlassToolbar(
     vertical: Boolean,
     fallback: @Composable () -> Unit,
 ) {
-    if (!LocalPlazaLayers.current.nativeGlass) {
+    if (!nativeControls) {
         fallback()
         return
     }
@@ -140,9 +144,12 @@ actual fun AdaptiveGlassTopBar(
     actions: List<GlassAction>,
     modifier: Modifier,
     subtitle: String?,
+    blurBackground: Boolean,
+    scrollEdgeColor: Color,
+    barInsets: WindowInsets?,
     fallback: @Composable () -> Unit,
 ) {
-    if (!LocalPlazaLayers.current.nativeGlass) {
+    if (!nativeControls) {
         fallback()
         return
     }
@@ -154,28 +161,48 @@ actual fun AdaptiveGlassTopBar(
     val currentTitleAction by rememberUpdatedState(titleAction)
     val foreground = MaterialTheme.colorScheme.onSurface
     val focus = remember { NativeMenuFocus() }
+    val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
+    val insetTop = barInsets?.getTop(density)?.div(density.density)?.toDouble() ?: 0.0
+    val insetLeft = barInsets?.getLeft(density, direction)?.div(density.density)?.toDouble() ?: 0.0
+    val insetRight = barInsets?.getRight(density, direction)?.div(density.density)?.toDouble() ?: 0.0
+    // A bar over scrolled content keeps the page's own colour rather than the system material,
+    // which read as a grey slab against the page and beside an iPad's list pane.
+    val edgeColor = scrollEdgeColor.takeOrElse { MaterialTheme.colorScheme.background }
+    val scrollEdge = blurBackground
     UIKitView(
-        factory = {
-            FocusReleasingNavigationBar(focus).apply {
-                // Compose is not a UIScrollView, so automatic scroll-edge tracking cannot choose
-                // the background. Use the standard system material in both bar appearances.
-                val appearance = UINavigationBarAppearance().apply { configureWithDefaultBackground() }
-                standardAppearance = appearance
-                scrollEdgeAppearance = appearance
-            }
+        factory = { NativeTopBarHost(focus) },
+        modifier = if (scrollEdge) {
+            modifier.background(edgeColor)
+        } else {
+            modifier
         },
-        modifier = modifier,
         properties = NativeGlassInterop,
-        update = { bar ->
+        update = { host ->
+            // This standalone bar cannot see a Compose list's scroll edge; the caller says when
+            // content lies under it, and the blur follows the way a UIKit bar's own does.
+            host.blurred = false
+            // Before iOS 26 a bar over scrolling content ends in the system's hairline.
+            host.hairline = blurBackground && !nativeGlassAvailable
+            if (host.top != insetTop || host.left != insetLeft || host.right != insetRight) {
+                host.top = insetTop
+                host.left = insetLeft
+                host.right = insetRight
+                host.setNeedsLayout()
+            }
+            val bar = host.bar
             bar.overrideUserInterfaceStyle = interfaceStyle(dark)
             bar.tintColor = accent.toUIColor()
             bar.titleTextAttributes = mapOf(
-                platform.UIKit.NSFontAttributeName to
-                    UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(17.0 * scale)),
+                platform.UIKit.NSFontAttributeName to UIFontMetrics.defaultMetrics.scaledFontForFont(navigationTitleFont(scale)),
             )
             val item = UINavigationItem(title = title)
-            // UIKit's own iOS 26 subtitle; this bar only runs where native glass does, which is 26+.
-            item.subtitle = subtitle
+            if (nativeGlassAvailable) {
+                // UIKit's own subtitle, which is iOS 26's: an earlier system has no such selector.
+                item.subtitle = subtitle
+            } else if (subtitle != null) {
+                item.titleView = subtitledTitleView(title, subtitle, foreground.toUIColor(), scale)
+            }
             item.leftBarButtonItem = back?.barItem { currentBack }
             val anchor = WeakReference<UIView>(bar)
             item.rightBarButtonItems = actions.asReversed().map { action ->
@@ -219,7 +246,7 @@ actual fun AdaptiveGlassNotice(
     modifier: Modifier,
     fallback: @Composable () -> Unit,
 ) {
-    if (!LocalPlazaLayers.current.nativeGlass) {
+    if (!nativeControls) {
         fallback()
         return
     }
@@ -239,114 +266,6 @@ actual fun AdaptiveGlassNotice(
         },
         onRelease = { host.dispose() },
     )
-}
-
-/** The contents of one tab in a native glass capsule positioned by its Compose host. */
-data class NativeGlassTab(
-    val label: String,
-    val symbol: String,
-    val selected: Boolean,
-    val badge: Int?,
-    val onClick: () -> Unit,
-)
-
-@Composable
-fun NativeGlassTabBar(tabs: List<NativeGlassTab>, modifier: Modifier = Modifier) {
-    val dark = LocalPlazaDarkTheme.current
-    val colors = MaterialTheme.colorScheme
-    val tint = LocalPlazaLayers.current.raised.copy(alpha = if (dark) 0.50f else 0.65f)
-    val host = remember(tabs.size) { NativeGlassTabBarHost(tabs.size) }
-    UIKitView(
-        factory = { host.view },
-        modifier = modifier.clipNativeToCompose(host.view),
-        properties = NativeGlassInterop,
-        update = {
-            host.view.overrideUserInterfaceStyle = interfaceStyle(dark)
-            host.view.effect = glassEffect(interactive = true, tint = tint.toUIColor())
-            host.buttons.zip(tabs).forEach { (button, tab) ->
-                button.update(
-                    tab,
-                    foreground = (if (tab.selected) colors.primary else colors.onSurface).toUIColor(),
-                    selection = colors.secondaryContainer.copy(alpha = if (dark) 0.56f else 0.68f).toUIColor(),
-                    badgeColor = colors.error.toUIColor(),
-                    badgeTextColor = colors.onError.toUIColor(),
-                )
-            }
-        },
-    )
-}
-
-private class NativeGlassTabBarHost(size: Int) {
-    val view = glassView(interactive = true)
-    val buttons = List(size) { NativeGlassTabButton() }
-
-    init {
-        plaza_set_glass_capsule(view, maximumRadius = 0.0)
-        val stack = UIStackView().apply {
-            axis = UILayoutConstraintAxisHorizontal
-            distribution = UIStackViewDistributionFillEqually
-            spacing = 4.0
-            buttons.forEach { addArrangedSubview(it.view) }
-        }
-        pin(stack, view.contentView, 4.0)
-    }
-}
-
-private class NativeGlassTabButton {
-    private val action = NativeGlassActionState(GlassAction(label = "", onClick = {}))
-    val view = UIButton.buttonWithConfiguration(UIButtonConfiguration.plainButtonConfiguration(), action.primaryAction())
-    private val badge = UILabel().apply {
-        userInteractionEnabled = false
-        textAlignment = NSTextAlignmentCenter
-        font = UIFont.systemFontOfSize(10.0, weight = platform.UIKit.UIFontWeightSemibold)
-        layer.cornerRadius = 8.0
-        clipsToBounds = true
-        translatesAutoresizingMaskIntoConstraints = false
-    }
-
-    init {
-        view.addSubview(badge)
-        NSLayoutConstraint.activateConstraints(
-            listOf(
-                badge.heightAnchor.constraintEqualToConstant(16.0),
-                badge.widthAnchor.constraintGreaterThanOrEqualToConstant(22.0),
-                badge.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor, constant = -4.0),
-                badge.topAnchor.constraintEqualToAnchor(view.topAnchor, constant = 2.0),
-            ),
-        )
-    }
-
-    fun update(tab: NativeGlassTab, foreground: UIColor, selection: UIColor, badgeColor: UIColor, badgeTextColor: UIColor) {
-        action.action = GlassAction(tab.label, tab.onClick)
-        view.accessibilityLabel = tab.label
-        view.accessibilityTraits = UIAccessibilityTraitButton or (if (tab.selected) UIAccessibilityTraitSelected else 0uL)
-        view.accessibilityValue = tab.badge?.toString()
-        view.configuration = UIButtonConfiguration.plainButtonConfiguration().apply {
-            title = tab.label
-            titleLineBreakMode = NSLineBreakByTruncatingTail
-            image = UIImage.systemImageNamed(tab.symbol)
-            imagePlacement = NSDirectionalRectEdgeTop
-            imagePadding = 2.0
-            preferredSymbolConfigurationForImage = UIImageSymbolConfiguration.configurationWithPointSize(
-                20.0,
-                weight = platform.UIKit.UIImageSymbolWeightRegular,
-            )
-            titleTextAttributesTransformer = { attributes ->
-                attributes.orEmpty() + (
-                    platform.UIKit.NSFontAttributeName to
-                        UIFont.systemFontOfSize(11.0, weight = platform.UIKit.UIFontWeightSemibold)
-                    )
-            }
-            cornerStyle = UIButtonConfigurationCornerStyleCapsule
-            baseForegroundColor = foreground
-            if (tab.selected) background = background.apply { backgroundColor = selection }
-        }
-        view.titleLabel?.numberOfLines = 1
-        badge.hidden = tab.badge == null
-        badge.text = tab.badge?.coerceAtMost(99)?.toString()
-        badge.backgroundColor = badgeColor
-        badge.textColor = badgeTextColor
-    }
 }
 
 /** Keeps one UIButton while recomposition replaces its action, disabled state and menu. */
@@ -386,7 +305,14 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         NativeMenuShield.lower()
     }
 
-    fun update(action: GlassAction, accent: UIColor, dark: Boolean, scale: Float) {
+    fun update(
+        action: GlassAction,
+        accent: UIColor,
+        dark: Boolean,
+        scale: Float,
+        // Material's dark primary is a pale tone made for text; filled behind white glass it glows.
+        prominentBackground: UIColor = accent,
+    ) {
         state.action = action
         view.overrideUserInterfaceStyle = interfaceStyle(dark)
         view.tintColor = accent
@@ -394,7 +320,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         view.accessibilityLabel = action.label
         view.configuration = when {
             grouped -> UIButtonConfiguration.plainButtonConfiguration()
-            else -> checkNotNull(plaza_glass_button_configuration(action.prominent))
+            else -> plaza_glass_button_configuration(action.prominent) ?: materialButtonConfiguration(action.prominent)
         }.apply {
             if (action.compact) buttonSize = UIButtonConfigurationSize.UIButtonConfigurationSizeSmall
             title = action.title
@@ -430,7 +356,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
                         UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(10.0 * scale))
                     )
             }
-            if (action.prominent) baseBackgroundColor = accent
+            if (action.prominent) baseBackgroundColor = prominentBackground
             titleTextAttributesTransformer = { attributes ->
                 val font = if (action.compact) {
                     UIFont.systemFontOfSize(13.0 * scale, weight = platform.UIKit.UIFontWeightSemibold)
@@ -470,7 +396,7 @@ private class NativeGlassActionState(var action: GlassAction) {
 }
 
 private class NativeGlassToolbarHost(vertical: Boolean) {
-    val view = glassView(interactive = true)
+    val view = floatingMaterialView(interactive = true, maximumRadius = 0.0)
     private val stack = UIStackView().apply {
         axis = if (vertical) UILayoutConstraintAxisVertical else UILayoutConstraintAxisHorizontal
         spacing = 0.0
@@ -480,13 +406,12 @@ private class NativeGlassToolbarHost(vertical: Boolean) {
     init {
         // UIToolbar only lays out horizontally. A UIStackView inside the official glass effect is
         // needed for the vertical page rail; remove this host if UIKit adds a vertical toolbar.
-        plaza_set_glass_capsule(view, maximumRadius = 0.0)
         pin(stack, view.contentView, 4.0)
     }
 
     fun update(actions: List<GlassAction>, foreground: UIColor, surface: UIColor, dark: Boolean, scale: Float) {
         view.overrideUserInterfaceStyle = interfaceStyle(dark)
-        view.effect = glassEffect(interactive = true, tint = surface)
+        plaza_glass_effect(true, surface)?.let { view.effect = it }
         while (buttons.size > actions.size) {
             val host = buttons.removeAt(buttons.lastIndex)
             host.dispose()
@@ -508,7 +433,7 @@ private class NativeGlassToolbarHost(vertical: Boolean) {
 }
 
 private class NativeGlassNoticeHost {
-    val view = glassView()
+    val view = floatingMaterialView(maximumRadius = 20.0)
     private val label = UILabel().apply {
         numberOfLines = 0
         adjustsFontForContentSizeCategory = true
@@ -522,7 +447,6 @@ private class NativeGlassNoticeHost {
     private var buttons = emptyList<NativeGlassButtonHost>()
 
     init {
-        plaza_set_glass_capsule(view, maximumRadius = 20.0)
         pin(stack, view.contentView, 12.0)
     }
 
@@ -551,11 +475,70 @@ private class NativeGlassNoticeHost {
     fun dispose() = buttons.forEach { it.dispose() }
 }
 
-private fun glassView(interactive: Boolean = false): UIVisualEffectView =
-    UIVisualEffectView(effect = glassEffect(interactive))
+/**
+ * Liquid Glass shaped as a capsule, or with corners up to [maximumRadius], on iOS 26; the system
+ * material in the same shape before it, which is what those systems float a control on.
+ */
+private fun floatingMaterialView(interactive: Boolean = false, maximumRadius: Double): UIVisualEffectView =
+    plaza_glass_effect(interactive, null)?.let { glass ->
+        UIVisualEffectView(effect = glass).also { plaza_set_glass_capsule(it, maximumRadius) }
+    } ?: MaterialCapsuleView(maximumRadius)
 
-private fun glassEffect(interactive: Boolean, tint: UIColor? = null): UIVisualEffect =
-    checkNotNull(plaza_glass_effect(interactive, tint))
+/** The pre-iOS 26 half of [floatingMaterialView]: `UICornerConfiguration` is iOS 26's, so it rounds by layout. */
+private class MaterialCapsuleView(private val maximumRadius: Double) : UIVisualEffectView(effect = UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemMaterial)) {
+    init {
+        clipsToBounds = true
+        layer.cornerCurve = kCACornerCurveContinuous
+    }
+
+    override fun layoutSubviews() {
+        super.layoutSubviews()
+        val half = bounds.useContents { minOf(size.width, size.height) / 2 }
+        layer.cornerRadius = if (maximumRadius > 0.0) minOf(half, maximumRadius) else half
+    }
+}
+
+/**
+ * What a floating button wears before iOS 26: the system's filled or gray capsule. The gray one
+ * takes the label colour rather than the accent, as the glass button it stands in for does.
+ */
+private fun materialButtonConfiguration(prominent: Boolean): UIButtonConfiguration =
+    if (prominent) {
+        UIButtonConfiguration.filledButtonConfiguration()
+    } else {
+        UIButtonConfiguration.grayButtonConfiguration().apply { baseForegroundColor = UIColor.labelColor }
+    }.apply { cornerStyle = UIButtonConfigurationCornerStyleCapsule }
+
+/** The bar title's weight: iOS 26's regular, or the semibold every earlier navigation bar uses. */
+private fun navigationTitleFont(scale: Float): UIFont =
+    if (nativeGlassAvailable) {
+        UIFont.systemFontOfSize(17.0 * scale)
+    } else {
+        UIFont.systemFontOfSize(17.0 * scale, weight = platform.UIKit.UIFontWeightSemibold)
+    }
+
+/** A title over a subtitle, the two-line navigation title of the systems before iOS 26 gave bars one. */
+private fun subtitledTitleView(title: String, subtitle: String, foreground: UIColor, scale: Float): UIView =
+    UIStackView().apply {
+        axis = UILayoutConstraintAxisVertical
+        alignment = UIStackViewAlignmentCenter
+        addArrangedSubview(
+            UILabel().apply {
+                text = title
+                textColor = foreground
+                font = UIFontMetrics.defaultMetrics.scaledFontForFont(navigationTitleFont(scale))
+                lineBreakMode = NSLineBreakByTruncatingTail
+            },
+        )
+        addArrangedSubview(
+            UILabel().apply {
+                text = subtitle
+                textColor = UIColor.secondaryLabelColor
+                font = UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(12.0 * scale))
+                lineBreakMode = NSLineBreakByTruncatingTail
+            },
+        )
+    }
 
 private fun pin(child: UIView, parent: UIView, inset: Double) {
     parent.addSubview(child)
