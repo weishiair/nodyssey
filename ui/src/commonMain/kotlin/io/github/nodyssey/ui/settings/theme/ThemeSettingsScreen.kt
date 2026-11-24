@@ -228,16 +228,9 @@ fun ThemeSettingsScreen(
                     enabled = activePreset(settings)?.hasFixedColors != true,
                 )
                 val adjustableBottomBar = LocalFixedBottomBarHeight.current == null
-                if (frostedGlassConfigurable) {
-                    FrostedGlassRow(
-                        checked = settings.frostedGlass,
-                        enabled = !settings.einkMode,
-                        onCheckedChange = onFrostedGlassChange,
-                        last = !adjustableBottomBar,
-                    )
-                }
+                val floatingBottomBar = !adjustableBottomBar || settings.bottomBarStyle == BottomBarStyle.FLOATING
+                val showBottomBarPosition = adjustableBottomBar && floatingBottomBar
                 if (adjustableBottomBar) {
-                    val floatingBottomBar = settings.bottomBarStyle == BottomBarStyle.FLOATING
                     SettingsMenuRow(
                         icon = PlazaIcons.DashboardCustomize,
                         title = stringResource(Res.string.settings_bottom_bar_style),
@@ -245,19 +238,27 @@ fun ThemeSettingsScreen(
                         choices = BottomBarStyle.entries.map { it to stringResource(it.label) },
                         selected = settings.bottomBarStyle,
                         onSelect = onBottomBarStyleChange,
-                        last = !floatingBottomBar,
+                        last = !frostedGlassConfigurable && !showBottomBarPosition,
                     )
-                    if (floatingBottomBar) {
-                        SettingsMenuRow(
-                            icon = PlazaIcons.VerticalAlignBottom,
-                            title = stringResource(Res.string.settings_bottom_bar_position),
-                            subtitle = stringResource(settings.bottomBarPosition.label),
-                            choices = BottomBarPosition.entries.map { it to stringResource(it.label) },
-                            selected = settings.bottomBarPosition,
-                            onSelect = onBottomBarPositionChange,
-                            last = true,
-                        )
-                    }
+                }
+                if (frostedGlassConfigurable) {
+                    FrostedGlassRow(
+                        checked = settings.frostedGlass,
+                        enabled = !settings.einkMode && floatingBottomBar,
+                        onCheckedChange = onFrostedGlassChange,
+                        last = !showBottomBarPosition,
+                    )
+                }
+                if (showBottomBarPosition) {
+                    SettingsMenuRow(
+                        icon = PlazaIcons.VerticalAlignBottom,
+                        title = stringResource(Res.string.settings_bottom_bar_position),
+                        subtitle = stringResource(settings.bottomBarPosition.label),
+                        choices = BottomBarPosition.entries.map { it to stringResource(it.label) },
+                        selected = settings.bottomBarPosition,
+                        onSelect = onBottomBarPositionChange,
+                        last = true,
+                    )
                 }
             }
 

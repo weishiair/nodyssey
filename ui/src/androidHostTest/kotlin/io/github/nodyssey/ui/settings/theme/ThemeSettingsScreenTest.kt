@@ -100,11 +100,17 @@ class ThemeSettingsScreenTest {
     }
 
     @Test
-    fun `底部栏位置 is hidden when 原版 bottom bar is active`() {
-        setScreen(settings = UserSettings(bottomBarStyle = BottomBarStyle.STANDARD))
+    fun `底部栏位置 is hidden and 毛玻璃质感 is disabled when 原版 bottom bar is active`() {
+        var glassToggled: Boolean? = null
+        setScreen(
+            settings = UserSettings(frostedGlass = true, bottomBarStyle = BottomBarStyle.STANDARD),
+            onFrostedGlassChange = { glassToggled = it },
+        )
 
         composeRule.onNodeWithText("底部栏样式").performScrollTo().assertExists()
         composeRule.onNodeWithText("底部栏位置").assertDoesNotExist()
+        composeRule.onNodeWithText("毛玻璃质感").performScrollTo().performClick()
+        assertNull(glassToggled)
     }
 
     private fun setScreen(
@@ -116,7 +122,7 @@ class ThemeSettingsScreenTest {
         composeRule.setContent {
             PlazaTheme(
                 einkMode = settings.einkMode,
-                frostedGlass = settings.frostedGlass,
+                frostedGlass = settings.effectiveFrostedGlass,
             ) {
                 ThemeSettingsScreen(
                     settings = settings,

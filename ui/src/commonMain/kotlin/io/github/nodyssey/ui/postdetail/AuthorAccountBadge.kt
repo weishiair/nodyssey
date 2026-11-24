@@ -36,7 +36,7 @@ val LocalAccountBadgeStyle = staticCompositionLocalOf<AccountBadgeStyle?> { null
 
 /** The style the badge wears: the reader's choice, or the look 毛玻璃质感 gave it before there was one. */
 internal fun UserSettings.accountBadgeStyleInForce(): AccountBadgeStyle =
-    accountBadgeStyleInForce(accountBadgeStyle, frostedGlass, einkMode, systemGlass = nativeGlassAvailable)
+    accountBadgeStyleInForce(accountBadgeStyle, effectiveFrostedGlass, einkMode, systemGlass = nativeGlassAvailable)
 
 /**
  * An unchosen style follows the rule 毛玻璃质感 used to decide the badge by — the reader's switch,

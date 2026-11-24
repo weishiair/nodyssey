@@ -6,6 +6,7 @@ import io.github.nodyssey.data.testPreferenceStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,8 +16,24 @@ class BottomBarPositionSettingsTest {
         val store = testPreferenceStore(backgroundScope)
         val initial = SettingsRepository(store).settings.first()
         assertTrue(initial.frostedGlass)
+        assertTrue(initial.effectiveFrostedGlass)
         assertEquals(BottomBarStyle.FLOATING, initial.bottomBarStyle)
         assertEquals(BottomBarPosition.MEDIUM, initial.bottomBarPosition)
+    }
+
+    @Test
+    fun `standard bottom bar disables effective glass without erasing the stored preference`() = runTest {
+        val store = testPreferenceStore(backgroundScope)
+        val settings = SettingsRepository(store)
+
+        settings.setBottomBarStyle(BottomBarStyle.STANDARD)
+        val standard = SettingsRepository(store).settings.first()
+        assertTrue(standard.frostedGlass)
+        assertFalse(standard.effectiveFrostedGlass)
+
+        settings.setBottomBarStyle(BottomBarStyle.FLOATING)
+        val floating = SettingsRepository(store).settings.first()
+        assertTrue(floating.effectiveFrostedGlass)
     }
 
     @Test

@@ -60,7 +60,7 @@ fun themeSummary(settings: UserSettings): String {
         } else {
             colour + " · " + stringResource(paletteStyleLabel(settings.paletteStyle))
         }
-    return if (frostedGlassConfigurable && settings.frostedGlass && !settings.einkMode) {
+    return if (frostedGlassConfigurable && settings.effectiveFrostedGlass && !settings.einkMode) {
         base + " · " + stringResource(Res.string.settings_frosted_glass)
     } else {
         base

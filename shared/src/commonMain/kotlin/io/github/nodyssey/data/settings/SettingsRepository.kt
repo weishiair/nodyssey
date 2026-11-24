@@ -1135,7 +1135,15 @@ data class UserSettings(
      * 通知 is where the blank is most often taken for a layout bug, so it is where the note sits.
      */
     val oneHandTipDismissed: Boolean = false,
-)
+) {
+    /**
+     * Whether 毛玻璃质感 is active for the chosen bottom-bar style. Switching to the classic docked
+     * bar disables glass across the app without overwriting the stored [frostedGlass] preference,
+     * so returning to [BottomBarStyle.FLOATING] restores it automatically.
+     */
+    val effectiveFrostedGlass: Boolean
+        get() = frostedGlass && bottomBarStyle == BottomBarStyle.FLOATING
+}
 
 /**
  * How 设置 · 主题 decides light or dark. [SYSTEM] is the default, and the only automatic one: the
