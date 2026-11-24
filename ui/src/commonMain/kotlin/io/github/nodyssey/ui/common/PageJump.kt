@@ -95,6 +95,7 @@ import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
+import io.github.plaza.designsys.component.liquidGlassInteractive
 import io.github.plaza.designsys.theme.ControlShape
 import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalEinkMode
@@ -283,12 +284,14 @@ private fun FloatingPageJumpRail(
             .then(if (vertical) Modifier.width(56.dp) else Modifier.heightIn(min = 56.dp))
             .then(
                 if (layers.frostedGlass) {
-                    Modifier.glassChromeSurface(
-                        layers = layers,
-                        darkTheme = LocalPlazaDarkTheme.current,
-                        shape = FloatingCapsuleShape,
-                        backdrop = LocalLiquidGlassBackdrop.current,
-                    )
+                    Modifier
+                        .liquidGlassInteractive(FloatingCapsuleShape)
+                        .glassChromeSurface(
+                            layers = layers,
+                            darkTheme = LocalPlazaDarkTheme.current,
+                            shape = FloatingCapsuleShape,
+                            backdrop = LocalLiquidGlassBackdrop.current,
+                        )
                 } else {
                     Modifier
                 },

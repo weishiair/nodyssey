@@ -249,6 +249,7 @@ import io.github.plaza.designsys.component.SkeletonBar
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.liquidGlassInteractive
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.richtext.LocalRichTextAppearance
@@ -1278,6 +1279,7 @@ private fun DetailTopBar(
                                             .padding(start = 6.dp)
                                             .minimumInteractiveComponentSize()
                                             .size(40.dp)
+                                            .liquidGlassInteractive(CircleShape)
                                             .glassChromeSurface(
                                                 layers = layers,
                                                 darkTheme = darkTheme,
@@ -1301,7 +1303,7 @@ private fun DetailTopBar(
                             Box(
                                 modifier =
                                 if (layers.backdropGlass) {
-                                    Modifier.padding(end = 6.dp)
+                                    Modifier.padding(end = 6.dp).liquidGlassInteractive(FloatingCapsuleShape)
                                 } else {
                                     Modifier
                                 },
