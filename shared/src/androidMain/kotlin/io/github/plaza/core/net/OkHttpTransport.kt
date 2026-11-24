@@ -26,9 +26,27 @@ import java.io.IOException
  */
 class OkHttpTransport(
     private val okHttpClient: OkHttpClient,
-) : HttpTransport {
+) : HttpTransport,
+    BoundedDownload {
 
-    override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse {
+    override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse =
+        execute(request, onUploadProgress) { response ->
+            HttpResponse(response.code, response.request.url.toString(), response.headerMap(), response.body.string())
+        }
+
+    override suspend fun download(request: HttpRequest, maxBytes: Int): DownloadResponse =
+        execute(request, null) { response ->
+            val body = response.body
+            val bytes = if (body.contentLength() > maxBytes) {
+                null
+            } else {
+                val source = body.source()
+                if (source.request(maxBytes.toLong() + 1)) null else source.readByteArray()
+            }
+            DownloadResponse(response.code, response.request.url.toString(), response.headerMap(), bytes)
+        }
+
+    private suspend fun <T> execute(request: HttpRequest, onUploadProgress: UploadProgress?, read: (okhttp3.Response) -> T): T {
         // A link OkHttp cannot parse is a request that never completes, which is how
         // `NSUrlSessionTransport` answers one too; left alone it would be an IllegalArgumentException
         // escaping a contract that promises SiteException.
@@ -55,21 +73,7 @@ class OkHttpTransport(
             val result =
                 try {
                     Result.success(
-                        call.execute().use { response ->
-                            HttpResponse(
-                                code = response.code,
-                                // The URL the answer came from: OkHttp follows redirects itself and
-                                // rewrites the request as it goes, so this is the last hop rather than
-                                // the one asked for.
-                                url = response.request.url.toString(),
-                                headers =
-                                response.headers
-                                    .toMultimap()
-                                    .entries
-                                    .associate { (name, values) -> name.lowercase() to values.joinToString(",") },
-                                body = response.body.string(),
-                            )
-                        },
+                        call.execute().use(read),
                     )
                 } catch (e: IOException) {
                     Result.failure(SiteException(SiteError.Network, e))
@@ -80,6 +84,9 @@ class OkHttpTransport(
         }
     }
 }
+
+private fun okhttp3.Response.headerMap(): Map<String, String> =
+    headers.toMultimap().entries.associate { (name, values) -> name.lowercase() to values.joinToString(",") }
 
 private fun HttpBody.toRequestBody(onUploadProgress: UploadProgress?): RequestBody =
     when (this) {

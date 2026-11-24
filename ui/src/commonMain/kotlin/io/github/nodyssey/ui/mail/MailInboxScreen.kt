@@ -9,20 +9,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.Scaffold
@@ -34,11 +33,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.mail.MailAuthMode
@@ -47,40 +47,37 @@ import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_cancel
-import io.github.nodyssey.ui.resources.action_refresh
+import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.action_retry
-import io.github.nodyssey.ui.resources.mail_all_mailboxes
+import io.github.nodyssey.ui.resources.action_search
 import io.github.nodyssey.ui.resources.mail_api_key
 import io.github.nodyssey.ui.resources.mail_api_key_switch_hint
 import io.github.nodyssey.ui.resources.mail_api_key_switch_title
 import io.github.nodyssey.ui.resources.mail_authorize
 import io.github.nodyssey.ui.resources.mail_authorize_hint
 import io.github.nodyssey.ui.resources.mail_authorize_website
+import io.github.nodyssey.ui.resources.mail_change_failed
+import io.github.nodyssey.ui.resources.mail_compose
 import io.github.nodyssey.ui.resources.mail_connect
 import io.github.nodyssey.ui.resources.mail_connect_hint
 import io.github.nodyssey.ui.resources.mail_connect_title
 import io.github.nodyssey.ui.resources.mail_connecting
+import io.github.nodyssey.ui.resources.mail_create_alias
 import io.github.nodyssey.ui.resources.mail_create_key
 import io.github.nodyssey.ui.resources.mail_disconnect
 import io.github.nodyssey.ui.resources.mail_disconnect_hint
 import io.github.nodyssey.ui.resources.mail_empty
-import io.github.nodyssey.ui.resources.mail_inbox
 import io.github.nodyssey.ui.resources.mail_load_more
 import io.github.nodyssey.ui.resources.mail_loading
-import io.github.nodyssey.ui.resources.mail_mark_all_read
 import io.github.nodyssey.ui.resources.mail_mark_all_read_done
 import io.github.nodyssey.ui.resources.mail_mark_all_read_failed
 import io.github.nodyssey.ui.resources.mail_marking_all_read
-import io.github.nodyssey.ui.resources.mail_mode_api_key
-import io.github.nodyssey.ui.resources.mail_mode_web_session
 import io.github.nodyssey.ui.resources.mail_no_mailboxes
+import io.github.nodyssey.ui.resources.mail_no_matches
 import io.github.nodyssey.ui.resources.mail_open_website
 import io.github.nodyssey.ui.resources.mail_options
-import io.github.nodyssey.ui.resources.mail_poll_api_hint
-import io.github.nodyssey.ui.resources.mail_poll_web_hint
 import io.github.nodyssey.ui.resources.mail_replace_key
 import io.github.nodyssey.ui.resources.mail_scopes_hint
-import io.github.nodyssey.ui.resources.mail_switch_web_session
 import io.github.nodyssey.ui.resources.mail_title
 import io.github.nodyssey.ui.resources.mail_use_key
 import io.github.nodyssey.ui.resources.mail_verify_and_retry
@@ -89,21 +86,18 @@ import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GlassAction
-import io.github.plaza.designsys.component.GroupCard
-import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
-import io.github.plaza.designsys.component.SectionLabel
-import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -116,6 +110,20 @@ fun MailInboxRoute(
     userAgent: UserAgent,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var sentMail by remember(state.generation) { mutableStateOf<MailMessage?>(null) }
+    val sent = sentMail.takeIf { state.connected }
+    if (sent != null) {
+        PlazaBackHandler { sentMail = null }
+        MailDetailScreen(
+            state = MailDetailUiState(loading = false, message = sent, body = sent.bodyText.orEmpty()),
+            onBack = { sentMail = null },
+            onRetry = {},
+            onToggleRead = {},
+            onOpenWebsite = onOpenWebsite,
+            sent = true,
+        )
+        return
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     val allReadMessage = when {
         state.markAllReadError != null -> stringResource(Res.string.mail_mark_all_read_failed, stringResource(state.markAllReadError!!.messageRes()))
@@ -126,6 +134,13 @@ fun MailInboxRoute(
         if (allReadMessage != null) {
             snackbarHostState.showSnackbar(allReadMessage)
             viewModel.dismissAllReadResult()
+        }
+    }
+    val mailboxError = state.mailboxActionError?.let { stringResource(Res.string.mail_change_failed, stringResource(it.messageRes())) }
+    LaunchedEffect(mailboxError) {
+        if (mailboxError != null) {
+            snackbarHostState.showSnackbar(mailboxError)
+            viewModel.dismissMailboxActionError()
         }
     }
     if (state.authorizing) {
@@ -155,13 +170,35 @@ fun MailInboxRoute(
         onSelectMailbox = viewModel::selectMailbox,
         onLoadMore = viewModel::loadMore,
         onMarkAllRead = viewModel::markAllRead,
-        onOpenMail = onOpenMail,
+        onOpenMail = { if (state.filter.isSent) sentMail = it else onOpenMail(it) },
         onOpenWebsite = onOpenWebsite,
         onAuthorize = viewModel::authorize,
         onAuthorizeWebsite = viewModel::authorizeOnWebsite,
         onVerifyChallenge = viewModel::openChallengeVerification,
         onCancelAuthorization = viewModel::cancelAuthorization,
         snackbarHostState = snackbarHostState,
+        controls = MailInboxControls(
+            changeFilter = viewModel::changeFilter,
+            toggleUnread = viewModel::toggleUnreadOnly,
+            loadFolders = viewModel::loadFolders,
+            toggleSelection = viewModel::toggleSelection,
+            toggleSelected = viewModel::toggleSelected,
+            selectVisible = viewModel::selectVisible,
+            markSelectedRead = viewModel::markSelectedRead,
+            moveSelected = viewModel::moveSelected,
+            toggleFlag = viewModel::toggleFlag,
+            checkAlias = viewModel::checkAlias,
+            createAlias = viewModel::createAlias,
+            resetAlias = viewModel::resetAlias,
+            sendMail = viewModel::sendMail,
+            resetCompose = viewModel::resetCompose,
+            tags = MailTagControls(
+                load = viewModel::loadTags,
+                create = viewModel::createTag,
+                clearCreated = viewModel::clearCreatedTag,
+                setSelected = viewModel::setSelectedTag,
+            ),
+        ),
     )
 }
 
@@ -186,10 +223,45 @@ fun MailInboxScreen(
     onCancelAuthorization: () -> Unit = {},
     onMarkAllRead: () -> Unit = {},
     snackbarHostState: SnackbarHostState = SnackbarHostState(),
+    controls: MailInboxControls? = null,
 ) {
     val appBarState = rememberOneHandAppBarState()
-    var choosingMailbox by remember { mutableStateOf(false) }
-    var showingMailboxActions by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val visibleMessages = state.visibleMessages
+    var searchRequested by rememberSaveable(state.generation) { mutableStateOf(false) }
+    val searchVisible = state.connected && (searchRequested || state.filter.search.isNotBlank())
+    val closeSearch = {
+        searchRequested = false
+        controls?.changeFilter?.invoke(state.filter.copy(search = ""))
+        Unit
+    }
+    var creatingAlias by remember(state.generation) { mutableStateOf(false) }
+    var writing by remember(state.generation) { mutableStateOf(false) }
+    if (writing && controls != null) {
+        MailComposeDialog(
+            state = state.compose,
+            mailboxes = state.mailboxes.filterNot { it.sendDisabled },
+            selectedMailboxId = state.selectedMailboxId,
+            onSend = controls.sendMail,
+            onDismiss = {
+                writing = false
+                controls.resetCompose()
+            },
+        )
+    }
+    if (creatingAlias && controls != null) {
+        MailAliasDialog(
+            state = state.alias,
+            onCheck = controls.checkAlias,
+            onCreate = controls.createAlias,
+            onDismiss = {
+                creatingAlias = false
+                controls.resetAlias()
+            },
+        )
+    }
+    var menu by remember(state.generation) { mutableStateOf<MailInboxMenu?>(null) }
     var usingKey by remember { mutableStateOf(false) }
     var switchingToKey by remember { mutableStateOf(false) }
     var keySwitchGeneration by remember { mutableStateOf<Long?>(null) }
@@ -203,29 +275,82 @@ fun MailInboxScreen(
         }
     }
     PlazaBackHandler(enabled = state.connecting, onBack = onCancelAuthorization)
+    PlazaBackHandler(enabled = searchVisible && !state.markingAllRead && !state.changingMessages, onBack = closeSearch)
+    if (controls != null) PlazaBackHandler(enabled = state.selectionMode, onBack = controls.toggleSelection)
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            AdaptiveTopBar(
-                title = stringResource(Res.string.mail_title),
-                state = appBarState,
-                onBack = onBack,
-                actions = if (state.connected) {
-                    listOf(
-                        TopBarAction(
-                            glass = GlassAction(
-                                label = stringResource(Res.string.action_refresh),
-                                onClick = onRefresh,
-                                symbol = "arrow.clockwise",
-                                enabled = !state.loading,
+            Box {
+                AdaptiveTopBar(
+                    title = stringResource(Res.string.mail_title),
+                    state = appBarState,
+                    onBack = onBack,
+                    actions = if (state.connected) {
+                        listOfNotNull(
+                            controls?.takeIf { state.mailboxes.isNotEmpty() }?.let {
+                                TopBarAction(
+                                    glass = GlassAction(
+                                        label = stringResource(if (searchVisible) Res.string.action_close else Res.string.action_search),
+                                        onClick = {
+                                            if (searchVisible) {
+                                                closeSearch()
+                                            } else {
+                                                searchRequested = true
+                                                scope.launch { listState.scrollToItem(0) }
+                                            }
+                                        },
+                                        symbol = if (searchVisible) "xmark" else "magnifyingglass",
+                                        enabled = !state.markingAllRead && !state.changingMessages,
+                                    ),
+                                    icon = if (searchVisible) Icons.Default.Close else Icons.Default.Search,
+                                )
+                            },
+                            if (controls != null && state.mailboxes.any { !it.sendDisabled }) {
+                                TopBarAction(
+                                    glass = GlassAction(
+                                        label = stringResource(Res.string.mail_compose),
+                                        onClick = { writing = true },
+                                        symbol = "square.and.pencil",
+                                        enabled = !state.changingMessages && !state.connecting,
+                                    ),
+                                    icon = Icons.Default.Edit,
+                                )
+                            } else {
+                                null
+                            },
+                            TopBarAction(
+                                glass = GlassAction(
+                                    label = stringResource(Res.string.mail_options),
+                                    onClick = { menu = MailInboxMenu.Actions },
+                                    symbol = "ellipsis",
+                                ),
+                                icon = Icons.Default.MoreVert,
                             ),
-                            icon = Icons.Default.Refresh,
-                        ),
-                    )
-                } else {
-                    emptyList()
-                },
-            )
+                        )
+                    } else {
+                        emptyList()
+                    },
+                )
+                if (state.connected) {
+                    Box(Modifier.align(Alignment.BottomEnd)) {
+                        MailInboxOptions(
+                            menu = menu,
+                            setMenu = { menu = it },
+                            state = state,
+                            controls = controls,
+                            onMarkAllRead = onMarkAllRead,
+                            onRefresh = onRefresh,
+                            onCreateAlias = { creatingAlias = true },
+                            onAuthorize = onAuthorize,
+                            onUseKey = {
+                                keySwitchGeneration = state.generation
+                                switchingToKey = true
+                            },
+                            onDisconnect = onDisconnect,
+                        )
+                    }
+                }
+            }
         },
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
     ) { padding ->
@@ -239,7 +364,7 @@ fun MailInboxScreen(
             enabled = state.connected && !state.loadingMore,
             modifier = Modifier.padding(padding).fillMaxSize().readableWidth(),
         ) {
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState) {
                 if (state.initializing) {
                     item { PlazaSpinner(Modifier.padding(LayerPageGutter)) }
                 } else if (!state.connected) {
@@ -284,122 +409,20 @@ fun MailInboxScreen(
                     }
                 } else {
                     item {
-                        val selectedMailbox = state.mailboxes.firstOrNull { it.id == state.selectedMailboxId }
-                        GroupCard(Modifier.padding(horizontal = LayerPageGutter)) {
-                            Box(Modifier.fillMaxWidth()) {
-                                GroupedListItem(
-                                    headlineContent = {
-                                        Text(
-                                            selectedMailbox?.address ?: stringResource(Res.string.mail_all_mailboxes),
-                                            style = MaterialTheme.typography.titleSmall,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    },
-                                    supportingContent = {
-                                        state.authMode?.let { mode ->
-                                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                                                TonalTag(
-                                                    text = stringResource(if (mode == MailAuthMode.API_KEY) Res.string.mail_mode_api_key else Res.string.mail_mode_web_session),
-                                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                    icon = Icons.Default.Check,
-                                                )
-                                                Text(
-                                                    stringResource(if (mode == MailAuthMode.API_KEY) Res.string.mail_poll_api_hint else Res.string.mail_poll_web_hint),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            }
-                                        }
-                                    },
-                                    first = true,
-                                    last = true,
-                                    onClick = { if (!state.markingAllRead) choosingMailbox = true },
-                                    trailingContent = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            PlazaIcon(Icons.Default.ArrowDropDown, contentDescription = null)
-                                            Box {
-                                                IconButton(onClick = { showingMailboxActions = true }, enabled = !state.connecting) {
-                                                    PlazaIcon(
-                                                        Icons.Default.MoreVert,
-                                                        contentDescription = stringResource(Res.string.mail_options),
-                                                    )
-                                                }
-                                                DropdownMenu(
-                                                    expanded = showingMailboxActions,
-                                                    onDismissRequest = { showingMailboxActions = false },
-                                                ) {
-                                                    if (state.authMode == MailAuthMode.API_KEY) {
-                                                        DropdownMenuItem(
-                                                            text = { Text(stringResource(Res.string.mail_switch_web_session)) },
-                                                            enabled = !state.connecting,
-                                                            onClick = {
-                                                                showingMailboxActions = false
-                                                                onAuthorize()
-                                                            },
-                                                        )
-                                                    }
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Text(stringResource(if (state.authMode == MailAuthMode.API_KEY) Res.string.mail_replace_key else Res.string.mail_use_key))
-                                                        },
-                                                        onClick = {
-                                                            showingMailboxActions = false
-                                                            keySwitchGeneration = state.generation
-                                                            switchingToKey = true
-                                                        },
-                                                    )
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Text(
-                                                                stringResource(Res.string.mail_disconnect),
-                                                                color = MaterialTheme.colorScheme.error,
-                                                            )
-                                                        },
-                                                        onClick = {
-                                                            showingMailboxActions = false
-                                                            onDisconnect()
-                                                        },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    },
-                                )
-                                DropdownMenu(expanded = choosingMailbox, onDismissRequest = { choosingMailbox = false }) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.mail_all_mailboxes)) },
-                                        enabled = !state.markingAllRead,
-                                        trailingIcon = {
-                                            if (state.selectedMailboxId == null) PlazaIcon(Icons.Default.Check, contentDescription = null)
-                                        },
-                                        onClick = {
-                                            choosingMailbox = false
-                                            onSelectMailbox(null)
-                                        },
-                                    )
-                                    state.mailboxes.forEach { mailbox ->
-                                        DropdownMenuItem(
-                                            text = { Text(mailbox.address) },
-                                            enabled = !state.markingAllRead,
-                                            trailingIcon = {
-                                                if (mailbox.id == state.selectedMailboxId) {
-                                                    PlazaIcon(
-                                                        Icons.Default.Check,
-                                                        contentDescription = null,
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                choosingMailbox = false
-                                                onSelectMailbox(mailbox.id)
-                                            },
-                                        )
-                                    }
-                                }
-                            }
+                        MailListToolbar(
+                            state = state,
+                            controls = controls?.takeIf { state.mailboxes.isNotEmpty() },
+                            searchVisible = searchVisible,
+                            mailboxPicker = { MailboxPicker(state, onSelectMailbox) },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = LayerPageGutter),
+                        )
+                        state.tags.firstOrNull { it.id == state.filter.tagId }?.let { tag ->
+                            TextButton(onClick = {
+                                controls?.tags?.load?.invoke()
+                                menu = MailInboxMenu.Tags
+                            }, modifier = Modifier.padding(horizontal = LayerPageGutter)) { Text(tag.name) }
                         }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                     if (state.connecting && !switchingToKey) {
                         item {
@@ -414,54 +437,56 @@ fun MailInboxScreen(
                             }
                         }
                     }
-                    item {
-                        Row(
-                            Modifier.fillMaxWidth().padding(end = LayerPageGutter),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            SectionLabel(stringResource(Res.string.mail_inbox), modifier = Modifier.weight(1f))
-                            if (state.mailboxes.isNotEmpty()) {
-                                TextButton(
-                                    onClick = onMarkAllRead,
-                                    enabled = !state.markingAllRead && !state.loading && !state.loadingMore && !state.connecting && state.messages.isNotEmpty(),
-                                ) {
-                                    if (state.markingAllRead) {
-                                        PlazaSpinner(
-                                            modifier = Modifier.padding(end = Spacing.sm),
-                                            size = 16.dp,
-                                            strokeWidth = 2.dp,
-                                        )
-                                    }
-                                    Text(stringResource(if (state.markingAllRead) Res.string.mail_marking_all_read else Res.string.mail_mark_all_read))
-                                }
+                    if (state.markingAllRead) {
+                        item {
+                            Row(Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
+                                PlazaSpinner(Modifier.padding(end = Spacing.sm), size = 16.dp, strokeWidth = 2.dp)
+                                Text(stringResource(Res.string.mail_marking_all_read), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
-                    if (!state.loading && state.error == null && state.messages.isEmpty()) {
+                    if (!state.loading && state.error == null && visibleMessages.isEmpty() && state.nextOffset == null) {
                         item {
                             Text(
-                                stringResource(if (state.mailboxes.isEmpty()) Res.string.mail_no_mailboxes else Res.string.mail_empty),
+                                stringResource(
+                                    when {
+                                        state.mailboxes.isEmpty() -> Res.string.mail_no_mailboxes
+                                        !state.filter.isInbox || state.unreadOnly -> Res.string.mail_no_matches
+                                        else -> Res.string.mail_empty
+                                    },
+                                ),
                                 Modifier.padding(LayerPageGutter),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             if (state.mailboxes.isEmpty()) {
+                                if (controls != null) {
+                                    TextButton(onClick = { creatingAlias = true }) {
+                                        Text(stringResource(Res.string.mail_create_alias))
+                                    }
+                                }
                                 TextButton(onClick = { onOpenWebsite("https://seek.li/") }) {
                                     Text(stringResource(Res.string.mail_open_website))
                                 }
                             }
                         }
                     }
-                    itemsIndexed(state.messages, key = { _, mail -> mail.id }) { index, mail ->
+                    itemsIndexed(visibleMessages, key = { _, mail -> mail.id }) { index, mail ->
+                        if (index > 0) {
+                            HorizontalDivider(Modifier.padding(horizontal = Spacing.lg), color = MaterialTheme.colorScheme.outlineVariant)
+                        }
                         MailMessageItem(
                             mail = mail,
                             preview = state.previews[mail.id],
-                            first = index == 0,
-                            last = index == state.messages.lastIndex,
                             nowMillis = state.nowMillis,
                             recipientAddress = mail.toAddress.takeIf(String::isNotBlank)
                                 ?: state.mailboxes.firstOrNull { it.id == mail.mailboxId }?.address.orEmpty(),
-                            onOpen = { onOpenMail(mail) },
-                            modifier = Modifier.padding(horizontal = LayerPageGutter),
+                            onOpen = {
+                                if (state.selectionMode && controls != null) controls.toggleSelected(mail.id) else onOpenMail(mail)
+                            },
+                            selected = (mail.id in state.selectedIds).takeIf { state.selectionMode },
+                            onToggleFlag = controls?.takeUnless { state.filter.isSent }?.let { { it.toggleFlag(mail) } },
+                            sent = state.filter.isSent,
+                            flagEnabled = !state.changingMessages,
                         )
                     }
                     if (state.nextOffset != null) {

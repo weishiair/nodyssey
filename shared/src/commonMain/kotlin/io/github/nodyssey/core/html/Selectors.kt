@@ -13,6 +13,12 @@ object Selectors {
     const val MAIL_LINK = "a[href]"
     const val MAIL_BLOCK = "p,div,section,article,header,footer,h1,h2,h3,h4,h5,h6,li,tr,blockquote,pre,hr"
     const val MAIL_CELL = "td,th"
+    const val MAIL_HTML_DISCARDED = "script,iframe,frame,frameset,object,embed,svg,math,form,noscript,template,video,audio,canvas"
+    const val MAIL_HTML_IMAGE = "img[src]"
+    const val MAIL_HTML_PENDING_IMAGE = "img[data-mail-image]"
+    const val MAIL_HTML_READABLE = "img[src],img[data-mail-image],img[alt]"
+    const val MAIL_HTML_STYLED = "[style]"
+    const val MAIL_HTML_STYLE = "style"
 
     // --- Topic list ---------------------------------------------------------
     const val LIST_ITEM = "ul.post-list > li.post-list-item"

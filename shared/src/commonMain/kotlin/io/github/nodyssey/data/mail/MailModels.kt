@@ -1,12 +1,20 @@
 package io.github.nodyssey.data.mail
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+
+fun isMailAddress(value: String): Boolean {
+    val separator = value.indexOf('@')
+    return separator in 1 until value.lastIndex && separator == value.lastIndexOf('@') &&
+        value.length <= 254 && value.none { it.isWhitespace() || it.isISOControl() || it in "<>,;" }
+}
 
 @Serializable
 data class Mailbox(
     val id: Long,
     val address: String,
     val alias: String? = null,
+    val sendDisabled: Boolean = false,
 )
 
 @Serializable
@@ -22,8 +30,65 @@ data class MailMessage(
     val isRead: Boolean = false,
     val hasAttachments: Boolean = false,
     val receivedAt: String? = null,
+    val isFlagged: Boolean = false,
+    val folderId: Long? = null,
+    val tags: List<MailTag>? = null,
+    val sentAt: String? = null,
+    val createdAt: String? = null,
+    val status: String? = null,
+    @Transient val formattedBody: MailHtmlBody? = null,
 ) {
     val sender: String get() = fromName?.takeIf(String::isNotBlank) ?: fromAddress
+}
+
+sealed interface MailFolderScope
+
+enum class MailSystemFolder(internal val queryName: String) : MailFolderScope {
+    INBOX("inbox"),
+    SPAM("spam"),
+    TRASH("trash"),
+    SENT("sent"),
+}
+
+@Serializable
+data class MailFolder(val id: Long, val name: String) : MailFolderScope
+
+@Serializable
+data class MailTag(val id: Long, val name: String)
+
+data class MailListFilter(
+    val folder: MailFolderScope = MailSystemFolder.INBOX,
+    val search: String = "",
+    val tagId: Long? = null,
+) {
+    val isInbox: Boolean get() = folder == MailSystemFolder.INBOX && search.isBlank() && tagId == null
+    val isSent: Boolean get() = folder == MailSystemFolder.SENT
+}
+
+@Serializable
+data class OutgoingMail(
+    val mailboxId: Long,
+    val to: List<String>,
+    val subject: String,
+    val bodyText: String,
+    val cc: List<String> = emptyList(),
+    val bcc: List<String> = emptyList(),
+) {
+    val isValid: Boolean get() = mailboxId > 0 && to.isNotEmpty() && (to + cc + bcc).all(::isMailAddress) &&
+        subject.none(Char::isISOControl) && (subject.isNotBlank() || bodyText.isNotBlank())
+}
+
+@Serializable
+data class MailAttachment(
+    val index: Int,
+    val filename: String,
+    val contentType: String? = null,
+    val size: Long = 0,
+) {
+    val suggestedName: String
+        get() = filename.substringAfterLast('/').substringAfterLast('\\')
+            .filterNot { it.isISOControl() }.trim().take(180).takeUnless { it.isEmpty() || it == "." || it == ".." }
+            ?: "attachment"
 }
 
 data class MailPage(val messages: List<MailMessage>, val nextOffset: Int?, val total: Int)
@@ -52,6 +117,8 @@ data class MailReadStates(
 
 enum class MailError {
     INVALID_KEY,
+    INVALID_INPUT,
+    ATTACHMENT_TOO_LARGE,
     UNAUTHORIZED,
     PERMISSION,
     NOT_FOUND,

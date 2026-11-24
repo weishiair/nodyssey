@@ -10,8 +10,10 @@ import io.github.nodyssey.data.mail.MailPreview
 import io.github.nodyssey.data.mail.Mailbox
 import io.github.nodyssey.ui.mail.MailDetailScreen
 import io.github.nodyssey.ui.mail.MailDetailUiState
+import io.github.nodyssey.ui.mail.MailInboxControls
 import io.github.nodyssey.ui.mail.MailInboxScreen
 import io.github.nodyssey.ui.mail.MailInboxUiState
+import io.github.nodyssey.ui.mail.MailTagControls
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Before
 import org.junit.Rule
@@ -59,6 +61,33 @@ class MailScreenRenderTest {
             }
         }
         composeRule.onRoot().captureRender("mail-inbox")
+    }
+
+    @Test
+    fun `mail light list in pure white`() {
+        val examples = listOf(
+            OTP.copy(receivedAt = "2026-11-25T14:48:00Z"),
+            MAIL.copy(receivedAt = "2026-11-25T10:20:00Z"),
+            MAILS.first().copy(receivedAt = "2026-11-24T03:30:00Z", isFlagged = true),
+            MAILS[1].copy(receivedAt = "2026-11-23T09:35:00Z"),
+            MAILS.last().copy(receivedAt = "2026-11-22T03:30:00Z"),
+        )
+        composeRule.setContent {
+            PlazaTheme(darkTheme = false, pureWhite = true, oneHandMode = false) {
+                Inbox(
+                    MailInboxUiState(
+                        initializing = false,
+                        connected = true,
+                        authMode = MailAuthMode.API_KEY,
+                        mailboxes = listOf(Mailbox(7, "reader@nodeseek.org"), Mailbox(9, "alerts@nodeseek.org")),
+                        messages = examples,
+                        nowMillis = 1795618800000,
+                        previews = examples.associate { it.id to MailPreview.from(it) },
+                    ),
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("mail-inbox-light-list-pure-white")
     }
 
     @Test
@@ -154,6 +183,23 @@ class MailScreenRenderTest {
             onLoadMore = {},
             onOpenMail = {},
             onOpenWebsite = {},
+            controls = MailInboxControls(
+                changeFilter = {},
+                toggleUnread = {},
+                loadFolders = {},
+                toggleSelection = {},
+                toggleSelected = {},
+                selectVisible = {},
+                markSelectedRead = {},
+                moveSelected = {},
+                toggleFlag = {},
+                checkAlias = {},
+                createAlias = {},
+                resetAlias = {},
+                sendMail = {},
+                resetCompose = {},
+                tags = MailTagControls(load = {}, create = {}, clearCreated = {}, setSelected = { _, _ -> }),
+            ),
         )
     }
 }

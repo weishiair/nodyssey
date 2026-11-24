@@ -1,10 +1,12 @@
 package io.github.plaza.core.net
 
+import io.github.plaza.core.toByteArray
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSMutableData
+import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLAuthenticationChallenge
 import platform.Foundation.NSURLCredential
@@ -19,7 +21,9 @@ import platform.Foundation.NSURLSessionResponseCancel
 import platform.Foundation.NSURLSessionResponseDisposition
 import platform.Foundation.NSURLSessionTask
 import platform.Foundation.appendData
+import platform.Foundation.dataTaskWithRequest
 import platform.Foundation.dataTaskWithURL
+import platform.Foundation.setValue
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 
@@ -84,6 +88,28 @@ suspend fun NSURLSession.getBytes(url: String, maxBytes: Long? = null): UrlSessi
     }
 }
 
+internal suspend fun NSURLSession.downloadBounded(request: HttpRequest, maxBytes: Int): DownloadResponse {
+    require(request.method == "GET" && request.body == null)
+    val target = NSURL.URLWithString(request.url) ?: throw SiteException(SiteError.Network)
+    val call = NSMutableURLRequest(uRL = target)
+    request.headers.forEach { (name, value) -> call.setValue(value, forHTTPHeaderField = name) }
+    val inherited = (delegate as? ForumSessionDelegate)?.proxyCredential
+    val result = suspendCancellableCoroutine { continuation ->
+        val task = dataTaskWithRequest(call)
+        task.setDelegate(
+            BoundedBodyDelegate(maxBytes.toLong(), inherited, download = true) { continuation.resume(it) },
+        )
+        continuation.invokeOnCancellation { task.cancel() }
+        task.resume()
+    } ?: throw SiteException(SiteError.Network)
+    return DownloadResponse(
+        result.code,
+        result.url,
+        result.headers.groupBy({ it.first.lowercase() }, { it.second }).mapValues { it.value.joinToString(",") },
+        result.data.toByteArray().takeUnless { result.sizeLimitExceeded },
+    )
+}
+
 /**
  * Reads a body under a ceiling, and refuses it at the earliest point the ceiling can be known to be
  * broken.
@@ -102,14 +128,16 @@ suspend fun NSURLSession.getBytes(url: String, maxBytes: Long? = null): UrlSessi
 internal class BoundedBodyDelegate(
     private val maxBytes: Long,
     proxyCredential: NSURLCredential?,
+    private val download: Boolean = false,
     private val onFinished: (UrlSessionBytes?) -> Unit,
 ) : NSObject(),
     NSURLSessionDataDelegateProtocol {
 
-    private val forum = ForumSessionDelegate(proxyCredential = proxyCredential)
+    private val forum = ForumSessionDelegate(proxyCredential = proxyCredential, followRedirects = !download)
     private val buffer = NSMutableData()
     private var response: NSHTTPURLResponse? = null
     private var refused = false
+    private var sizeLimitExceeded = false
     private var finished = false
 
     override fun URLSession(
@@ -138,7 +166,8 @@ internal class BoundedBodyDelegate(
         val declared = http?.expectedContentLength ?: -1L
         // -1 is `NSURLResponseUnknownLength`: the server said nothing, so there is nothing to refuse
         // on yet and the running total below is the only guard left.
-        refused = http == null || !http.isOk() || (declared >= 0 && declared > maxBytes)
+        sizeLimitExceeded = declared > maxBytes
+        refused = http == null || (!download && !http.isOk()) || sizeLimitExceeded
         completionHandler(if (refused) NSURLSessionResponseCancel else NSURLSessionResponseAllow)
     }
 
@@ -150,6 +179,7 @@ internal class BoundedBodyDelegate(
         if (refused) return
         if (buffer.length.toLong() + didReceiveData.length.toLong() > maxBytes) {
             refused = true
+            sizeLimitExceeded = true
             dataTask.cancel()
             return
         }
@@ -167,20 +197,28 @@ internal class BoundedBodyDelegate(
         finished = true
         val http = response
         onFinished(
-            if (refused || didCompleteWithError != null || http == null) null else http.readAs(buffer),
+            when {
+                http == null -> null
+                download && sizeLimitExceeded -> http.readAs(NSData(), sizeLimitExceeded = true)
+                refused || didCompleteWithError != null -> null
+                else -> http.readAs(buffer)
+            },
         )
     }
 }
 
 private fun NSHTTPURLResponse.isOk(): Boolean = statusCode.toInt() in 200..299
 
-private fun NSHTTPURLResponse.readAs(data: NSData): UrlSessionBytes =
+private fun NSHTTPURLResponse.readAs(data: NSData, sizeLimitExceeded: Boolean = false): UrlSessionBytes =
     UrlSessionBytes(
         data = data,
         // Absent, or -1 when the server did not say — which is the case this exists to distinguish,
         // since a caller with a size limit has to know whether it is being told anything at all.
         declaredLength = expectedContentLength.takeIf { it >= 0 },
         mimeType = MIMEType,
+        code = statusCode.toInt(),
+        url = URL?.absoluteString.orEmpty(),
+        sizeLimitExceeded = sizeLimitExceeded,
         headers =
         allHeaderFields.entries.mapNotNull { entry ->
             val name = entry.key as? String ?: return@mapNotNull null
@@ -203,4 +241,7 @@ class UrlSessionBytes(
     val declaredLength: Long?,
     val mimeType: String?,
     val headers: List<Pair<String, String>> = emptyList(),
+    internal val code: Int = 200,
+    internal val url: String = "",
+    internal val sizeLimitExceeded: Boolean = false,
 )

@@ -2,6 +2,7 @@ package io.github.nodyssey.data.mail
 
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.AppDispatchers
+import io.github.plaza.core.net.BoundedDownload
 import io.github.plaza.core.net.HttpTransport
 import io.github.plaza.core.net.SessionCookieStore
 import kotlinx.coroutines.CancellationException
@@ -50,7 +51,33 @@ interface MailRepository {
     /** A null mailbox ID lists mail across all mailboxes, with server-side ordering and paging. */
     suspend fun inbox(generation: Long, mailboxId: Long?, offset: Int = 0): MailPage
 
+    suspend fun list(generation: Long, mailboxId: Long?, offset: Int, filter: MailListFilter): MailPage
+
+    suspend fun folders(generation: Long): List<MailFolder>
+
+    suspend fun checkAddress(generation: Long, address: String): Boolean
+
+    suspend fun createMailbox(generation: Long, address: String): Mailbox
+
+    suspend fun send(generation: Long, mail: OutgoingMail)
+
+    suspend fun tags(generation: Long): List<MailTag>
+
+    suspend fun createTag(generation: Long, name: String): MailTag
+
+    suspend fun setTag(generation: Long, id: Long, tagId: Long, attach: Boolean)
+
+    suspend fun attachments(generation: Long, mailId: Long): List<MailAttachment>
+
+    suspend fun downloadAttachment(generation: Long, mailId: Long, attachment: MailAttachment): ByteArray
+
+    suspend fun flag(generation: Long, id: Long, flagged: Boolean)
+
+    suspend fun move(generation: Long, id: Long, folderId: Long?)
+
     suspend fun detail(generation: Long, mailboxId: Long, id: Long): MailMessage
+
+    suspend fun loadRemoteImages(generation: Long, urls: List<String>): Map<String, MailRemoteImage> = emptyMap()
 
     suspend fun markRead(generation: Long, mail: MailMessage, read: Boolean)
 
@@ -71,6 +98,7 @@ class DefaultMailRepository(
     private val clock: AppClock = AppClock.System,
 ) : MailRepository {
     private val client = SeekMailClient(http, sessionCookies, sessionHttp)
+    private val remoteImages = http as? BoundedDownload
     private val authorization = authorizationHttp?.let { SeekMailAuthorization(it, client) }
     override val supportsNativeAuthorization: Boolean get() = authorization != null
     private val control = Mutex()
@@ -238,8 +266,12 @@ class DefaultMailRepository(
         return boxes
     }
 
-    override suspend fun inbox(generation: Long, mailboxId: Long?, offset: Int): MailPage {
-        val serial = if (offset == 0) {
+    override suspend fun inbox(generation: Long, mailboxId: Long?, offset: Int): MailPage =
+        list(generation, mailboxId, offset, MailListFilter())
+
+    override suspend fun list(generation: Long, mailboxId: Long?, offset: Int, filter: MailListFilter): MailPage {
+        val inboxHead = offset == 0 && filter.isInbox
+        val serial = if (inboxHead) {
             control.withLock {
                 checkGeneration(generation)
                 ++inboxRequestSerial
@@ -249,13 +281,13 @@ class DefaultMailRepository(
         }
         val before = readStates.value
         val canReconcile = !readWrites.isLocked
-        val page = request(generation) { client.inbox(it, mailboxId, offset) }
+        val page = request(generation) { client.list(it, mailboxId, offset, filter) }
         control.withLock {
             checkGeneration(generation)
             val latestHead = serial == null || serial == inboxRequestSerial
             // Only local writes advance the revision. Concurrent GETs must not block the latest
             // page from reconciling website reads, or let an older response undo an optimistic read.
-            if (canReconcile && latestHead) {
+            if (!filter.isSent && canReconcile && latestHead) {
                 _readStates.update {
                     if (it.revision != before.revision || readWrites.isLocked) {
                         it
@@ -272,11 +304,69 @@ class DefaultMailRepository(
                     }
                 }
             }
-            if (offset == 0 && latestHead && credentials.readDefaultMailboxId() == mailboxId) {
+            if (inboxHead && latestHead && credentials.readDefaultMailboxId() == mailboxId) {
                 _inboxUpdates.value = MailInboxSnapshot(generation, mailboxId, page)
             }
         }
         return page
+    }
+
+    override suspend fun folders(generation: Long): List<MailFolder> = request(generation, client::folders)
+
+    override suspend fun checkAddress(generation: Long, address: String): Boolean {
+        if (!isMailAddress(address)) throw MailException(MailError.INVALID_INPUT)
+        return request(generation) { client.checkAddress(it, address) }
+    }
+
+    override suspend fun createMailbox(generation: Long, address: String): Mailbox {
+        if (!isMailAddress(address)) throw MailException(MailError.INVALID_INPUT)
+        val mailbox = request(generation) { client.createMailbox(it, address) }
+        control.withLock {
+            checkGeneration(generation)
+            mailboxCatalog = null
+        }
+        return mailbox
+    }
+
+    override suspend fun send(generation: Long, mail: OutgoingMail) {
+        if (!mail.isValid) throw MailException(MailError.INVALID_INPUT)
+        request(generation) { client.send(it, mail) }
+    }
+
+    override suspend fun tags(generation: Long): List<MailTag> = request(generation, client::tags)
+
+    override suspend fun createTag(generation: Long, name: String): MailTag {
+        if (name.isBlank() || name.any(Char::isISOControl)) throw MailException(MailError.INVALID_INPUT)
+        return request(generation) { client.createTag(it, name) }
+    }
+
+    override suspend fun setTag(generation: Long, id: Long, tagId: Long, attach: Boolean) {
+        request(generation) { client.setTag(it, id, tagId, attach) }
+        invalidateInboxSnapshot(generation)
+    }
+
+    override suspend fun attachments(generation: Long, mailId: Long): List<MailAttachment> =
+        request(generation) { client.attachments(it, mailId) }
+
+    override suspend fun downloadAttachment(generation: Long, mailId: Long, attachment: MailAttachment): ByteArray =
+        request(generation) { client.downloadAttachment(it, mailId, attachment) }
+
+    override suspend fun flag(generation: Long, id: Long, flagged: Boolean) {
+        request(generation) { client.flag(it, id, flagged) }
+        invalidateInboxSnapshot(generation)
+    }
+
+    override suspend fun move(generation: Long, id: Long, folderId: Long?) {
+        request(generation) { client.move(it, id, folderId) }
+        invalidateInboxSnapshot(generation)
+    }
+
+    private suspend fun invalidateInboxSnapshot(generation: Long) {
+        control.withLock {
+            checkGeneration(generation)
+            ++inboxRequestSerial
+            _inboxUpdates.value = null
+        }
     }
 
     override suspend fun detail(generation: Long, mailboxId: Long, id: Long): MailMessage {
@@ -284,7 +374,7 @@ class DefaultMailRepository(
         val canReconcile = !readWrites.isLocked
         val mail = request(generation) {
             val mail = client.detail(it, mailboxId, id)
-            mail.copy(bodyText = MailBody.text(mail), bodyHtml = null)
+            mail.copy(bodyText = MailBody.text(mail), bodyHtml = null, formattedBody = MailHtmlBody.parse(mail.bodyHtml))
         }
         return control.withLock {
             checkGeneration(generation)
@@ -297,6 +387,15 @@ class DefaultMailRepository(
                 _readStates.value = current.copy(values = current.values + (id to read), revision = current.revision + 1)
             }
             mail.copy(isRead = _readStates.value.values[id] ?: mail.isRead)
+        }
+    }
+
+    override suspend fun loadRemoteImages(generation: Long, urls: List<String>): Map<String, MailRemoteImage> {
+        control.withLock { checkGeneration(generation) }
+        val images = withContext(dispatchers.io) { remoteImages?.loadMailImages(urls).orEmpty() }
+        return control.withLock {
+            checkGeneration(generation)
+            images
         }
     }
 

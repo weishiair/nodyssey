@@ -1,21 +1,35 @@
 package io.github.nodyssey.ui.mail
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,15 +41,14 @@ import io.github.nodyssey.ui.resources.mail_code_copied
 import io.github.nodyssey.ui.resources.mail_copy_code
 import io.github.nodyssey.ui.resources.mail_no_subject
 import io.github.nodyssey.ui.resources.mail_read_status
-import io.github.nodyssey.ui.resources.mail_recipient_address
+import io.github.nodyssey.ui.resources.mail_star
 import io.github.nodyssey.ui.resources.mail_unread_status
+import io.github.nodyssey.ui.resources.mail_unstar
 import io.github.nodyssey.ui.resources.mail_verification_code
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.designsys.component.GroupCard
-import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
-import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.theme.Spacing
 import kotlinx.datetime.TimeZone
@@ -47,97 +60,121 @@ import kotlin.time.Instant
 internal fun MailMessageItem(
     mail: MailMessage,
     preview: MailPreview?,
-    first: Boolean,
-    last: Boolean,
     nowMillis: Long,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
     recipientAddress: String = mail.toAddress,
+    selected: Boolean? = null,
+    onToggleFlag: (() -> Unit)? = null,
+    flagEnabled: Boolean = true,
+    sent: Boolean = false,
 ) {
-    GroupedListItem(
-        first = first,
-        last = last,
-        modifier = modifier,
-        onClick = onOpen,
-        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.md),
-        headlineContent = {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            ) {
-                Text(
-                    mail.sender,
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (mail.isRead) FontWeight.Medium else FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    compactMailTimestamp(mail.receivedAt, nowMillis),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
-        },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(
-                    mail.subject?.takeIf(String::isNotBlank) ?: stringResource(Res.string.mail_no_subject),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = if (mail.isRead) FontWeight.Normal else FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                ) {
+    val colors = MaterialTheme.colorScheme
+    val unread = !sent && !mail.isRead
+    val readStatus = if (sent) null else stringResource(if (unread) Res.string.mail_unread_status else Res.string.mail_read_status)
+    Column(modifier.fillMaxWidth()) {
+        ListItem(
+            modifier = Modifier.clickable(onClick = onOpen).semantics {
+                if (readStatus != null) stateDescription = readStatus
+                if (selected != null) this.selected = selected
+            },
+            colors = ListItemDefaults.colors(containerColor = if (selected == true) colors.secondaryContainer else Color.Transparent),
+            leadingContent = if (sent) {
+                null
+            } else {
+                {
+                    if (selected != null) {
+                        Checkbox(checked = selected, onCheckedChange = null)
+                    } else {
+                        Box(Modifier.size(6.dp).background(if (unread) colors.primary else Color.Transparent, CircleShape))
+                    }
+                }
+            },
+            trailingContent = {
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     Text(
-                        stringResource(Res.string.mail_recipient_address, recipientAddress),
-                        modifier = Modifier.weight(1f),
+                        compactMailTimestamp(mail.receivedAt, nowMillis),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                        color = colors.onSurfaceVariant,
+                        maxLines = 1,
                     )
-                    TonalTag(
-                        text = stringResource(if (mail.isRead) Res.string.mail_read_status else Res.string.mail_unread_status),
-                        containerColor = if (mail.isRead) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = if (mail.isRead) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
+                    if (selected == null && onToggleFlag != null) {
+                        IconToggleButton(checked = mail.isFlagged, onCheckedChange = { onToggleFlag() }, enabled = flagEnabled) {
+                            PlazaIcon(
+                                if (mail.isFlagged) Icons.Default.Star else Icons.Outlined.Star,
+                                stringResource(if (mail.isFlagged) Res.string.mail_unstar else Res.string.mail_star),
+                                modifier = Modifier.size(18.dp),
+                                tint = if (mail.isFlagged) colors.primary else colors.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
-                if (!preview?.snippet.isNullOrBlank()) {
+            },
+            headlineContent = {
+                Text(
+                    if (sent) recipientAddress else mail.sender.ifBlank { recipientAddress },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            supportingContent = {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        preview.snippet,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        mail.subject?.takeIf(String::isNotBlank) ?: stringResource(Res.string.mail_no_subject),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurface,
+                        fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (!preview?.snippet.isNullOrBlank()) {
+                        Text(
+                            preview.snippet,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    val status = if (sent) mail.deliveryLabel()?.let { stringResource(it) } else null
+                    val labels = listOfNotNull(status) + mail.tags.orEmpty().map { it.name }
+                    if (labels.isNotEmpty()) {
+                        Text(
+                            labels.joinToString(" · "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (!sent && selected == null) preview?.verificationCode?.let { MailCodeChip(it) }
                 }
-                preview?.verificationCode?.let { MailCodeChip(it) }
-            }
-        },
-    )
+            },
+        )
+    }
 }
 
 @Composable
 private fun MailCodeChip(code: String) {
     val copy = rememberClipboardCopy()
     val copied = stringResource(Res.string.mail_code_copied)
+    val colors = MaterialTheme.colorScheme
     AssistChip(
         onClick = { copy("verification-code", code, copied) },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = colors.primaryContainer,
+            labelColor = colors.onPrimaryContainer,
+            leadingIconContentColor = colors.onPrimaryContainer,
+            trailingIconContentColor = colors.onPrimaryContainer,
+        ),
+        border = null,
         label = {
             Text(
                 code,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
             )
         },
         leadingIcon = { PlazaIcon(Icons.Default.Lock, contentDescription = stringResource(Res.string.mail_verification_code), Modifier.size(16.dp)) },
