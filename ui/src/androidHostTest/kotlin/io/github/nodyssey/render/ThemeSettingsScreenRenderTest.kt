@@ -43,7 +43,7 @@ class ThemeSettingsScreenRenderTest {
             darkTheme = darkTheme,
             pureWhite = preset?.pureWhite == true,
             characterPalette = preset?.palette,
-            frostedGlass = settings.frostedGlass,
+            frostedGlass = settings.effectiveFrostedGlass,
         ) {
             ThemeSettingsScreen(
                 settings = settings,

@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.data.settings.BottomBarPosition
+import io.github.nodyssey.data.settings.BottomBarStyle
 import io.github.plaza.designsys.component.PlazaFabHeight
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.nativeControls
@@ -41,6 +42,7 @@ private val HomeIndicatorClearance = 13.dp
  */
 internal val ListFabCentreAboveSafeArea = Spacing.lg + PlazaFabHeight / 2
 
+internal val LocalBottomBarStyle = compositionLocalOf { BottomBarStyle.FLOATING }
 internal val LocalBottomBarPosition = compositionLocalOf { BottomBarPosition.MEDIUM }
 internal val LocalFixedBottomBarHeight = compositionLocalOf<Dp?> { null }
 internal val LocalBottomBarSafeAreaOverlap = staticCompositionLocalOf { 0.dp }

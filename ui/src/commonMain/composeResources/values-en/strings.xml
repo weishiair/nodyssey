@@ -1861,6 +1861,9 @@
     <string name="mail_read_status">Read</string>
     <string name="mail_unread_status">Unread</string>
     <string name="mail_recipient_address">To: %1$s</string>
+    <string name="settings_bottom_bar_style">Bottom bar style</string>
+    <string name="settings_bottom_bar_style_floating">Floating</string>
+    <string name="settings_bottom_bar_style_standard">Classic</string>
     <string name="settings_bottom_bar_position">Bottom bar position</string>
     <string name="settings_bottom_bar_position_low">Low</string>
     <string name="settings_bottom_bar_position_medium">Medium</string>

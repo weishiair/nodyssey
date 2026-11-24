@@ -12,13 +12,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.unit.DpOffset
@@ -35,6 +34,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.isRenderEffectSupported
 import com.kyant.backdrop.isRuntimeShaderSupported
+import com.kyant.backdrop.shadow.Shadow as BackdropShadow
 
 /**
  * The three depths every screen is drawn at: the page, the cards on it, and what floats over both.
@@ -510,16 +510,67 @@ enum class GlassSurfaceStyle {
     Notice,
 }
 
+/** Surface tint shared by the floating liquid-glass navigation bar and controls. */
+fun PlazaLayers.glassNavigationContainerColor(darkTheme: Boolean): Color =
+    glassSurfaceTint(darkTheme, GlassSurfaceStyle.Navigation)
+
+/**
+ * Specular rim highlight shared by [glassChromeSurface] and `LiquidGlassBottomTabs`.
+ * Dark themes use a steeper angular falloff and lower alpha so curved corners keep a faint
+ * glass glint without turning the whole perimeter into a harsh white wireframe over charcoal cards.
+ */
+fun glassSurfaceHighlight(
+    darkTheme: Boolean,
+    style: GlassSurfaceStyle,
+    alphaScale: Float = 1f,
+): Highlight =
+    when (style) {
+        GlassSurfaceStyle.Notice ->
+            Highlight(
+                width = 0.5.dp,
+                blurRadius = 0.25.dp,
+                alpha = (if (darkTheme) 0.16f else 0.24f) * alphaScale,
+            )
+
+        GlassSurfaceStyle.Navigation,
+        GlassSurfaceStyle.Control,
+        ->
+            if (darkTheme) {
+                val baseAlpha = if (style == GlassSurfaceStyle.Navigation) 0.38f else 0.32f
+                Highlight(
+                    width = 0.5.dp,
+                    blurRadius = 0.35.dp,
+                    alpha = baseAlpha * alphaScale,
+                    style = HighlightStyle.Default(
+                        color = Color.White.copy(alpha = 0.42f),
+                        angle = 45f,
+                        falloff = 2.4f,
+                    ),
+                )
+            } else {
+                Highlight(
+                    width = 0.5.dp,
+                    blurRadius = 0.25.dp,
+                    alpha = 0.85f * alphaScale,
+                    style = HighlightStyle.Default(
+                        color = Color.White.copy(alpha = 0.50f),
+                        angle = 45f,
+                        falloff = 1.4f,
+                    ),
+                )
+            }
+    }
+
 private fun PlazaLayers.glassSurfaceTint(darkTheme: Boolean, style: GlassSurfaceStyle): Color {
     val alpha = when (style) {
-        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.34f else 0.16f
-        GlassSurfaceStyle.Control -> if (darkTheme) 0.38f else 0.20f
+        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.44f else 0.40f
+        GlassSurfaceStyle.Control -> if (darkTheme) 0.44f else 0.38f
         GlassSurfaceStyle.Notice -> if (darkTheme) 0.88f else 0.90f
     }
     val color = when {
         style == GlassSurfaceStyle.Notice -> raised
-        darkTheme -> lerp(raised, Color.Black, 0.22f)
-        else -> Color.White
+        darkTheme -> lerp(Color(0xFF121212), raised, 0.35f)
+        else -> lerp(Color(0xFFFAFAFA), raised, 0.35f)
     }
     return color.copy(alpha = alpha)
 }
@@ -527,7 +578,9 @@ private fun PlazaLayers.glassSurfaceTint(darkTheme: Boolean, style: GlassSurface
 /**
  * The same tint and elevation contract in live and static glass. Blur is available on Android 12;
  * lens effects need Android 13. Unsupported platforms and absent sources use an opaque material.
- * [surfaceTint] overrides the style's fill; [elevated] controls the shadow in both paths.
+ * [surfaceTint] overrides the style's fill; [hueTint] optionally shifts refracted background hues
+ * into the theme accent (Kyant `LiquidButton` recipe) for prominent action pills; [elevated]
+ * controls the punched-out shadow in live glass and the outer drop shadow in static fallback.
  */
 fun Modifier.glassChromeSurface(
     layers: PlazaLayers,
@@ -536,6 +589,7 @@ fun Modifier.glassChromeSurface(
     elevated: Boolean = true,
     backdrop: Backdrop? = null,
     surfaceTint: Color = Color.Unspecified,
+    hueTint: Color = Color.Unspecified,
     style: GlassSurfaceStyle = GlassSurfaceStyle.Control,
 ): Modifier {
     if (!layers.backdropGlass) {
@@ -551,72 +605,24 @@ fun Modifier.glassChromeSurface(
         } else {
             layers.glassSurfaceTint(darkTheme, style)
         }
-    val rimStrength = when (style) {
-        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.78f else 0.26f
-        GlassSurfaceStyle.Control -> if (darkTheme) 0.66f else 0.22f
-        GlassSurfaceStyle.Notice -> if (darkTheme) 0.24f else 0.12f
-    }
-    val surface = if (elevated) {
-        if (darkTheme) {
-            dropShadow(
-                shape,
-                Shadow(
-                    radius = if (style == GlassSurfaceStyle.Navigation) 20.dp else 14.dp,
-                    color = Color.Black,
-                    offset = DpOffset(0.dp, if (style == GlassSurfaceStyle.Navigation) 6.dp else 4.dp),
-                    alpha = if (style == GlassSurfaceStyle.Navigation) 0.30f else 0.24f,
-                ),
-            )
-        } else {
-            dropShadow(
-                shape,
-                Shadow(
-                    radius = if (style == GlassSurfaceStyle.Navigation) 4.dp else 3.dp,
-                    color = ShadowInk,
-                    offset = DpOffset(0.dp, 1.dp),
-                    alpha = if (style == GlassSurfaceStyle.Navigation) 0.06f else 0.05f,
-                ),
-            ).dropShadow(
-                shape,
-                Shadow(
-                    radius = if (style == GlassSurfaceStyle.Navigation) 22.dp else 16.dp,
-                    color = ShadowInk,
-                    offset = DpOffset(0.dp, if (style == GlassSurfaceStyle.Navigation) 8.dp else 5.dp),
-                    alpha = if (style == GlassSurfaceStyle.Navigation) 0.13f else 0.10f,
-                ),
-            )
-        }
-    } else {
-        this
-    }
     return if (backdrop != null && isRenderEffectSupported()) {
-        val sheenBrush = if (style == GlassSurfaceStyle.Notice) {
-            null
-        } else if (darkTheme) {
-            Brush.verticalGradient(
-                0f to Color.White.copy(alpha = 0.055f),
-                0.24f to Color.Transparent,
-                0.82f to Color.Transparent,
-                1f to Color.White.copy(alpha = 0.025f),
-            )
-        } else {
-            Brush.verticalGradient(
-                0f to Color.White.copy(alpha = 0.28f),
-                0.22f to Color.Transparent,
-                0.80f to Color.Transparent,
-                1f to Color.White.copy(alpha = 0.10f),
-            )
-        }
-        val lightContourBrush = if (!darkTheme && style != GlassSurfaceStyle.Notice) {
-            Brush.verticalGradient(
-                0f to Color.White.copy(alpha = 0.95f),
-                0.35f to ShadowInk.copy(alpha = 0.06f),
-                1f to ShadowInk.copy(alpha = 0.13f),
-            )
-        } else {
-            null
-        }
-        surface.drawBackdrop(
+        val backdropShadow =
+            if (!elevated) {
+                null
+            } else if (style == GlassSurfaceStyle.Navigation) {
+                BackdropShadow(
+                    radius = 24.dp,
+                    offset = DpOffset(0.dp, 4.dp),
+                    color = Color.Black.copy(alpha = if (darkTheme) 0.28f else 0.11f),
+                )
+            } else {
+                BackdropShadow(
+                    radius = 18.dp,
+                    offset = DpOffset(0.dp, 3.dp),
+                    color = Color.Black.copy(alpha = if (darkTheme) 0.24f else 0.10f),
+                )
+            }
+        this.drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
             effects = {
@@ -624,61 +630,47 @@ fun Modifier.glassChromeSurface(
                 blur(
                     when (style) {
                         GlassSurfaceStyle.Navigation -> 8.dp
-                        GlassSurfaceStyle.Control -> 6.dp
+                        GlassSurfaceStyle.Control -> 4.dp
                         GlassSurfaceStyle.Notice -> 20.dp
                     }.toPx(),
                 )
                 if (isRuntimeShaderSupported() && style != GlassSurfaceStyle.Notice) {
                     val navigation = style == GlassSurfaceStyle.Navigation
                     lens(
-                        refractionHeight = (if (navigation) 14.dp else 10.dp).toPx(),
-                        refractionAmount = (if (navigation) 24.dp else 18.dp).toPx(),
+                        refractionHeight = (if (navigation) 24.dp else 12.dp).toPx(),
+                        refractionAmount = 24.dp.toPx(),
                         depthEffect = true,
                         chromaticAberration = false,
                     )
                 }
             },
-            highlight = {
-                if (darkTheme) {
-                    Highlight(
-                        width = 1.dp,
-                        blurRadius = 0.5.dp,
-                        alpha = rimStrength,
-                        style = HighlightStyle.Default(
-                            color = Color.White.copy(alpha = 0.55f),
-                            angle = 45f,
-                            falloff = 1.3f,
-                        ),
-                    )
-                } else {
-                    Highlight(
-                        width = 1.dp,
-                        blurRadius = 0.4.dp,
-                        alpha = rimStrength,
-                        style = HighlightStyle.Ambient(),
-                    )
-                }
-            },
-            shadow = null,
+            highlight = { glassSurfaceHighlight(darkTheme, style) },
+            shadow = backdropShadow?.let { s -> { s } },
             onDrawSurface = {
+                if (hueTint != Color.Unspecified) {
+                    drawRect(hueTint, blendMode = BlendMode.Hue)
+                }
                 drawRect(resolvedTint)
-                if (sheenBrush != null) {
-                    drawRect(sheenBrush)
-                }
-                if (lightContourBrush != null) {
-                    val outline = shape.createOutline(size, layoutDirection, this)
-                    drawOutline(
-                        outline = outline,
-                        brush = lightContourBrush,
-                        style = Stroke(width = GlassRimWidth.toPx()),
-                    )
-                }
             },
         )
     } else {
-        surface
+        val fallbackShadow =
+            if (elevated) {
+                dropShadow(
+                    shape,
+                    Shadow(
+                        radius = if (style == GlassSurfaceStyle.Navigation) 18.dp else 12.dp,
+                        color = ShadowInk,
+                        offset = DpOffset(0.dp, 3.dp),
+                        alpha = if (darkTheme) 0.24f else 0.10f,
+                    ),
+                )
+            } else {
+                this
+            }
+        fallbackShadow
             .clip(shape)
             .background(layers.glassChromeBrush(darkTheme, resolvedTint), shape)
-            .border(GlassRimWidth, layers.glassRimBrush(darkTheme, if (darkTheme) rimStrength else 0.72f), shape)
+            .border(GlassRimWidth, layers.glassRimBrush(darkTheme, if (darkTheme) 0.72f else 0.65f), shape)
     }
 }

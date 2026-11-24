@@ -100,7 +100,10 @@ class SettingsRepository(
                 fontScale = preferences[KEY_FONT_SCALE] ?: 1f,
                 oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: oneHandModeDefault,
                 einkMode = preferences[KEY_EINK_MODE] ?: false,
-                frostedGlass = preferences[KEY_FROSTED_GLASS] ?: false,
+                frostedGlass = preferences[KEY_FROSTED_GLASS] ?: true,
+                bottomBarStyle = preferences[KEY_BOTTOM_BAR_STYLE]
+                    ?.let { runCatching { BottomBarStyle.valueOf(it) }.getOrNull() }
+                    ?: BottomBarStyle.FLOATING,
                 bottomBarPosition = preferences[KEY_BOTTOM_BAR_POSITION]
                     ?.let { runCatching { BottomBarPosition.valueOf(it) }.getOrNull() }
                     ?: BottomBarPosition.MEDIUM,
@@ -291,6 +294,8 @@ class SettingsRepository(
 
     /** 毛玻璃质感; see [UserSettings.frostedGlass]. */
     suspend fun setFrostedGlass(enabled: Boolean) = edit { it[KEY_FROSTED_GLASS] = enabled }
+
+    suspend fun setBottomBarStyle(style: BottomBarStyle) = edit { it[KEY_BOTTOM_BAR_STYLE] = style.name }
 
     suspend fun setBottomBarPosition(position: BottomBarPosition) = edit { it[KEY_BOTTOM_BAR_POSITION] = position.name }
 
@@ -745,6 +750,7 @@ class SettingsRepository(
         private val KEY_ONE_HAND_MODE = booleanPreferencesKey("one_hand_mode")
         private val KEY_EINK_MODE = booleanPreferencesKey("eink_mode")
         private val KEY_FROSTED_GLASS = booleanPreferencesKey("frosted_glass")
+        private val KEY_BOTTOM_BAR_STYLE = stringPreferencesKey("bottom_bar_style")
         private val KEY_BOTTOM_BAR_POSITION = stringPreferencesKey("bottom_bar_position")
         private val KEY_PREDICTIVE_BACK = booleanPreferencesKey("predictive_back")
         private val KEY_POST_REPLY_STYLE = stringPreferencesKey("post_reply_style")
@@ -974,7 +980,8 @@ data class UserSettings(
      * liquid-glass gradient, floating pill geometry, and a directional 1dp specular rim. Reading
      * cards and post floors stay solid so reading contrast is unchanged.
      */
-    val frostedGlass: Boolean = false,
+    val frostedGlass: Boolean = true,
+    val bottomBarStyle: BottomBarStyle = BottomBarStyle.FLOATING,
     val bottomBarPosition: BottomBarPosition = BottomBarPosition.MEDIUM,
     val predictiveBack: Boolean = true,
     /** Reply presentation only; switching never changes floor keys, ordering or pagination. */
@@ -1128,7 +1135,15 @@ data class UserSettings(
      * 通知 is where the blank is most often taken for a layout bug, so it is where the note sits.
      */
     val oneHandTipDismissed: Boolean = false,
-)
+) {
+    /**
+     * Whether 毛玻璃质感 is active for the chosen bottom-bar style. Switching to the classic docked
+     * bar disables glass across the app without overwriting the stored [frostedGlass] preference,
+     * so returning to [BottomBarStyle.FLOATING] restores it automatically.
+     */
+    val effectiveFrostedGlass: Boolean
+        get() = frostedGlass && bottomBarStyle == BottomBarStyle.FLOATING
+}
 
 /**
  * How 设置 · 主题 decides light or dark. [SYSTEM] is the default, and the only automatic one: the
@@ -1136,6 +1151,8 @@ data class UserSettings(
  * reads as [SYSTEM] again, which is what that setting was asking for anyway.
  */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
+enum class BottomBarStyle { FLOATING, STANDARD }
 
 enum class BottomBarPosition { LOW, MEDIUM, HIGH }
 

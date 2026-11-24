@@ -85,18 +85,21 @@ fun PlazaExtendedFab(
             modifier = modifier
                 .then(
                     if (layers.backdropGlass) {
-                        Modifier.glassChromeSurface(
-                            layers = layers,
-                            darkTheme = darkTheme,
-                            shape = shape,
-                            elevated = true,
-                            backdrop = backdrop,
-                            surfaceTint = lerp(
-                                primaryContainer,
-                                MaterialTheme.colorScheme.primary,
-                                if (darkTheme) 0.18f else 0.16f,
-                            ).copy(alpha = if (darkTheme) 0.34f else 0.24f),
-                        )
+                        Modifier
+                            .liquidGlassInteractive(shape)
+                            .glassChromeSurface(
+                                layers = layers,
+                                darkTheme = darkTheme,
+                                shape = shape,
+                                elevated = true,
+                                backdrop = backdrop,
+                                hueTint = MaterialTheme.colorScheme.primary,
+                                surfaceTint = lerp(
+                                    primaryContainer,
+                                    MaterialTheme.colorScheme.primary,
+                                    if (darkTheme) 0.16f else 0.10f,
+                                ).copy(alpha = if (darkTheme) 0.46f else 0.48f),
+                            )
                     } else {
                         Modifier.floatShadow(shape, layers.shadows)
                     },

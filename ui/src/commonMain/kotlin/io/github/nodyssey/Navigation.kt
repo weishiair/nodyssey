@@ -65,11 +65,14 @@ import androidx.navigation3.ui.NavDisplay
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.NotificationTab
 import io.github.nodyssey.data.session.AccountRepository
+import io.github.nodyssey.data.settings.BottomBarStyle
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
 import io.github.nodyssey.ui.common.LocalBottomBarPosition
+import io.github.nodyssey.ui.common.LocalBottomBarStyle
+import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
@@ -277,8 +280,10 @@ fun MainNavigation(
         defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
             defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
             defaultSuiteType == NavigationSuiteType.NavigationBar
+    val useFloatingBottomBar =
+        isBottomBarLayout && (LocalFixedBottomBarHeight.current != null || LocalBottomBarStyle.current == BottomBarStyle.FLOATING)
     val bottomBarClearance = LocalBottomBarPosition.current.bottomBarClearance
-    val currentBottomBarClearance by rememberUpdatedState(if (isBottomBarLayout) bottomBarClearance else 0.dp)
+    val currentBottomBarClearance by rememberUpdatedState(if (useFloatingBottomBar) bottomBarClearance else 0.dp)
     val listDetailSceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
 
@@ -640,12 +645,17 @@ fun MainNavigation(
             )
         },
         modifier = modifier,
-        navigationSuiteType = if (isBottomBarLayout) NavigationSuiteType.None else defaultSuiteType,
-        navigationSuiteColors = NavigationSuiteDefaults.colors(navigationRailContainerColor = layers.page),
+        navigationSuiteType = if (useFloatingBottomBar) NavigationSuiteType.None else defaultSuiteType,
+        navigationSuiteColors =
+        NavigationSuiteDefaults.colors(
+            shortNavigationBarContainerColor = layers.card,
+            navigationBarContainerColor = layers.card,
+            navigationRailContainerColor = layers.page,
+        ),
         state = navigationSuiteState,
     ) {
-        val bottomBarVisibility = remember { MutableTransitionState(isBottomBarLayout && showNavigationSuite) }
-        bottomBarVisibility.targetState = isBottomBarLayout && showNavigationSuite
+        val bottomBarVisibility = remember { MutableTransitionState(useFloatingBottomBar && showNavigationSuite) }
+        bottomBarVisibility.targetState = useFloatingBottomBar && showNavigationSuite
         var composedNotices by remember { mutableIntStateOf(0) }
         // Keep capture through both exit animations. SnackbarHost may draw an outgoing notice
         // after currentSnackbarData clears, or overlap it with the next notice in the queue.
@@ -734,7 +744,7 @@ fun MainNavigation(
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
                 val clipboardSnackbarBottomClearance by animateDpAsState(
-                    targetValue = if (isBottomBarLayout && showNavigationSuite) bottomBarClearance else 0.dp,
+                    targetValue = if (useFloatingBottomBar && showNavigationSuite) bottomBarClearance else 0.dp,
                     animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                     label = "clipboardSnackbarBottomClearance",
                 )
