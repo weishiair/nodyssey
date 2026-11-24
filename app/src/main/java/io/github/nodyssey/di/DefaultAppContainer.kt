@@ -876,12 +876,13 @@ class DefaultAppContainer(
 
     override val mailRepository: MailRepository by lazy {
         // A 307/308 must never forward the provider's signed payload to another origin.
-        val mailClient = ownClient(imageHostClient.newBuilder().cookieJar(SeekMailCookieJar(cookieStore)).followRedirects(false).retryOnConnectionFailure(false).build())
+        val apiClient = ownClient(imageHostClient.newBuilder().followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build())
+        val mailClient = ownClient(apiClient.newBuilder().cookieJar(SeekMailCookieJar(cookieStore)).build())
         val forumClient = ownClient(okHttpClient.newBuilder().followRedirects(false).retryOnConnectionFailure(false).build())
         DefaultMailRepository(
             credentials = DataStoreMailCredentialStore(appContext.mailDataStore, KeystoreSecretCipher()),
             clock = clock,
-            http = OkHttpTransport(imageHostClient),
+            http = OkHttpTransport(apiClient),
             dispatchers = dispatchers,
             sessionCookies = cookieStore,
             sessionHttp = OkHttpTransport(mailClient),

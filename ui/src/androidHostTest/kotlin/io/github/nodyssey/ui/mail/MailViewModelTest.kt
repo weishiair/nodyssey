@@ -1,16 +1,21 @@
 package io.github.nodyssey.ui.mail
 
 import io.github.nodyssey.data.mail.DefaultMailRepository
+import io.github.nodyssey.data.mail.MailAttachment
 import io.github.nodyssey.data.mail.MailAuthMode
 import io.github.nodyssey.data.mail.MailConnection
 import io.github.nodyssey.data.mail.MailCredentialStore
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailException
+import io.github.nodyssey.data.mail.MailFolder
+import io.github.nodyssey.data.mail.MailListFilter
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.mail.MailPage
 import io.github.nodyssey.data.mail.MailReadStates
 import io.github.nodyssey.data.mail.MailRepository
+import io.github.nodyssey.data.mail.MailTag
 import io.github.nodyssey.data.mail.Mailbox
+import io.github.nodyssey.data.mail.OutgoingMail
 import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.HttpRequest
 import io.github.plaza.core.net.HttpResponse
@@ -43,6 +48,62 @@ class MailViewModelTest {
 
     @After
     fun tearDown() = Dispatchers.resetMain()
+
+    @Test
+    fun `pressing Send twice while a request is pending submits only one message`() = runTest(dispatcher) {
+        val waiting = CompletableDeferred<Unit>()
+        val submitted = mutableListOf<OutgoingMail>()
+        val repository = FakeMailRepository().apply {
+            sendAnswer = { message ->
+                submitted += message
+                waiting.await()
+            }
+        }
+        val inbox = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        val message = OutgoingMail(7, listOf("test@example.org"), "Hello", "Message")
+
+        inbox.sendMail(message)
+        inbox.sendMail(message)
+        advanceUntilIdle()
+        assertTrue(inbox.uiState.value.compose.sending)
+        assertEquals(listOf(message), submitted)
+
+        waiting.complete(Unit)
+        advanceUntilIdle()
+        inbox.sendMail(message)
+        advanceUntilIdle()
+        assertTrue(inbox.uiState.value.compose.submitted)
+        assertEquals(listOf(message), submitted)
+    }
+
+    @Test
+    fun `a partially completed move reloads the inbox and leaves the failed message selected`() = runTest(dispatcher) {
+        val moves = mutableListOf<Long>()
+        val second = MAIL.copy(id = 22)
+        val repository = FakeMailRepository().apply {
+            inboxAnswer = { _, _ ->
+                val messages = if (moves.isEmpty()) listOf(MAIL, second) else listOf(second)
+                MailPage(messages, null, messages.size)
+            }
+            moveAnswer = { id, _ ->
+                if (id == second.id) throw MailException(MailError.RATE_LIMITED)
+                moves += id
+            }
+        }
+        val inbox = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        inbox.toggleSelection()
+        inbox.selectVisible()
+        advanceUntilIdle()
+        inbox.moveSelected(15)
+        advanceUntilIdle()
+
+        assertEquals(listOf(MAIL.id), moves)
+        assertEquals(listOf(second.id), inbox.uiState.value.messages.map(MailMessage::id))
+        assertEquals(setOf(second.id), inbox.uiState.value.selectedIds)
+        assertEquals(MailError.RATE_LIMITED, inbox.uiState.value.mailboxActionError)
+    }
 
     @Test
     fun `global inbox checks update an empty inbox without another screen request and reject stale snapshots`() = runTest(dispatcher) {
@@ -626,6 +687,35 @@ internal class FakeMailRepository : MailRepository {
     }
 
     override suspend fun mailboxes(generation: Long) = availableMailboxes
+
+    override suspend fun list(generation: Long, mailboxId: Long?, offset: Int, filter: MailListFilter) =
+        inbox(generation, mailboxId, offset)
+
+    override suspend fun folders(generation: Long): List<MailFolder> = emptyList()
+
+    var sendAnswer: suspend (OutgoingMail) -> Unit = { error("Unexpected send") }
+
+    override suspend fun send(generation: Long, mail: OutgoingMail) = sendAnswer(mail)
+
+    override suspend fun tags(generation: Long): List<MailTag> = emptyList()
+
+    override suspend fun createTag(generation: Long, name: String) = error("Unexpected tag creation")
+
+    override suspend fun setTag(generation: Long, id: Long, tagId: Long, attach: Boolean) = error("Unexpected tag change")
+
+    override suspend fun checkAddress(generation: Long, address: String) = error("Unexpected address check")
+
+    override suspend fun createMailbox(generation: Long, address: String) = error("Unexpected mailbox creation")
+
+    override suspend fun attachments(generation: Long, mailId: Long): List<MailAttachment> = emptyList()
+
+    override suspend fun downloadAttachment(generation: Long, mailId: Long, attachment: MailAttachment) = error("Unexpected download")
+
+    override suspend fun flag(generation: Long, id: Long, flagged: Boolean) = error("Unexpected flag request")
+
+    var moveAnswer: suspend (Long, Long?) -> Unit = { _, _ -> error("Unexpected move request") }
+
+    override suspend fun move(generation: Long, id: Long, folderId: Long?) = moveAnswer(id, folderId)
 
     override suspend fun inbox(generation: Long, mailboxId: Long?, offset: Int): MailPage {
         offsets += offset

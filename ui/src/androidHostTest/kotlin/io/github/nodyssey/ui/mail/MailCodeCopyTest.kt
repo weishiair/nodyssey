@@ -31,7 +31,7 @@ class MailCodeCopyTest {
         var opened = false
         composeRule.setContent {
             PlazaTheme {
-                MailMessageItem(mail, MailPreview.from(mail), first = true, last = true, nowMillis = 0, onOpen = { opened = true })
+                MailMessageItem(mail, MailPreview.from(mail), nowMillis = 0, onOpen = { opened = true })
             }
         }
         composeRule.onNodeWithText("016845").performClick()

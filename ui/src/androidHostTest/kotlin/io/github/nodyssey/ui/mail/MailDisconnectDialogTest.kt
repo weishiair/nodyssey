@@ -64,6 +64,7 @@ class MailDisconnectDialogTest {
 
         fun openConfirmation() {
             composeRule.onNodeWithContentDescription("邮箱选项").performClick()
+            composeRule.onNodeWithText("邮箱管理").performClick()
             composeRule.onNodeWithText("断开连接").performClick()
         }
 

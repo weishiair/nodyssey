@@ -52,7 +52,11 @@ import kotlin.coroutines.resumeWithException
  */
 class NSUrlSessionTransport(
     private val session: () -> NSURLSession,
-) : HttpTransport {
+) : HttpTransport,
+    BoundedDownload {
+
+    override suspend fun download(request: HttpRequest, maxBytes: Int): DownloadResponse =
+        session().downloadBounded(request, maxBytes)
 
     override suspend fun execute(request: HttpRequest, onUploadProgress: UploadProgress?): HttpResponse {
         val url = NSURL.URLWithString(request.url) ?: throw SiteException(SiteError.Network)
@@ -142,6 +146,7 @@ fun appleUrlSession(
     timeoutSeconds: Double = 20.0,
     cookies: NSHTTPCookieStorage? = NSHTTPCookieStorage.sharedHTTPCookieStorage,
     proxy: ProxyRoute? = null,
+    followRedirects: Boolean = true,
 ): NSURLSession {
     val configuration = NSURLSessionConfiguration.defaultSessionConfiguration
     configuration.HTTPCookieStorage = cookies
@@ -156,7 +161,7 @@ fun appleUrlSession(
     proxy?.let { configuration.connectionProxyDictionary = it.connectionProxyDictionary() }
     return NSURLSession.sessionWithConfiguration(
         configuration,
-        delegate = ForumSessionDelegate(proxyCredential = proxy?.credential()),
+        delegate = ForumSessionDelegate(proxyCredential = proxy?.credential(), followRedirects = followRedirects),
         delegateQueue = null,
     )
 }
@@ -198,6 +203,7 @@ internal class ForumSessionDelegate(
     // Objective-C class, and this one is not final-able while it is also a delegate.
     internal val proxyCredential: NSURLCredential? = null,
     private val onUploadProgress: UploadProgress? = null,
+    private val followRedirects: Boolean = true,
 ) : NSObject(),
     NSURLSessionTaskDelegateProtocol {
 
@@ -208,6 +214,10 @@ internal class ForumSessionDelegate(
         newRequest: NSURLRequest,
         completionHandler: (NSURLRequest?) -> Unit,
     ) {
+        if (!followRedirects) {
+            completionHandler(null)
+            return
+        }
         val addressed = task.originalRequest?.URL?.host
         val hop = newRequest.URL?.host
         if (addressed == null || hop == null || hop == addressed) {
