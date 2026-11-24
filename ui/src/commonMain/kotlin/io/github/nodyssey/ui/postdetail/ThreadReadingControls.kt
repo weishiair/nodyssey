@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -63,6 +64,7 @@ import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.theme.FloatingCapsuleShape
+import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -137,6 +139,7 @@ private fun ThreadReadingControlsRow(
                                     shape = FloatingCapsuleShape,
                                     elevated = true,
                                     backdrop = backdrop,
+                                    style = GlassSurfaceStyle.Navigation,
                                 )
                             } else {
                                 Modifier
@@ -175,16 +178,18 @@ private fun ThreadReadingControlsRow(
                     .size(48.dp)
                     .then(
                         if (layers.backdropGlass) {
+                            val scheme = MaterialTheme.colorScheme
                             Modifier.glassChromeSurface(
                                 layers = layers,
                                 darkTheme = darkTheme,
                                 shape = fabShape,
                                 elevated = true,
                                 backdrop = backdrop,
-                                surfaceTint =
-                                MaterialTheme.colorScheme.primaryContainer.copy(
-                                    alpha = if (darkTheme) 0.44f else 0.42f,
-                                ),
+                                surfaceTint = lerp(
+                                    scheme.primaryContainer,
+                                    scheme.primary,
+                                    if (darkTheme) 0.18f else 0.16f,
+                                ).copy(alpha = if (darkTheme) 0.34f else 0.24f),
                             )
                         } else {
                             Modifier

@@ -150,6 +150,12 @@ class PostListScreenRenderTest {
     }
 
     @Test
+    fun `pure white light feed under glass chrome`() {
+        composeRule.setContent { GlassShell(darkTheme = false) }
+        composeRule.onRoot().captureRender("post-list-pure-white-glass")
+    }
+
+    @Test
     fun `neutral dark feed under glass chrome`() {
         composeRule.setContent { GlassShell(darkTheme = true) }
         composeRule.onRoot().captureRender("post-list-neutral-dark-glass")

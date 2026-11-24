@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.unit.DpOffset
@@ -30,6 +32,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.isRenderEffectSupported
 import com.kyant.backdrop.isRuntimeShaderSupported
 
@@ -427,6 +430,79 @@ fun Modifier.glassFrostedBar(
     }
 }
 
+/**
+ * Subtle hairline border for controls placed on top of opaque or frosted light/dark sheets (such as
+ * modal sheets and editor strips) where a pure-white specular rim would vanish on pure white.
+ */
+fun PlazaLayers.glassSheetRimBrush(darkTheme: Boolean): Brush =
+    if (darkTheme) {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.24f),
+                Color.White.copy(alpha = 0.06f),
+            ),
+        )
+    } else {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.88f),
+                ShadowInk.copy(alpha = 0.11f),
+            ),
+        )
+    }
+
+/** [GlassRimWidth] stroke version of [glassSheetRimBrush] for sheet controls under [PlazaLayers.backdropGlass]. */
+fun PlazaLayers.glassSheetRimBorderStroke(darkTheme: Boolean): BorderStroke? =
+    if (backdropGlass) BorderStroke(GlassRimWidth, glassSheetRimBrush(darkTheme)) else cardBorderStroke
+
+/**
+ * Soft top-edge translucent glass fade for floating detail top bars: stays completely clear while
+ * [scrimAlpha] is zero so floating glass pills hover directly over content, and smoothly blurs and
+ * tints the top strip once a scrolled title appears.
+ */
+fun Modifier.glassFloatingTopBarScrim(
+    layers: PlazaLayers,
+    darkTheme: Boolean,
+    backdrop: Backdrop?,
+    baseColor: Color,
+    scrimAlpha: Float,
+): Modifier {
+    if (!layers.backdropGlass) return this
+    val edgeTint = if (darkTheme) lerp(baseColor, Color.Black, 0.20f) else lerp(baseColor, Color.White, 0.35f)
+    val clamped = scrimAlpha.coerceIn(0f, 1f)
+    if (clamped <= 0.01f) {
+        // At rest (no collapsed title), keep the toolbar clear and only protect status-bar legibility.
+        val statusFade = Brush.verticalGradient(
+            0f to edgeTint.copy(alpha = if (darkTheme) 0.56f else 0.52f),
+            0.48f to edgeTint.copy(alpha = if (darkTheme) 0.18f else 0.14f),
+            1f to Color.Transparent,
+        )
+        return this.background(statusFade)
+    }
+    val scrolledFade = Brush.verticalGradient(
+        0f to edgeTint.copy(alpha = (if (darkTheme) 0.78f else 0.76f) * clamped),
+        0.74f to edgeTint.copy(alpha = (if (darkTheme) 0.54f else 0.48f) * clamped),
+        1f to Color.Transparent,
+    )
+    return if (backdrop != null && isRenderEffectSupported()) {
+        this.drawBackdrop(
+            backdrop = backdrop,
+            shape = { RectangleShape },
+            effects = {
+                vibrancy()
+                blur((12.dp * clamped).coerceAtLeast(1.dp).toPx())
+            },
+            highlight = null,
+            shadow = null,
+            onDrawSurface = {
+                drawRect(scrolledFade)
+            },
+        )
+    } else {
+        this.background(scrolledFade)
+    }
+}
+
 /** Navigation carries the lens effect; small controls are quieter and notices favour readable text. */
 enum class GlassSurfaceStyle {
     Navigation,
@@ -436,14 +512,14 @@ enum class GlassSurfaceStyle {
 
 private fun PlazaLayers.glassSurfaceTint(darkTheme: Boolean, style: GlassSurfaceStyle): Color {
     val alpha = when (style) {
-        GlassSurfaceStyle.Navigation -> 0.45f
-        GlassSurfaceStyle.Control -> 0.50f
-        GlassSurfaceStyle.Notice -> if (darkTheme) 0.90f else 0.92f
+        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.34f else 0.16f
+        GlassSurfaceStyle.Control -> if (darkTheme) 0.38f else 0.20f
+        GlassSurfaceStyle.Notice -> if (darkTheme) 0.88f else 0.90f
     }
     val color = when {
         style == GlassSurfaceStyle.Notice -> raised
-        darkTheme -> lerp(raised, Color.Black, 0.10f)
-        else -> lerp(card, Color.White, 0.45f)
+        darkTheme -> lerp(raised, Color.Black, 0.22f)
+        else -> Color.White
     }
     return color.copy(alpha = alpha)
 }
@@ -476,24 +552,70 @@ fun Modifier.glassChromeSurface(
             layers.glassSurfaceTint(darkTheme, style)
         }
     val rimStrength = when (style) {
-        GlassSurfaceStyle.Navigation -> 0.32f
-        GlassSurfaceStyle.Control -> 0.26f
-        GlassSurfaceStyle.Notice -> 0.14f
+        GlassSurfaceStyle.Navigation -> if (darkTheme) 0.78f else 0.26f
+        GlassSurfaceStyle.Control -> if (darkTheme) 0.66f else 0.22f
+        GlassSurfaceStyle.Notice -> if (darkTheme) 0.24f else 0.12f
     }
     val surface = if (elevated) {
-        dropShadow(
-            shape,
-            Shadow(
-                radius = if (style == GlassSurfaceStyle.Navigation) 18.dp else 12.dp,
-                color = ShadowInk,
-                offset = DpOffset(0.dp, 3.dp),
-                alpha = if (darkTheme) 0.06f else 0.10f,
-            ),
-        )
+        if (darkTheme) {
+            dropShadow(
+                shape,
+                Shadow(
+                    radius = if (style == GlassSurfaceStyle.Navigation) 20.dp else 14.dp,
+                    color = Color.Black,
+                    offset = DpOffset(0.dp, if (style == GlassSurfaceStyle.Navigation) 6.dp else 4.dp),
+                    alpha = if (style == GlassSurfaceStyle.Navigation) 0.30f else 0.24f,
+                ),
+            )
+        } else {
+            dropShadow(
+                shape,
+                Shadow(
+                    radius = if (style == GlassSurfaceStyle.Navigation) 4.dp else 3.dp,
+                    color = ShadowInk,
+                    offset = DpOffset(0.dp, 1.dp),
+                    alpha = if (style == GlassSurfaceStyle.Navigation) 0.06f else 0.05f,
+                ),
+            ).dropShadow(
+                shape,
+                Shadow(
+                    radius = if (style == GlassSurfaceStyle.Navigation) 22.dp else 16.dp,
+                    color = ShadowInk,
+                    offset = DpOffset(0.dp, if (style == GlassSurfaceStyle.Navigation) 8.dp else 5.dp),
+                    alpha = if (style == GlassSurfaceStyle.Navigation) 0.13f else 0.10f,
+                ),
+            )
+        }
     } else {
         this
     }
     return if (backdrop != null && isRenderEffectSupported()) {
+        val sheenBrush = if (style == GlassSurfaceStyle.Notice) {
+            null
+        } else if (darkTheme) {
+            Brush.verticalGradient(
+                0f to Color.White.copy(alpha = 0.055f),
+                0.24f to Color.Transparent,
+                0.82f to Color.Transparent,
+                1f to Color.White.copy(alpha = 0.025f),
+            )
+        } else {
+            Brush.verticalGradient(
+                0f to Color.White.copy(alpha = 0.28f),
+                0.22f to Color.Transparent,
+                0.80f to Color.Transparent,
+                1f to Color.White.copy(alpha = 0.10f),
+            )
+        }
+        val lightContourBrush = if (!darkTheme && style != GlassSurfaceStyle.Notice) {
+            Brush.verticalGradient(
+                0f to Color.White.copy(alpha = 0.95f),
+                0.35f to ShadowInk.copy(alpha = 0.06f),
+                1f to ShadowInk.copy(alpha = 0.13f),
+            )
+        } else {
+            null
+        }
         surface.drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
@@ -501,31 +623,62 @@ fun Modifier.glassChromeSurface(
                 vibrancy()
                 blur(
                     when (style) {
-                        GlassSurfaceStyle.Navigation -> 24.dp
-                        GlassSurfaceStyle.Control -> 20.dp
-                        GlassSurfaceStyle.Notice -> 24.dp
+                        GlassSurfaceStyle.Navigation -> 8.dp
+                        GlassSurfaceStyle.Control -> 6.dp
+                        GlassSurfaceStyle.Notice -> 20.dp
                     }.toPx(),
                 )
-                // Only the navigation capsule bends what is behind it, and only at its rim. Over a
-                // dense list a strong lens and colour fringing read as a plastic bubble, not glass.
-                if (isRuntimeShaderSupported() && style == GlassSurfaceStyle.Navigation) {
+                if (isRuntimeShaderSupported() && style != GlassSurfaceStyle.Notice) {
+                    val navigation = style == GlassSurfaceStyle.Navigation
                     lens(
-                        refractionHeight = 8.dp.toPx(),
-                        refractionAmount = 10.dp.toPx(),
+                        refractionHeight = (if (navigation) 14.dp else 10.dp).toPx(),
+                        refractionAmount = (if (navigation) 24.dp else 18.dp).toPx(),
+                        depthEffect = true,
                         chromaticAberration = false,
                     )
                 }
             },
-            highlight = { Highlight(alpha = rimStrength) },
+            highlight = {
+                if (darkTheme) {
+                    Highlight(
+                        width = 1.dp,
+                        blurRadius = 0.5.dp,
+                        alpha = rimStrength,
+                        style = HighlightStyle.Default(
+                            color = Color.White.copy(alpha = 0.55f),
+                            angle = 45f,
+                            falloff = 1.3f,
+                        ),
+                    )
+                } else {
+                    Highlight(
+                        width = 1.dp,
+                        blurRadius = 0.4.dp,
+                        alpha = rimStrength,
+                        style = HighlightStyle.Ambient(),
+                    )
+                }
+            },
             shadow = null,
             onDrawSurface = {
                 drawRect(resolvedTint)
+                if (sheenBrush != null) {
+                    drawRect(sheenBrush)
+                }
+                if (lightContourBrush != null) {
+                    val outline = shape.createOutline(size, layoutDirection, this)
+                    drawOutline(
+                        outline = outline,
+                        brush = lightContourBrush,
+                        style = Stroke(width = GlassRimWidth.toPx()),
+                    )
+                }
             },
         )
     } else {
         surface
             .clip(shape)
             .background(layers.glassChromeBrush(darkTheme, resolvedTint), shape)
-            .border(GlassRimWidth, layers.glassRimBrush(darkTheme, rimStrength), shape)
+            .border(GlassRimWidth, layers.glassRimBrush(darkTheme, if (darkTheme) rimStrength else 0.72f), shape)
     }
 }

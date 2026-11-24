@@ -22,6 +22,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.component.LayerCardShape
@@ -34,10 +36,11 @@ import io.github.plaza.designsys.resources.composer_format_link
 import io.github.plaza.designsys.resources.composer_link_menu_image
 import io.github.plaza.designsys.resources.composer_link_menu_more
 import io.github.plaza.designsys.resources.composer_toolbar_customize
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.backdropGlass
-import io.github.plaza.designsys.theme.glassRimBorderStroke
+import io.github.plaza.designsys.theme.glassSheetRimBorderStroke
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -140,12 +143,16 @@ private fun Strip(
     Surface(
         color =
         if (layers.backdropGlass) {
-            layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.74f)
+            if (darkTheme) {
+                layers.raised.copy(alpha = 0.68f)
+            } else {
+                lerp(layers.page, Color.White, 0.35f).copy(alpha = 0.92f)
+            }
         } else {
             layers.inset
         },
-        shape = LayerCardShape,
-        border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
+        shape = if (layers.backdropGlass) FloatingCapsuleShape else LayerCardShape,
+        border = if (layers.backdropGlass) layers.glassSheetRimBorderStroke(darkTheme) else null,
         modifier = modifier.fillMaxWidth().padding(BarMargin),
     ) {
         Row(

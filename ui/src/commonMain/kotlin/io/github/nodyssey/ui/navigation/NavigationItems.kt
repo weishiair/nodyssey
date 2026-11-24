@@ -41,9 +41,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +66,7 @@ import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.nodyssey.ui.resources.tab_profile
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.FloatingCapsuleShape
+import io.github.plaza.designsys.theme.GlassRimWidth
 import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -69,6 +74,10 @@ import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.glassChromeSurface
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * The three places the app can be.
@@ -161,6 +170,7 @@ fun NodysseyNavigationItems(
 }
 
 private val NavigationIconSize = 20.dp
+private val GlassNavigationIconSize = 21.dp
 
 private val GlassBottomBarShape = FloatingCapsuleShape
 private val GlassPillIndicatorShape = FloatingCapsuleShape
@@ -241,19 +251,54 @@ internal fun BottomNavigationTabs(
                 backdrop = backdrop,
                 style = GlassSurfaceStyle.Navigation,
             )
-            .padding(horizontal = 5.dp, vertical = 4.dp)
+            .padding(horizontal = 5.dp, vertical = 5.dp)
             .drawBehind {
                 // One shared indicator for the whole bar: the selection travels between tabs
-                // instead of a pill fading in and out in place.
+                // as a translucent inner glass lens instead of a flat pill fading in place.
+                if (indicatorAlpha <= 0.001f) return@drawBehind
                 val n = TopLevelDestination.entries.size
                 val gap = TabGap.toPx()
                 val itemWidth = (size.width - gap * (n - 1)) / n
-                val left = position * (itemWidth + gap)
-                val leftPx = if (layoutDirection == LayoutDirection.Rtl) size.width - left - itemWidth else left
-                val outline = GlassPillIndicatorShape.createOutline(Size(itemWidth, size.height), layoutDirection, this)
-                val indicatorColor = scheme.secondaryContainer.copy(alpha = (if (darkTheme) 0.56f else 0.68f) * indicatorAlpha)
+                val travel = abs(position - position.roundToInt())
+                val stretch = sin(travel * PI).toFloat() * itemWidth * 0.10f
+                val indicatorWidth = (itemWidth + stretch).coerceAtMost(size.width)
+                val rawLeft = position * (itemWidth + gap) - stretch / 2f
+                val clampedLeft = rawLeft.coerceIn(0f, (size.width - indicatorWidth).coerceAtLeast(0f))
+                val leftPx = if (layoutDirection == LayoutDirection.Rtl) size.width - clampedLeft - indicatorWidth else clampedLeft
+                val outline = GlassPillIndicatorShape.createOutline(Size(indicatorWidth, size.height), layoutDirection, this)
+                val fillBrush = if (darkTheme) {
+                    Brush.verticalGradient(
+                        listOf(
+                            lerp(scheme.primaryContainer, Color.White, 0.14f).copy(alpha = 0.40f * indicatorAlpha),
+                            scheme.primaryContainer.copy(alpha = 0.22f * indicatorAlpha),
+                        ),
+                    )
+                } else {
+                    Brush.verticalGradient(
+                        listOf(
+                            lerp(scheme.primaryContainer, Color.White, 0.20f).copy(alpha = 0.72f * indicatorAlpha),
+                            lerp(scheme.primaryContainer, scheme.primary, 0.10f).copy(alpha = 0.50f * indicatorAlpha),
+                        ),
+                    )
+                }
+                val rimBrush = if (darkTheme) {
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.28f * indicatorAlpha),
+                            Color.White.copy(alpha = 0.05f * indicatorAlpha),
+                        ),
+                    )
+                } else {
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.88f * indicatorAlpha),
+                            scheme.primary.copy(alpha = 0.18f * indicatorAlpha),
+                        ),
+                    )
+                }
                 translate(left = leftPx) {
-                    drawOutline(outline = outline, color = indicatorColor)
+                    drawOutline(outline = outline, brush = fillBrush)
+                    drawOutline(outline = outline, brush = rimBrush, style = Stroke(width = GlassRimWidth.toPx()))
                 }
             }
             .selectableGroup(),
@@ -263,12 +308,13 @@ internal fun BottomNavigationTabs(
         TopLevelDestination.entries.forEach { destination ->
             val selected = destination == current
             val scale by animateFloatAsState(
-                targetValue = if (selected) 1.02f else 1f,
+                targetValue = if (selected) 1.03f else 1f,
                 animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
                 label = "glassNavTabScale",
             )
+            val inactiveContentColor = scheme.onSurface.copy(alpha = if (darkTheme) 0.72f else 0.68f)
             val contentColor by animateColorAsState(
-                targetValue = if (selected) scheme.primary else scheme.onSurface,
+                targetValue = if (selected) scheme.primary else inactiveContentColor,
                 animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
                 label = "glassNavTabContent",
             )
@@ -285,7 +331,7 @@ internal fun BottomNavigationTabs(
                     .clip(GlassPillIndicatorShape)
                     .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(destination) }),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
             ) {
                 BadgedBox(
                     badge = {
@@ -298,7 +344,7 @@ internal fun BottomNavigationTabs(
                         imageVector = if (selected) destination.selectedIcon else destination.icon,
                         contentDescription = null,
                         tint = contentColor,
-                        modifier = Modifier.size(NavigationIconSize),
+                        modifier = Modifier.size(GlassNavigationIconSize),
                     )
                 }
                 Text(

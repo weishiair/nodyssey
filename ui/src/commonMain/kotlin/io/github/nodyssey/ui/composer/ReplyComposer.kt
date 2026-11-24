@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -48,8 +51,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -109,6 +115,8 @@ import io.github.plaza.designsys.editor.MarkdownEditorState
 import io.github.plaza.designsys.editor.ToolbarCustomizeSheet
 import io.github.plaza.designsys.editor.rememberMarkdownEditorState
 import io.github.plaza.designsys.theme.CommentBody
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
+import io.github.plaza.designsys.theme.GlassRimWidth
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
@@ -116,6 +124,8 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassRimBorderStroke
 import io.github.plaza.designsys.theme.glassSheetBrush
+import io.github.plaza.designsys.theme.glassSheetRimBorderStroke
+import io.github.plaza.designsys.theme.glassSheetRimBrush
 import io.github.plaza.designsys.theme.nativeGlass
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
@@ -320,7 +330,26 @@ private fun ReplyEditorSheet(
             windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
         }
     val dismiss = { if (!state.isPublishing) onDismiss() }
-    val nativeGlass = LocalPlazaLayers.current.nativeGlass
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
+    val nativeGlass = layers.nativeGlass
+    val glassIconCircle: @Composable (@Composable () -> Unit) -> Unit = { icon ->
+        if (layers.backdropGlass) {
+            val fill = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (darkTheme) 0.56f else 0.82f)
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(fill, CircleShape)
+                    .border(GlassRimWidth, layers.glassSheetRimBrush(darkTheme), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                icon()
+            }
+        } else {
+            icon()
+        }
+    }
     val editor: @Composable (Modifier) -> Unit = { editorModifier ->
         Column(modifier = editorModifier.fillMaxWidth()) {
             // The post editor's top bar in miniature: ✕ · where the reply goes · 预览 · 发布. 发布
@@ -332,12 +361,17 @@ private fun ReplyEditorSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                IconButton(onClick = onDismiss, enabled = !state.isPublishing) {
-                    PlazaIcon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.action_close),
-                        modifier = Modifier.size(20.dp),
-                    )
+                IconButton(
+                    onClick = onDismiss,
+                    enabled = !state.isPublishing,
+                ) {
+                    glassIconCircle {
+                        PlazaIcon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(Res.string.action_close),
+                            modifier = Modifier.size(if (layers.backdropGlass) 18.dp else 20.dp),
+                        )
+                    }
                 }
                 Text(
                     // The author is in the target chip right under this, so the header names the
@@ -361,12 +395,14 @@ private fun ReplyEditorSheet(
                     },
                     enabled = !state.isPublishing,
                 ) {
-                    PlazaIcon(
-                        imageVector = PlazaIcons.Visibility,
-                        contentDescription = stringResource(Res.string.action_preview),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
-                    )
+                    glassIconCircle {
+                        PlazaIcon(
+                            imageVector = PlazaIcons.Visibility,
+                            contentDescription = stringResource(Res.string.action_preview),
+                            tint = if (layers.backdropGlass) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
                 PublishReplyButton(
                     isPublishing = state.isPublishing,
@@ -464,8 +500,6 @@ private fun ReplyEditorSheet(
             )
         }
     }
-    val layers = LocalPlazaLayers.current
-    val darkTheme = LocalPlazaDarkTheme.current
     if (asCard) {
         Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             // The keyboard pushes the card up rather than covering its bottom, where 发布's strip is.
@@ -476,7 +510,7 @@ private fun ReplyEditorSheet(
                 Surface(
                     shape = MaterialTheme.shapes.extraLarge,
                     color = layers.card,
-                    border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
+                    border = if (layers.backdropGlass) layers.glassSheetRimBorderStroke(darkTheme) else null,
                     modifier = Modifier.widthIn(max = REPLY_CARD_MAX_WIDTH).fillMaxWidth(),
                 ) {
                     editor(
@@ -494,6 +528,22 @@ private fun ReplyEditorSheet(
             }
         }
     } else {
+        val sheetContainerColor =
+            if (layers.backdropGlass) {
+                if (darkTheme) {
+                    lerp(layers.card, layers.raised, 0.35f).copy(alpha = 0.90f)
+                } else {
+                    Color.White.copy(alpha = 0.90f)
+                }
+            } else {
+                layers.card
+            }
+        val sheetShape =
+            if (layers.backdropGlass) {
+                RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+            } else {
+                PlazaSheetDefaults.shape
+            }
         ModalBottomSheet(
             // Guarded like the close button and the BackHandler: while a publish is in flight, a swipe
             // or scrim tap must not be the one dismiss path that still works.
@@ -504,8 +554,8 @@ private fun ReplyEditorSheet(
             ),
             // A sheet of paper, like the post editor's page (2c): the editor is one card lifted over the
             // thread, and only its bar and the emoji panel under it recede.
-            containerColor = layers.card,
-            shape = PlazaSheetDefaults.shape,
+            containerColor = sheetContainerColor,
+            shape = sheetShape,
             dragHandle = { PlazaSheetDefaults.DragHandle() },
         ) {
             // Material clips the whole sheet, including its handle, to one outer shape. Painting
@@ -689,14 +739,22 @@ private fun PublishReplyButton(
         Button(
             onClick = onClick,
             enabled = enabled && !isPublishing,
-            shape = ButtonDefaults.squareShape,
-            border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
+            shape = if (layers.backdropGlass) FloatingCapsuleShape else ButtonDefaults.squareShape,
+            border = if (layers.backdropGlass) {
+                if (enabled && !isPublishing) {
+                    layers.glassRimBorderStroke(darkTheme)
+                } else {
+                    layers.glassSheetRimBorderStroke(darkTheme)
+                }
+            } else {
+                null
+            },
             colors =
             if (layers.backdropGlass) {
                 ButtonDefaults.buttonColors(
-                    containerColor = scheme.primary.copy(alpha = 0.88f),
+                    containerColor = scheme.primary.copy(alpha = 0.90f),
                     contentColor = scheme.onPrimary,
-                    disabledContainerColor = layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.72f),
+                    disabledContainerColor = scheme.surfaceContainerHigh.copy(alpha = if (darkTheme) 0.56f else 0.80f),
                     disabledContentColor = scheme.onSurfaceVariant,
                 )
             } else {

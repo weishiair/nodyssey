@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -90,7 +91,11 @@ fun PlazaExtendedFab(
                             shape = shape,
                             elevated = true,
                             backdrop = backdrop,
-                            surfaceTint = primaryContainer.copy(alpha = if (darkTheme) 0.44f else 0.42f),
+                            surfaceTint = lerp(
+                                primaryContainer,
+                                MaterialTheme.colorScheme.primary,
+                                if (darkTheme) 0.18f else 0.16f,
+                            ).copy(alpha = if (darkTheme) 0.34f else 0.24f),
                         )
                     } else {
                         Modifier.floatShadow(shape, layers.shadows)
