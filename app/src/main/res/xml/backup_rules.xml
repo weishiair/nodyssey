@@ -6,6 +6,8 @@
     minSdk is 26, so this file still applies on real devices and is not dead weight.
 -->
 <full-backup-content>
+    <exclude domain="sharedpref" path="post-response-diagnostics-nodeseek.xml" />
+    <exclude domain="sharedpref" path="post-response-diagnostics-deepflood.xml" />
     <!-- All Room tables are re-downloadable caches and may contain signed-in-only content. -->
     <exclude domain="database" path="." />
     <!-- WebView stores cookies under getDataDir(), which is the backup "root" domain. -->

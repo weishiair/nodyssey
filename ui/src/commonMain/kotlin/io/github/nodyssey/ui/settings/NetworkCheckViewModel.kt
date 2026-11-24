@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.data.diagnostics.NetworkDiagnostics
 import io.github.nodyssey.data.diagnostics.NetworkEnvironment
+import io.github.nodyssey.data.diagnostics.PostResponseDiagnostic
 import io.github.nodyssey.data.diagnostics.ProbeResult
 import io.github.nodyssey.data.diagnostics.ProbeTarget
 import kotlinx.coroutines.Job
@@ -46,7 +47,8 @@ class NetworkCheckViewModel(
                 // the same visit, and blanking it would hide the rows most likely to hold the
                 // answer for as long as the slow half takes.
                 _uiState.update { it.copy(running = true, forum = null, updates = null) }
-                _uiState.update { it.copy(environment = diagnostics.environment()) }
+                val savedFailure = diagnostics.recentPostFailure()
+                _uiState.update { it.copy(environment = diagnostics.environment(), postFailure = savedFailure) }
                 // One at a time, deliberately. Two probes in flight together share the connection
                 // and each one measures the other's contention, which on the connections this screen
                 // exists for is most of what it would be measuring. The screen is slower to fill in
@@ -56,6 +58,13 @@ class NetworkCheckViewModel(
                 val updates = diagnostics.probe(ProbeTarget.UPDATES)
                 _uiState.update { it.copy(updates = updates, running = false) }
             }
+    }
+
+    fun clearPostFailure() {
+        viewModelScope.launch {
+            diagnostics.clearPostFailure()
+            _uiState.update { it.copy(postFailure = null) }
+        }
     }
 
     companion object {
@@ -83,4 +92,5 @@ data class NetworkCheckUiState(
     val environment: NetworkEnvironment? = null,
     val forum: ProbeResult? = null,
     val updates: ProbeResult? = null,
+    val postFailure: PostResponseDiagnostic? = null,
 )

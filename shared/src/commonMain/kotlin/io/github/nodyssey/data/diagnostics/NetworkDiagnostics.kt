@@ -37,6 +37,11 @@ interface NetworkDiagnostics {
 
     /** One measured request to [target]. Never throws; a call that did not complete comes back as [ProbeResult.Failed]. */
     suspend fun probe(target: ProbeTarget): ProbeResult
+
+    /** Saved evidence from a real post request, not another probe of the unprotected home page. */
+    suspend fun recentPostFailure(): PostResponseDiagnostic? = null
+
+    suspend fun clearPostFailure() = Unit
 }
 
 /**

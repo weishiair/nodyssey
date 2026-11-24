@@ -35,7 +35,7 @@ internal class SeekMailAuthorization(private val forum: HttpTransport, private v
             ),
         )
         checkCurrent()
-        if (response.code == 468 || isChallengeAnswer(response.body, response.header("cf-mitigated"), NodeSeekSite.CONFIG.markers)) {
+        if (response.code == 468 || isChallengeAnswer(response.code, response.body, response.header("cf-mitigated"), NodeSeekSite.CONFIG.markers)) {
             throw MailException(MailError.CHALLENGE)
         }
         if (response.code == 401 || response.code in 300..399 || response.url != SeekMailSite.NODESEEK_AUTHORIZATION_CHALLENGE) {

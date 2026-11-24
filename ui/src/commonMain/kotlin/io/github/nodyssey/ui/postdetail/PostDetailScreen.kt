@@ -1,5 +1,6 @@
 package io.github.nodyssey.ui.postdetail
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -252,6 +253,7 @@ import io.github.plaza.designsys.component.rememberClipboardCopy
 import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.richtext.LocalRichTextAppearance
 import io.github.plaza.designsys.richtext.RichTextAppearance
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -264,7 +266,7 @@ import io.github.plaza.designsys.theme.asSignature
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
-import io.github.plaza.designsys.theme.glassFrostedBar
+import io.github.plaza.designsys.theme.glassFloatingTopBarScrim
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
 import io.github.plaza.designsys.theme.nativeControls
 import io.github.plaza.designsys.theme.readableWidth
@@ -1184,13 +1186,6 @@ private fun DetailTopBar(
     val darkTheme = LocalPlazaDarkTheme.current
     val backdrop = LocalLiquidGlassBackdrop.current
 
-    val buttonTint =
-        if (darkTheme) {
-            layers.raised.copy(alpha = 0.44f)
-        } else {
-            Color.White.copy(alpha = 0.40f)
-        }
-
     val nativeMenu = buildList {
         onOriginal?.let { add(GlassMenuAction(openOriginalPostLabel, it, symbol = "arrow.up.to.line")) }
         collected?.let { saved ->
@@ -1234,14 +1229,20 @@ private fun DetailTopBar(
             scrollEdgeColor = pageColor,
             barInsets = nativeInsets,
         ) {
+            val topScrimAlpha by animateFloatAsState(
+                targetValue = if (showTitle) 1f else 0f,
+                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                label = "detailTopBarScrim",
+            )
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .glassFrostedBar(
+                    .glassFloatingTopBarScrim(
                         layers = layers,
                         darkTheme = darkTheme,
                         backdrop = backdrop,
                         baseColor = pageColor,
+                        scrimAlpha = topScrimAlpha,
                     ),
             ) {
                 ReadableTopBar { barInsets ->
@@ -1283,7 +1284,6 @@ private fun DetailTopBar(
                                                 shape = CircleShape,
                                                 elevated = true,
                                                 backdrop = backdrop,
-                                                surfaceTint = buttonTint,
                                             )
                                     } else {
                                         Modifier
@@ -1313,14 +1313,19 @@ private fun DetailTopBar(
                                         Modifier.matchParentSize().padding(vertical = 4.dp).glassChromeSurface(
                                             layers = layers,
                                             darkTheme = darkTheme,
-                                            shape = CircleShape,
+                                            shape = FloatingCapsuleShape,
                                             elevated = true,
                                             backdrop = backdrop,
-                                            surfaceTint = buttonTint,
                                         ),
                                     )
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val actionIconTint =
+                                        if (layers.backdropGlass) {
+                                            MaterialTheme.colorScheme.onSurface
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
                                     IconButton(
                                         onClick = onOpenInBrowser,
                                         modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
@@ -1328,7 +1333,7 @@ private fun DetailTopBar(
                                         PlazaIcon(
                                             PlazaIcons.OpenInNew,
                                             contentDescription = stringResource(Res.string.action_open_in_browser),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = actionIconTint,
                                             modifier = Modifier.size(TopBarIconSize),
                                         )
                                     }
@@ -1340,7 +1345,7 @@ private fun DetailTopBar(
                                             PlazaIcon(
                                                 Icons.Default.MoreVert,
                                                 contentDescription = stringResource(Res.string.action_more),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                tint = actionIconTint,
                                                 modifier = Modifier.size(TopBarIconSize),
                                             )
                                         }

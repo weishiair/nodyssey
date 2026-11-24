@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -62,6 +63,8 @@ import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
+import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -134,16 +137,17 @@ private fun ThreadReadingControlsRow(
                                 Modifier.glassChromeSurface(
                                     layers = layers,
                                     darkTheme = darkTheme,
-                                    shape = CircleShape,
+                                    shape = FloatingCapsuleShape,
                                     elevated = true,
                                     backdrop = backdrop,
+                                    style = GlassSurfaceStyle.Navigation,
                                 )
                             } else {
                                 Modifier
                             },
                         )
                         .semantics { contentDescription = positionLabel },
-                    shape = CircleShape,
+                    shape = FloatingCapsuleShape,
                     color = if (layers.backdropGlass) Color.Transparent else layers.raised,
                     shadowElevation = if (einkMode || layers.backdropGlass) 0.dp else 2.dp,
                 ) {
@@ -157,7 +161,8 @@ private fun ThreadReadingControlsRow(
                 }
             }
         }
-        val fabShape = RoundedCornerShape(16.dp)
+        // A circle, like the back button: a floating square button has no long edge for a capsule.
+        val fabShape = CircleShape
         AdaptiveGlassButton(
             action = GlassAction(
                 label = stringResource(Res.string.post_reply_action),
@@ -174,16 +179,18 @@ private fun ThreadReadingControlsRow(
                     .size(48.dp)
                     .then(
                         if (layers.backdropGlass) {
+                            val scheme = MaterialTheme.colorScheme
                             Modifier.glassChromeSurface(
                                 layers = layers,
                                 darkTheme = darkTheme,
                                 shape = fabShape,
                                 elevated = true,
                                 backdrop = backdrop,
-                                surfaceTint =
-                                MaterialTheme.colorScheme.primaryContainer.copy(
-                                    alpha = if (darkTheme) 0.44f else 0.42f,
-                                ),
+                                surfaceTint = lerp(
+                                    scheme.primaryContainer,
+                                    scheme.primary,
+                                    if (darkTheme) 0.18f else 0.16f,
+                                ).copy(alpha = if (darkTheme) 0.34f else 0.24f),
                             )
                         } else {
                             Modifier

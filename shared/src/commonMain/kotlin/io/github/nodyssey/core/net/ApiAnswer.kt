@@ -1,6 +1,7 @@
 package io.github.nodyssey.core.net
 
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.plaza.core.net.HttpResponse
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
 import io.github.plaza.core.net.htmlTitle
@@ -21,10 +22,9 @@ import io.github.plaza.core.net.isHtmlAnswer
  */
 internal fun throwIfChallenge(
     path: String,
-    body: String,
-    cfMitigated: String?,
+    response: HttpResponse,
 ) {
-    if (isChallengeAnswer(body, cfMitigated, NodeSeekSite.CONFIG.markers)) {
+    if (isChallengeAnswer(response.code, response.body, response.header("cf-mitigated"), NodeSeekSite.CONFIG.markers)) {
         // The refused address, not the site's front door: see [SiteError.Cloudflare] for the zone
         // rule that makes the difference between a web view that can clear this and one that cannot.
         throw SiteException(SiteError.Cloudflare(NodeSeekSite.absoluteUrl(path) ?: NodeSeekSite.BASE_URL))

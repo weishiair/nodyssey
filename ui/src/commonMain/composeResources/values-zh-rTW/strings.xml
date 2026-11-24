@@ -506,7 +506,7 @@
     <string name="network_check_running">檢測中…</string>
     <string name="network_check_copy">複製結果</string>
     <string name="network_check_copied">已複製</string>
-    <string name="network_check_summary_ok">論壇可以正常存取</string>
+    <string name="network_check_summary_ok">論壇首頁請求成功</string>
     <string name="network_check_summary_failed">論壇無法存取</string>
     <string name="network_check_summary_updates">更新來源：%1$s</string>
     <string name="network_check_section_environment">環境</string>
@@ -538,7 +538,7 @@
     <string name="network_check_app_none">沒有</string>
     <string name="network_check_yes">是</string>
     <string name="network_check_no">否</string>
-    <string name="network_check_section_forum">論壇</string>
+    <string name="network_check_section_forum">論壇首頁探測</string>
     <string name="network_check_section_updates">更新來源</string>
     <string name="network_check_status">結果</string>
     <string name="network_check_stage">最遠連線階段</string>
@@ -1873,4 +1873,16 @@
     <string name="about_open_releases">查看版本與下載</string>
     <string name="about_ios_update_hint">下載新版 IPA 後，請使用原有的簽章工具安裝。</string>
     <string name="notify_saved_alerts_section">已儲存的提醒規則</string>
+    <string name="network_check_post_failure_title">最近一次貼文請求失敗</string>
+    <string name="network_check_post_failure_none">尚無紀錄</string>
+    <string name="network_check_post_failure_hint">貼文請求傳回 HTTP 4xx/5xx 時自動儲存最近一筆去識別紀錄，保留 7 天，恢復存取及重新啟動後仍可複製。只記錄固定回應特徵，不儲存 Cookie 值或內文。首頁探測成功不代表貼文可存取。</string>
+    <string name="network_check_post_failure_clear">清除貼文失敗紀錄</string>
+    <string name="network_check_post_failure_time">發生時間（UTC）</string>
+    <string name="network_check_post_failure_request">貼文網址</string>
+    <string name="network_check_post_failure_final">最終網址</string>
+    <string name="network_check_post_failure_headers">回應特徵</string>
+    <string name="network_check_post_failure_body">錯誤頁特徵</string>
+    <string name="network_check_post_failure_sent_cookies">請求 Cookie 名稱</string>
+    <string name="network_check_post_failure_received_cookies">回應 Cookie 名稱</string>
+    <string name="network_check_post_failure_connection">當時的連線</string>
 </resources>

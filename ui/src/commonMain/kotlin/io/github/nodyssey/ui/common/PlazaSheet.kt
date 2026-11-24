@@ -19,6 +19,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -49,6 +50,8 @@ internal fun PlazaSheet(
     sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
     /** The sheet's panel colour — page for ordinary sheets, card where the sheet is one lifted card. */
     containerColor: Color? = null,
+    /** The Compose fallback's outer shape; the native sheet keeps UIKit's own corners. */
+    shape: Shape = PlazaSheetDefaults.shape,
     title: String? = null,
     subtitle: String? = null,
     action: (@Composable () -> Unit)? = null,
@@ -66,7 +69,7 @@ internal fun PlazaSheet(
                 onDismissRequest = onDismiss,
                 modifier = modifier,
                 sheetState = sheetState,
-                shape = PlazaSheetDefaults.shape,
+                shape = shape,
                 containerColor = panelColor,
                 dragHandle = dragHandle,
             ) {

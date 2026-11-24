@@ -12,6 +12,8 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="sharedpref" path="post-response-diagnostics-nodeseek.xml" />
+        <exclude domain="sharedpref" path="post-response-diagnostics-deepflood.xml" />
         <exclude domain="database" path="." />
         <exclude domain="root" path="app_webview" />
         <exclude domain="root" path="webview" />
@@ -21,6 +23,8 @@
         device's session, so it is excluded there too.
     -->
     <device-transfer>
+        <exclude domain="sharedpref" path="post-response-diagnostics-nodeseek.xml" />
+        <exclude domain="sharedpref" path="post-response-diagnostics-deepflood.xml" />
         <exclude domain="database" path="." />
         <exclude domain="root" path="app_webview" />
         <exclude domain="root" path="webview" />

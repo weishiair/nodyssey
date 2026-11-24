@@ -1,8 +1,15 @@
 package io.github.nodyssey.render
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
@@ -15,11 +22,20 @@ import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import io.github.nodyssey.data.Board
 import io.github.nodyssey.data.FeedPost
+import io.github.nodyssey.data.settings.BottomBarPosition
 import io.github.nodyssey.model.PostSummary
+import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
+import io.github.nodyssey.ui.common.bottomBarClearance
+import io.github.nodyssey.ui.navigation.FloatingBottomNavigationBar
+import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.postlist.HomeFeedStates
+import io.github.nodyssey.ui.postlist.LocalSelectedPostId
 import io.github.nodyssey.ui.postlist.PostListScreen
 import io.github.nodyssey.ui.postlist.PostListUiState
+import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.PlazaTheme
+import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Before
 import org.junit.Rule
@@ -49,31 +65,67 @@ class PostListScreenRenderTest {
     @Composable
     private fun Screen(darkTheme: Boolean, pureWhite: Boolean = false) {
         PlazaTheme(darkTheme = darkTheme, pureWhite = pureWhite) {
-            val feed =
-                remember {
-                    flowOf(
-                        PagingData.from(
-                            data = FEED,
-                            sourceLoadStates =
-                            LoadStates(
-                                refresh = LoadState.NotLoading(false),
-                                prepend = LoadState.NotLoading(true),
-                                append = LoadState.NotLoading(true),
-                            ),
-                        ),
+            Feed()
+        }
+    }
+
+    /**
+     * The feed as the shell hosts it under 毛玻璃: 翻页栏 on, the floating navigation capsule over the
+     * list, and one row open beside the thread.
+     */
+    @Composable
+    private fun GlassShell(darkTheme: Boolean) {
+        PlazaTheme(darkTheme = darkTheme, pureWhite = true, frostedGlass = true) {
+            val navBackdrop = rememberLiquidGlassBackdrop()
+            Box(Modifier.fillMaxSize()) {
+                CompositionLocalProvider(
+                    LocalFloatingBottomBarHeight provides BottomBarPosition.MEDIUM.bottomBarClearance,
+                    LocalSelectedPostId provides 4L,
+                ) {
+                    Box(Modifier.fillMaxSize().liquidGlassBackdropSource(navBackdrop)) {
+                        Feed(state = PostListUiState(boards = BOARDS, pageBarEnabled = true, totalPages = 100))
+                    }
+                }
+                CompositionLocalProvider(
+                    LocalLiquidGlassBackdrop provides navBackdrop,
+                    LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+                ) {
+                    FloatingBottomNavigationBar(
+                        current = TopLevelDestination.HOME,
+                        onSelect = {},
+                        modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }
-            PostListScreen(
-                state = PostListUiState(boards = BOARDS),
-                postsFor = { feed.collectAsLazyPagingItems() },
-                feedStates = rememberSaveable(saver = HomeFeedStates.Saver) { HomeFeedStates() },
-                onPostClick = {},
-                onBoardClick = {},
-                onSortChange = {},
-                onSignInClick = {},
-                onRecoverInBrowser = {},
-            )
+            }
         }
+    }
+
+    @Composable
+    private fun Feed(state: PostListUiState = PostListUiState(boards = BOARDS)) {
+        val feed =
+            remember {
+                flowOf(
+                    PagingData.from(
+                        data = FEED,
+                        sourceLoadStates =
+                        LoadStates(
+                            refresh = LoadState.NotLoading(false),
+                            prepend = LoadState.NotLoading(true),
+                            append = LoadState.NotLoading(true),
+                        ),
+                    ),
+                )
+            }
+        PostListScreen(
+            state = state,
+            postsFor = { feed.collectAsLazyPagingItems() },
+            feedStates = rememberSaveable(saver = HomeFeedStates.Saver) { HomeFeedStates() },
+            onPostClick = {},
+            onBoardClick = {},
+            onSortChange = {},
+            onSignInClick = {},
+            onRecoverInBrowser = {},
+        )
     }
 
     @Test
@@ -95,6 +147,18 @@ class PostListScreenRenderTest {
         composeRule.setContent { Screen(darkTheme = false, pureWhite = true) }
 
         composeRule.onRoot().captureRender("post-list-pure-white")
+    }
+
+    @Test
+    fun `pure white light feed under glass chrome`() {
+        composeRule.setContent { GlassShell(darkTheme = false) }
+        composeRule.onRoot().captureRender("post-list-pure-white-glass")
+    }
+
+    @Test
+    fun `neutral dark feed under glass chrome`() {
+        composeRule.setContent { GlassShell(darkTheme = true) }
+        composeRule.onRoot().captureRender("post-list-neutral-dark-glass")
     }
 
     @Test

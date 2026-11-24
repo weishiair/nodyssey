@@ -96,6 +96,7 @@ import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.theme.ControlShape
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -285,7 +286,7 @@ private fun FloatingPageJumpRail(
                     Modifier.glassChromeSurface(
                         layers = layers,
                         darkTheme = LocalPlazaDarkTheme.current,
-                        shape = CircleShape,
+                        shape = FloatingCapsuleShape,
                         backdrop = LocalLiquidGlassBackdrop.current,
                     )
                 } else {
@@ -317,7 +318,7 @@ private fun FloatingPageJumpRail(
             VerticalFloatingToolbar(
                 expanded = expanded,
                 modifier = toolbarModifier,
-                shape = CircleShape,
+                shape = FloatingCapsuleShape,
                 colors = colors,
                 contentPadding = PaddingValues(4.dp),
                 expandedShadowElevation = 0.dp,
@@ -328,7 +329,7 @@ private fun FloatingPageJumpRail(
             HorizontalFloatingToolbar(
                 expanded = expanded,
                 modifier = toolbarModifier,
-                shape = CircleShape,
+                shape = FloatingCapsuleShape,
                 colors = colors,
                 contentPadding = PaddingValues(4.dp),
                 expandedShadowElevation = 0.dp,
