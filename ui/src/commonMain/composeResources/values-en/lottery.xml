@@ -6,7 +6,6 @@
     <string name="lottery_mark_read">Mark as read</string>
     <string name="lottery_filter_all">All</string>
     <string name="lottery_filter_won">Won</string>
-    <string name="lottery_filter_not_entered">Not entered</string>
     <string name="lottery_filter_empty">No matching results</string>
     <string name="lottery_filter_empty_hint">Try another filter or select All to see every checked result.</string>
     <string name="lottery_create">Create draw</string>
@@ -17,7 +16,7 @@
     <string name="lottery_pending">Result pending</string>
     <string name="lottery_won">You won</string>
     <string name="lottery_lost">Not selected</string>
-    <string name="lottery_not_entered">No eligible entry</string>
+    <string name="lottery_not_entered">Not entered</string>
     <string name="lottery_floors">Winning floors: %1$s</string>
     <string name="lottery_enable">Remind me</string>
     <string name="lottery_cancel">Cancel reminder</string>
