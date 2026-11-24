@@ -112,7 +112,7 @@ internal class SeekMailClient(
         )
 
     private fun checkResponse(response: HttpResponse) {
-        if (response.code == 468 || isChallengeAnswer(response.body, response.header("cf-mitigated"), NodeSeekSite.CONFIG.markers)) {
+        if (response.code == 468 || isChallengeAnswer(response.code, response.body, response.header("cf-mitigated"), NodeSeekSite.CONFIG.markers)) {
             throw MailException(MailError.CHALLENGE)
         }
         if (!response.isSuccessful) {

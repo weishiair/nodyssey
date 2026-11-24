@@ -512,7 +512,7 @@
     <string name="network_check_running">Checking…</string>
     <string name="network_check_copy">Copy the report</string>
     <string name="network_check_copied">Copied</string>
-    <string name="network_check_summary_ok">The forum is reachable</string>
+    <string name="network_check_summary_ok">Forum home-page request succeeded</string>
     <string name="network_check_summary_failed">The forum can't be reached</string>
     <string name="network_check_summary_updates">Update source: %1$s</string>
     <string name="network_check_section_environment">Environment</string>
@@ -544,7 +544,7 @@
     <string name="network_check_app_none">None</string>
     <string name="network_check_yes">Yes</string>
     <string name="network_check_no">No</string>
-    <string name="network_check_section_forum">Forum</string>
+    <string name="network_check_section_forum">Forum home-page probe</string>
     <string name="network_check_section_updates">Update source</string>
     <string name="network_check_status">Result</string>
     <string name="network_check_stage">Furthest connection stage</string>
@@ -1881,4 +1881,16 @@
     <string name="about_open_releases">Versions and downloads</string>
     <string name="about_ios_update_hint">Download the new IPA, then install it with the signing tool you already use.</string>
     <string name="notify_saved_alerts_section">Saved alert rules</string>
+    <string name="network_check_post_failure_title">Last failed post request</string>
+    <string name="network_check_post_failure_none">No record yet</string>
+    <string name="network_check_post_failure_hint">The latest HTTP 4xx/5xx post response is saved locally for 7 days, including after recovery or restart. Only fixed response features are recorded, never cookie values or body text. A successful home-page probe does not establish post access.</string>
+    <string name="network_check_post_failure_clear">Clear post failure record</string>
+    <string name="network_check_post_failure_time">Time (UTC)</string>
+    <string name="network_check_post_failure_request">Post URL</string>
+    <string name="network_check_post_failure_final">Final URL</string>
+    <string name="network_check_post_failure_headers">Response features</string>
+    <string name="network_check_post_failure_body">Error-page features</string>
+    <string name="network_check_post_failure_sent_cookies">Request cookie names</string>
+    <string name="network_check_post_failure_received_cookies">Response cookie names</string>
+    <string name="network_check_post_failure_connection">Connection at failure</string>
 </resources>

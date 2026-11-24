@@ -172,6 +172,14 @@ class PostDetailScreenRenderTest {
     @Test
     fun `signature comparison in glass dark`() = signaturePreview(darkTheme = true, glass = true)
 
+    @Test
+    fun `scrolled glass thread in light`() {
+        composeRule.setContent { Screen(darkTheme = false, state = LATER_PAGE, pureWhite = true, frostedGlass = true) }
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(2)
+        composeRule.waitForIdle()
+        composeRule.onRoot().captureRender("post-detail-scrolled-glass-light")
+    }
+
     private fun signaturePreview(darkTheme: Boolean, glass: Boolean) {
         composeRule.setContent { Screen(darkTheme = darkTheme, state = SIGNATURE_PREVIEW, pureWhite = true, frostedGlass = glass) }
         composeRule.onRoot().captureRender("post-signatures-${if (glass) "glass" else "standard"}-${if (darkTheme) "dark" else "light"}")
@@ -217,6 +225,12 @@ class PostDetailScreenRenderTest {
     fun `neutral dark opening post with replies`() {
         composeRule.setContent { Screen(darkTheme = true, state = SHORT_STATE, pureWhite = true) }
         composeRule.onRoot().captureRender("post-detail-neutral-dark-opening")
+    }
+
+    @Test
+    fun `neutral dark opening post under glass chrome`() {
+        composeRule.setContent { Screen(darkTheme = true, state = SHORT_STATE, pureWhite = true, frostedGlass = true) }
+        composeRule.onRoot().captureRender("post-detail-neutral-dark-glass")
     }
 
     @Test

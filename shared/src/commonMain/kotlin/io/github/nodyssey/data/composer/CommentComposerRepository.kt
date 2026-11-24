@@ -132,7 +132,7 @@ class DefaultCommentComposerRepository(
             ),
         )
         val response = transport.execute(requestTo(NodeSeekSite.NEW_COMMENT_API_PATH, submission.postId, payload))
-        throwIfChallenge(NodeSeekSite.NEW_COMMENT_API_PATH, response.body, response.header("cf-mitigated"))
+        throwIfChallenge(NodeSeekSite.NEW_COMMENT_API_PATH, response)
         if (response.code == 401 || response.code == 403) {
             throw SiteException(SiteError.LoginRequired)
         }
@@ -159,7 +159,7 @@ class DefaultCommentComposerRepository(
             ),
         )
         val response = transport.execute(requestTo(NodeSeekSite.EDIT_COMMENT_API_PATH, postId, payload))
-        throwIfChallenge(NodeSeekSite.EDIT_COMMENT_API_PATH, response.body, response.header("cf-mitigated"))
+        throwIfChallenge(NodeSeekSite.EDIT_COMMENT_API_PATH, response)
         if (response.code == 401 || response.code == 403) {
             throw SiteException(SiteError.LoginRequired)
         }

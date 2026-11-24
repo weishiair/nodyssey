@@ -22,15 +22,20 @@ package io.github.plaza.core.net
  * authoritative, and the challenge page's own markup — and only its own: a body with no site markers
  * at all, such as the origin's stock 503 page, still carries the injected script, which is why
  * [CLOUDFLARE_CHALLENGE_MARKERS] names the interstitial's paths rather than the shared prefix.
+ *
+ * [statusCode] is for the edge's block page ([isEdgeBlock]), which counts only on a 403: a write it
+ * refuses would otherwise reach the caller's 401/403 branch and send a signed-in reader to sign in.
  */
 fun isChallengeAnswer(
+    statusCode: Int,
     body: String,
     cfMitigated: String?,
     markers: PageMarkers,
 ): Boolean {
     if (markers.usablePage.any(body::contains)) return false
     return cfMitigated?.equals("challenge", ignoreCase = true) == true ||
-        markers.challenge.any(body::contains)
+        markers.challenge.any(body::contains) ||
+        isEdgeBlock(statusCode, body, markers)
 }
 
 /**
