@@ -30,6 +30,7 @@ internal fun nativeSheetLocals(): Array<ProvidedValue<*>> = arrayOf(
     LocalAccountBadgeStyle provides LocalAccountBadgeStyle.current,
     LocalAppName provides LocalAppName.current,
     LocalBottomBarPosition provides LocalBottomBarPosition.current,
+    LocalBottomBarStyle provides LocalBottomBarStyle.current,
     LocalImageActions provides LocalImageActions.current,
     LocalImageHostRepository provides LocalImageHostRepository.current,
     LocalIosPad provides LocalIosPad.current,

@@ -2150,6 +2150,10 @@
     <string name="mail_read_status">已读</string>
     <string name="mail_unread_status">未读</string>
     <string name="mail_recipient_address">收件地址：%1$s</string>
+    <!-- 手机窄屏底部导航栏形态：悬浮胶囊或原版贴底。 -->
+    <string name="settings_bottom_bar_style">底部栏样式</string>
+    <string name="settings_bottom_bar_style_floating">悬浮</string>
+    <string name="settings_bottom_bar_style_standard">原版</string>
     <string name="settings_bottom_bar_position">底部栏位置</string>
     <string name="settings_bottom_bar_position_low">低</string>
     <string name="settings_bottom_bar_position_medium">中</string>

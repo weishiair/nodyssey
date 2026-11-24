@@ -6,9 +6,36 @@ import io.github.nodyssey.data.testPreferenceStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BottomBarPositionSettingsTest {
+    @Test
+    fun `fresh installs default to glass chrome with a floating medium bar`() = runTest {
+        val store = testPreferenceStore(backgroundScope)
+        val initial = SettingsRepository(store).settings.first()
+        assertTrue(initial.frostedGlass)
+        assertEquals(BottomBarStyle.FLOATING, initial.bottomBarStyle)
+        assertEquals(BottomBarPosition.MEDIUM, initial.bottomBarPosition)
+    }
+
+    @Test
+    fun `a saved bottom bar style survives the glass switch and unknown values fall back to floating`() = runTest {
+        val store = testPreferenceStore(backgroundScope)
+        val settings = SettingsRepository(store)
+
+        for (style in BottomBarStyle.entries) {
+            settings.setBottomBarStyle(style)
+            settings.setFrostedGlass(false)
+            assertEquals(style, SettingsRepository(store).settings.first().bottomBarStyle)
+            settings.setFrostedGlass(true)
+            assertEquals(style, SettingsRepository(store).settings.first().bottomBarStyle)
+        }
+
+        store.edit { it[stringPreferencesKey("bottom_bar_style")] = "UNKNOWN" }
+        assertEquals(BottomBarStyle.FLOATING, SettingsRepository(store).settings.first().bottomBarStyle)
+    }
+
     @Test
     fun `existing installs default to medium and a saved position survives the glass switch`() = runTest {
         val store = testPreferenceStore(backgroundScope)

@@ -42,6 +42,7 @@ class NativeSheetLocalsTest {
             "LocalRichSelectionState" to "selection container of the presenting composition",
             // Provided by the component around its own children, inside whichever composition draws it.
             "LocalInGroupCard" to "set by a grouped card around its own rows",
+            "LocalLiquidGlassTabScale" to "set by LiquidGlassBottomTabs around its own tab row",
             "LocalRichLinkLongClick" to "set by each RichContent around its own text",
         )
 

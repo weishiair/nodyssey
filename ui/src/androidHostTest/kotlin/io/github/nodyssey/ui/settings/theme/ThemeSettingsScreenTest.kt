@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import io.github.nodyssey.data.settings.BottomBarStyle
 import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SavedTheme
@@ -84,10 +85,33 @@ class ThemeSettingsScreenTest {
         composeRule.onAllNodes(hasSetTextAction() and hasText("海雾")).assertCountEquals(0)
     }
 
+    @Test
+    fun `底部栏样式 lets the reader pick 原版 and hides 底部栏位置 when docked`() {
+        var selectedStyle: BottomBarStyle? = null
+        setScreen(
+            settings = UserSettings(bottomBarStyle = BottomBarStyle.FLOATING),
+            onBottomBarStyleChange = { selectedStyle = it },
+        )
+
+        composeRule.onNodeWithText("底部栏位置").performScrollTo().assertExists()
+        composeRule.onNodeWithText("底部栏样式").performScrollTo().performClick()
+        composeRule.onNodeWithText("原版").performClick()
+        assertEquals(BottomBarStyle.STANDARD, selectedStyle)
+    }
+
+    @Test
+    fun `底部栏位置 is hidden when 原版 bottom bar is active`() {
+        setScreen(settings = UserSettings(bottomBarStyle = BottomBarStyle.STANDARD))
+
+        composeRule.onNodeWithText("底部栏样式").performScrollTo().assertExists()
+        composeRule.onNodeWithText("底部栏位置").assertDoesNotExist()
+    }
+
     private fun setScreen(
         settings: UserSettings = UserSettings(seedColor = SettingsRepository.DEFAULT_SEED_COLOR),
         onPaletteStyleChange: (PaletteStyle) -> Unit = {},
         onFrostedGlassChange: (Boolean) -> Unit = {},
+        onBottomBarStyleChange: (BottomBarStyle) -> Unit = {},
     ) {
         composeRule.setContent {
             PlazaTheme(
@@ -104,6 +128,7 @@ class ThemeSettingsScreenTest {
                     onSaveTheme = { _, _ -> },
                     onDeleteTheme = {},
                     onFrostedGlassChange = onFrostedGlassChange,
+                    onBottomBarStyleChange = onBottomBarStyleChange,
                 )
             }
         }
