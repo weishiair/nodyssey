@@ -73,6 +73,8 @@ import io.github.nodyssey.data.attendance.AttendanceSession
 import io.github.nodyssey.data.attendance.AttendanceWriteGate
 import io.github.nodyssey.data.attendance.AutoAttendance
 import io.github.nodyssey.data.attendance.MultiAccountAttendance
+import io.github.nodyssey.data.calculator.DefaultVpsCalculatorRepository
+import io.github.nodyssey.data.calculator.VpsCalculatorRepository
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultCommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultPostComposerRepository
@@ -871,6 +873,15 @@ class DefaultAppContainer(
             // third parties. [transport] is the forum's.
             http = OkHttpTransport(imageHostClient),
             dispatchers = dispatchers,
+        )
+    }
+
+    override val vpsCalculatorRepository: VpsCalculatorRepository by lazy {
+        DefaultVpsCalculatorRepository(
+            dataStore = appContext.vpsCalculatorDataStore,
+            http = lifetime.guard(OkHttpTransport(imageHostClient)),
+            dispatchers = dispatchers,
+            clock = clock,
         )
     }
 

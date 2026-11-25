@@ -84,6 +84,10 @@ internal fun Context.commentComposerDataStore(site: Site): DataStore<Preferences
     Site.DEEPFLOOD -> deepFloodCommentComposerDataStore
 }
 
+internal val Context.vpsCalculatorDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "vps-calculator",
+)
+
 internal val Context.offlineDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "offline",
 )

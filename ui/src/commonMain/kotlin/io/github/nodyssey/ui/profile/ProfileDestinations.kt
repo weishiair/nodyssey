@@ -50,4 +50,5 @@ data class ProfileDestinations(
      */
     val tools: () -> Unit = {},
     val accounts: (() -> Unit)? = null,
+    val vpsCalculator: (() -> Unit)? = null,
 )

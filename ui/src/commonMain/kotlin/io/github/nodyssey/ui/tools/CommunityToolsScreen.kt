@@ -38,6 +38,7 @@ import io.github.nodyssey.ui.resources.tools_providers_subtitle
 import io.github.nodyssey.ui.resources.tools_ruling
 import io.github.nodyssey.ui.resources.tools_ruling_subtitle
 import io.github.nodyssey.ui.resources.tools_title
+import io.github.nodyssey.ui.resources.vps_title
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerPageGutter
@@ -73,6 +74,7 @@ fun CommunityToolsScreen(
     onAboutCommunity: () -> Unit,
     modifier: Modifier = Modifier,
     onMail: () -> Unit = {},
+    onVpsCalculator: (() -> Unit)? = null,
 ) {
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
@@ -168,6 +170,16 @@ fun CommunityToolsScreen(
                 last = true,
                 onClick = onMail,
             )
+
+            onVpsCalculator?.let { open ->
+                GroupedRow(
+                    title = stringResource(Res.string.vps_title),
+                    icon = PlazaIcons.Calculate,
+                    first = true,
+                    last = true,
+                    onClick = open,
+                )
+            }
 
             GroupedRow(
                 title = stringResource(Res.string.about_community_title),

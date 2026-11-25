@@ -26,6 +26,9 @@ import io.github.nodyssey.ui.tools.LuckyRoute
 import io.github.nodyssey.ui.tools.LuckyViewModel
 import io.github.nodyssey.ui.tools.RulingRoute
 import io.github.nodyssey.ui.tools.RulingViewModel
+import io.github.nodyssey.ui.tools.VpsCalculatorRoute
+import io.github.nodyssey.ui.tools.VpsCalculatorViewModel
+import io.github.nodyssey.ui.viewer.rememberImageGallerySaver
 
 /**
  * 社区工具 and the boards behind it: 加精, 抽奖, 邀请, 仲裁, 测评对比, and 关于社区.
@@ -46,7 +49,20 @@ internal fun EntryProviderScope<NavKey>.toolsEntries(nav: StackEntryScope) = wit
             onReportCompare = { backStack.add(ReportCompareKey) },
             onAboutCommunity = { backStack.add(AboutCommunityKey) },
             onMail = { backStack.add(MailInboxKey) },
+            onVpsCalculator = if (container.vpsCalculatorRepository != null) ({ backStack.add(VpsCalculatorKey) }) else null,
         )
+    }
+
+    entry<VpsCalculatorKey> {
+        val repository = container.vpsCalculatorRepository
+        if (repository != null) {
+            val saver = rememberImageGallerySaver(container.dispatchers)
+            VpsCalculatorRoute(
+                viewModel = viewModel(factory = VpsCalculatorViewModel.factory(container)),
+                saveImage = { bitmap -> saver.save(bitmap, "vps-calculator-${container.clock.nowMillis()}.png") },
+                onBack = { backStack.removeLastOrNull() },
+            )
+        }
     }
 
     entry<MailInboxKey> { key ->

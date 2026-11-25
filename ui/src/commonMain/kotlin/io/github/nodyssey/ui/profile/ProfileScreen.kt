@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -114,7 +113,6 @@ import io.github.nodyssey.ui.resources.profile_guest_benefit_messages
 import io.github.nodyssey.ui.resources.profile_guest_benefit_messages_hint
 import io.github.nodyssey.ui.resources.profile_guest_benefit_post
 import io.github.nodyssey.ui.resources.profile_guest_benefit_post_hint
-import io.github.nodyssey.ui.resources.profile_guest_section
 import io.github.nodyssey.ui.resources.profile_level
 import io.github.nodyssey.ui.resources.profile_level_unknown
 import io.github.nodyssey.ui.resources.profile_member_since
@@ -147,6 +145,7 @@ import io.github.nodyssey.ui.resources.profile_tile_providers
 import io.github.nodyssey.ui.resources.profile_tile_ruling
 import io.github.nodyssey.ui.resources.profile_tile_theme
 import io.github.nodyssey.ui.resources.profile_tile_topics
+import io.github.nodyssey.ui.resources.profile_tile_vps_calculator
 import io.github.nodyssey.ui.resources.profile_tools
 import io.github.nodyssey.ui.resources.settings_title
 import io.github.nodyssey.ui.resources.tab_profile
@@ -161,7 +160,6 @@ import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.ReadableTopBar
-import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.theme.ControlShape
@@ -801,7 +799,7 @@ private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryR
         ProfileSection(
             title = Res.string.profile_section_community,
             tiles =
-            listOf(
+            listOfNotNull(
                 ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
                 ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant, hasUnreadLotteryResults),
                 ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
@@ -812,6 +810,7 @@ private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryR
                 ProfileTile(Res.string.profile_tile_invite, PlazaIcons.ConfirmationNumber, destinations.invite),
                 ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail, hasUnreadMail, Res.string.mail_unread),
                 ProfileTile(Res.string.profile_tile_about_community, PlazaIcons.Forum, destinations.aboutCommunity),
+                destinations.vpsCalculator?.let { ProfileTile(Res.string.profile_tile_vps_calculator, PlazaIcons.Calculate, it) },
             ),
         ),
         ProfileSection(
@@ -907,7 +906,13 @@ private fun ProfileGridTile(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, lineBreak = LineBreak.Heading),
             textAlign = TextAlign.Center,
-            // Every caption reserves the same two lines, including the longer mail label.
+            // A translated calculator caption has an explicit line break. Fit both lines
+            // inside their quarter of the grid, including at larger system text sizes.
+            autoSize = if (tile.label == Res.string.profile_tile_vps_calculator) {
+                TextAutoSize.StepBased(minFontSize = 1.sp, maxFontSize = MaterialTheme.typography.labelSmall.fontSize)
+            } else {
+                null
+            },
             minLines = 2,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -991,27 +996,23 @@ private fun SignedOutProfile(
         }
     }
     val guestTools: @Composable () -> Unit = {
-        Column {
-            SectionLabel(stringResource(Res.string.profile_guest_section))
-            Spacer(Modifier.height(8.dp))
-            // The four tools 9f draws, then 社区工具 itself: that page also holds 友站, 关于社区 and
-            // 邀请好友, which a guest used to reach through it and still should.
-            ProfileGridCard(
-                listOf(
-                    ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
-                    ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
-                    ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant, hasUnreadLotteryResults),
-                    ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
-                    ProfileTile(
-                        Res.string.profile_tile_providers,
-                        Icons.Default.ShoppingCart,
-                        destinations.providers,
-                    ),
-                    ProfileTile(Res.string.profile_tools, PlazaIcons.DashboardCustomize, destinations.tools),
-                    ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail, hasUnreadMail, Res.string.mail_unread),
+        // The four tools 9f draws, then 社区工具 itself: that page also holds 友站, 关于社区 and
+        // 邀请好友, which a guest used to reach through it and still should.
+        ProfileGridCard(
+            listOf(
+                ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
+                ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
+                ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant, hasUnreadLotteryResults),
+                ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
+                ProfileTile(
+                    Res.string.profile_tile_providers,
+                    Icons.Default.ShoppingCart,
+                    destinations.providers,
                 ),
-            )
-        }
+                ProfileTile(Res.string.profile_tools, PlazaIcons.DashboardCustomize, destinations.tools),
+                ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail, hasUnreadMail, Res.string.mail_unread),
+            ),
+        )
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val contentWidth = profileContentWidth(maxWidth, LocalIosPad.current, allowTwoColumns)
