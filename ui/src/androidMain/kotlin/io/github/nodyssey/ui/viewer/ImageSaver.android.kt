@@ -7,6 +7,8 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
@@ -30,6 +32,29 @@ private class AndroidImageGallerySaver(
     private val dispatchers: AppDispatchers,
 ) : ImageGallerySaver {
     override suspend fun save(url: String): SaveOutcome = saveImageToGallery(context, url, dispatchers)
+
+    override suspend fun save(image: ImageBitmap, fileName: String): SaveOutcome {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return SaveOutcome.UNSUPPORTED_OS
+
+        return withContext(dispatchers.io) {
+            val saved = runCatchingExceptCancellation {
+                writeToGallery(context, fileName, "image/png") { stream ->
+                    val captured = image.asAndroidBitmap()
+                    val bitmap = if (captured.config == Bitmap.Config.HARDWARE) {
+                        captured.copy(Bitmap.Config.ARGB_8888, false) ?: return@writeToGallery false
+                    } else {
+                        captured
+                    }
+                    try {
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                    } finally {
+                        if (bitmap !== captured) bitmap.recycle()
+                    }
+                }
+            }.getOrDefault(false)
+            if (saved) SaveOutcome.SAVED else SaveOutcome.FAILED
+        }
+    }
 }
 
 /**
@@ -122,17 +147,14 @@ private fun writeToGallery(
         }
     val resolver = context.contentResolver
     val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return false
-    var written = false
+    var published = false
     try {
-        resolver.openOutputStream(uri)?.use { stream -> written = write(stream) }
+        if (resolver.openOutputStream(uri)?.use(write) != true) return false
+        values.clear()
+        values.put(MediaStore.Images.Media.IS_PENDING, 0)
+        published = resolver.update(uri, values, null, null) > 0
+        return published
     } finally {
-        if (written) {
-            values.clear()
-            values.put(MediaStore.Images.Media.IS_PENDING, 0)
-            resolver.update(uri, values, null, null)
-        } else {
-            resolver.delete(uri, null, null)
-        }
+        if (!published) resolver.delete(uri, null, null)
     }
-    return written
 }

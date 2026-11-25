@@ -169,6 +169,7 @@ class StringCatalogParityTest {
             "unread_count_capped",
             "viewer_page",
             "vote_percent",
+            "vps_rate_attribution",
         )
 
         /**

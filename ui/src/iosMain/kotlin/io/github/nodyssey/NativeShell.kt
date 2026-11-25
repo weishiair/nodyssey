@@ -1323,7 +1323,8 @@ private fun NavKey.makesRoomForKeyboard(): Boolean =
         this is MailComposeKey ||
         this is DohSettingsKey ||
         this is StickerAddKey ||
-        this is ThemeSettingsKey
+        this is ThemeSettingsKey ||
+        this is VpsCalculatorKey
 
 /**
  * Safari, which is what the platform `UriHandler` is on this side — the same one `BrowserLinks.ios`
