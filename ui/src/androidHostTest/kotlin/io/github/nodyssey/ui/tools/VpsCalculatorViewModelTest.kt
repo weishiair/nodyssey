@@ -33,6 +33,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpsCalculatorViewModelTest {
@@ -115,7 +116,7 @@ class VpsCalculatorViewModelTest {
         vm.setDueDate(expiry)
         assertEquals(expiry.toString(), repository.draft.value.dueDateIso)
         assertEquals("365", repository.draft.value.priceText)
-        assertEquals(70.0, vm.uiState.value.result.remainingCny, 0.00001)
+        assertEquals(70.0, requireNotNull(vm.uiState.value.result.remainingCny), 0.00001)
 
         vm.setPremium("5")
         assertEquals("75.00", vm.uiState.value.salePriceText)
@@ -157,7 +158,7 @@ class VpsCalculatorViewModelTest {
         vm.setCurrency(VpsCurrency.EUR)
         runCurrent()
         assertEquals(listOf(VpsCurrency.USD to false, VpsCurrency.EUR to false), repository.requests)
-        assertEquals("8.1235", vm.uiState.value.rateText)
+        assertEquals("8.12345", vm.uiState.value.rateText)
         assertTrue(vm.uiState.value.rateFromCache)
     }
 
@@ -189,10 +190,12 @@ class VpsCalculatorViewModelTest {
     }
 
     @Test
-    fun `reopening restores the active quote and currency specific manual rate and reset clears the stored expiry`() = runTest(dispatcher) {
+    fun `reopening a draft retains its dates and quote and reset clears the saved dates`() = runTest(dispatcher) {
         val vm = open()
         runCurrent()
+        val trade = LocalDate(2026, 3, 6)
         vm.setCycle(VpsBillingCycle.MONTHLY)
+        vm.setTradeDate(trade)
         vm.setDueDate(expiry)
         vm.setRate("6")
         vm.setPrice("30")
@@ -202,20 +205,60 @@ class VpsCalculatorViewModelTest {
         runCurrent()
         val state = restored.uiState.value
         assertEquals(expiry, state.dueDate)
+        assertEquals(trade, state.tradeDate)
         assertEquals("30", state.priceText)
         assertEquals(VpsCurrency.USD, state.currency)
         assertEquals(VpsBillingCycle.MONTHLY, state.cycle)
         assertEquals(VpsQuoteEditedField.SALE_PRICE, state.lastEditedQuote)
         assertEquals("55", state.salePriceText)
-        assertEquals("-5.00", state.premiumText)
+        assertEquals("25.00", state.premiumText)
         assertEquals("6", state.rateText)
         assertEquals(1, repository.requests.size)
         restored.setTradeDate(expiry)
         restored.resetInputs()
         assertEquals(today, restored.uiState.value.tradeDate)
         assertNull(repository.draft.value.dueDateIso)
+        assertNull(repository.draft.value.tradeDateIso)
         assertEquals("", repository.draft.value.priceText)
         assertEquals("6", restored.uiState.value.rateText)
+    }
+
+    @Test
+    fun `converted amounts use the full automatic rate until the user edits it`() = runTest(dispatcher) {
+        repository.respond = { ExchangeRateResult.Success(0.004850123456, 1234L, false) }
+        val vm = open()
+        runCurrent()
+        vm.setCurrency(VpsCurrency.KRW)
+        vm.setPrice("10000000")
+        runCurrent()
+
+        val state = vm.uiState.value
+        assertEquals(48501.23456, requireNotNull(state.result.priceCny), 0.00001)
+        vm.setRate("0.005")
+        assertEquals(50000.0, requireNotNull(vm.uiState.value.result.priceCny), 0.00001)
+    }
+
+    @Test
+    fun `a failed draft write keeps the edit and the next edit retries the write`() = runTest(dispatcher) {
+        var writable = false
+        val source = object : VpsCalculatorRepository by repository {
+            override suspend fun saveDraft(draft: VpsCalculatorDraft) {
+                if (!writable) throw IOException("No space left on device")
+                repository.saveDraft(draft)
+            }
+        }
+        val vm = open(source)
+        runCurrent()
+        vm.setPrice("30")
+        advanceUntilIdle()
+        assertEquals("30", vm.uiState.value.priceText)
+        assertTrue(vm.uiState.value.draftSaveFailed)
+
+        writable = true
+        vm.setPrice("31")
+        advanceUntilIdle()
+        assertEquals("31", repository.draft.value.priceText)
+        assertFalse(vm.uiState.value.draftSaveFailed)
     }
 
     @Test

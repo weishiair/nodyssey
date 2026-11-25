@@ -52,10 +52,16 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.core.VpsBillingCycle
@@ -88,6 +94,7 @@ import io.github.nodyssey.ui.resources.vps_copy_text
 import io.github.nodyssey.ui.resources.vps_currency
 import io.github.nodyssey.ui.resources.vps_cycle
 import io.github.nodyssey.ui.resources.vps_days
+import io.github.nodyssey.ui.resources.vps_draft_save_failed
 import io.github.nodyssey.ui.resources.vps_due_date
 import io.github.nodyssey.ui.resources.vps_equivalent
 import io.github.nodyssey.ui.resources.vps_eur
@@ -98,6 +105,7 @@ import io.github.nodyssey.ui.resources.vps_generate
 import io.github.nodyssey.ui.resources.vps_hkd
 import io.github.nodyssey.ui.resources.vps_jpy
 import io.github.nodyssey.ui.resources.vps_krw
+import io.github.nodyssey.ui.resources.vps_missing_valuation_inputs
 import io.github.nodyssey.ui.resources.vps_monthly
 import io.github.nodyssey.ui.resources.vps_percent
 import io.github.nodyssey.ui.resources.vps_pick_due
@@ -105,6 +113,7 @@ import io.github.nodyssey.ui.resources.vps_premium
 import io.github.nodyssey.ui.resources.vps_price
 import io.github.nodyssey.ui.resources.vps_quarterly
 import io.github.nodyssey.ui.resources.vps_rate
+import io.github.nodyssey.ui.resources.vps_rate_attribution
 import io.github.nodyssey.ui.resources.vps_rate_failed
 import io.github.nodyssey.ui.resources.vps_rate_limited
 import io.github.nodyssey.ui.resources.vps_remaining
@@ -222,6 +231,13 @@ internal fun VpsCalculatorRoute(
                             viewModel.refreshRate()
                         }
                     }
+                    if (state.draftSaveFailed) {
+                        Text(
+                            stringResource(Res.string.vps_draft_save_failed),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                     ResultCard(
                         currency = state.currency,
                         remainingCny = state.result.remainingCny,
@@ -320,8 +336,8 @@ private fun BillingCycleField(selected: VpsBillingCycle, setCycle: (VpsBillingCy
 @Composable
 private fun ResultCard(
     currency: VpsCurrency,
-    remainingCny: Double,
-    remainingOriginal: Double,
+    remainingCny: Double?,
+    remainingOriginal: Double?,
     remainingDays: Int?,
     expired: Boolean,
     progressFraction: Float,
@@ -337,11 +353,12 @@ private fun ResultCard(
     onGenerate: () -> Unit,
 ) {
     LayerCard {
-        val amount = VpsCalculator.formatDecimal(remainingCny)
+        val amount = remainingCny?.let { VpsCalculator.formatDecimal(it) }
+        val copyLabel = stringResource(Res.string.action_copy)
         Text(stringResource(Res.string.vps_remaining), style = MaterialTheme.typography.titleMedium)
         Text(
-            cnyAmount(amount),
-            modifier = Modifier.clickable(onClickLabel = stringResource(Res.string.action_copy)) { onCopy(amount) },
+            amount?.let { cnyAmount(it) } ?: stringResource(Res.string.vps_unknown),
+            modifier = if (amount != null) Modifier.clickable(onClickLabel = copyLabel) { onCopy(amount) } else Modifier,
             color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = TABULAR_FIGURES),
         )
@@ -350,10 +367,13 @@ private fun ResultCard(
 
             expired -> Text(stringResource(Res.string.vps_expired), color = MaterialTheme.colorScheme.error)
 
-            !currency.isBaseCny -> {
+            !currency.isBaseCny && remainingOriginal != null -> {
                 val original = stringResource(Res.string.vps_foreign_amount, VpsCalculator.formatDecimal(remainingOriginal), currency.code)
                 Text(stringResource(Res.string.vps_equivalent, original))
             }
+        }
+        if (remainingDays != null && amount == null) {
+            Text(stringResource(Res.string.vps_missing_valuation_inputs), style = MaterialTheme.typography.bodySmall)
         }
         VpsProgress(
             remainingDays?.let { stringResource(Res.string.vps_days, it) } ?: stringResource(Res.string.vps_unknown),
@@ -371,10 +391,12 @@ private fun ResultCard(
             DecimalField(salePriceText, setSalePrice, Res.string.vps_sale_price, Modifier.weight(1f), dismissFocus, placeholder = amount)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            MediumButton(onClick = onCopyMarkdown, modifier = Modifier.weight(1f), style = MediumButtonStyle.Tonal) {
+            MediumButton(onClick = onCopyMarkdown, modifier = Modifier.weight(1f), style = MediumButtonStyle.Tonal, enabled = amount != null) {
                 Text(stringResource(Res.string.vps_copy_text))
             }
-            MediumButton(onClick = onGenerate, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.vps_generate)) }
+            MediumButton(onClick = onGenerate, modifier = Modifier.weight(1f), enabled = amount != null) {
+                Text(stringResource(Res.string.vps_generate))
+            }
         }
     }
 }
@@ -413,7 +435,7 @@ private fun DecimalField(
 private fun PriceField(
     priceText: String,
     currency: VpsCurrency,
-    priceCny: Double,
+    priceCny: Double?,
     setPrice: (String) -> Unit,
     setCurrency: (VpsCurrency) -> Unit,
     dismissFocus: () -> Unit,
@@ -443,7 +465,8 @@ private fun PriceField(
         }
     }
     if (!currency.isBaseCny) {
-        Text(stringResource(Res.string.vps_equivalent, cnyAmount(VpsCalculator.formatDecimal(priceCny))), style = MaterialTheme.typography.bodySmall)
+        val equivalent = priceCny?.let { cnyAmount(VpsCalculator.formatDecimal(it)) } ?: stringResource(Res.string.vps_unknown)
+        Text(stringResource(Res.string.vps_equivalent, equivalent), style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -548,6 +571,16 @@ private fun RateField(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    val attribution = stringResource(Res.string.vps_rate_attribution)
+    val linkStyle = SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline)
+    Text(
+        buildAnnotatedString {
+            withLink(LinkAnnotation.Url("https://www.exchangerate-api.com", TextLinkStyles(style = linkStyle))) {
+                append(attribution)
+            }
+        },
+        style = MaterialTheme.typography.bodySmall,
+    )
 }
 
 private val VpsCurrency.label: StringResource

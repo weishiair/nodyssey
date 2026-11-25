@@ -43,6 +43,7 @@ data class VpsCalculatorUiState(
     val cycle: VpsBillingCycle = VpsBillingCycle.ANNUALLY,
     val dueDate: LocalDate? = null,
     val rateText: String = "",
+    val automaticRate: Double? = null,
     val isLoadingRate: Boolean = false,
     val rateFetchedAtMillis: Long? = null,
     val rateFromCache: Boolean = false,
@@ -51,10 +52,11 @@ data class VpsCalculatorUiState(
     val salePriceText: String = "",
     val lastEditedQuote: VpsQuoteEditedField = VpsQuoteEditedField.PREMIUM,
     val draftReady: Boolean = false,
+    val draftSaveFailed: Boolean = false,
 ) {
     val result: VpsCalculationResult = VpsCalculator.calculate(
         price = VpsCalculator.parseNonNegativeDecimal(priceText),
-        exchangeRate = VpsCalculator.parseNonNegativeDecimal(rateText),
+        exchangeRate = if (currency.isBaseCny) 1.0 else automaticRate ?: VpsCalculator.parseNonNegativeDecimal(rateText),
         cycle = cycle,
         tradeDate = tradeDate,
         dueDate = dueDate,
@@ -78,6 +80,7 @@ class VpsCalculatorViewModel(
     private fun today() = Instant.fromEpochMilliseconds(clock.nowMillis()).toLocalDateTime(TimeZone.currentSystemDefault()).date
 
     private var customRate = ""
+    private var selectedTradeDate: LocalDate? = null
     private val state = MutableStateFlow(repository.cachedSnapshot()?.toUiState(today()) ?: VpsCalculatorUiState(tradeDate = today()))
     val uiState: StateFlow<VpsCalculatorUiState> = state.asStateFlow()
     private var rateJob: Job? = null
@@ -106,17 +109,19 @@ class VpsCalculatorViewModel(
             !currency.isBaseCny && draft.customRateCurrencyCode == currency.code && it.isNotBlank()
         }.orEmpty()
         val rate = cachedRate
+        selectedTradeDate = VpsCalculator.parseIsoDate(draft.tradeDateIso)
         return VpsCalculatorUiState(
-            tradeDate = tradeDate,
+            tradeDate = selectedTradeDate ?: tradeDate,
             priceText = draft.priceText,
             currency = currency,
             cycle = VpsBillingCycle.fromDays(draft.cycleDays),
             dueDate = VpsCalculator.parseIsoDate(draft.dueDateIso),
             rateText = when {
                 currency.isBaseCny -> BASE_RATE
-                rate != null -> VpsCalculator.formatDecimal(rate.rate, 4)
+                rate != null -> formatRate(rate.rate)
                 else -> customRate
             },
+            automaticRate = rate?.rate,
             rateFetchedAtMillis = cachedRate?.fetchedAtMillis,
             rateFromCache = cachedRate?.fromCache == true,
             premiumText = draft.premiumText,
@@ -128,7 +133,11 @@ class VpsCalculatorViewModel(
 
     fun setPrice(value: String) = update(state.value.copy(priceText = value))
     fun setCycle(value: VpsBillingCycle) = update(state.value.copy(cycle = value), debounce = false)
-    fun setTradeDate(value: LocalDate) = update(state.value.copy(tradeDate = value), debounce = false)
+    fun setTradeDate(value: LocalDate) {
+        selectedTradeDate = value
+        update(state.value.copy(tradeDate = value), debounce = false)
+    }
+
     fun setDueDate(value: LocalDate?) = update(state.value.copy(dueDate = value), debounce = false)
     fun clearDueDate() = setDueDate(null)
 
@@ -139,7 +148,16 @@ class VpsCalculatorViewModel(
         if (state.value.currency.isBaseCny) return
         rateJob?.cancel()
         customRate = value
-        update(state.value.copy(rateText = value, rateFetchedAtMillis = null, rateFromCache = false, rateNotice = null, isLoadingRate = false))
+        update(
+            state.value.copy(
+                rateText = value,
+                automaticRate = null,
+                rateFetchedAtMillis = null,
+                rateFromCache = false,
+                rateNotice = null,
+                isLoadingRate = false,
+            ),
+        )
     }
 
     fun setCurrency(currency: VpsCurrency) {
@@ -150,6 +168,7 @@ class VpsCalculatorViewModel(
             state.value.copy(
                 currency = currency,
                 rateText = if (currency.isBaseCny) BASE_RATE else "",
+                automaticRate = null,
                 rateFetchedAtMillis = null,
                 rateFromCache = false,
                 rateNotice = null,
@@ -175,7 +194,8 @@ class VpsCalculatorViewModel(
                     customRate = ""
                     update(
                         current.copy(
-                            rateText = VpsCalculator.formatDecimal(response.rate, 4),
+                            rateText = formatRate(response.rate),
+                            automaticRate = response.rate,
                             rateFetchedAtMillis = response.fetchedAtMillis,
                             rateFromCache = response.fromCache,
                         ),
@@ -192,7 +212,12 @@ class VpsCalculatorViewModel(
 
     private fun showRateNotice(current: VpsCalculatorUiState, notice: VpsRateNotice, cached: Double?, fetchedAt: Long?) {
         val updated = if (current.rateText.isBlank() && cached != null) {
-            current.copy(rateText = VpsCalculator.formatDecimal(cached, 4), rateFromCache = true, rateFetchedAtMillis = fetchedAt)
+            current.copy(
+                rateText = formatRate(cached),
+                automaticRate = cached,
+                rateFromCache = true,
+                rateFetchedAtMillis = fetchedAt,
+            )
         } else {
             current
         }
@@ -203,17 +228,20 @@ class VpsCalculatorViewModel(
         state.value = state.value.copy(rateNotice = null)
     }
 
-    fun resetInputs() = update(
-        state.value.copy(
-            priceText = "",
-            tradeDate = today(),
-            dueDate = null,
-            premiumText = "",
-            salePriceText = "",
-            lastEditedQuote = VpsQuoteEditedField.PREMIUM,
-        ),
-        debounce = false,
-    )
+    fun resetInputs() {
+        selectedTradeDate = null
+        update(
+            state.value.copy(
+                priceText = "",
+                tradeDate = today(),
+                dueDate = null,
+                premiumText = "",
+                salePriceText = "",
+                lastEditedQuote = VpsQuoteEditedField.PREMIUM,
+            ),
+            debounce = false,
+        )
+    }
 
     private fun update(next: VpsCalculatorUiState, debounce: Boolean = true) {
         val synced = next.syncQuote()
@@ -223,6 +251,7 @@ class VpsCalculatorViewModel(
             currencyCode = synced.currency.code,
             cycleDays = synced.cycle.days,
             dueDateIso = synced.dueDate?.let(VpsCalculator::formatIsoDate),
+            tradeDateIso = selectedTradeDate?.let(VpsCalculator::formatIsoDate),
             customRateText = customRate,
             customRateCurrencyCode = synced.currency.code.takeIf { customRate.isNotBlank() },
             premiumText = synced.premiumText,
@@ -237,10 +266,20 @@ class VpsCalculatorViewModel(
             } finally {
                 // A newer edit supersedes this one. Leaving the page flushes the final edit.
                 if (pendingDraft === draft) {
-                    withContext(NonCancellable) { repository.saveDraft(draft) }
+                    val saved = withContext(NonCancellable) {
+                        runCatchingExceptCancellation { repository.saveDraft(draft) }.isSuccess
+                    }
+                    if (pendingDraft === draft) {
+                        state.value = state.value.copy(draftSaveFailed = !saved)
+                    }
                 }
             }
         }
+    }
+
+    private fun formatRate(rate: Double): String {
+        val decimal = VpsCalculator.formatDecimal(rate, 8).trimEnd('0')
+        return decimal.padEnd(decimal.indexOf('.') + 5, '0')
     }
 
     companion object {

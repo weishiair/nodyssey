@@ -51,6 +51,7 @@ data class VpsCalculatorDraft(
     val currencyCode: String = VpsCurrency.USD.code,
     val cycleDays: Int = VpsBillingCycle.ANNUALLY.days,
     val dueDateIso: String? = null,
+    val tradeDateIso: String? = null,
     val customRateText: String = "",
     val customRateCurrencyCode: String? = null,
     val premiumText: String = "",
@@ -60,15 +61,15 @@ data class VpsCalculatorDraft(
 
 @Immutable
 data class VpsCalculationResult(
-    val priceCny: Double,
+    val priceCny: Double?,
     val hasValidDates: Boolean,
     val rawDaysRemaining: Int?,
     val remainingDays: Int?,
     val isExpired: Boolean,
     val progressPercent: Int?,
     val progressFraction: Float,
-    val remainingOriginal: Double,
-    val remainingCny: Double,
+    val remainingOriginal: Double?,
+    val remainingCny: Double?,
     val effectivePremiumCny: Double?,
     val effectiveSalePriceCny: Double?,
 )
@@ -84,8 +85,8 @@ object VpsCalculator {
         salePrice: Double?,
         lastEditedQuote: VpsQuoteEditedField,
     ): VpsCalculationResult {
-        val safePrice = price?.takeIf { it.isFinite() && it >= 0 } ?: 0.0
-        val safeRate = exchangeRate?.takeIf { it.isFinite() && it >= 0 } ?: 0.0
+        val validPrice = price?.takeIf { it.isFinite() && it >= 0 }
+        val validRate = exchangeRate?.takeIf { it.isFinite() && it > 0 }
         val days = if (tradeDate != null && dueDate != null) tradeDate.daysUntil(dueDate) else null
         val remainingDays = days?.coerceAtLeast(0)
         val progress = when (remainingDays) {
@@ -93,14 +94,20 @@ object VpsCalculator {
             0 -> 0
             else -> maxOf(1, (remainingDays * 100.0 / cycle.days).roundToInt())
         }
-        val remainingOriginal = safePrice / cycle.days * (remainingDays ?: 0)
-        val remainingCny = remainingOriginal * safeRate
-        val (effectivePremium, effectiveSalePrice) = when (lastEditedQuote) {
-            VpsQuoteEditedField.PREMIUM -> premium?.takeIf { it.isFinite() }?.let { it to remainingCny + it }
-            VpsQuoteEditedField.SALE_PRICE -> salePrice?.takeIf { it.isFinite() }?.let { it - remainingCny to it }
+        val remainingOriginal = if (validPrice != null && remainingDays != null) {
+            (validPrice / cycle.days * remainingDays).takeIf { it.isFinite() }
+        } else {
+            null
+        }
+        val remainingCny = convertToCny(remainingOriginal, validRate)
+        val (effectivePremium, effectiveSalePrice) = remainingCny?.let { value ->
+            when (lastEditedQuote) {
+                VpsQuoteEditedField.PREMIUM -> premium?.takeIf { it.isFinite() }?.let { it to (value + it).takeIf(Double::isFinite) }
+                VpsQuoteEditedField.SALE_PRICE -> salePrice?.takeIf { it.isFinite() }?.let { (it - value).takeIf(Double::isFinite) to it }
+            }
         } ?: (null to null)
         return VpsCalculationResult(
-            priceCny = (safePrice * safeRate).takeIf { it.isFinite() } ?: 0.0,
+            priceCny = convertToCny(validPrice, validRate),
             hasValidDates = days != null,
             rawDaysRemaining = days,
             remainingDays = remainingDays,
@@ -112,6 +119,11 @@ object VpsCalculator {
             effectivePremiumCny = effectivePremium,
             effectiveSalePriceCny = effectiveSalePrice,
         )
+    }
+
+    private fun convertToCny(amount: Double?, rate: Double?): Double? {
+        if (amount == null || rate == null) return null
+        return (amount * rate).takeIf { it.isFinite() }
     }
 
     fun parseNonNegativeDecimal(text: String): Double? = parseSignedDecimal(text)?.takeIf { it >= 0 }

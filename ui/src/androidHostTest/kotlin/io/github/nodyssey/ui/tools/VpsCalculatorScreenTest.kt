@@ -2,6 +2,7 @@ package io.github.nodyssey.ui.tools
 
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotFocused
@@ -19,7 +20,9 @@ import androidx.compose.ui.test.performTouchInput
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_done
+import io.github.nodyssey.ui.resources.vps_copy_text
 import io.github.nodyssey.ui.resources.vps_due_date
+import io.github.nodyssey.ui.resources.vps_generate
 import io.github.nodyssey.ui.resources.vps_pick_due
 import io.github.nodyssey.ui.viewer.SaveOutcome
 import io.github.plaza.core.AppClock
@@ -27,6 +30,7 @@ import io.github.plaza.core.AppDispatchers
 import io.github.plaza.designsys.theme.PlazaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.getString
 import org.junit.Before
 import org.junit.Rule
@@ -40,10 +44,12 @@ import kotlin.time.Instant
 class VpsCalculatorScreenTest {
     @get:Rule val compose = createComposeRule()
 
+    private lateinit var viewModel: VpsCalculatorViewModel
+
     @Before
     fun openCalculator() {
         compose.setContent {
-            val viewModel = remember {
+            viewModel = remember {
                 val main = Dispatchers.Main.immediate
                 VpsCalculatorViewModel(FakeVpsCalculatorRepository(), AppClock { Instant.parse("2024-02-15T12:00:00Z").toEpochMilliseconds() }, AppDispatchers(main, main, main))
             }
@@ -74,6 +80,23 @@ class VpsCalculatorScreenTest {
         done.assertIsDisplayed().performTouchInput { click() }
         compose.onNode(isDialog()).assertDoesNotExist()
         compose.onNode(hasText("2024-02-29") and hasClickAction()).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `quotes cannot be copied or exported until the exchange rate is known`() {
+        compose.runOnIdle {
+            viewModel.setPrice("365")
+            viewModel.setDueDate(LocalDate(2024, 3, 15))
+            viewModel.setRate("")
+        }
+        val copy = compose.onNodeWithText(runBlocking { getString(Res.string.vps_copy_text) })
+        val image = compose.onNodeWithText(runBlocking { getString(Res.string.vps_generate) })
+        copy.performScrollTo().assertIsNotEnabled()
+        image.performScrollTo().assertIsNotEnabled()
+
+        compose.runOnIdle { viewModel.setRate("7") }
+        copy.assertIsEnabled()
+        image.assertIsEnabled()
     }
 
     private fun focusPrice() = compose.onNodeWithText("续费价格").performScrollTo().performTouchInput { click() }.assertIsFocused()

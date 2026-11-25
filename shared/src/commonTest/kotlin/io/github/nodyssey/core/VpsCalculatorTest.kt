@@ -45,7 +45,7 @@ class VpsCalculatorTest {
             assertNull(result.remainingDays)
             assertNull(result.progressPercent)
             assertEquals(0f, result.progressFraction)
-            assertEquals(0.0, result.remainingCny)
+            assertNull(result.remainingCny)
         }
         for ((date, days) in listOf(trade to 0, LocalDate(2024, 2, 26) to -2)) {
             val result = quote(dueDate = date)
@@ -56,6 +56,7 @@ class VpsCalculatorTest {
             assertEquals(0, result.progressPercent)
             assertEquals(0f, result.progressFraction)
             assertEquals(0.0, result.remainingOriginal)
+            assertEquals(0.0, result.remainingCny)
         }
     }
 
@@ -89,14 +90,22 @@ class VpsCalculatorTest {
     }
 
     @Test
-    fun `invalid price or rate yields zero only for amounts that need it`() {
-        val badRate = quote(rate = Double.POSITIVE_INFINITY)
-        assertEquals(6.0, badRate.remainingOriginal)
-        assertEquals(0.0, badRate.remainingCny)
-        assertEquals(0.0, badRate.priceCny)
-        for (price in listOf(null, -1.0, Double.NaN)) {
-            assertEquals(0.0, quote(price = price).remainingOriginal)
+    fun `a missing or invalid rate leaves converted amounts and linked quotes unknown`() {
+        for (rate in listOf(null, 0.0, Double.POSITIVE_INFINITY)) {
+            val result = quote(rate = rate, premium = 5.0)
+            assertEquals(6.0, result.remainingOriginal)
+            assertNull(result.remainingCny)
+            assertNull(result.priceCny)
+            assertNull(result.effectiveSalePriceCny)
         }
+    }
+
+    @Test
+    fun `a zero renewal price is a known value while an invalid price leaves it unknown`() {
+        for (price in listOf(null, -1.0, Double.NaN)) {
+            assertNull(quote(price = price).remainingOriginal)
+        }
+        assertEquals(0.0, quote(price = 0.0).remainingCny)
     }
 
     @Test

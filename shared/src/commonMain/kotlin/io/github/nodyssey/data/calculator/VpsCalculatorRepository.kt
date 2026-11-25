@@ -30,7 +30,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import okio.IOException
-import kotlin.concurrent.Volatile
 
 sealed interface ExchangeRateResult {
     data class Success(val rate: Double, val fetchedAtMillis: Long, val fromCache: Boolean) : ExchangeRateResult
@@ -63,7 +62,6 @@ class DefaultVpsCalculatorRepository(
     // Preferences is immutable after DataStore publishes it and already contains every rate and timestamp.
     private data class Memory(val draft: VpsCalculatorDraft, val preferences: Preferences)
 
-    @Volatile
     private var memory: Memory? = null
     private val snapshotMutex = Mutex()
 
@@ -87,7 +85,15 @@ class DefaultVpsCalculatorRepository(
         return VpsCalculatorSnapshot(draft, cached)
     }
 
-    override fun cachedSnapshot(): VpsCalculatorSnapshot? = memory?.snapshot()
+    override fun cachedSnapshot(): VpsCalculatorSnapshot? {
+        // If an edit is being committed, loadSnapshot waits for it rather than restoring an old draft.
+        if (!snapshotMutex.tryLock()) return null
+        return try {
+            memory?.snapshot()
+        } finally {
+            snapshotMutex.unlock()
+        }
+    }
 
     private suspend fun readMemory(): Memory = snapshotMutex.withLock {
         val prefs = preferences.first()

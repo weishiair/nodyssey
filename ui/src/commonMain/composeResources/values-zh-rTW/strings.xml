@@ -1974,6 +1974,8 @@
     <string name="vps_rate">外幣匯率</string>
     <string name="vps_updated">更新於 %1$s</string>
     <string name="vps_cached">快取匯率 · %1$s</string>
+    <string name="vps_draft_save_failed">草稿暫未儲存，修改後會重試</string>
+    <string name="vps_missing_valuation_inputs">請檢查續費價格和匯率</string>
     <string name="vps_rate_failed">匯率取得失敗，可手動輸入</string>
     <string name="vps_rate_limited">已達匯率重新整理次數上限，可手動輸入</string>
     <string name="vps_monthly">月付</string>

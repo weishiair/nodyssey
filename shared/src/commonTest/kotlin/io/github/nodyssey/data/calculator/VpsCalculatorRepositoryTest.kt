@@ -18,6 +18,8 @@ import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.UploadProgress
 import io.github.plaza.core.net.httpResponse
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 class VpsCalculatorRepositoryTest {
@@ -54,6 +57,26 @@ class VpsCalculatorRepositoryTest {
         fixture.now += DefaultVpsCalculatorRepository.CACHE_TTL_MILLIS
         assertEquals(VpsCalculatorSnapshot(draft), reopened.cachedSnapshot())
         assertEquals(VpsCalculatorSnapshot(draft), reopened.loadSnapshot())
+    }
+
+    @Test
+    fun `reopening during a draft write waits for the new trade date`() = runTest {
+        val fixture = Fixture(this, RecordingTransport(httpResponse(USD_RATES)))
+        val repo = fixture.repository()
+        val previous = VpsCalculatorDraft(tradeDateIso = "2026-11-25")
+        val updated = previous.copy(tradeDateIso = "2026-11-27")
+        repo.saveDraft(previous)
+
+        val finishWrite = CompletableDeferred<Unit>()
+        fixture.beforeWrite = { finishWrite.await() }
+        val save = async(start = CoroutineStart.UNDISPATCHED) { repo.saveDraft(updated) }
+
+        assertNull(repo.cachedSnapshot())
+        val reopen = async(start = CoroutineStart.UNDISPATCHED) { repo.loadSnapshot() }
+        assertFalse(reopen.isCompleted)
+        finishWrite.complete(Unit)
+        save.await()
+        assertEquals(updated, reopen.await().draft)
     }
 
     @Test
@@ -172,10 +195,13 @@ class VpsCalculatorRepositoryTest {
     }
 
     private class Fixture(scope: TestScope, val transport: HttpTransport) {
+        var beforeWrite: suspend () -> Unit = {}
+
         val store = object : DataStore<Preferences> {
             override val data = MutableStateFlow(emptyPreferences())
             private val mutex = Mutex()
             override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = mutex.withLock {
+                beforeWrite()
                 transform(data.value).also { data.value = it }
             }
         }

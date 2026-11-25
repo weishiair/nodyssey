@@ -119,23 +119,36 @@ private inline fun buildSummary(
     val code = state.currency.code
     val unknown = text(Res.string.vps_unknown)
     val days = result.remainingDays?.let { format(Res.string.vps_days, arrayOf(it)) } ?: unknown
-    val amount = VpsCalculator.formatDecimal(result.remainingCny)
-    val original = if (foreign) format(Res.string.vps_foreign_amount, arrayOf(VpsCalculator.formatDecimal(result.remainingOriginal), code)) else null
-    val price = state.priceText.trim().takeIf { VpsCalculator.parseNonNegativeDecimal(it) != null } ?: "0"
-    val renewalAmount = if (foreign) format(Res.string.vps_foreign_amount, arrayOf(price, code)) else format(Res.string.vps_cny_amount, arrayOf(price))
+    val amount = result.remainingCny?.let {
+        format(Res.string.vps_cny_amount, arrayOf(VpsCalculator.formatDecimal(it)))
+    } ?: unknown
+    val original = result.remainingOriginal?.takeIf { foreign }?.let {
+        format(Res.string.vps_foreign_amount, arrayOf(VpsCalculator.formatDecimal(it), code))
+    }
+    val price = state.priceText.trim().takeIf { VpsCalculator.parseNonNegativeDecimal(it) != null }
+    val renewalAmount = when {
+        price == null -> unknown
+        foreign -> format(Res.string.vps_foreign_amount, arrayOf(price, code))
+        else -> format(Res.string.vps_cny_amount, arrayOf(price))
+    }
     val renewal = format(Res.string.vps_renewal_detail, arrayOf(renewalAmount, text(state.cycle.label)))
     val premium = result.effectivePremiumCny ?: 0.0
     val total = result.effectiveSalePriceCny ?: result.remainingCny
-    val quote = if (abs(premium) < 0.005) {
-        text(Res.string.vps_at_value)
-    } else {
-        val difference = format(Res.string.vps_cny_amount, arrayOf(VpsCalculator.formatDecimal(abs(premium), 2)))
-        format(if (premium > 0) Res.string.vps_above_value else Res.string.vps_below_value, arrayOf(difference))
+    val quote = when {
+        total == null -> null
+
+        abs(premium) < 0.005 -> text(Res.string.vps_at_value)
+
+        else -> {
+            val difference = format(Res.string.vps_cny_amount, arrayOf(VpsCalculator.formatDecimal(abs(premium), 2)))
+            format(if (premium > 0) Res.string.vps_above_value else Res.string.vps_below_value, arrayOf(difference))
+        }
     }
     val rows = buildList {
-        val renewalDetail = if (foreign) {
-            val priceCny = format(Res.string.vps_cny_amount, arrayOf(VpsCalculator.formatDecimal(result.priceCny)))
-            val converted = format(Res.string.vps_approximate, arrayOf(priceCny))
+        val priceCny = result.priceCny
+        val renewalDetail = if (foreign && priceCny != null) {
+            val convertedPrice = format(Res.string.vps_cny_amount, arrayOf(VpsCalculator.formatDecimal(priceCny)))
+            val converted = format(Res.string.vps_approximate, arrayOf(convertedPrice))
             format(Res.string.vps_with_note, arrayOf(renewal, converted))
         } else {
             renewal
@@ -144,13 +157,12 @@ private inline fun buildSummary(
         val expiry = format(Res.string.vps_expiry_detail, arrayOf(state.dueDate?.toString() ?: unknown, state.tradeDate.toString(), days))
         add(VpsSummaryRow(text(Res.string.vps_due_date), expiry))
         if (foreign) {
-            val rate = state.rateText.trim().takeIf { VpsCalculator.parseNonNegativeDecimal(it) != null } ?: unknown
+            val rate = state.rateText.trim().takeIf { (VpsCalculator.parseNonNegativeDecimal(it) ?: 0.0) > 0 } ?: unknown
             add(VpsSummaryRow(text(Res.string.vps_reference_rate), format(Res.string.vps_rate_detail, arrayOf(code, rate))))
         }
-        val remaining = format(Res.string.vps_cny_amount, arrayOf(amount))
         val equivalent = original?.let { format(Res.string.vps_approximate, arrayOf(it)) }
-        add(valuationRow(text(Res.string.vps_remaining), remaining, equivalent, format))
-        val totalAmount = format(Res.string.vps_cny_amount, arrayOf(VpsCalculator.formatDecimal(total, 2)))
+        add(valuationRow(text(Res.string.vps_remaining), amount, equivalent, format))
+        val totalAmount = total?.let { format(Res.string.vps_cny_amount, arrayOf(VpsCalculator.formatDecimal(it))) } ?: unknown
         add(valuationRow(text(Res.string.vps_total), totalAmount, quote, format))
     }
     val title = text(Res.string.vps_estimate_title)
@@ -204,7 +216,7 @@ private fun VpsCalculatorShareCard(summary: VpsSummary) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Text(summary.title, style = MaterialTheme.typography.titleMedium)
             Text(
-                cnyAmount(summary.amount),
+                summary.amount,
                 color = colors.primary,
                 style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = TABULAR_FIGURES),
             )

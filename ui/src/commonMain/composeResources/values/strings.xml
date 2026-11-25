@@ -2263,6 +2263,10 @@
     <string name="vps_rate">外币汇率</string>
     <string name="vps_updated">更新于 %1$s</string>
     <string name="vps_cached">缓存汇率 · %1$s</string>
+    <string name="vps_draft_save_failed">草稿暂未保存，修改后会重试</string>
+    <string name="vps_missing_valuation_inputs">请检查续费价格和汇率</string>
+    <!-- Attribution text requested by ExchangeRate-API for its open endpoint. -->
+    <string name="vps_rate_attribution">Rates By Exchange Rate API</string>
     <string name="vps_rate_failed">汇率获取失败，可手动输入</string>
     <string name="vps_rate_limited">已达汇率刷新次数上限，可手动输入</string>
     <string name="vps_monthly">月付</string>

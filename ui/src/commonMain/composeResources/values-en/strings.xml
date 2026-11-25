@@ -1982,6 +1982,8 @@
     <string name="vps_rate">Exchange rate</string>
     <string name="vps_updated">Updated %1$s</string>
     <string name="vps_cached">Cached rate · %1$s</string>
+    <string name="vps_draft_save_failed">Draft could not be saved. Editing again will retry.</string>
+    <string name="vps_missing_valuation_inputs">Check the renewal price and exchange rate.</string>
     <string name="vps_rate_failed">Could not fetch the rate. You can enter it manually.</string>
     <string name="vps_rate_limited">Rate refresh limit reached. You can enter a rate manually.</string>
     <string name="vps_monthly">Monthly</string>
