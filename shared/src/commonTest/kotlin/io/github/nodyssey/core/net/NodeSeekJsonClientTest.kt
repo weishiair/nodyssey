@@ -140,7 +140,7 @@ class NodeSeekJsonClientTest {
      * branch and come out as 请登录, sending a reader who was signed in all along to sign in again.
      */
     @Test
-    fun `a write refused by cloudflare's block page asks for the web view, not a sign-in`() = runTest {
+    fun `a write refused by cloudflare's block page asks for web verification`() = runTest {
         val blocked = httpResponse(
             body = """<html><head><title>Attention Required! | Cloudflare</title></head>
                 <body><h1 data-translate="block_headline">Sorry, you have been blocked</h1></body></html>""",
