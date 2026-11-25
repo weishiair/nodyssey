@@ -93,6 +93,7 @@ private val SHIPPED_LIBRARIES =
         ),
         LibraryLicense("okhttp", "OkHttp", "Apache License 2.0", "https://github.com/square/okhttp"),
         LibraryLicense("coil", "Coil", "Apache License 2.0", "https://github.com/coil-kt/coil"),
+        LibraryLicense("zoomimage", "ZoomImage", "Apache License 2.0", "https://github.com/panpf/zoomimage"),
         LibraryLicense("ksoup", "Ksoup", "MIT License", "https://github.com/fleeksoft/ksoup"),
         LibraryLicense("kotlinx-datetime", "kotlinx-datetime", "Apache License 2.0", "https://github.com/Kotlin/kotlinx-datetime"),
     )

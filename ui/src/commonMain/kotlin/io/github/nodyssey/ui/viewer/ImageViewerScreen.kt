@@ -1,12 +1,7 @@
 package io.github.nodyssey.ui.viewer
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +26,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -42,20 +36,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil3.ImageLoader
+import coil3.PlatformContext
 import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
-import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.size.Size
+import com.github.panpf.zoomimage.CoilZoomAsyncImage
+import com.github.panpf.zoomimage.CoilZoomState
+import com.github.panpf.zoomimage.compose.coil.CoilComposeSubsamplingImageGenerator
+import com.github.panpf.zoomimage.rememberCoilZoomState
+import com.github.panpf.zoomimage.subsampling.SubsamplingImageGenerateResult
+import com.github.panpf.zoomimage.zoom.Edge
+import com.github.panpf.zoomimage.zoom.ReadMode
 import io.github.nodyssey.ui.common.rememberShareText
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_close
@@ -72,6 +75,7 @@ import io.github.nodyssey.ui.resources.viewer_save_failed
 import io.github.nodyssey.ui.resources.viewer_save_no_permission
 import io.github.nodyssey.ui.resources.viewer_save_unsupported
 import io.github.nodyssey.ui.resources.viewer_saved
+import io.github.nodyssey.ui.resources.viewer_zoom_hint
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.imageLoadFailureText
@@ -81,19 +85,13 @@ import io.github.plaza.designsys.image.allowMeteredImage
 import io.github.plaza.designsys.image.diagnoseImageFailure
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
+import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
 
 /**
- * Full-screen image viewer.
- *
- * Its own screen rather than a dialog: it takes over the window, keeps its own back behaviour, and
- * survives rotation with the page it was on. The background is #0E0E11 rather than pure black — against
- * an OLED's true black a dark screenshot has no visible edge, and the gesture surface stops being legible.
- *
- * Three gestures, in the order they are checked: pinch to zoom, double-tap to toggle 2.5×, and — only
- * while unzoomed — a vertical drag in either direction to dismiss. Paging is disabled while zoomed, or a pan across a
- * magnified screenshot would flick to the next image instead.
+ * Full-screen image viewer with pinch and double-tap zoom. Tall screenshots open at reading width,
+ * with the top of the image in view. Swiping vertically dismisses an image when it fits on screen.
  */
 @Composable
 fun ImageViewerScreen(
@@ -112,7 +110,8 @@ fun ImageViewerScreen(
 
     val shareText = rememberShareText()
     val pagerState = rememberPagerState(initialPage = initialIndex.coerceIn(0, urls.lastIndex)) { urls.size }
-    var zoomed by remember { mutableStateOf(false) }
+    var canDismissByDrag by remember(pagerState.currentPage) { mutableStateOf(true) }
+    var canPage by remember(pagerState.currentPage) { mutableStateOf(true) }
 
     val notice =
         when (saveOutcome) {
@@ -123,57 +122,51 @@ fun ImageViewerScreen(
             SaveOutcome.FAILED -> stringResource(Res.string.viewer_save_failed)
         }
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .background(VIEWER_BACKGROUND),
+            .background(VIEWER_BACKGROUND)
+            .systemBarsPadding(),
     ) {
+        ViewerTopBar(
+            page = pagerState.currentPage + 1,
+            total = urls.size,
+            onClose = onClose,
+            onSave = { onSave(urls[pagerState.currentPage]) },
+            onShare = { shareText(urls[pagerState.currentPage], null) },
+            onOpenBrowser = { onOpenBrowser(urls[pagerState.currentPage]) },
+        )
+
         HorizontalPager(
             state = pagerState,
-            userScrollEnabled = !zoomed,
-            modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = canPage,
+            modifier = Modifier.fillMaxWidth().weight(1f),
         ) { page ->
-            ZoomableImage(
-                url = urls[page],
-                onDismiss = onClose,
-                onZoomChange = { isZoomed -> if (page == pagerState.currentPage) zoomed = isZoomed },
-            )
+            key(urls[page]) {
+                ZoomableImage(
+                    url = urls[page],
+                    isCurrentPage = page == pagerState.currentPage,
+                    zoomState = rememberViewerZoomState(),
+                    onDismiss = onClose,
+                    onGesturesChanged = { dismissByDrag, pageBySwipe ->
+                        canDismissByDrag = dismissByDrag
+                        canPage = pageBySwipe
+                    },
+                )
+            }
         }
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .systemBarsPadding()
-                .align(Alignment.TopCenter),
-        ) {
-            ViewerTopBar(
-                page = pagerState.currentPage + 1,
-                total = urls.size,
-                onClose = onClose,
-                onSave = { onSave(urls[pagerState.currentPage]) },
-                // Shares the address rather than the bytes: NodeSeek attachments are hosted URLs,
-                // and a link stays a link for the person receiving it.
-                onShare = { shareText(urls[pagerState.currentPage], null) },
-                onOpenBrowser = { onOpenBrowser(urls[pagerState.currentPage]) },
-            )
-        }
-
-        // Board 8g: the page dots and one line on how to leave. 保存 and 分享 moved up into the bar
-        // beside 用浏览器打开 — three icons in the corner are out of the image's way, where two
-        // 48dp pills across the bottom sat on top of the lower third of every picture. A save's
-        // outcome takes the hint's place for as long as it is the news.
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .systemBarsPadding()
                 .padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (urls.size > 1) PageDots(count = urls.size, current = pagerState.currentPage)
+            val hint = if (canDismissByDrag) Res.string.viewer_gesture_hint else Res.string.viewer_zoom_hint
             Text(
-                text = notice ?: stringResource(Res.string.viewer_gesture_hint),
+                text = notice ?: stringResource(hint),
                 style = MaterialTheme.typography.labelMedium,
                 color = VIEWER_SECONDARY_CONTENT,
                 textAlign = TextAlign.Center,
@@ -253,73 +246,61 @@ private fun PageDots(
     }
 }
 
-/**
- * One page: the image, its gestures, and the failure state that replaces it.
- *
- * A failed load keeps the filename and offers 重试. A blank black screen would leave the user unable to
- * tell a broken link from a slow one, and unable to do anything about either.
- */
 @Composable
-private fun ZoomableImage(
+internal fun rememberViewerZoomState(): CoilZoomState = rememberCoilZoomState(
+    subsamplingImageGenerators = persistentListOf(SampledImagesOnly),
+)
+
+private data object SampledImagesOnly : CoilComposeSubsamplingImageGenerator {
+    override suspend fun generateImage(
+        context: PlatformContext,
+        imageLoader: ImageLoader,
+        result: SuccessResult,
+        painter: Painter,
+    ): SubsamplingImageGenerateResult? =
+        if (result.isSampled) null else SubsamplingImageGenerateResult.Error("Preview uses original pixels")
+}
+
+@Composable
+internal fun ZoomableImage(
     url: String,
+    isCurrentPage: Boolean,
+    zoomState: CoilZoomState,
     onDismiss: () -> Unit,
-    onZoomChange: (Boolean) -> Unit,
+    onGesturesChanged: (canDismissByDrag: Boolean, canPage: Boolean) -> Unit,
 ) {
-    var scale by remember(url) { mutableFloatStateOf(1f) }
-    var offset by remember(url) { mutableStateOf(Offset.Zero) }
-    var dragY by remember(url) { mutableFloatStateOf(0f) }
-    var retryToken by remember(url) { mutableIntStateOf(0) }
-    // Opening the viewer is already a deliberate act, but a skipped image is skipped here too — the
-    // user has to say so once, and only then does this one image get to use mobile data.
-    var allowMetered by remember(url) { mutableStateOf(false) }
+    var dragY by remember { mutableFloatStateOf(0f) }
+    var retryToken by remember { mutableIntStateOf(0) }
+    var allowMetered by remember { mutableStateOf(false) }
     val context = LocalPlatformContext.current
-    val request =
-        remember(url, allowMetered) {
-            ImageRequest
-                .Builder(context)
-                .data(url)
-                .allowMeteredImage(allowMetered)
-                .build()
-        }
+    val request = remember(context, url, allowMetered) {
+        ImageRequest
+            .Builder(context)
+            .data(url)
+            // Keep the overview within Coil's bitmap cap. ZoomImage reads details from the source.
+            .size(Size.ORIGINAL)
+            .allowMeteredImage(allowMetered)
+            .build()
+    }
+    zoomState.zoomable.setReadMode(VerticalReadMode)
+    val zoom = zoomState.zoomable
+    val canDismissByDrag = zoom.scrollEdge.vertical == Edge.BOTH && zoom.transform.scale.scaleX <= zoom.minScale
+    val canPage = zoom.scrollEdge.horizontal == Edge.BOTH
+    LaunchedEffect(isCurrentPage, canDismissByDrag, canPage) {
+        if (isCurrentPage) onGesturesChanged(canDismissByDrag, canPage)
+    }
+
+    var loadError by remember(request, retryToken) { mutableStateOf<Throwable?>(null) }
     val dismissDragThresholdPx = with(LocalDensity.current) { DISMISS_DRAG_THRESHOLD.toPx() }
-
-    /*
-     * `canPan` is the whole reason this is not `detectTransformGestures`: that detector consumes every
-     * position change once past touch slop, including a one-finger swipe on an unzoomed image, which
-     * is the pager's page-turn. The predicate says a one-finger drag is only ours once the image is
-     * actually zoomed — which is exactly the rule the hand-rolled detector here used to spell out, and
-     * the reason the comment explaining it is now four lines instead of six.
-     */
-    val transform =
-        rememberTransformableState { _, zoomChange, panChange, _ ->
-            scale = (scale * zoomChange).coerceIn(1f, MAX_SCALE)
-            offset = if (scale > 1f) offset + panChange else Offset.Zero
-            onZoomChange(scale > 1f)
-        }
-
-    val animatedScale by animateFloatAsState(
-        targetValue = scale,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "viewer-scale",
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(url) {
-                detectTapGestures(
-                    onDoubleTap = {
-                        scale = if (scale > 1f) 1f else DOUBLE_TAP_SCALE
-                        offset = Offset.Zero
-                        onZoomChange(scale > 1f)
-                    },
-                )
-            }.transformable(state = transform, canPan = { scale > 1f })
-            .pointerInput(url, scale > 1f) {
-                if (scale > 1f) return@pointerInput
+            .pointerInput(canDismissByDrag, dismissDragThresholdPx, onDismiss) {
+                if (!canDismissByDrag) return@pointerInput
                 detectVerticalDragGestures(
                     onDragEnd = {
-                        if (abs(dragY) > dismissDragThresholdPx) onDismiss() else dragY = 0f
+                        if (abs(dragY) > dismissDragThresholdPx) onDismiss()
+                        dragY = 0f
                     },
                     onDragCancel = { dragY = 0f },
                 ) { _, delta -> dragY += delta }
@@ -327,42 +308,27 @@ private fun ZoomableImage(
         contentAlignment = Alignment.Center,
     ) {
         key(retryToken, allowMetered) {
-            val painter = rememberAsyncImagePainter(model = request)
-            val state by painter.state.collectAsState()
-
-            when (state) {
-                is AsyncImagePainter.State.Error -> {
-                    // Not a failure at all when the app declined on purpose — see
-                    // [ImagesDeferredException]. Naming the switch is what helps, and the action
-                    // then has to be one that works: fetching it anyway, not retrying a request the
-                    // app will decline again.
-                    val throwable = (state as AsyncImagePainter.State.Error).result.throwable
-                    val deferred = throwable is ImagesDeferredException
-                    ImageFailure(
-                        url = url,
-                        deferred = deferred,
-                        // A skipped image has a reason already, and it is the sentence above.
-                        failure = if (deferred) null else diagnoseImageFailure(throwable),
-                        onRetry = { if (deferred) allowMetered = true else retryToken++ },
-                    )
-                }
-
-                else ->
-                    Image(
-                        painter = painter,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = Spacing.sm)
-                            .graphicsLayer(
-                                scaleX = animatedScale,
-                                scaleY = animatedScale,
-                                translationX = offset.x,
-                                translationY = offset.y + dragY,
-                            ),
-                    )
-            }
+            CoilZoomAsyncImage(
+                model = request,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = Spacing.sm)
+                    .graphicsLayer { translationY = dragY },
+                zoomState = zoomState,
+                onState = { state ->
+                    loadError = (state as? AsyncImagePainter.State.Error)?.result?.throwable
+                },
+            )
+        }
+        loadError?.let { error ->
+            val deferred = error is ImagesDeferredException
+            ImageFailure(
+                url = url,
+                deferred = deferred,
+                failure = if (deferred) null else diagnoseImageFailure(error),
+                onRetry = { if (deferred) allowMetered = true else retryToken++ },
+            )
         }
     }
 }
@@ -445,8 +411,7 @@ private val VIEWER_ACTION_CONTAINER = Color(0x1AFFFFFF)
 private val VIEWER_RETRY_CONTAINER = Color(0x24FFFFFF)
 private val VIEWER_WARNING = Color(0xFFF2B8B5)
 
-private const val DOUBLE_TAP_SCALE = 2.5f
-private const val MAX_SCALE = 5f
+private val VerticalReadMode = ReadMode(sizeType = ReadMode.SIZE_TYPE_VERTICAL)
 private val DISMISS_DRAG_THRESHOLD = 120.dp
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "8h 图片查看器")
