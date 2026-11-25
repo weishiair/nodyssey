@@ -47,6 +47,7 @@ internal val NavKeySavedStateConfiguration =
                     subclass(StickerAddKey::class)
                     subclass(AboutAppKey::class)
                     subclass(AboutCommunityKey::class)
+                    subclass(VpsCalculatorKey::class)
                     subclass(PrivacyKey::class)
                     subclass(ChangelogKey::class)
                     subclass(HelpKey::class)

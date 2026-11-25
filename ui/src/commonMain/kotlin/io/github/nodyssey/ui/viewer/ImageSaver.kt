@@ -1,6 +1,7 @@
 package io.github.nodyssey.ui.viewer
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.ImageBitmap
 import io.github.plaza.core.AppDispatchers
 
 /** Why a save did not happen, so the screen can say something more useful than "失败". */
@@ -31,6 +32,8 @@ enum class SaveOutcome {
  */
 interface ImageGallerySaver {
     suspend fun save(url: String): SaveOutcome
+
+    suspend fun save(image: ImageBitmap, fileName: String): SaveOutcome = SaveOutcome.UNSUPPORTED_OS
 }
 
 /**

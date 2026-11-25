@@ -216,6 +216,7 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
                 blockList = { backStack.add(AccountBlockListKey()) },
                 mail = { backStack.add(MailInboxKey) },
                 aboutCommunity = { backStack.add(AboutCommunityKey) },
+                vpsCalculator = if (container.vpsCalculatorRepository != null) ({ backStack.add(VpsCalculatorKey) }) else null,
                 accountSettings = { backStack.add(AccountSettingsKey) },
                 notificationSettings = { backStack.add(NotificationSettingsKey) },
                 themeSettings = { backStack.add(ThemeSettingsKey) },

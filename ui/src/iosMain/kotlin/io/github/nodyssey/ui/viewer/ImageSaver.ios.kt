@@ -2,6 +2,8 @@ package io.github.nodyssey.ui.viewer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asSkiaBitmap
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
@@ -12,6 +14,9 @@ import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.core.toNSData
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.impl.use
 import platform.Foundation.NSData
 import platform.Photos.PHAccessLevelAddOnly
 import platform.Photos.PHAssetCreationRequest
@@ -35,6 +40,22 @@ private class IosImageGallerySaver(
     private val context: PlatformContext,
     private val dispatchers: AppDispatchers,
 ) : ImageGallerySaver {
+    override suspend fun save(image: ImageBitmap, fileName: String): SaveOutcome =
+        runCatchingExceptCancellation {
+            val png = withContext(dispatchers.default) {
+                Image.makeFromBitmap(image.asSkiaBitmap()).use { snapshot ->
+                    snapshot.encodeToData(EncodedImageFormat.PNG)?.use { it.bytes }
+                }
+            } ?: return@runCatchingExceptCancellation SaveOutcome.FAILED
+            withContext(dispatchers.io) {
+                when {
+                    !requestAddOnlyAccess() -> SaveOutcome.PERMISSION_DENIED
+                    addToLibrary(png.toNSData(), fileName) -> SaveOutcome.SAVED
+                    else -> SaveOutcome.FAILED
+                }
+            }
+        }.getOrElse { SaveOutcome.FAILED }
+
     /**
      * Writes the picture into the system photo library.
      *

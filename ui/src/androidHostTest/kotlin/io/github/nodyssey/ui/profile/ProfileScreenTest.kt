@@ -6,9 +6,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -33,6 +36,40 @@ import org.robolectric.annotation.GraphicsMode
 class ProfileScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun `profile calculator requires both a platform destination and a signed in member`() {
+        var signedIn by mutableStateOf(true)
+        var enabled by mutableStateOf(false)
+        var opened = 0
+        composeRule.setContent {
+            PlazaTheme {
+                ProfileScreen(
+                    state = ProfileUiState(isSignedIn = signedIn, displayName = "reader"),
+                    destinations = ProfileDestinations(vpsCalculator = if (enabled) ({ opened++ }) else null),
+                    onSignIn = {},
+                    onRetry = {},
+                    onOpenWebsite = {},
+                    onVerify = {},
+                    onAttendance = {},
+                    onAttendanceBoard = {},
+                )
+            }
+        }
+
+        val grid = composeRule.onNode(hasScrollToIndexAction())
+        grid.performScrollToNode(hasText("关于社区"))
+        val label = "剩余价值\n计算器"
+        composeRule.onNodeWithText(label).assertDoesNotExist()
+        composeRule.runOnIdle { enabled = true }
+        grid.performScrollToNode(hasText(label))
+        composeRule.onNodeWithText(label).performClick()
+        assertEquals(1, opened)
+
+        composeRule.runOnIdle { signedIn = false }
+        grid.performScrollToNode(hasText("NodeSeek 邮箱"))
+        composeRule.onNodeWithText(label).assertDoesNotExist()
+    }
 
     @Test
     fun `signed attendance shows gain and opens the board`() {

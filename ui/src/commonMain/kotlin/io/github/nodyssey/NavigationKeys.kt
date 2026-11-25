@@ -119,6 +119,9 @@ data object AboutAppKey : NavKey
 data object AboutCommunityKey : NavKey
 
 @Serializable
+data object VpsCalculatorKey : NavKey
+
+@Serializable
 data object PrivacyKey : NavKey
 
 @Serializable

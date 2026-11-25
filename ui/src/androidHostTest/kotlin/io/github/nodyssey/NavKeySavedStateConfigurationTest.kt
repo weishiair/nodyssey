@@ -145,6 +145,7 @@ private val EVERY_KEY: List<NavKey> =
         StickerAddKey(StickerAddTab.GITHUB, source = "owner/repo"),
         AboutAppKey,
         AboutCommunityKey,
+        VpsCalculatorKey,
         PrivacyKey,
         ChangelogKey,
         HelpKey,

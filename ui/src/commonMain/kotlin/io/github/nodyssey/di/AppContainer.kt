@@ -27,6 +27,7 @@ import io.github.nodyssey.data.UserSpaceRepository
 import io.github.nodyssey.data.VoteRepository
 import io.github.nodyssey.data.account.AccountSettingsRepository
 import io.github.nodyssey.data.attendance.AutomaticAttendance
+import io.github.nodyssey.data.calculator.VpsCalculatorRepository
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.ImageUploader
 import io.github.nodyssey.data.composer.PostComposerRepository
@@ -71,6 +72,7 @@ import io.github.plaza.core.update.ApkInstaller
  */
 interface AppContainer {
     val lotteryRepository: LotteryRepository? get() = null
+    val vpsCalculatorRepository: VpsCalculatorRepository? get() = null
 
     val mailRepository: MailRepository
     val dispatchers: AppDispatchers

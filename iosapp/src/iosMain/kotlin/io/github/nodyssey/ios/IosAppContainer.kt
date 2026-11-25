@@ -60,6 +60,7 @@ import io.github.nodyssey.data.attendance.AttendanceSession
 import io.github.nodyssey.data.attendance.AttendanceWriteGate
 import io.github.nodyssey.data.attendance.AutoAttendance
 import io.github.nodyssey.data.attendance.MultiAccountAttendance
+import io.github.nodyssey.data.calculator.DefaultVpsCalculatorRepository
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultCommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultPostComposerRepository
@@ -333,6 +334,15 @@ class IosAppContainer(
     private val htmlClient by lazy { SiteHtmlClient(transport, dispatchers, NodeSeekSite.CONFIG) }
 
     private val jsonClient by lazy { NodeSeekJsonClient(transport, dispatchers) }
+
+    override val vpsCalculatorRepository by lazy {
+        DefaultVpsCalculatorRepository(
+            dataStore = createPreferenceDataStore("vps-calculator"),
+            http = NSUrlSessionTransport { imageHostSession.current },
+            dispatchers = dispatchers,
+            clock = clock,
+        )
+    }
 
     override val lotteryRepository: LotteryRepository by lazy {
         val site = ActiveSite.current
