@@ -637,16 +637,20 @@ class IosAppContainer(
     }
 
     override val mailRepository: MailRepository by lazy {
+        val apiSession = ProxiedUrlSession(appScope, proxyRoute(ProxyClientKind.THIRD_PARTY)) { proxy ->
+            appleUrlSession(userAgent.value, acceptLanguage, cookies = null, proxy = proxy, followRedirects = false)
+        }
         val mailSession = ProxiedUrlSession(appScope, proxyRoute(ProxyClientKind.THIRD_PARTY)) { proxy ->
             appleUrlSession(
                 userAgent = userAgent.value,
                 acceptLanguage = acceptLanguage,
                 proxy = proxy,
+                followRedirects = false,
             )
         }
         DefaultMailRepository(
             credentials = DataStoreMailCredentialStore(secretStore("seek-mail"), secretCipher),
-            http = NSUrlSessionTransport { imageHostSession.current },
+            http = NSUrlSessionTransport { apiSession.current },
             dispatchers = dispatchers,
             sessionCookies = cookieStore,
             sessionHttp = NSUrlSessionTransport { mailSession.current },

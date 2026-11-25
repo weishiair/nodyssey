@@ -87,7 +87,6 @@ import io.github.nodyssey.ui.resources.lottery_failure_verification
 import io.github.nodyssey.ui.resources.lottery_filter_all
 import io.github.nodyssey.ui.resources.lottery_filter_empty
 import io.github.nodyssey.ui.resources.lottery_filter_empty_hint
-import io.github.nodyssey.ui.resources.lottery_filter_not_entered
 import io.github.nodyssey.ui.resources.lottery_filter_won
 import io.github.nodyssey.ui.resources.lottery_finished
 import io.github.nodyssey.ui.resources.lottery_finished_empty
@@ -319,7 +318,7 @@ fun LotteryRoute(
                                             null -> Res.string.lottery_filter_all
                                             LotteryOutcome.WON -> Res.string.lottery_filter_won
                                             LotteryOutcome.LOST -> Res.string.lottery_lost
-                                            LotteryOutcome.NOT_ENTERED -> Res.string.lottery_filter_not_entered
+                                            LotteryOutcome.NOT_ENTERED -> Res.string.lottery_not_entered
                                         },
                                     ),
                                 )

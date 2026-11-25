@@ -63,6 +63,7 @@ import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.liquidGlassInteractive
 import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalEinkMode
@@ -134,14 +135,16 @@ private fun ThreadReadingControlsRow(
                         .heightIn(min = 48.dp)
                         .then(
                             if (layers.backdropGlass) {
-                                Modifier.glassChromeSurface(
-                                    layers = layers,
-                                    darkTheme = darkTheme,
-                                    shape = FloatingCapsuleShape,
-                                    elevated = true,
-                                    backdrop = backdrop,
-                                    style = GlassSurfaceStyle.Navigation,
-                                )
+                                Modifier
+                                    .liquidGlassInteractive(FloatingCapsuleShape)
+                                    .glassChromeSurface(
+                                        layers = layers,
+                                        darkTheme = darkTheme,
+                                        shape = FloatingCapsuleShape,
+                                        elevated = true,
+                                        backdrop = backdrop,
+                                        style = GlassSurfaceStyle.Navigation,
+                                    )
                             } else {
                                 Modifier
                             },
@@ -180,18 +183,21 @@ private fun ThreadReadingControlsRow(
                     .then(
                         if (layers.backdropGlass) {
                             val scheme = MaterialTheme.colorScheme
-                            Modifier.glassChromeSurface(
-                                layers = layers,
-                                darkTheme = darkTheme,
-                                shape = fabShape,
-                                elevated = true,
-                                backdrop = backdrop,
-                                surfaceTint = lerp(
-                                    scheme.primaryContainer,
-                                    scheme.primary,
-                                    if (darkTheme) 0.18f else 0.16f,
-                                ).copy(alpha = if (darkTheme) 0.34f else 0.24f),
-                            )
+                            Modifier
+                                .liquidGlassInteractive(fabShape)
+                                .glassChromeSurface(
+                                    layers = layers,
+                                    darkTheme = darkTheme,
+                                    shape = fabShape,
+                                    elevated = true,
+                                    backdrop = backdrop,
+                                    hueTint = scheme.primary,
+                                    surfaceTint = lerp(
+                                        scheme.primaryContainer,
+                                        scheme.primary,
+                                        if (darkTheme) 0.16f else 0.10f,
+                                    ).copy(alpha = if (darkTheme) 0.46f else 0.48f),
+                                )
                         } else {
                             Modifier
                         },

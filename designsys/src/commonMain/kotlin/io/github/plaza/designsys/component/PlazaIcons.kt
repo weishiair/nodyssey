@@ -1043,6 +1043,47 @@ object PlazaIcons {
                 "C13.15,16.73 8.57,8.55 12.34,2.02z",
         )
     }
+
+    /** Material `star_border`: unstarred mail state, distinct from `Icons.Default.Star` (solid). */
+    val StarBorder: ImageVector by lazy {
+        materialIcon(
+            name = "StarBorder",
+            pathData =
+            "M22,9.24l-7.19,-0.62L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21 12,17.27 18.18,21l-1.63,-7.03L22,9.24z" +
+                "M12,15.4l-3.76,2.27 1,-4.28 -3.32,-2.88 4.38,-0.38L12,6.1l1.71,4.04 4.38,0.38 -3.32,2.88 1,4.28L12,15.4z",
+        )
+    }
+
+    /** Material `attach_file`: attachment row in mail detail. */
+    val AttachFile: ImageVector by lazy {
+        materialIcon(
+            name = "AttachFile",
+            pathData =
+            "M16.5,6v11.5c0,2.21 -1.79,4 -4,4s-4,-1.79 -4,-4V5c0,-1.38 1.12,-2.5 2.5,-2.5s2.5,1.12 2.5,2.5v10.5" +
+                "c0,0.55 -0.45,1 -1,1s-1,-0.45 -1,-1V6H10v9.5c0,1.38 1.12,2.5 2.5,2.5s2.5,-1.12 2.5,-2.5V5" +
+                "c0,-2.21 -1.79,-4 -4,-4S7,2.79 7,5v12.5c0,3.04 2.46,5.5 5.5,5.5s5.5,-2.46 5.5,-5.5V6h-1.5z",
+        )
+    }
+
+    /** Material `folder_open`: mail folder selector and move action. */
+    val FolderOpen: ImageVector by lazy {
+        materialIcon(
+            name = "FolderOpen",
+            pathData =
+            "M20,6h-8l-2,-2H4C2.9,4 2.01,4.9 2.01,6L2,18c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V8C22,6.9 21.1,6 20,6z" +
+                "M20,18H4V8h16V18z",
+        )
+    }
+
+    /** Material `label`: mail tag filter and batch tagging. */
+    val Label: ImageVector by lazy {
+        materialIcon(
+            name = "Label",
+            pathData =
+            "M17.63,5.84C17.27,5.33 16.67,5 16,5L5,5.01C3.9,5.01 3,5.9 3,7v10c0,1.1 0.9,1.99 2,1.99L16,19" +
+                "c0.67,0 1.27,-0.33 1.63,-0.84L22,12l-4.37,-6.16zM16,17H5V7h11l3.55,5L16,17z",
+        )
+    }
 }
 
 /**

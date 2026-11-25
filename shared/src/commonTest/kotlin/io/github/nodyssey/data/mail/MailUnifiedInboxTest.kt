@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class MailUnifiedInboxTest {
@@ -20,8 +21,8 @@ class MailUnifiedInboxTest {
                 }
             }
             val client = SeekMailClient(transport)
-            val first = client.inbox(credential, null, 0)
-            val last = client.inbox(credential, null, first.nextOffset!!)
+            val first = client.list(credential, null, 0)
+            val last = client.list(credential, null, first.nextOffset!!)
 
             assertEquals(listOf(25L, 24L, 23L), (first.messages + last.messages).map { it.id })
             assertEquals(listOf(9L, 7L, 9L), (first.messages + last.messages).map { it.mailboxId })
@@ -32,6 +33,55 @@ class MailUnifiedInboxTest {
                 transport.requests.map { it.url.substringAfter('?') },
             )
         }
+    }
+
+    @Test
+    fun `a folder search keeps its paging scope and leaves the monitored inbox snapshot intact`() = runTest {
+        val credential = "synthetic-key"
+        val transport = MailTestTransport().apply {
+            answer = { request ->
+                if ("folder_id=" in request.url) {
+                    val offset = if (request.url.endsWith("offset=1")) 1 else 0
+                    httpResponse(page(credential, row(12L - offset, 7), total = 2, offset = offset))
+                } else {
+                    httpResponse(page(credential, row(29, 7), total = 1))
+                }
+            }
+        }
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = DefaultMailRepository(MemoryMailCredentials(credential), transport, AppDispatchers(dispatcher, dispatcher))
+        repository.initialize()
+        repository.inbox(1, null)
+
+        val filter = MailListFilter(MailFolder(8, "Invoices"), "a & b+#")
+        val first = repository.list(1, 7, 0, filter)
+        val last = repository.list(1, 7, first.nextOffset!!, filter)
+
+        assertEquals(listOf(12L, 11L), (first.messages + last.messages).map(MailMessage::id))
+        assertEquals(listOf(29L), repository.inboxUpdates.value?.page?.messages?.map(MailMessage::id))
+        assertEquals(
+            listOf(0, 1).map { "mailbox_id=7&folder_id=8&search=a%20%26%20b%2B%23&limit=20&offset=$it" },
+            transport.requests.drop(1).map { it.url.substringAfter('?') },
+        )
+    }
+
+    @Test
+    fun `a key without tag scope can still read the inbox`() = runTest {
+        val transport = MailTestTransport().apply {
+            answer = { request ->
+                if (request.url.endsWith("/tags")) {
+                    httpResponse("""{"error":{"code":"insufficient_scope"}}""", code = 403)
+                } else {
+                    httpResponse(page("fixture", MAIL_JSON, total = 1))
+                }
+            }
+        }
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = DefaultMailRepository(MemoryMailCredentials("fixture"), transport, AppDispatchers(dispatcher, dispatcher))
+        repository.initialize()
+
+        assertEquals(MailError.PERMISSION, assertFailsWith<MailException> { repository.tags(1) }.error)
+        assertEquals(21L, repository.inbox(1, null).messages.single().id)
     }
 
     @Test

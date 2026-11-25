@@ -1,6 +1,11 @@
 package io.github.nodyssey.ui.postlist
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.DropdownMenu
@@ -90,6 +96,8 @@ import io.github.nodyssey.data.OfflineFirstPostRepository
 import io.github.nodyssey.model.FeedSort
 import io.github.nodyssey.model.PostSummary
 import io.github.nodyssey.ui.common.BoardTag
+import io.github.nodyssey.ui.common.CollapsedRailAction
+import io.github.nodyssey.ui.common.CollapsedRailActionButton
 import io.github.nodyssey.ui.common.CollapsingHeader
 import io.github.nodyssey.ui.common.EmptyFeedState
 import io.github.nodyssey.ui.common.FeedSortOrder
@@ -130,6 +138,7 @@ import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_create_post
+import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.action_scroll_to_top
 import io.github.nodyssey.ui.resources.action_sort
 import io.github.nodyssey.ui.resources.action_switch_site
@@ -455,6 +464,27 @@ fun PostListScreen(
     }
 
     val refreshState = posts.loadState.refresh
+    val pressHaptics = rememberPlatformHaptics()
+    val refreshFeed: () -> Unit = {
+        pressHaptics.refreshTriggered()
+        // A window opened at a later page has no page-one rows to scroll to; resetting to page one
+        // swaps in a fresh page-one pager instead of refreshing the offset window.
+        if (state.startPage > FIRST_PAGE) {
+            onGoToPage(FIRST_PAGE)
+        } else {
+            posts.refresh()
+        }
+        scope.launch { scrollToTop() }
+    }
+    val collapsedRefreshAction =
+        CollapsedRailAction(
+            label = Res.string.action_refresh,
+            icon = Icons.Default.Refresh,
+            nativeSymbol = "arrow.clockwise",
+            onClick = refreshFeed,
+            loading = refreshState is LoadState.Loading,
+            emphasized = true,
+        )
 
     /*
      * A refresh that failed onto rows already on screen.
@@ -646,10 +676,26 @@ fun PostListScreen(
             // it — two floating things in the same corner is what Material's slot exists to prevent,
             // and it is the arrangement the thread already ships with its 回复 button.
             if (!showPageBar) {
+                val layers = LocalPlazaLayers.current
+                val motionScheme = MaterialTheme.motionScheme
+                val gap = if (layers.frostedGlass) Spacing.sm else Spacing.xs
                 CompositionLocalProvider(LocalLiquidGlassBackdrop provides feedBackdrop) {
                     // Wrap spacing outside PlazaExtendedFab (whose modifier reaches both the glass
                     // button and inner ExtendedFloatingActionButton), following the animated bar clearance.
-                    Box(modifier = Modifier.padding(bottom = safeBottomBarClearance)) {
+                    Column(
+                        modifier = Modifier.padding(bottom = safeBottomBarClearance),
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(gap),
+                    ) {
+                        AnimatedVisibility(
+                            visible = navigationBarHidden && scrolledFromTop && posts.itemCount > 0,
+                            enter = expandVertically(motionScheme.fastSpatialSpec(), Alignment.Bottom) +
+                                fadeIn(motionScheme.defaultEffectsSpec()),
+                            exit = shrinkVertically(motionScheme.fastSpatialSpec(), Alignment.Bottom) +
+                                fadeOut(motionScheme.fastEffectsSpec()),
+                        ) {
+                            CollapsedRailActionButton(action = collapsedRefreshAction)
+                        }
                         // Follow the same sticky direction state as the navigation bar. Stopping cannot
                         // briefly flip this value, so the built-in extended-FAB animation gets one stable
                         // target.
@@ -721,6 +767,7 @@ fun PostListScreen(
                         },
                         onNext = { goToPage((visiblePage + 1).coerceAtMost(state.totalPages)) },
                         onPageClick = { showPageSheet = true },
+                        collapsedAction = collapsedRefreshAction,
                         onCreatePost = onCreatePost,
                         preferHorizontal = wide || LocalIosPad.current,
                         modifier = Modifier
@@ -912,6 +959,7 @@ private fun FeedPageBar(
     onScrollToTop: () -> Unit,
     onNext: () -> Unit,
     onPageClick: () -> Unit,
+    collapsedAction: CollapsedRailAction,
     onCreatePost: () -> Unit,
     preferHorizontal: Boolean,
     modifier: Modifier = Modifier,
@@ -936,6 +984,7 @@ private fun FeedPageBar(
                 previousIcon = PlazaIcons.VerticalAlignTop,
                 previousNativeSymbol = "arrow.up.to.line",
                 vertical = !horizontal,
+                collapsedAction = collapsedAction,
             )
             PlazaExtendedFab(
                 text = stringResource(Res.string.action_create_post),

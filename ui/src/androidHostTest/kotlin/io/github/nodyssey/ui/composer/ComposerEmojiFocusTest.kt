@@ -84,7 +84,7 @@ class ComposerEmojiFocusTest {
                     covered = false,
                     onDismiss = {},
                     bodyState = rememberTextFieldState(),
-                    onClearReplyTo = {},
+                    onRemoveReplyTarget = {},
                     onPreviewChange = {},
                     onPickImages = {},
                     onRemoveAttachment = {},

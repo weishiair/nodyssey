@@ -1147,6 +1147,7 @@ private class NativeShell(
         @OptIn(ExperimentalForeignApi::class)
         override fun gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): Boolean {
             val navigationController = navigationControllers.getValue(destination)
+            if (stacks.getValue(destination).lastOrNull() is MailComposeKey) return false
             // Over the right half of a pair, a swipe belongs to its details while they have one to
             // go back to; the pair itself goes only once they do not.
             val split = splits.getValue(destination).values.firstOrNull { it.controller == navigationController.topViewController }
@@ -1319,6 +1320,7 @@ private fun NavKey.makesRoomForKeyboard(): Boolean =
         this is AccountSecurityKey ||
         this is SignInKey ||
         this is MessageThreadKey ||
+        this is MailComposeKey ||
         this is DohSettingsKey ||
         this is StickerAddKey ||
         this is ThemeSettingsKey

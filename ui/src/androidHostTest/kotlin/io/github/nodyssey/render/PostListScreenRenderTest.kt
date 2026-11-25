@@ -6,14 +6,23 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.paging.LoadState
 import androidx.paging.LoadStates
 import androidx.paging.PagingData
@@ -77,31 +86,40 @@ class PostListScreenRenderTest {
     private fun GlassShell(darkTheme: Boolean) {
         PlazaTheme(darkTheme = darkTheme, pureWhite = true, frostedGlass = true) {
             val navBackdrop = rememberLiquidGlassBackdrop()
+            var navHidden by remember { mutableStateOf(false) }
             Box(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(
                     LocalFloatingBottomBarHeight provides BottomBarPosition.MEDIUM.bottomBarClearance,
                     LocalSelectedPostId provides 4L,
                 ) {
                     Box(Modifier.fillMaxSize().liquidGlassBackdropSource(navBackdrop)) {
-                        Feed(state = PostListUiState(boards = BOARDS, pageBarEnabled = true, totalPages = 100))
+                        Feed(
+                            state = PostListUiState(boards = BOARDS, pageBarEnabled = true, totalPages = 100),
+                            onNavigationBarHiddenChanged = { navHidden = it },
+                        )
                     }
                 }
-                CompositionLocalProvider(
-                    LocalLiquidGlassBackdrop provides navBackdrop,
-                    LocalContentColor provides MaterialTheme.colorScheme.onSurface,
-                ) {
-                    FloatingBottomNavigationBar(
-                        current = TopLevelDestination.HOME,
-                        onSelect = {},
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
+                if (!navHidden) {
+                    CompositionLocalProvider(
+                        LocalLiquidGlassBackdrop provides navBackdrop,
+                        LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+                    ) {
+                        FloatingBottomNavigationBar(
+                            current = TopLevelDestination.HOME,
+                            onSelect = {},
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
+                    }
                 }
             }
         }
     }
 
     @Composable
-    private fun Feed(state: PostListUiState = PostListUiState(boards = BOARDS)) {
+    private fun Feed(
+        state: PostListUiState = PostListUiState(boards = BOARDS),
+        onNavigationBarHiddenChanged: (Boolean) -> Unit = {},
+    ) {
         val feed =
             remember {
                 flowOf(
@@ -125,6 +143,7 @@ class PostListScreenRenderTest {
             onSortChange = {},
             onSignInClick = {},
             onRecoverInBrowser = {},
+            onNavigationBarHiddenChanged = onNavigationBarHiddenChanged,
         )
     }
 
@@ -197,6 +216,29 @@ class PostListScreenRenderTest {
         composeRule.waitForIdle()
 
         captureScreenRoboImage(filePath = "build/outputs/renders/post-list-boards-light.png")
+    }
+
+    /** Scrolled down under glass chrome: the collapsed page rail becomes the one-tap refresh pill. */
+    @Test
+    fun `scrolled glass feed swaps collapsed rail to refresh in dark`() {
+        composeRule.setContent { GlassShell(darkTheme = true) }
+        composeRule.onAllNodes(hasScrollAction() and hasAnyDescendant(hasText("自建 NAS", substring = true)))
+            .onLast()
+            .performTouchInput { swipeUp(startY = bottom * 0.85f, endY = top + 80f) }
+        composeRule.waitForIdle()
+
+        composeRule.onRoot().captureRender("post-list-scroll-refresh-dark")
+    }
+
+    @Test
+    fun `scrolled glass feed swaps collapsed rail to refresh in light`() {
+        composeRule.setContent { GlassShell(darkTheme = false) }
+        composeRule.onAllNodes(hasScrollAction() and hasAnyDescendant(hasText("自建 NAS", substring = true)))
+            .onLast()
+            .performTouchInput { swipeUp(startY = bottom * 0.85f, endY = top + 80f) }
+        composeRule.waitForIdle()
+
+        composeRule.onRoot().captureRender("post-list-scroll-refresh-light")
     }
 
     private companion object {

@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +45,7 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -86,6 +88,7 @@ import io.github.nodyssey.ui.resources.composer_publish_network_failed
 import io.github.nodyssey.ui.resources.composer_publishing
 import io.github.nodyssey.ui.resources.post_quote_prefix
 import io.github.nodyssey.ui.resources.post_quote_reply
+import io.github.nodyssey.ui.resources.post_reply_add_target
 import io.github.nodyssey.ui.resources.post_reply_draft_saved
 import io.github.nodyssey.ui.resources.post_reply_editor_hint
 import io.github.nodyssey.ui.resources.post_reply_editor_title
@@ -159,7 +162,7 @@ fun ReplyComposerHost(
     covered: Boolean,
     onDismiss: () -> Unit,
     bodyState: TextFieldState,
-    onClearReplyTo: () -> Unit,
+    onRemoveReplyTarget: (Int) -> Unit,
     onPreviewChange: (Boolean) -> Unit,
     onPickImages: (List<PickedImage>) -> Unit,
     onRemoveAttachment: (ImageAttachment) -> Unit,
@@ -237,7 +240,7 @@ fun ReplyComposerHost(
             state = state,
             onDismiss = onDismiss,
             bodyState = bodyState,
-            onClearReplyTo = onClearReplyTo,
+            onRemoveReplyTarget = onRemoveReplyTarget,
             onPreview = { onPreviewChange(true) },
             onPickImages = launchPicker,
             onPickHostedImages = { pickingHosted = true },
@@ -299,7 +302,7 @@ private fun ReplyEditorSheet(
     state: ReplyComposerUiState,
     onDismiss: () -> Unit,
     bodyState: TextFieldState,
-    onClearReplyTo: () -> Unit,
+    onRemoveReplyTarget: (Int) -> Unit,
     onPreview: () -> Unit,
     onPickImages: () -> Unit,
     onPickHostedImages: () -> Unit,
@@ -373,9 +376,7 @@ private fun ReplyEditorSheet(
     val editor: @Composable (Modifier) -> Unit = { editorModifier ->
         Column(modifier = editorModifier.fillMaxWidth()) {
             val headerTitle =
-                // The author is in the target chip right under this, so the header names the
-                // floor only — and falls back to plain 回复 the moment that chip is dismissed.
-                state.replyTo?.let {
+                state.replyTargets.singleOrNull()?.let {
                     stringResource(Res.string.post_reply_editor_title_to_floor, it.floor)
                 } ?: stringResource(Res.string.post_reply_editor_title)
             val headerRow: @Composable () -> Unit = {
@@ -478,26 +479,15 @@ private fun ReplyEditorSheet(
             } else {
                 headerRow()
             }
-            // The dismissible 回复 target (6d), recessed into the sheet (2c): it is a reference to
-            // something outside the reply, not part of it. Only 回复 gets one, because only 回复 is a
-            // property of the comment as a whole; a 引用 is text in the body, visible and editable
-            // there, and a chip would imply it could be dismissed the same way.
-            state.replyTo?.let { replyTo ->
-                QuotePreview(
-                    title = stringResource(Res.string.post_quote_reply, replyTo.author, "#${replyTo.floor}"),
-                    excerpt = replyTo.excerpt,
-                    leading = {
-                        PlazaIcon(
-                            PlazaIcons.FormatQuote,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp),
-                        )
+            if (state.replyTargets.isNotEmpty()) {
+                ReplyTargets(
+                    targets = state.replyTargets,
+                    enabled = !state.isPublishing,
+                    onRemove = onRemoveReplyTarget,
+                    onAdd = {
+                        keyboard?.hide()
+                        onDismiss()
                     },
-                    inset = true,
-                    onRemove = onClearReplyTo,
-                    removeLabel = stringResource(Res.string.post_reply_quote_remove),
-                    modifier = Modifier.padding(horizontal = Spacing.md),
                 )
             }
             // The default container fills the width it was given, which is what this field needs:
@@ -644,6 +634,53 @@ private fun ReplyEditorSheet(
 /** C4: the sheet's content, full screen, rendered exactly the way the thread will render it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun ReplyTargets(
+    targets: List<FloorReference>,
+    enabled: Boolean,
+    onRemove: (Int) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).heightIn(max = 104.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            for (target in targets) {
+                key(target.floor) {
+                    val title = stringResource(Res.string.post_quote_reply, target.author, "#${target.floor}")
+                    QuotePreview(
+                        title = title,
+                        excerpt = target.excerpt,
+                        leading = {
+                            PlazaIcon(
+                                PlazaIcons.FormatQuote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                        inset = true,
+                        onRemove = if (enabled) ({ onRemove(target.floor) }) else null,
+                        removeLabel = stringResource(Res.string.post_reply_quote_remove, title),
+                    )
+                }
+            }
+        }
+        TextButton(
+            onClick = onAdd,
+            enabled = enabled,
+            modifier = Modifier.widthIn(max = 140.dp),
+        ) {
+            Text(stringResource(Res.string.post_reply_add_target))
+        }
+    }
+}
+
+@Composable
 private fun ReplyPreviewScreen(
     state: ReplyComposerUiState,
     onBack: () -> Unit,
@@ -658,7 +695,7 @@ private fun ReplyPreviewScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = state.replyTo?.let {
+                        text = state.replyTargets.singleOrNull()?.let {
                             stringResource(Res.string.post_reply_preview_title_floor, it.floor)
                         } ?: stringResource(Res.string.post_reply_preview_title),
                         style = MaterialTheme.typography.titleSmall,
@@ -704,15 +741,19 @@ private fun ReplyPreviewScreen(
                     .padding(horizontal = Spacing.xl, vertical = Spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm + 2.dp),
             ) {
-                // Only the 回复 reference: any 引用 is part of the body below, and the Markdown
-                // preview already renders it as the blockquote it will become.
-                state.replyTo?.let { replyTo ->
-                    // How the 回复 reads once published: the addressed floor, ahead of the body.
-                    TonalTag(
-                        text = "@${replyTo.author} ${stringResource(Res.string.post_quote_prefix, replyTo.floor)}",
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
+                if (state.replyTargets.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        for (target in state.replyTargets) {
+                            TonalTag(
+                                text = "@${target.author} ${stringResource(Res.string.post_quote_prefix, target.floor)}",
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
                 }
                 MarkdownPreviewBody(markdown = state.body)
             }

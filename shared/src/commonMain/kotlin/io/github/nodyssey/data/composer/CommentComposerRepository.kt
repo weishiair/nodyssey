@@ -26,23 +26,26 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.uuid.Uuid
 
-/**
- * An unsent reply.
- *
- * [replyToFloor]/[replyToText] survive the round trip so reopening the sheet restores the 回复 chip
- * along with the text — a reply written at somebody reads as a non sequitur without it. Quotes need
- * no fields of their own: 引用 writes Markdown straight into [body], so they are saved with it.
- */
+/** An unsent reply. Quotes are stored as Markdown in [body]. */
 @Serializable
 data class CommentDraft(
     val body: String = "",
+    // Older versions saved one target in these three fields.
     val replyToFloor: Int? = null,
     val replyToAuthor: String? = null,
     val replyToText: String? = null,
     val savedAtMillis: Long = 0L,
+    val replyTargets: List<CommentDraftReplyTarget> = emptyList(),
 ) {
-    val hasContent: Boolean get() = body.isNotBlank()
+    val hasContent: Boolean get() = body.isNotBlank() || replyTargets.isNotEmpty() || replyToFloor != null
 }
+
+@Serializable
+data class CommentDraftReplyTarget(
+    val floor: Int,
+    val author: String,
+    val excerpt: String,
+)
 
 data class CommentSubmission(
     val postId: Long,

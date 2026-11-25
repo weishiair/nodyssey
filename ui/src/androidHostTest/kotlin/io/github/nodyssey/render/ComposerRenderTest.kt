@@ -88,7 +88,7 @@ class ComposerRenderTest {
                         covered = false,
                         onDismiss = {},
                         bodyState = rememberTextFieldState(REPLY.body),
-                        onClearReplyTo = {},
+                        onRemoveReplyTarget = {},
                         onPreviewChange = {},
                         onPickImages = {},
                         onRemoveAttachment = {},
@@ -204,7 +204,10 @@ class ComposerRenderTest {
                 postId = 1L,
                 visible = true,
                 body = "不同批次这个太对了，我第一次就是同批四块一起挂了两块",
-                replyTo = FloorReference(floor = 1, author = "轻舟", excerpt = "同折腾党，电源那条深有体会。补充一点：硬盘最好分批买。"),
+                replyTargets = listOf(
+                    FloorReference(floor = 1, author = "轻舟", excerpt = "同折腾党，电源那条深有体会。补充一点：硬盘最好分批买。"),
+                    FloorReference(floor = 3, author = "another", excerpt = "我也试过这个方法。"),
+                ),
                 savedAtMillis = 1_700_000_000_000L,
             )
     }

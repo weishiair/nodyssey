@@ -46,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.settings.BottomBarPosition
+import io.github.nodyssey.data.settings.BottomBarStyle
 import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SavedTheme
@@ -63,6 +64,9 @@ import io.github.nodyssey.ui.resources.settings_bottom_bar_position
 import io.github.nodyssey.ui.resources.settings_bottom_bar_position_high
 import io.github.nodyssey.ui.resources.settings_bottom_bar_position_low
 import io.github.nodyssey.ui.resources.settings_bottom_bar_position_medium
+import io.github.nodyssey.ui.resources.settings_bottom_bar_style
+import io.github.nodyssey.ui.resources.settings_bottom_bar_style_floating
+import io.github.nodyssey.ui.resources.settings_bottom_bar_style_standard
 import io.github.nodyssey.ui.resources.settings_color_source
 import io.github.nodyssey.ui.resources.settings_color_source_custom
 import io.github.nodyssey.ui.resources.settings_color_source_preset
@@ -115,6 +119,7 @@ fun ThemeSettingsRoute(
         onWallpaperSystemPaletteChange = viewModel::setWallpaperSystemPalette,
         onWallpaperAutoUpdateChange = viewModel::setWallpaperAutoUpdate,
         onFrostedGlassChange = viewModel::setFrostedGlass,
+        onBottomBarStyleChange = viewModel::setBottomBarStyle,
         onBottomBarPositionChange = viewModel::setBottomBarPosition,
         modifier = modifier,
     )
@@ -149,6 +154,7 @@ fun ThemeSettingsScreen(
     onWallpaperSystemPaletteChange: (Boolean) -> Unit = {},
     onWallpaperAutoUpdateChange: (Boolean) -> Unit = {},
     onFrostedGlassChange: (Boolean) -> Unit = {},
+    onBottomBarStyleChange: (BottomBarStyle) -> Unit = {},
     onBottomBarPositionChange: (BottomBarPosition) -> Unit = {},
 ) {
     // Which way into the colour sheet: 新建 starts a theme from nothing, so it opens with no name —
@@ -222,15 +228,28 @@ fun ThemeSettingsScreen(
                     enabled = activePreset(settings)?.hasFixedColors != true,
                 )
                 val adjustableBottomBar = LocalFixedBottomBarHeight.current == null
+                val floatingBottomBar = !adjustableBottomBar || settings.bottomBarStyle == BottomBarStyle.FLOATING
+                val showBottomBarPosition = adjustableBottomBar && floatingBottomBar
+                if (adjustableBottomBar) {
+                    SettingsMenuRow(
+                        icon = PlazaIcons.DashboardCustomize,
+                        title = stringResource(Res.string.settings_bottom_bar_style),
+                        subtitle = stringResource(settings.bottomBarStyle.label),
+                        choices = BottomBarStyle.entries.map { it to stringResource(it.label) },
+                        selected = settings.bottomBarStyle,
+                        onSelect = onBottomBarStyleChange,
+                        last = !frostedGlassConfigurable && !showBottomBarPosition,
+                    )
+                }
                 if (frostedGlassConfigurable) {
                     FrostedGlassRow(
                         checked = settings.frostedGlass,
-                        enabled = !settings.einkMode,
+                        enabled = !settings.einkMode && floatingBottomBar,
                         onCheckedChange = onFrostedGlassChange,
-                        last = !adjustableBottomBar,
+                        last = !showBottomBarPosition,
                     )
                 }
-                if (adjustableBottomBar) {
+                if (showBottomBarPosition) {
                     SettingsMenuRow(
                         icon = PlazaIcons.VerticalAlignBottom,
                         title = stringResource(Res.string.settings_bottom_bar_position),
@@ -543,6 +562,12 @@ private fun PaletteStyleRow(
         enabled = enabled,
     )
 }
+
+private val BottomBarStyle.label
+    get() = when (this) {
+        BottomBarStyle.FLOATING -> Res.string.settings_bottom_bar_style_floating
+        BottomBarStyle.STANDARD -> Res.string.settings_bottom_bar_style_standard
+    }
 
 private val BottomBarPosition.label
     get() = when (this) {

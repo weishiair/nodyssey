@@ -10,14 +10,19 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.data.mail.MailAuthMode
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailException
+import io.github.nodyssey.data.mail.MailFolder
+import io.github.nodyssey.data.mail.MailListFilter
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.mail.MailPreview
 import io.github.nodyssey.data.mail.MailRepository
+import io.github.nodyssey.data.mail.MailTag
 import io.github.nodyssey.data.mail.Mailbox
+import io.github.nodyssey.data.mail.isMailAddress
 import io.github.nodyssey.di.AppContainer
 import io.github.plaza.core.AppClock
 import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.runCatchingExceptCancellation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -29,6 +34,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -54,6 +60,31 @@ data class MailInboxUiState(
     val confirmingDisconnect: Boolean = false,
     val challengeVerificationAvailable: Boolean = false,
     val verifyingChallenge: Boolean = false,
+    val filter: MailListFilter = MailListFilter(),
+    val unreadOnly: Boolean = false,
+    val folders: List<MailFolder> = emptyList(),
+    val loadingFolders: Boolean = false,
+    val foldersError: MailError? = null,
+    val selectionMode: Boolean = false,
+    val selectedIds: Set<Long> = emptySet(),
+    val changingMessages: Boolean = false,
+    val mailboxActionError: MailError? = null,
+    val alias: MailAliasState = MailAliasState(),
+    val tags: List<MailTag> = emptyList(),
+    val loadingTags: Boolean = false,
+    val creatingTag: Boolean = false,
+    val tagsError: MailError? = null,
+    val createdTag: MailTag? = null,
+) {
+    val visibleMessages: List<MailMessage> get() = if (unreadOnly) messages.filterNot(MailMessage::isRead) else messages
+}
+
+data class MailAliasState(
+    val checkedAddress: String? = null,
+    val available: Boolean = false,
+    val busy: Boolean = false,
+    val created: Mailbox? = null,
+    val error: MailError? = null,
 )
 
 class MailInboxViewModel(
@@ -69,11 +100,15 @@ class MailInboxViewModel(
     private var loadSerial = 0L
     private var defaultMailboxJob: Job? = null
     private var markAllReadJob: Job? = null
+    private var foldersJob: Job? = null
+    private var mailboxActionJob: Job? = null
+    private var aliasJob: Job? = null
+    private var tagsJob: Job? = null
     private var authorizationGeneration: Long? = null
     private var authorizationJob: Job? = null
     private var authorizationSerial = 0L
     val uiState = combine(state, repository.readStates) { inbox, reads ->
-        if (reads.generation != generation) {
+        if (reads.generation != generation || inbox.filter.isSent) {
             inbox
         } else {
             inbox.copy(
@@ -95,6 +130,10 @@ class MailInboxViewModel(
                 if (generation != connection.generation) {
                     defaultMailboxJob?.cancel()
                     markAllReadJob?.cancel()
+                    foldersJob?.cancel()
+                    mailboxActionJob?.cancel()
+                    aliasJob?.cancel()
+                    tagsJob?.cancel()
                 }
                 generation = connection.generation
                 loadJob?.cancel()
@@ -120,11 +159,17 @@ class MailInboxViewModel(
         viewModelScope.launch {
             combine(
                 repository.inboxUpdates,
-                state.map { MailInboxReadiness(it.generation, it.selectedMailboxId, it.loading || it.loadingMore) }.distinctUntilChanged(),
+                state.map {
+                    MailInboxReadiness(
+                        it.generation,
+                        it.selectedMailboxId,
+                        it.loading || it.loadingMore || it.changingMessages || !it.filter.isInbox,
+                    )
+                }.distinctUntilChanged(),
             ) { snapshot, _ -> snapshot }.collectLatest { snapshot ->
                 val current = state.value
                 if (snapshot == null || snapshot.generation != generation || snapshot.mailboxId != current.selectedMailboxId ||
-                    current.loading || current.loadingMore
+                    current.loading || current.loadingMore || current.changingMessages || !current.filter.isInbox
                 ) {
                     return@collectLatest
                 }
@@ -139,7 +184,7 @@ class MailInboxViewModel(
                 val previews = withContext(dispatchers.default) { messages.associate { it.id to MailPreview.from(it) } }
                 currentCoroutineContext().ensureActive()
                 state.update {
-                    if (generation != snapshot.generation || it.selectedMailboxId != snapshot.mailboxId || it.loading || it.loadingMore) {
+                    if (generation != snapshot.generation || it.selectedMailboxId != snapshot.mailboxId || it.loading || it.loadingMore || it.changingMessages || !it.filter.isInbox) {
                         it
                     } else {
                         it.copy(
@@ -296,6 +341,10 @@ class MailInboxViewModel(
         loadJob?.cancel()
         defaultMailboxJob?.cancel()
         markAllReadJob?.cancel()
+        foldersJob?.cancel()
+        mailboxActionJob?.cancel()
+        aliasJob?.cancel()
+        tagsJob?.cancel()
         apiKey.clearText()
         viewModelScope.launch {
             runCatchingExceptCancellation { repository.disconnect() }
@@ -304,10 +353,11 @@ class MailInboxViewModel(
     }
 
     fun refresh() {
-        if (!state.value.connected) return
+        if (!state.value.connected || state.value.changingMessages) return
         loadJob?.cancel()
         val serial = ++loadSerial
         val expected = generation
+        val filter = state.value.filter
         state.update { it.copy(loading = true, loadingMore = false, error = null) }
         loadJob = viewModelScope.launch {
             runCatchingExceptCancellation {
@@ -317,7 +367,7 @@ class MailInboxViewModel(
                 currentCoroutineContext().ensureActive()
                 if (expected != generation || serial != loadSerial) return@runCatchingExceptCancellation
                 state.update { it.copy(mailboxes = mailboxes, selectedMailboxId = selected) }
-                val page = if (mailboxes.isEmpty()) null else repository.inbox(expected, selected)
+                val page = if (mailboxes.isEmpty()) null else requestPage(expected, selected, 0, filter)
                 val messages = page?.messages.orEmpty().distinctBy(MailMessage::id)
                 val previews = withContext(dispatchers.default) { messages.associate { mail -> mail.id to MailPreview.from(mail) } }
                 currentCoroutineContext().ensureActive()
@@ -341,7 +391,7 @@ class MailInboxViewModel(
     }
 
     fun selectMailbox(id: Long?) {
-        if (state.value.markingAllRead) return
+        if (state.value.markingAllRead || state.value.changingMessages) return
         if (id == state.value.selectedMailboxId || (id != null && state.value.mailboxes.none { it.id == id })) return
         loadJob?.cancel()
         state.update {
@@ -353,6 +403,8 @@ class MailInboxViewModel(
                 loadingMore = false,
                 allReadComplete = false,
                 markAllReadError = null,
+                selectionMode = false,
+                selectedIds = emptySet(),
             )
         }
         val expected = generation
@@ -368,6 +420,225 @@ class MailInboxViewModel(
         loadPage(append = false)
     }
 
+    fun changeFilter(filter: MailListFilter) {
+        val current = state.value
+        val normalized = filter.copy(search = filter.search.trim(), tagId = filter.tagId.takeUnless { filter.isSent })
+        if (!current.connected || current.markingAllRead || current.changingMessages || current.filter == normalized) return
+        loadJob?.cancel()
+        state.update {
+            it.copy(
+                filter = normalized,
+                unreadOnly = it.unreadOnly && !normalized.isSent,
+                messages = emptyList(),
+                previews = emptyMap(),
+                nextOffset = null,
+                selectionMode = false,
+                selectedIds = emptySet(),
+            )
+        }
+        loadPage(append = false)
+    }
+
+    fun toggleUnreadOnly() {
+        if (state.value.changingMessages || state.value.filter.isSent) return
+        state.update { it.copy(unreadOnly = !it.unreadOnly, selectionMode = false, selectedIds = emptySet()) }
+    }
+
+    fun loadFolders() {
+        if (state.value.loadingFolders) return
+        val expected = generation
+        state.update { it.copy(loadingFolders = true, foldersError = null) }
+        foldersJob = viewModelScope.launch {
+            try {
+                runCatchingExceptCancellation { repository.folders(expected) }
+                    .onSuccess { folders -> state.update { it.copy(folders = folders) } }
+                    .onFailure { error -> state.update { it.copy(foldersError = error.mailError()) } }
+            } finally {
+                if (generation == expected) state.update { it.copy(loadingFolders = false) }
+            }
+        }
+    }
+
+    fun toggleSelection() {
+        if (state.value.changingMessages || state.value.filter.isSent) return
+        state.update { it.copy(selectionMode = !it.selectionMode, selectedIds = emptySet()) }
+    }
+
+    fun toggleSelected(id: Long) {
+        state.update {
+            if (it.changingMessages || !it.selectionMode || it.messages.none { mail -> mail.id == id }) return@update it
+            it.copy(selectedIds = if (id in it.selectedIds) it.selectedIds - id else it.selectedIds + id)
+        }
+    }
+
+    fun selectVisible() {
+        val visible = uiState.value.visibleMessages.mapTo(mutableSetOf(), MailMessage::id)
+        state.update {
+            if (it.changingMessages || !it.selectionMode) return@update it
+            val selected = if (it.selectedIds.containsAll(visible)) it.selectedIds - visible else it.selectedIds + visible
+            it.copy(selectedIds = selected)
+        }
+    }
+
+    fun markSelectedRead() = changeSelected { expected, mail -> repository.markRead(expected, mail, true) }
+
+    fun moveSelected(folderId: Long?) = changeSelected(reload = true) { expected, mail ->
+        repository.move(expected, mail.id, folderId)
+    }
+
+    fun toggleFlag(mail: MailMessage) {
+        if (state.value.changingMessages || state.value.filter.isSent) return
+        val expected = generation
+        state.update { it.copy(changingMessages = true) }
+        mailboxActionJob = viewModelScope.launch {
+            try {
+                runCatchingExceptCancellation { repository.flag(expected, mail.id, !mail.isFlagged) }
+                    .onSuccess {
+                        state.update { inbox ->
+                            inbox.copy(messages = inbox.messages.map { if (it.id == mail.id) it.copy(isFlagged = !mail.isFlagged) else it })
+                        }
+                    }
+                    .onFailure { reportMailboxActionError(expected, it) }
+            } finally {
+                if (generation == expected) state.update { it.copy(changingMessages = false) }
+            }
+        }
+    }
+
+    private fun changeSelected(reload: Boolean = false, change: suspend (Long, MailMessage) -> Unit) {
+        val current = state.value
+        if (current.filter.isSent || current.changingMessages || current.markingAllRead || current.loading || current.loadingMore) return
+        val targets = current.messages.filter { it.id in current.selectedIds }
+        if (targets.isEmpty()) return
+        val expected = generation
+        state.update { it.copy(changingMessages = true) }
+        mailboxActionJob = viewModelScope.launch {
+            var changed = false
+            try {
+                for (mail in targets) {
+                    change(expected, mail)
+                    changed = true
+                    state.update { it.copy(selectedIds = it.selectedIds - mail.id) }
+                }
+                state.update { it.copy(selectionMode = false) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                reportMailboxActionError(expected, error)
+            } finally {
+                if (generation == expected) {
+                    if (reload && changed && currentCoroutineContext().isActive) loadPage(append = false)
+                    state.update { it.copy(changingMessages = false) }
+                }
+            }
+        }
+    }
+
+    fun refreshSent() {
+        val current = state.value
+        if (current.connected && current.filter.isSent && !current.loading && !current.loadingMore) loadPage(append = false)
+    }
+
+    fun loadTags() {
+        if (state.value.loadingTags || state.value.creatingTag) return
+        val expected = generation
+        state.update { it.copy(loadingTags = true, tagsError = null) }
+        tagsJob = viewModelScope.launch {
+            val result = runCatchingExceptCancellation { repository.tags(expected) }
+            if (generation == expected) {
+                state.update { inbox ->
+                    result.fold(
+                        onSuccess = { inbox.copy(tags = it, loadingTags = false) },
+                        onFailure = { inbox.copy(loadingTags = false, tagsError = it.mailError()) },
+                    )
+                }
+            }
+        }
+    }
+
+    fun createTag(name: String) {
+        val value = name.trim()
+        if (value.isEmpty() || state.value.creatingTag || state.value.loadingTags) return
+        val expected = generation
+        state.update { it.copy(creatingTag = true, tagsError = null, createdTag = null) }
+        tagsJob = viewModelScope.launch {
+            val result = runCatchingExceptCancellation { repository.createTag(expected, value) }
+            if (generation == expected) {
+                state.update { inbox ->
+                    result.fold(
+                        onSuccess = { inbox.copy(creatingTag = false, tags = (inbox.tags + it).distinctBy(MailTag::id), createdTag = it) },
+                        onFailure = { inbox.copy(creatingTag = false, tagsError = it.mailError()) },
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearCreatedTag() = state.update { it.copy(createdTag = null) }
+
+    fun setSelectedTag(tagId: Long, attach: Boolean) = changeSelected(reload = true) { expected, mail ->
+        val tags = mail.tags
+        if (tags == null || tags.any { it.id == tagId } != attach) repository.setTag(expected, mail.id, tagId, attach)
+    }
+
+    fun resetAlias() {
+        if (state.value.alias.busy) return
+        state.update { it.copy(alias = MailAliasState()) }
+    }
+
+    fun checkAlias(address: String) {
+        val value = address.trim()
+        if (!isMailAddress(value) || state.value.alias.busy) return
+        val expected = generation
+        state.update { it.copy(alias = MailAliasState(busy = true)) }
+        aliasJob = viewModelScope.launch {
+            val result = runCatchingExceptCancellation { repository.checkAddress(expected, value) }
+            if (generation == expected) {
+                state.update {
+                    it.copy(
+                        alias = result.fold(
+                            onSuccess = { available -> MailAliasState(checkedAddress = value, available = available) },
+                            onFailure = { error -> MailAliasState(error = error.mailError()) },
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun createAlias(address: String) {
+        val value = address.trim()
+        val alias = state.value.alias
+        if (alias.busy || !alias.available || alias.checkedAddress != value) return
+        val expected = generation
+        state.update { it.copy(alias = alias.copy(busy = true, error = null)) }
+        aliasJob = viewModelScope.launch {
+            runCatchingExceptCancellation { repository.createMailbox(expected, value) }.fold(
+                onSuccess = { mailbox ->
+                    if (generation == expected) {
+                        val previouslyEmpty = state.value.mailboxes.isEmpty()
+                        state.update {
+                            it.copy(
+                                mailboxes = (it.mailboxes + mailbox).distinctBy(Mailbox::id),
+                                alias = MailAliasState(created = mailbox),
+                            )
+                        }
+                        if (previouslyEmpty) loadPage(append = false)
+                    }
+                },
+                onFailure = { error ->
+                    if (generation == expected) state.update { it.copy(alias = MailAliasState(error = error.mailError())) }
+                },
+            )
+        }
+    }
+
+    fun dismissMailboxActionError() = state.update { it.copy(mailboxActionError = null) }
+
+    private fun reportMailboxActionError(expected: Long, error: Throwable) {
+        if (expected == generation) state.update { it.copy(mailboxActionError = error.mailError()) }
+    }
+
     fun loadMore() {
         if (!state.value.loading && !state.value.loadingMore && state.value.nextOffset != null) loadPage(append = true)
     }
@@ -375,7 +646,7 @@ class MailInboxViewModel(
     fun markAllRead() {
         val current = state.value
         val mailboxId = current.selectedMailboxId
-        if (!current.connected || current.markingAllRead || current.loading || current.loadingMore) return
+        if (!current.connected || !current.filter.isInbox || current.unreadOnly || current.markingAllRead || current.changingMessages || current.loading || current.loadingMore) return
         val expected = generation
         state.update { it.copy(markingAllRead = true, allReadComplete = false, markAllReadError = null) }
         markAllReadJob = viewModelScope.launch {
@@ -400,11 +671,12 @@ class MailInboxViewModel(
     private fun loadPage(append: Boolean) {
         val expected = generation
         val mailboxId = state.value.selectedMailboxId
+        val filter = state.value.filter
         val serial = ++loadSerial
         val offset = if (append) state.value.nextOffset ?: return else 0
         state.update { it.copy(loading = !append, loadingMore = append, error = null) }
         loadJob = viewModelScope.launch {
-            runCatchingExceptCancellation { repository.inbox(expected, mailboxId, offset) }
+            runCatchingExceptCancellation { requestPage(expected, mailboxId, offset, filter) }
                 .onSuccess { page ->
                     val messages = ((if (append) state.value.messages else emptyList()) + page.messages).distinctBy(MailMessage::id)
                     val previews = withContext(dispatchers.default) { messages.associate { mail -> mail.id to MailPreview.from(mail) } }
@@ -430,6 +702,9 @@ class MailInboxViewModel(
                 }
         }
     }
+
+    private suspend fun requestPage(generation: Long, mailboxId: Long?, offset: Int, filter: MailListFilter) =
+        if (filter.isInbox) repository.inbox(generation, mailboxId, offset) else repository.list(generation, mailboxId, offset, filter)
 
     companion object {
         fun factory(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {

@@ -2,7 +2,13 @@
 
 package io.github.plaza.designsys.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -164,7 +170,12 @@ actual fun AdaptiveSettingsPage(
     val host = remember { NativeSettingsPageHost() }
     UIKitView(
         factory = { host.view },
-        modifier = modifier.fillMaxSize(),
+        // The interop view can receive a zero UIKit top inset even under the status bar.
+        modifier =
+        modifier
+            .fillMaxSize()
+            .background(pageColor)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
         properties = SettingsPageInterop,
         update = { host.update(page, onBack, palette) },
         onRelease = { host.dispose() },

@@ -77,18 +77,18 @@ class MinifiedStartupSmokeTest {
         assertNotNull("the 搜索 action is missing from 首页's app bar", search)
         search.click()
 
-        // Still alive and still drawing after a navigation — asserted on the search screen's own
-        // content, not on the tab bar staying visible. On a phone-shaped window 搜索 focuses its
-        // field and the IME slides over the bottom bar by design; the first version of this test
-        // asserted 首页 was still on screen, which only held on the tablet-width emulator it was
-        // written against (a navigation rail sits beside the IME instead of under it). Now 搜索 is a
-        // pushed screen rather than a tab, so on a phone there is no bottom bar there to assert on
-        // at all. 用户 is the second half of 搜索's 帖子 / 用户 switch, which is on screen from the first
-        // frame; the board picker that used to be matched here moved into a sheet that opens on demand.
-        assertTrue(
-            "the app stopped drawing after opening 搜索",
-            device.wait(Until.hasObject(By.pkg(APP).text(USERS_TAB)), UI_TIMEOUT_MS),
-        )
+        // Search focuses its editable field on arrival. Enter a query to verify that the
+        // minified app is still interactive after navigation, without submitting a request.
+        val searchField = By.pkg(APP).clazz("android.widget.EditText").focused(true)
+        val input = device.wait(Until.findObject(searchField), UI_TIMEOUT_MS) ?: run {
+            dumpDiagnostics(device, "search-input-timeout")
+            throw AssertionError("the search field did not receive focus")
+        }
+        val query = "nodyssey"
+        input.text = query
+        val entered = device.wait(Until.hasObject(searchField.text(query)), UI_TIMEOUT_MS)
+        if (!entered) dumpDiagnostics(device, "search-input-unresponsive")
+        assertTrue("the search field did not accept a query", entered)
     }
 
     /**
@@ -165,6 +165,5 @@ class MinifiedStartupSmokeTest {
 
         /** The hint on 首页's search button, not a tab label — see where it is used. */
         val SEARCH_ENTRY: Pattern = Pattern.compile("搜索帖子或用户|搜尋文章或用戶|Search posts or users")
-        val USERS_TAB: Pattern = Pattern.compile("用户|使用者|Users")
     }
 }
