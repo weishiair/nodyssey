@@ -138,6 +138,7 @@
     <string name="composer_emoji_stickers_pending">站內貼圖素材尚未接入，先用下面兩組 emoji</string>
 
     <string name="post_comments_header">評論 · %1$d</string>
+    <string name="post_hot_comments">熱門回覆</string>
     <string name="post_body_empty">這篇文章沒有內文</string>
     <string name="post_open_original">檢視內文</string>
     <string name="post_comments_empty">還沒有人回覆</string>

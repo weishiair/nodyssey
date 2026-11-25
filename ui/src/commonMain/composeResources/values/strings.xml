@@ -162,6 +162,7 @@
 
     <!-- Post detail -->
     <string name="post_comments_header">评论 · %1$d</string>
+    <string name="post_hot_comments">热评</string>
     <string name="post_body_empty">这个帖子没有正文</string>
     <string name="post_open_original">查看正文</string>
     <string name="post_comments_empty">还没有人回复</string>

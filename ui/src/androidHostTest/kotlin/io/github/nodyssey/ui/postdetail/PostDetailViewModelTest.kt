@@ -196,6 +196,35 @@ class PostDetailViewModelTest {
         assertEquals(expectedPages, vm.uiState.value.commentPages)
     }
 
+    @Test
+    fun `hot previews keep site order and a jump loads the original reply page`() = runTest(dispatcher) {
+        val laterReply = FakePostRemoteDataSource.content("original reply").copy(commentId = 12, floor = "#12")
+        val thirdReply = FakePostRemoteDataSource.content("third reply").copy(commentId = 3, floor = "#3", isHot = true)
+        val firstReply = FakePostRemoteDataSource.content("first reply").copy(commentId = 1, floor = "#1", isHot = true)
+        val preview = laterReply.copy(authorName = "homepage preview", isHot = true)
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 2).copy(
+                comments = if (page == 1) listOf(preview, thirdReply, firstReply) else listOf(laterReply),
+            )
+        }
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(listOf(1), remote.detailRequests.map { it.second })
+        assertEquals(listOf("#12", "#3", "#1"), vm.uiState.value.hotComments.map { it.floor })
+        assertEquals(listOf("#1", "#3"), vm.uiState.value.comments.map { it.floor })
+
+        vm.jumpToFloor("#12")
+        advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(listOf(1, 2), remote.detailRequests.map { it.second })
+        assertEquals(listOf("#1", "#3", "#12"), state.comments.map { it.floor })
+        assertEquals(laterReply, state.comments.last())
+        assertEquals(listOf(1, 1, 2), state.commentPages)
+        assertEquals(PendingScroll(2, "#12"), state.pendingScroll)
+    }
+
     /**
      * A reply can move across a page boundary while the previous page is still cached. Both pages
      * then contain the same comment id, which used to become the same LazyColumn key twice and

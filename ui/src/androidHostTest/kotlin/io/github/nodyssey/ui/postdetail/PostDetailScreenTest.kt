@@ -164,6 +164,22 @@ class PostDetailScreenTest(private val frostedGlass: Boolean) {
         assertEquals(emptyList<String>(), requested)
     }
 
+    @Test
+    fun `tapping a hot preview brings its original reply to the reading position`() {
+        val thread = jumpedState(floors = (1..20).toList(), page = 1)
+        val preview = content("featured excerpt", floor = "#4")
+        var position: Pair<Int, String?>? = null
+        setScreen(
+            thread.copy(hotComments = listOf(preview)),
+            onReadingPositionChange = { page, floor -> position = page to floor },
+        )
+
+        composeRule.onNodeWithText("featured excerpt").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1 to "#4", position)
+    }
+
     /** 到最新 must wait for the requested page and land at its foot, not its first floor. */
     @Test
     fun `latest waits for the last page before scrolling to its final floor`() {

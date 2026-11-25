@@ -1114,6 +1114,8 @@ data class PostDetailUiState(
     val authorScanError: SiteError? = null,
     /** Original site pages survive the filtered view's own pagination, for editing. */
     val commentSourcePages: List<Int> = emptyList(),
+    /** The first page's featured replies, in the order NodeSeek sent them. */
+    val hotComments: List<PostContent> = emptyList(),
 ) {
     /**
      * Whether there is a thread on screen to read and act on.
@@ -1147,8 +1149,25 @@ internal fun PostDetailUiState.readerLastFloor(): Int? {
  * that place and the numeric order picks up after it.
  */
 internal fun PostDetailUiState.readingView(): PostDetailUiState {
+    fun sourcePage(index: Int): Int = commentPages.getOrNull(index) ?: firstLoadedPage
+
+    val firstPageHotIndices = comments.indices.filter { comments[it].isHot && sourcePage(it) == 1 }
+    val visibleHotComments = if (onlyAuthor) {
+        emptyList()
+    } else {
+        firstPageHotIndices.asSequence()
+            .map(comments::get)
+            .filter { (!it.isBlocked || showBlockedContent) && (NodeSeekSite.parseFloorNumber(it.floor) ?: 0) > 0 }
+            .distinctBy { it.commentId ?: it.floor }
+            .toList()
+    }
+    // A featured reply can be copied from a later page. Its original row arrives with that page.
+    val crossPageHotIndices = firstPageHotIndices.filterTo(mutableSetOf()) { index ->
+        val comment = comments[index]
+        !comment.isPinned && (NodeSeekSite.parseFloorNumber(comment.floor)?.let(NodeSeekSite::pageOfFloor) ?: 1) > 1
+    }
     val ordered =
-        comments.indices.sortedWith(
+        comments.indices.filterNot(crossPageHotIndices::contains).sortedWith(
             compareBy(
                 { if (comments[it].isPinned) 0 else 1 },
                 { NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE },
@@ -1163,17 +1182,21 @@ internal fun PostDetailUiState.readingView(): PostDetailUiState {
                 ?: "position:$original"
         }
     if (!onlyAuthor) {
-        if (unique.withIndex().all { (index, original) -> index == original }) return this
+        if (unique.size == comments.size && unique.withIndex().all { (index, original) -> index == original } && hotComments == visibleHotComments) {
+            return this
+        }
         return copy(
             comments = unique.map(comments::get),
-            commentPages = unique.map { commentPages.getOrNull(it) ?: firstLoadedPage },
+            commentPages = unique.map(::sourcePage),
+            hotComments = visibleHotComments,
         )
     }
     val matching = unique.filter { comments[it].isOriginalPoster || (body?.authorUid != null && comments[it].authorUid == body.authorUid) }
     val pages = ((matching.size + NodeSeekSite.COMMENTS_PER_PAGE - 1) / NodeSeekSite.COMMENTS_PER_PAGE).coerceAtLeast(1)
     return copy(
         comments = matching.map(comments::get),
-        commentSourcePages = matching.map { commentPages.getOrNull(it) ?: firstLoadedPage },
+        commentSourcePages = matching.map(::sourcePage),
+        hotComments = visibleHotComments,
         commentPages = matching.indices.map { it / NodeSeekSite.COMMENTS_PER_PAGE + 1 },
         firstLoadedPage = 1,
         lastLoadedPage = pages,

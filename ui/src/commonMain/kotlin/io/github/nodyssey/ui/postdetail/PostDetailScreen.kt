@@ -97,6 +97,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -183,6 +184,7 @@ import io.github.nodyssey.ui.resources.post_edited
 import io.github.nodyssey.ui.resources.post_edited_at
 import io.github.nodyssey.ui.resources.post_floor_actions
 import io.github.nodyssey.ui.resources.post_floor_number
+import io.github.nodyssey.ui.resources.post_hot_comments
 import io.github.nodyssey.ui.resources.post_link_copied
 import io.github.nodyssey.ui.resources.post_loading_earlier
 import io.github.nodyssey.ui.resources.post_new_replies_divider
@@ -235,6 +237,7 @@ import io.github.plaza.designsys.component.AvatarShape
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.GroupedListItem
+import io.github.plaza.designsys.component.GroupedRowTrailing
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
@@ -1596,13 +1599,22 @@ private fun ThreadList(
 
         if (state.hasContent) {
             item(key = "comments-header") {
-                CommentsHeader(
-                    state = state,
-                    onLoadPrevious = onLoadPrevious,
-                    onToggleOnlyAuthor = onToggleOnlyAuthor,
-                    onRetryAuthor = onRetryAuthor,
-                    original = original,
-                )
+                Column {
+                    if (state.hotComments.isNotEmpty()) {
+                        HotComments(
+                            comments = state.hotComments,
+                            onJumpToFloor = onJumpToFloor,
+                            modifier = Modifier.padding(horizontal = if (original) OriginalFloorInset else Spacing.md, vertical = Spacing.sm),
+                        )
+                    }
+                    CommentsHeader(
+                        state = state,
+                        onLoadPrevious = onLoadPrevious,
+                        onToggleOnlyAuthor = onToggleOnlyAuthor,
+                        onRetryAuthor = onRetryAuthor,
+                        original = original,
+                    )
+                }
             }
         } else {
             // "共 0 条回复" would be a claim, and nobody has counted yet.
@@ -2289,6 +2301,34 @@ private val OriginalFloorInset = 10.dp
 private val OriginalOpeningPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 14.dp, bottom = Spacing.sm)
 
 private val OriginalOpeningGap = 8.dp
+
+@Composable
+private fun HotComments(
+    comments: List<PostContent>,
+    onJumpToFloor: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(Res.string.post_hot_comments),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(bottom = Spacing.xs).semantics { heading() },
+        )
+        comments.forEachIndexed { index, comment ->
+            val excerpt = remember(comment.nodes) { comment.nodes.excerpt().takeIf(String::isNotBlank) }
+            GroupedListItem(
+                first = index == 0,
+                last = index == comments.lastIndex,
+                onClick = comment.floor?.let { floor -> { onJumpToFloor(floor) } },
+                headlineContent = {
+                    Text(comment.authorName, style = floorNameStyle(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
+                supportingContent = excerpt?.let { { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) } },
+                trailingContent = { GroupedRowTrailing(value = comment.floor, showChevron = true) },
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
