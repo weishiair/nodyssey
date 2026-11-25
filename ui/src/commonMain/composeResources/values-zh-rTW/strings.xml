@@ -218,7 +218,8 @@
     <string name="tab_notifications">通知</string>
     <string name="tab_profile">我的</string>
 
-    <string name="search_hint">搜尋文章</string>
+    <string name="search_hint">搜尋文章或貼上連結</string>
+    <string name="search_open_post_link">開啟文章</string>
     <string name="home_search_hint">搜尋文章或用戶</string>
     <string name="search_hint_board">在 %1$s 版塊搜文章</string>
     <string name="search_user_hint">搜尋使用者名稱</string>

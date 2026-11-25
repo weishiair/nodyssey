@@ -12,8 +12,13 @@ class NodeSeekSiteRouteTest {
     @Test fun post() {
         assertEquals(
             NodeSeekSite.InternalRoute.Post(832584L, 2),
-            NodeSeekSite.parseInternalRoute("https://www.nodeseek.com/post-832584-2"),
+            NodeSeekSite.parseInternalRoute("https://www.nodeseek.com/post-832584-2/?source=share#12"),
         )
+    }
+
+    @Test fun `post routes match the actual path`() {
+        assertEquals(null, NodeSeekSite.parseInternalRoute("https://www.nodeseek.com/search?q=/post-832584-2"))
+        assertEquals(null, NodeSeekSite.parseInternalRoute("https://www.nodeseek.com/post-832584-2-extra"))
     }
 
     @Test fun external() {

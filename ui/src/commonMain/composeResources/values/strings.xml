@@ -268,7 +268,8 @@
     <string name="tab_profile">我的</string>
 
     <!-- Search: authenticated remote results and condition-aware local history -->
-    <string name="search_hint">搜索帖子</string>
+    <string name="search_hint">搜索帖子或粘贴链接</string>
+    <string name="search_open_post_link">打开帖子</string>
     <!-- 首页顶部的搜索框占位：点它进搜索页，帖子和用户都能搜。 -->
     <string name="home_search_hint">搜索帖子或用户</string>
     <string name="search_hint_board">在 %1$s 版块搜帖子</string>
