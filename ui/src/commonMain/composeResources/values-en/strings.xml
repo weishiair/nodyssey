@@ -90,6 +90,7 @@
     <string name="post_last_reply_by">Last reply by %1$s, %2$s</string>
     <string name="post_view_count">%1$d views</string>
     <string name="post_badge_pinned">Pinned</string>
+    <string name="post_badge_hot">Top comment</string>
     <string name="post_badge_awarded">Recommended</string>
     <string name="post_badge_locked">Locked</string>
     <string name="post_badge_locked_level">Level %1$d and up</string>
