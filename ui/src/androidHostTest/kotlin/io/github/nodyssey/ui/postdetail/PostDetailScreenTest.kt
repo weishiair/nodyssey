@@ -165,19 +165,23 @@ class PostDetailScreenTest(private val frostedGlass: Boolean) {
     }
 
     @Test
-    fun `tapping a hot preview brings its original reply to the reading position`() {
-        val thread = jumpedState(floors = (1..20).toList(), page = 1)
-        val preview = content("featured excerpt", floor = "#4")
+    fun `jumping to the original page skips the featured copy of the same floor`() {
+        val thread = jumpedState(floors = (1..20).toList(), page = 1, pendingScroll = PendingScroll(2, "#12"))
+        val original = thread.comments[11]
+        val featured = content("featured copy", floor = "#12").copy(commentId = original.commentId, isHot = true)
         var position: Pair<Int, String?>? = null
         setScreen(
-            thread.copy(hotComments = listOf(preview)),
+            thread.copy(
+                comments = listOf(featured) + thread.comments,
+                commentPages = List(11) { 1 } + List(10) { 2 },
+                lastLoadedPage = 2,
+            ),
             onReadingPositionChange = { page, floor -> position = page to floor },
         )
-
-        composeRule.onNodeWithText("featured excerpt").performClick()
         composeRule.waitForIdle()
 
-        assertEquals(1 to "#4", position)
+        composeRule.onNodeWithText("floor 12").assertIsDisplayed()
+        assertEquals(2 to "#12", position)
     }
 
     /** 到最新 must wait for the requested page and land at its foot, not its first floor. */

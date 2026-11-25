@@ -1114,8 +1114,6 @@ data class PostDetailUiState(
     val authorScanError: SiteError? = null,
     /** Original site pages survive the filtered view's own pagination, for editing. */
     val commentSourcePages: List<Int> = emptyList(),
-    /** The first page's featured replies, in the order NodeSeek sent them. */
-    val hotComments: List<PostContent> = emptyList(),
 ) {
     /**
      * Whether there is a thread on screen to read and act on.
@@ -1132,7 +1130,7 @@ data class ReplyAuthorInfo(val level: Int?, val joinedDays: Int?)
 
 /** The counter must never turn original floor 121 into filtered reply 3, or invent missing totals. */
 internal fun PostDetailUiState.readerLastFloor(): Int? {
-    val loaded = lastFloorNumber(comments)
+    val loaded = lastFloorNumber(comments.filterIndexed { index, _ -> !isCrossPageHotCopy(index) })
     val known = lastFloor ?: replyCount.takeUnless { onlyAuthor }
     return when {
         known != null -> maxOf(known, loaded)
@@ -1141,54 +1139,47 @@ internal fun PostDetailUiState.readerLastFloor(): Int? {
     }
 }
 
+private fun PostDetailUiState.sourcePage(index: Int): Int =
+    commentSourcePages.getOrNull(index) ?: commentPages.getOrNull(index) ?: firstLoadedPage
+
+internal fun PostDetailUiState.isFeaturedReply(index: Int): Boolean =
+    !onlyAuthor && comments[index].isHot && sourcePage(index) == 1
+
+/** A later floor featured on page 1 can also appear at its original position on a loaded page. */
+internal fun PostDetailUiState.isCrossPageHotCopy(index: Int): Boolean {
+    val comment = comments[index]
+    return comment.isHot && !comment.isPinned && sourcePage(index) == 1 &&
+        (NodeSeekSite.parseFloorNumber(comment.floor) ?: 0) > NodeSeekSite.COMMENTS_PER_PAGE
+}
+
+/** Ordinary rows retain their keys when the original page joins the reading window. */
+internal fun PostDetailUiState.commentKey(index: Int): Any {
+    val comment = comments[index]
+    val key = comment.commentId ?: comment.floor?.let { "floor:$it" } ?: "unlabelled:$index"
+    return if (isCrossPageHotCopy(index)) "hot:$key" else key
+}
+
 /**
- * The site's DOM can put later floors ahead of earlier ones. Order the reading view numerically,
- * including cached replies, while carrying each reply's source page through the same permutation.
- *
- * 置顶 is the one exception: the site draws a pinned floor above the rest of the page, so it keeps
- * that place and the numeric order picks up after it.
+ * Keep pinned replies first, then the site's featured replies in the order page 1 sent them.
+ * The rest of the thread reads in floor order with the page each reply arrived on.
  */
 internal fun PostDetailUiState.readingView(): PostDetailUiState {
-    fun sourcePage(index: Int): Int = commentPages.getOrNull(index) ?: firstLoadedPage
-
-    val firstPageHotIndices = comments.indices.filter { comments[it].isHot && sourcePage(it) == 1 }
-    val visibleHotComments = if (onlyAuthor) {
-        emptyList()
-    } else {
-        firstPageHotIndices.asSequence()
-            .map(comments::get)
-            .filter { (!it.isBlocked || showBlockedContent) && (NodeSeekSite.parseFloorNumber(it.floor) ?: 0) > 0 }
-            .distinctBy { it.commentId ?: it.floor }
-            .toList()
-    }
-    // A featured reply can be copied from a later page. Its original row arrives with that page.
-    val crossPageHotIndices = firstPageHotIndices.filterTo(mutableSetOf()) { index ->
-        val comment = comments[index]
-        !comment.isPinned && (NodeSeekSite.parseFloorNumber(comment.floor)?.let(NodeSeekSite::pageOfFloor) ?: 1) > 1
-    }
-    val ordered =
-        comments.indices.filterNot(crossPageHotIndices::contains).sortedWith(
-            compareBy(
-                { if (comments[it].isPinned) 0 else 1 },
-                { NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE },
-            ),
-        )
     val unique =
-        ordered.distinctBy { original ->
-            val comment = comments[original]
-            comment.commentId?.let { "comment:$it" }
-                ?: comment.floor?.let { "floor:$it" }
-                // A reply with neither id nor floor cannot be compared safely with another one.
-                ?: "position:$original"
-        }
+        comments.indices
+            .filterNot { onlyAuthor && isCrossPageHotCopy(it) }
+            .sortedWith(
+                compareBy(
+                    { if (comments[it].isPinned) 0 else 1 },
+                    { if (isFeaturedReply(it)) 0 else 1 },
+                    { if (isFeaturedReply(it)) it else NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE },
+                ),
+            )
+            .distinctBy(::commentKey)
     if (!onlyAuthor) {
-        if (unique.size == comments.size && unique.withIndex().all { (index, original) -> index == original } && hotComments == visibleHotComments) {
-            return this
-        }
+        if (unique.size == comments.size && unique.withIndex().all { (index, original) -> index == original }) return this
         return copy(
             comments = unique.map(comments::get),
             commentPages = unique.map(::sourcePage),
-            hotComments = visibleHotComments,
         )
     }
     val matching = unique.filter { comments[it].isOriginalPoster || (body?.authorUid != null && comments[it].authorUid == body.authorUid) }
@@ -1196,7 +1187,6 @@ internal fun PostDetailUiState.readingView(): PostDetailUiState {
     return copy(
         comments = matching.map(comments::get),
         commentSourcePages = matching.map(::sourcePage),
-        hotComments = visibleHotComments,
         commentPages = matching.indices.map { it / NodeSeekSite.COMMENTS_PER_PAGE + 1 },
         firstLoadedPage = 1,
         lastLoadedPage = pages,
