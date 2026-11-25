@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -51,6 +52,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.isOutOfBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -128,6 +130,7 @@ fun LiquidGlassBottomTabs(
         LocalEinkMode.current || MaterialTheme.motionScheme.defaultSpatialSpec<Float>() is SnapSpec<*>
     val tabsBackdrop = rememberLayerBackdrop()
     val hasSelection = selectedIndex in 0 until tabsCount
+    val selectTab by rememberUpdatedState(onTabSelected)
 
     BoxWithConstraints(
         modifier = modifier,
@@ -154,7 +157,6 @@ fun LiquidGlassBottomTabs(
         }
 
         var currentIndex by remember { mutableIntStateOf(selectedIndex.coerceIn(0, tabsCount - 1)) }
-        var dragged by remember { mutableIntStateOf(0) }
         val drag = remember(animationScope, tabsCount, reducedMotion) {
             LiquidTabDragAnimation(
                 animationScope = animationScope,
@@ -164,12 +166,12 @@ fun LiquidGlassBottomTabs(
                 initialScale = 1f,
                 pressedScale = if (reducedMotion) 1f else 68f / 50f,
                 reducedMotion = reducedMotion,
-                onDragStarted = { dragged = 0 },
-                onDragStopped = {
-                    val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
-                    if (dragged != 0 && targetIndex != currentIndex) {
+                onTap = { selectTab(currentIndex) },
+                onDragStopped = { commit ->
+                    val targetIndex = if (commit) targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1) else currentIndex
+                    if (targetIndex != currentIndex) {
                         currentIndex = targetIndex
-                        onTabSelected(targetIndex)
+                        selectTab(targetIndex)
                     }
                     animateToValue(targetIndex.toFloat())
                     animationScope.launch {
@@ -177,7 +179,6 @@ fun LiquidGlassBottomTabs(
                     }
                 },
                 onDrag = { _, dragAmount, uptimeMillis ->
-                    if (abs(dragAmount.x) > 0.5f) dragged = 1
                     updateValue(
                         (targetValue + dragAmount.x / tabWidth * if (isLtr) 1f else -1f)
                             .fastCoerceIn(0f, (tabsCount - 1).toFloat()),
@@ -441,8 +442,8 @@ private class LiquidTabDragAnimation(
     val initialScale: Float,
     val pressedScale: Float,
     private val reducedMotion: Boolean,
-    val onDragStarted: LiquidTabDragAnimation.(position: Offset) -> Unit,
-    val onDragStopped: LiquidTabDragAnimation.() -> Unit,
+    val onTap: () -> Unit,
+    val onDragStopped: LiquidTabDragAnimation.(commit: Boolean) -> Unit,
     val onDrag: LiquidTabDragAnimation.(size: IntSize, dragAmount: Offset, uptimeMillis: Long) -> Unit,
 ) {
     private val valueAnimationSpec = spring(1f, 1000f, visibilityThreshold)
@@ -469,21 +470,30 @@ private class LiquidTabDragAnimation(
     val velocity: Float get() = velocityAnimation.value
 
     val modifier: Modifier = Modifier.pointerInput(Unit) {
+        var firstPointer: PointerId? = null
+        var movement = Offset.Zero
+        var moved = false
         inspectLiquidDragGestures(
             onDragStart = { down ->
                 lastUptimeMillis = down.uptimeMillis
-                onDragStarted(down.position)
+                firstPointer = down.id
+                movement = Offset.Zero
+                moved = false
                 press()
             },
-            onDragEnd = {
-                onDragStopped()
+            onDragEnd = { up ->
+                onDragStopped(moved)
+                // The lens is hit before the tab underneath, so it also handles the reselect tap.
+                if (!moved && up.id == firstPointer && !up.isOutOfBounds(size, extendedTouchPadding)) onTap()
                 release()
             },
             onDragCancel = {
-                onDragStopped()
+                onDragStopped(false)
                 release()
             },
         ) { change, dragAmount ->
+            movement += dragAmount
+            if (movement.getDistance() > viewConfiguration.touchSlop) moved = true
             onDrag(size, dragAmount, change.uptimeMillis)
         }
     }
@@ -650,7 +660,7 @@ half4 main(float2 coord) {
 
 private suspend fun PointerInputScope.inspectLiquidDragGestures(
     onDragStart: (down: PointerInputChange) -> Unit = {},
-    onDragEnd: (change: PointerInputChange) -> Unit = {},
+    onDragEnd: AwaitPointerEventScope.(change: PointerInputChange) -> Unit = {},
     onDragCancel: () -> Unit = {},
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit,
 ) {
