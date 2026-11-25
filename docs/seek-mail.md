@@ -88,15 +88,16 @@ uses an explicit `mailbox_id` filter and rejects mail from another mailbox; the
 combined view omits that filter and retains each message's mailbox ID for detail
 navigation and read changes.
 
-The `seek-mail` preferences store contains one encrypted credential: a website
-token prefixed with `web:`, or a manually supplied API key. Android uses the
+The `seek-mail` preferences store contains an encrypted credential and any local
+drafts for that credential. The credential is a website token prefixed with
+`web:`, or a manually supplied API key. Android uses the
 existing Keystore cipher; iOS uses the existing backup-excluded secret store
 policy. Encryption failure refuses persistence. Credentials never enter a
 navigation key, saved UI state, diagnostic exception, or committed fixture.
-Mail content stays in memory without a database cache.
+Received mail stays in memory without a database cache.
 
-Disconnect and forum sign-out clear the credential, read overrides, and visible
-content. Each connection has a generation; pending replies from an earlier
+Disconnect and forum sign-out clear the credential, drafts, read overrides, and
+visible content. Each connection has a generation; pending replies from an earlier
 connection cannot publish data or restore a credential after disconnect.
 
 ## Reading and limits
@@ -115,8 +116,8 @@ per image. External stylesheets, fonts and embedded pages stay blocked.
 ## Search, organization, attachments, and sending
 
 - Open search from the top bar to run a server-side keyword query in the current
-  mailbox and folder. **Unread** filters each loaded page. **Load more** continues
-  through the results until the last page.
+  mailbox and folder. **Unread** filters each loaded page. Reaching the bottom
+  loads the next page. Use **Load more messages** to retry a failed request.
 - Open the folder selector to see Inbox, Sent, Spam, Trash, and available custom
   folders. A search, custom folder, or tag filter has its own pagination and
   does not replace the inbox snapshot used by new-mail monitoring.
@@ -132,6 +133,9 @@ per image. External stylesheets, fonts and embedded pages stay blocked.
   file picker. The app limits each download to 32 MiB and offers the website
   for larger files. iOS uses a private temporary copy while the picker is open.
 - **Compose** sends plain-text mail from an owned address with To, Cc and Bcc.
+  Closing the editor with unsent text saves it on this device. Opening **Compose**
+  resumes the most recent draft automatically. Use the editor's options to open
+  another draft or start a blank email while keeping the saved draft.
   **Sent** shows outgoing messages and their available delivery status. The app
   submits a request once per tap and shows a message when delivery confirmation
   is unclear. Use the website for threaded replies or sending with attachments.

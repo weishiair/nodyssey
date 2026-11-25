@@ -79,6 +79,21 @@ data class OutgoingMail(
 }
 
 @Serializable
+data class MailDraft(
+    val mailboxId: Long? = null,
+    val to: String = "",
+    val cc: String = "",
+    val bcc: String = "",
+    val subject: String = "",
+    val body: String = "",
+) {
+    val hasText: Boolean get() = listOf(to, cc, bcc, subject, body).any(String::isNotBlank)
+}
+
+@Serializable
+data class SavedMailDraft(val id: String, val draft: MailDraft, val savedAt: Long)
+
+@Serializable
 data class MailAttachment(
     val index: Int,
     val filename: String,
@@ -133,4 +148,8 @@ enum class MailError {
 }
 
 /** Never includes response bodies, mail content or credentials in an exception message. */
-class MailException(val error: MailError) : Exception(error.name)
+class MailException(
+    val error: MailError,
+    val responseStatus: Int? = null,
+    val rejection: String? = null,
+) : Exception(error.name)

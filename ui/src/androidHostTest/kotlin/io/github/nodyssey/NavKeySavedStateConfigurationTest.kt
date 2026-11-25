@@ -164,6 +164,8 @@ private val EVERY_KEY: List<NavKey> =
         StardustKey,
         CommunityToolsKey,
         MailInboxKey,
+        MailComposeKey(generation = 2, mailboxId = 12, draftId = "draft-id"),
+        MailDraftsKey(generation = 2),
         MailDetailKey(mailboxId = 12, mailId = 34),
         MyTopicsKey,
         MyCommentsKey,

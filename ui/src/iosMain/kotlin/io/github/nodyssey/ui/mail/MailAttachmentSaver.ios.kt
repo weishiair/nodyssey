@@ -11,6 +11,7 @@ import io.github.plaza.core.toNSData
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
 import platform.Foundation.NSUUID
 import platform.Foundation.writeToURL
@@ -46,7 +47,8 @@ private class MailAttachmentPicker(
     private var picker: UIDocumentPickerViewController? = null
 
     fun present(presenter: platform.UIKit.UIViewController, name: String, bytes: ByteArray): Boolean {
-        val folder = files.temporaryDirectory.URLByAppendingPathComponent(NSUUID().UUIDString()) ?: return false
+        val temp = NSURL.fileURLWithPath(NSTemporaryDirectory(), isDirectory = true)
+        val folder = temp.URLByAppendingPathComponent(NSUUID().UUIDString()) ?: return false
         val file = folder.URLByAppendingPathComponent(name) ?: return false
         if (!files.createDirectoryAtURL(folder, withIntermediateDirectories = false, attributes = null, error = null)) return false
         directory = folder

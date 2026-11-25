@@ -54,17 +54,16 @@ import io.github.nodyssey.data.mail.MailFolderScope
 import io.github.nodyssey.data.mail.MailListFilter
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.mail.MailSystemFolder
-import io.github.nodyssey.data.mail.OutgoingMail
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.mail_folder_sent
 import io.github.nodyssey.ui.resources.mail_folder_spam
 import io.github.nodyssey.ui.resources.mail_folder_trash
+import io.github.nodyssey.ui.resources.mail_folders_unavailable
 import io.github.nodyssey.ui.resources.mail_inbox
 import io.github.nodyssey.ui.resources.mail_loading
 import io.github.nodyssey.ui.resources.mail_mark_selected_read
 import io.github.nodyssey.ui.resources.mail_move_selected
-import io.github.nodyssey.ui.resources.mail_scope_folder_read
 import io.github.nodyssey.ui.resources.mail_search_hint
 import io.github.nodyssey.ui.resources.mail_tags
 import io.github.nodyssey.ui.resources.mail_unread_status
@@ -100,8 +99,6 @@ data class MailInboxControls(
     val checkAlias: (String) -> Unit,
     val createAlias: (String) -> Unit,
     val resetAlias: () -> Unit,
-    val sendMail: (OutgoingMail) -> Unit,
-    val resetCompose: () -> Unit,
     val tags: MailTagControls,
 )
 
@@ -125,7 +122,7 @@ internal fun MailListToolbar(
     var choosingFolder by remember { mutableStateOf(false) }
     val enabled = !state.markingAllRead && !state.changingMessages
     val folderError = state.foldersError?.let {
-        stringResource(if (it == MailError.PERMISSION) Res.string.mail_scope_folder_read else it.messageRes())
+        stringResource(if (it == MailError.PERMISSION) Res.string.mail_folders_unavailable else it.messageRes())
     }
     Row(
         modifier = modifier
@@ -205,7 +202,7 @@ internal fun MailSelectionBottomBar(
     val canChange = enabled && !state.loading && !state.loadingMore && state.selectedIds.isNotEmpty()
     val canMove = canChange && (state.filter.folder == MailSystemFolder.INBOX || state.filter.folder is MailFolder)
     val folderError = state.foldersError?.let {
-        stringResource(if (it == MailError.PERMISSION) Res.string.mail_scope_folder_read else it.messageRes())
+        stringResource(if (it == MailError.PERMISSION) Res.string.mail_folders_unavailable else it.messageRes())
     }
     val moveTargets = (listOf(MailSystemFolder.INBOX) + state.folders).filterNot { it == state.filter.folder }
     val moveMenu = moveTargets.map { folder ->
@@ -418,10 +415,10 @@ private fun MailFolderMenu(
     error: String?,
     onSelect: (MailFolderScope) -> Unit,
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = dismiss) {
+    DropdownMenu(expanded = expanded, onDismissRequest = dismiss, modifier = Modifier.width(200.dp)) {
         folders.forEach { folder ->
             DropdownMenuItem(
-                text = { Text(folder.label()) },
+                text = { Text(folder.label(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 trailingIcon = if (folder == current) {
                     { PlazaIcon(Icons.Default.Check, contentDescription = null) }
                 } else {

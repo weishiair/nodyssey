@@ -142,6 +142,13 @@ internal fun MailMessageItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (unread && readStatus != null) {
+                    TonalTag(
+                        text = readStatus,
+                        containerColor = colors.primaryContainer,
+                        contentColor = colors.onPrimaryContainer,
+                    )
+                }
                 Text(
                     text = compactMailTimestamp(mail.receivedAt, nowMillis),
                     style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = TABULAR_FIGURES),

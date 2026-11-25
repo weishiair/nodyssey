@@ -27,7 +27,8 @@ import platform.WebKit.WKNavigation
 import platform.WebKit.WKNavigationAction
 import platform.WebKit.WKNavigationActionPolicy
 import platform.WebKit.WKNavigationDelegateProtocol
-import platform.WebKit.WKNavigationType
+import platform.WebKit.WKNavigationTypeLinkActivated
+import platform.WebKit.WKNavigationTypeOther
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 import platform.WebKit.WKWebsiteDataStore
@@ -86,12 +87,12 @@ private class MailNavigationDelegate(
     ) {
         val action = decidePolicyForNavigationAction
         val url = action.request.URL?.absoluteString.orEmpty()
-        if (!ready && url == "about:blank" && action.navigationType == WKNavigationType.WKNavigationTypeOther) {
+        if (!ready && url == "about:blank" && action.navigationType == WKNavigationTypeOther) {
             decisionHandler(WKNavigationActionPolicy.WKNavigationActionPolicyAllow)
             return
         }
         decisionHandler(WKNavigationActionPolicy.WKNavigationActionPolicyCancel)
-        if (action.navigationType == WKNavigationType.WKNavigationTypeLinkActivated && isSafeMailLink(url)) openWebsite(url)
+        if (action.navigationType == WKNavigationTypeLinkActivated && isSafeMailLink(url)) openWebsite(url)
     }
 
     override fun webView(webView: WKWebView, didFinishNavigation: WKNavigation?) {

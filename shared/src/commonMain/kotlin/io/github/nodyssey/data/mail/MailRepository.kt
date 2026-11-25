@@ -60,6 +60,10 @@ interface MailRepository {
     suspend fun createMailbox(generation: Long, address: String): Mailbox
 
     suspend fun send(generation: Long, mail: OutgoingMail)
+    val draftRevision: StateFlow<Long> get() = EmptyDraftRevision
+    suspend fun drafts(generation: Long): List<SavedMailDraft> = emptyList()
+    suspend fun saveDraft(generation: Long, id: String, draft: MailDraft): Unit = throw MailException(MailError.STORAGE)
+    suspend fun deleteDraft(generation: Long, id: String) = Unit
 
     suspend fun tags(generation: Long): List<MailTag>
 
@@ -87,6 +91,8 @@ interface MailRepository {
     /** Polls the selected inbox and advances its persisted cursor without treating old mail as new. */
     suspend fun checkForNewMessages(): MailArrival? = null
 }
+
+private val EmptyDraftRevision = MutableStateFlow(0L).asStateFlow()
 
 class DefaultMailRepository(
     private val credentials: MailCredentialStore,
@@ -118,6 +124,8 @@ class DefaultMailRepository(
     override val inboxUpdates = _inboxUpdates.asStateFlow()
     private val _arrivals = MutableSharedFlow<MailArrival>(extraBufferCapacity = 16)
     override val arrivals = _arrivals.asSharedFlow()
+    private val _draftRevision = MutableStateFlow(0L)
+    override val draftRevision = _draftRevision.asStateFlow()
 
     override suspend fun initialize() = control.withLock {
         if (_connection.value.initialized) return@withLock
@@ -182,7 +190,7 @@ class DefaultMailRepository(
         return control.withLock {
             if (!_connection.value.connected) {
                 reset()
-                credentials.clear()
+                credentials.expire()
             }
             val id = if (_connection.value.connected) ++generationCounter else _connection.value.generation
             authorizationAttempt.value = MailAuthorizationAttempt(id, _connection.value.generation)
@@ -210,7 +218,7 @@ class DefaultMailRepository(
             authorizationAttempt.value = null
             if (!_connection.value.connected) {
                 reset()
-                credentials.clear()
+                credentials.expire()
             }
         }
     }
@@ -331,6 +339,24 @@ class DefaultMailRepository(
     override suspend fun send(generation: Long, mail: OutgoingMail) {
         if (!mail.isValid) throw MailException(MailError.INVALID_INPUT)
         request(generation) { client.send(it, mail) }
+    }
+
+    override suspend fun drafts(generation: Long): List<SavedMailDraft> = control.withLock {
+        checkGeneration(generation)
+        credentials.readDrafts()
+    }
+
+    override suspend fun saveDraft(generation: Long, id: String, draft: MailDraft) = control.withLock {
+        if (!draft.hasText) throw MailException(MailError.INVALID_INPUT)
+        checkGeneration(generation)
+        credentials.saveDraft(SavedMailDraft(id, draft, clock.nowMillis()))
+        _draftRevision.update { it + 1 }
+    }
+
+    override suspend fun deleteDraft(generation: Long, id: String) = control.withLock {
+        checkGeneration(generation)
+        credentials.deleteDraft(id)
+        _draftRevision.update { it + 1 }
     }
 
     override suspend fun tags(generation: Long): List<MailTag> = request(generation, client::tags)
@@ -523,7 +549,7 @@ class DefaultMailRepository(
         control.withLock {
             if (_connection.value.generation == generation) {
                 reset(MailError.UNAUTHORIZED)
-                credentials.clear()
+                credentials.expire()
             }
         }
     }

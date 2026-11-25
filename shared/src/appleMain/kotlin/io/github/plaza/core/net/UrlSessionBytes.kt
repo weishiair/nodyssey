@@ -94,7 +94,7 @@ internal suspend fun NSURLSession.downloadBounded(request: HttpRequest, maxBytes
     val call = NSMutableURLRequest(uRL = target)
     request.headers.forEach { (name, value) -> call.setValue(value, forHTTPHeaderField = name) }
     val inherited = (delegate as? ForumSessionDelegate)?.proxyCredential
-    val result = suspendCancellableCoroutine { continuation ->
+    val result = suspendCancellableCoroutine<UrlSessionBytes?> { continuation ->
         val task = dataTaskWithRequest(call)
         task.setDelegate(
             BoundedBodyDelegate(maxBytes.toLong(), inherited, download = true) { continuation.resume(it) },

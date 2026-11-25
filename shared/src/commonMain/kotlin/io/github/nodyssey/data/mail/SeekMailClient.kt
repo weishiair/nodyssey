@@ -15,7 +15,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 
 /** Website session API, with the published OpenAPI retained for manually supplied API keys. */
@@ -144,11 +146,21 @@ internal class SeekMailClient(
     }
 
     suspend fun send(key: String, mail: OutgoingMail) {
-        val response = request(key, "/send", "POST", HttpBody.Text(json.encodeToString(mail)))
+        // The website and the live OpenAPI expect comma-separated strings for recipient fields.
+        val payload = SendMailRequest(
+            mailboxId = mail.mailboxId,
+            to = mail.to.joinToString(","),
+            cc = mail.cc.joinToString(","),
+            bcc = mail.bcc.joinToString(","),
+            subject = mail.subject,
+            bodyText = mail.bodyText,
+        )
+        val response = request(key, "/send", "POST", HttpBody.Text(json.encodeToString(payload)))
         if (response.isNotBlank()) {
             val confirmation = decode<JsonObject>(response)
-            if (confirmation["error"] != null || confirmation["success"]?.toString() == "false") {
-                throw MailException(MailError.SERVICE)
+            val error = confirmation["error"]
+            if ((error != null && error != JsonNull) || confirmation["success"]?.toString() == "false") {
+                throw MailException(MailError.SERVICE, rejection = confirmation.rejectionMessage())
             }
         }
     }
@@ -209,7 +221,7 @@ internal class SeekMailClient(
             response = execute(key, path, method, body)
             if (checkUrl) checkAuthorizationUrl(response, path)
         }
-        checkResponse(response)
+        checkResponse(response, includeSendRejection = path == "/send")
         return response.body
     }
 
@@ -242,11 +254,12 @@ internal class SeekMailClient(
         body = body,
     )
 
-    private fun checkResponse(response: HttpResponse) {
+    private fun checkResponse(response: HttpResponse, includeSendRejection: Boolean = false) {
         if (response.code == 468 || isChallengeAnswer(response.code, response.body, response.header("cf-mitigated"), NodeSeekSite.CONFIG.markers)) {
             throw MailException(MailError.CHALLENGE)
         }
         if (!response.isSuccessful) {
+            val reportSendError = includeSendRejection && (response.code in SEND_REJECTION_STATUS || response.code in 500..599)
             throw MailException(
                 when (response.code) {
                     400, 409, 422 -> MailError.INVALID_INPUT
@@ -256,6 +269,12 @@ internal class SeekMailClient(
                     429 -> MailError.RATE_LIMITED
                     468 -> MailError.CHALLENGE
                     else -> MailError.SERVICE
+                },
+                responseStatus = response.code.takeIf { reportSendError },
+                rejection = if (reportSendError && response.body.length <= 8192) {
+                    runCatching { json.parseToJsonElement(response.body) as? JsonObject }.getOrNull()?.rejectionMessage()
+                } else {
+                    null
                 },
             )
         }
@@ -284,9 +303,16 @@ internal class SeekMailClient(
         const val BASE_URL = "https://seek.li/openapi/v1"
         const val PAGE_SIZE = 20
         const val MAX_ATTACHMENT_BYTES = 32 * 1024 * 1024
+        val SEND_REJECTION_STATUS = setOf(400, 403, 409, 422)
         val CSRF_ERRORS = setOf("缺少 CSRF cookie，请重新登录", "缺少 CSRF 请求头", "CSRF token 不匹配")
     }
 }
+
+private fun JsonObject.rejectionMessage(): String? = sequenceOf(this["message"], (this["error"] as? JsonObject)?.get("message"), this["error"])
+    .filterIsInstance<JsonPrimitive>()
+    .filter { it.isString }
+    .map { value -> value.content.map { if (it.isISOControl()) ' ' else it }.joinToString("").trim().take(240) }
+    .firstOrNull(String::isNotBlank)
 
 @Serializable
 private data class MailboxesEnvelope(val data: List<Mailbox>)
@@ -296,6 +322,16 @@ private data class ApiData<T>(val data: T?)
 
 @Serializable
 private data class MailAddress(val address: String)
+
+@Serializable
+private data class SendMailRequest(
+    val mailboxId: Long,
+    val to: String,
+    val cc: String,
+    val bcc: String,
+    val subject: String,
+    val bodyText: String,
+)
 
 @Serializable
 private data class AddressAvailability(val available: Boolean)

@@ -9,8 +9,12 @@ import io.github.nodyssey.ui.compare.ReportCompareViewModel
 import io.github.nodyssey.ui.login.WebViewGoal
 import io.github.nodyssey.ui.lottery.LotteryRoute
 import io.github.nodyssey.ui.lottery.LotteryViewModel
+import io.github.nodyssey.ui.mail.MailComposeRoute
+import io.github.nodyssey.ui.mail.MailComposeViewModel
 import io.github.nodyssey.ui.mail.MailDetailRoute
 import io.github.nodyssey.ui.mail.MailDetailViewModel
+import io.github.nodyssey.ui.mail.MailDraftsRoute
+import io.github.nodyssey.ui.mail.MailDraftsViewModel
 import io.github.nodyssey.ui.mail.MailInboxRoute
 import io.github.nodyssey.ui.mail.MailInboxViewModel
 import io.github.nodyssey.ui.tools.AwardRoute
@@ -53,9 +57,33 @@ internal fun EntryProviderScope<NavKey>.toolsEntries(nav: StackEntryScope) = wit
             onOpenMail = { mail ->
                 backStack.openFromList(key, MailDetailKey(mail.mailboxId, mail.id), isListDetailExpanded())
             },
+            onCompose = { generation, mailboxId -> backStack.add(MailComposeKey(generation, mailboxId)) },
             onOpenWebsite = openExternalUrl,
             session = container.sessionRepository,
             userAgent = container.userAgent,
+        )
+    }
+
+    entry<MailComposeKey> { key ->
+        val viewModel: MailComposeViewModel =
+            viewModel(factory = MailComposeViewModel.factory(container, key.generation, key.mailboxId, key.draftId))
+        MailComposeRoute(
+            viewModel = viewModel,
+            onClose = { backStack.removeLastOrNull() },
+            onOpenDrafts = { backStack.add(MailDraftsKey(key.generation)) },
+        )
+    }
+
+    entry<MailDraftsKey> { key ->
+        val viewModel: MailDraftsViewModel = viewModel(factory = MailDraftsViewModel.factory(container.mailRepository, key.generation))
+        MailDraftsRoute(
+            viewModel = viewModel,
+            onBack = { backStack.removeLastOrNull() },
+            onOpen = { id ->
+                backStack.removeLastOrNull()
+                if (backStack.lastOrNull() is MailComposeKey) backStack.removeLastOrNull()
+                backStack.add(MailComposeKey(key.generation, null, id))
+            },
         )
     }
 

@@ -71,6 +71,8 @@ internal val NavKeySavedStateConfiguration =
                     subclass(StardustKey::class)
                     subclass(CommunityToolsKey::class)
                     subclass(MailInboxKey::class)
+                    subclass(MailComposeKey::class)
+                    subclass(MailDraftsKey::class)
                     subclass(MailDetailKey::class)
                     subclass(MyTopicsKey::class)
                     subclass(MyCommentsKey::class)

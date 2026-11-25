@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.clearText
@@ -49,13 +51,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.mail.MailAuthMode
@@ -130,6 +135,7 @@ import io.github.plaza.designsys.theme.StatusShapes
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -138,11 +144,13 @@ fun MailInboxRoute(
     viewModel: MailInboxViewModel,
     onBack: () -> Unit,
     onOpenMail: (MailMessage) -> Unit,
+    onCompose: (Long, Long?) -> Unit,
     onOpenWebsite: (String) -> Unit,
     session: SessionRepository,
     userAgent: UserAgent,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) { viewModel.refreshSent() }
     var sentMail by remember(state.generation) { mutableStateOf<MailMessage?>(null) }
     val sent = sentMail.takeIf { state.connected }
     if (sent != null) {
@@ -204,6 +212,7 @@ fun MailInboxRoute(
         onLoadMore = viewModel::loadMore,
         onMarkAllRead = viewModel::markAllRead,
         onOpenMail = { if (state.filter.isSent) sentMail = it else onOpenMail(it) },
+        onCompose = { onCompose(state.generation, state.selectedMailboxId) },
         onOpenWebsite = onOpenWebsite,
         onAuthorize = viewModel::authorize,
         onAuthorizeWebsite = viewModel::authorizeOnWebsite,
@@ -223,8 +232,6 @@ fun MailInboxRoute(
             checkAlias = viewModel::checkAlias,
             createAlias = viewModel::createAlias,
             resetAlias = viewModel::resetAlias,
-            sendMail = viewModel::sendMail,
-            resetCompose = viewModel::resetCompose,
             tags = MailTagControls(
                 load = viewModel::loadTags,
                 create = viewModel::createTag,
@@ -258,12 +265,21 @@ fun MailInboxScreen(
     onMarkAllRead: () -> Unit = {},
     snackbarHostState: SnackbarHostState = SnackbarHostState(),
     controls: MailInboxControls? = null,
+    onCompose: (() -> Unit)? = null,
 ) {
     val appBarState = rememberOneHandAppBarState()
-    val listState = rememberLazyListState()
+    val listState = rememberMailListState()
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val visibleMessages = state.visibleMessages
+    if (state.nextOffset != null && state.connected && !state.loading && !state.loadingMore &&
+        state.error == null && !state.selectionMode && !state.markingAllRead && !state.changingMessages
+    ) {
+        LaunchedEffect(state.generation, state.selectedMailboxId, state.filter, state.unreadOnly, state.nextOffset) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.any { it.key == LOAD_MORE_ITEM_KEY } }.first { it }
+            onLoadMore()
+        }
+    }
     var searchRequested by rememberSaveable(state.generation) { mutableStateOf(false) }
     val searchVisible = state.connected && (searchRequested || state.filter.search.isNotBlank())
     val closeSearch = {
@@ -272,20 +288,7 @@ fun MailInboxScreen(
         Unit
     }
     var creatingAlias by remember(state.generation) { mutableStateOf(false) }
-    var writing by remember(state.generation) { mutableStateOf(false) }
     var showingTagSheet by remember(state.generation) { mutableStateOf(false) }
-    if (writing && controls != null) {
-        MailComposeDialog(
-            state = state.compose,
-            mailboxes = state.mailboxes.filterNot { it.sendDisabled },
-            selectedMailboxId = state.selectedMailboxId,
-            onSend = controls.sendMail,
-            onDismiss = {
-                writing = false
-                controls.resetCompose()
-            },
-        )
-    }
     if (creatingAlias && controls != null) {
         MailAliasDialog(
             state = state.alias,
@@ -331,7 +334,7 @@ fun MailInboxScreen(
     val oneHanded = !state.selectionMode && !searchVisible
     val mailBackdrop = rememberLiquidGlassBackdrop(LocalPlazaLayers.current.page)
     val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 40 } }
-    val canCompose = state.connected && !state.selectionMode && controls != null && state.mailboxes.any { !it.sendDisabled }
+    val canCompose = state.connected && !state.selectionMode && onCompose != null && state.mailboxes.any { !it.sendDisabled }
     val selectedMailboxAddress = state.mailboxes.firstOrNull { it.id == state.selectedMailboxId }?.address
     val topBarSubtitle = if (state.connected && state.mailboxes.isNotEmpty()) {
         selectedMailboxAddress ?: stringResource(Res.string.mail_all_mailboxes)
@@ -341,6 +344,7 @@ fun MailInboxScreen(
 
     Scaffold(
         modifier = modifier.then(if (oneHanded) Modifier.nestedScroll(appBarState.nestedScrollConnection) else Modifier),
+        containerColor = LocalPlazaLayers.current.page,
         topBar = {
             when {
                 state.selectionMode && controls != null -> {
@@ -470,7 +474,7 @@ fun MailInboxScreen(
                         nativeSymbol = "square.and.pencil",
                         expanded = fabExpanded,
                         onClick = {
-                            if (!state.changingMessages && !state.connecting) writing = true
+                            if (!state.changingMessages && !state.connecting) onCompose()
                         },
                     )
                 }
@@ -484,7 +488,15 @@ fun MailInboxScreen(
         },
     ) { padding ->
         val pressHaptics = rememberPlatformHaptics()
-        Box(Modifier.padding(padding).fillMaxSize()) {
+        val direction = LocalLayoutDirection.current
+        val bottomInset = padding.calculateBottomPadding()
+        Box(
+            Modifier.fillMaxSize().padding(
+                start = padding.calculateStartPadding(direction),
+                top = padding.calculateTopPadding(),
+                end = padding.calculateEndPadding(direction),
+            ).consumeWindowInsets(padding),
+        ) {
             Column(
                 Modifier
                     .fillMaxSize()
@@ -532,10 +544,11 @@ fun MailInboxScreen(
                                 onOpenWebsite = onOpenWebsite,
                                 onVerifyChallenge = onVerifyChallenge,
                                 onRefresh = onRefresh,
+                                bottomInset = bottomInset,
                             )
                         }
 
-                        visibleMessages.isEmpty() && !state.loading && state.error == null -> {
+                        visibleMessages.isEmpty() && state.nextOffset == null && !state.loading && state.error == null -> {
                             MailEmptyState(
                                 state = state,
                                 canCreateAlias = controls != null,
@@ -552,7 +565,7 @@ fun MailInboxScreen(
                                     start = LayerPageGutter,
                                     end = LayerPageGutter,
                                     top = Spacing.xs,
-                                    bottom = if (canCompose || state.selectionMode) FLOATING_CLEARANCE else Spacing.xl,
+                                    bottom = bottomInset + if (canCompose || state.selectionMode) FLOATING_CLEARANCE else Spacing.xl,
                                 ),
                             ) {
                                 if (state.markingAllRead) {
@@ -620,7 +633,7 @@ fun MailInboxScreen(
                                     )
                                 }
                                 if (state.nextOffset != null) {
-                                    item(key = "load-more") {
+                                    item(key = LOAD_MORE_ITEM_KEY) {
                                         Box(
                                             Modifier.fillMaxWidth().padding(top = Spacing.md),
                                             contentAlignment = Alignment.Center,
@@ -648,7 +661,7 @@ fun MailInboxScreen(
                     MailSelectionBottomBar(
                         state = state,
                         controls = controls,
-                        modifier = Modifier.align(Alignment.BottomCenter).readableWidth(),
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset).readableWidth(),
                     )
                 }
             }
@@ -783,11 +796,18 @@ private fun MailConnectOnboarding(
     onOpenWebsite: (String) -> Unit,
     onVerifyChallenge: () -> Unit,
     onRefresh: () -> Unit,
+    bottomInset: Dp,
 ) {
     val colors = MaterialTheme.colorScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = LayerPageGutter, vertical = Spacing.md),
+        state = rememberMailListState(),
+        contentPadding = PaddingValues(
+            start = LayerPageGutter,
+            end = LayerPageGutter,
+            top = Spacing.md,
+            bottom = Spacing.md + bottomInset,
+        ),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item(key = "connect-hero") {
@@ -1004,3 +1024,4 @@ private fun MailErrorCard(
 }
 
 private val FLOATING_CLEARANCE = 96.dp
+private const val LOAD_MORE_ITEM_KEY = "load-more"

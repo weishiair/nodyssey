@@ -17,7 +17,6 @@ import io.github.nodyssey.data.mail.MailPreview
 import io.github.nodyssey.data.mail.MailRepository
 import io.github.nodyssey.data.mail.MailTag
 import io.github.nodyssey.data.mail.Mailbox
-import io.github.nodyssey.data.mail.OutgoingMail
 import io.github.nodyssey.data.mail.isMailAddress
 import io.github.nodyssey.di.AppContainer
 import io.github.plaza.core.AppClock
@@ -71,7 +70,6 @@ data class MailInboxUiState(
     val changingMessages: Boolean = false,
     val mailboxActionError: MailError? = null,
     val alias: MailAliasState = MailAliasState(),
-    val compose: MailComposeState = MailComposeState(),
     val tags: List<MailTag> = emptyList(),
     val loadingTags: Boolean = false,
     val creatingTag: Boolean = false,
@@ -86,12 +84,6 @@ data class MailAliasState(
     val available: Boolean = false,
     val busy: Boolean = false,
     val created: Mailbox? = null,
-    val error: MailError? = null,
-)
-
-data class MailComposeState(
-    val sending: Boolean = false,
-    val submitted: Boolean = false,
     val error: MailError? = null,
 )
 
@@ -111,7 +103,6 @@ class MailInboxViewModel(
     private var foldersJob: Job? = null
     private var mailboxActionJob: Job? = null
     private var aliasJob: Job? = null
-    private var sendJob: Job? = null
     private var tagsJob: Job? = null
     private var authorizationGeneration: Long? = null
     private var authorizationJob: Job? = null
@@ -142,7 +133,6 @@ class MailInboxViewModel(
                     foldersJob?.cancel()
                     mailboxActionJob?.cancel()
                     aliasJob?.cancel()
-                    sendJob?.cancel()
                     tagsJob?.cancel()
                 }
                 generation = connection.generation
@@ -354,7 +344,6 @@ class MailInboxViewModel(
         foldersJob?.cancel()
         mailboxActionJob?.cancel()
         aliasJob?.cancel()
-        sendJob?.cancel()
         tagsJob?.cancel()
         apiKey.clearText()
         viewModelScope.launch {
@@ -545,33 +534,9 @@ class MailInboxViewModel(
         }
     }
 
-    fun sendMail(mail: OutgoingMail) {
+    fun refreshSent() {
         val current = state.value
-        if (!current.connected || current.compose.sending || current.compose.submitted || !mail.isValid ||
-            current.mailboxes.none { it.id == mail.mailboxId && !it.sendDisabled }
-        ) {
-            return
-        }
-        val expected = generation
-        state.update { it.copy(compose = MailComposeState(sending = true)) }
-        sendJob = viewModelScope.launch {
-            val result = runCatchingExceptCancellation { repository.send(expected, mail) }
-            if (generation == expected) {
-                state.update {
-                    it.copy(
-                        compose = result.fold(
-                            onSuccess = { MailComposeState(submitted = true) },
-                            onFailure = { error -> MailComposeState(error = error.mailError()) },
-                        ),
-                    )
-                }
-                if (result.isSuccess && state.value.filter.isSent) loadPage(append = false)
-            }
-        }
-    }
-
-    fun resetCompose() {
-        if (!state.value.compose.sending) state.update { it.copy(compose = MailComposeState()) }
+        if (current.connected && current.filter.isSent && !current.loading && !current.loadingMore) loadPage(append = false)
     }
 
     fun loadTags() {

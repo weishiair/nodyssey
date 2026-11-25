@@ -278,10 +278,9 @@ class MailScreenRenderTest {
                 checkAlias = {},
                 createAlias = {},
                 resetAlias = {},
-                sendMail = {},
-                resetCompose = {},
                 tags = MailTagControls(load = {}, create = {}, clearCreated = {}, setSelected = { _, _ -> }),
             ),
+            onCompose = {},
         )
     }
 }
