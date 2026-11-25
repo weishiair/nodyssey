@@ -1716,7 +1716,6 @@
     <string name="post_only_author">Author only</string>
     <string name="post_author_replies">Author replies</string>
     <string name="post_all_replies">All replies</string>
-    <string name="post_sort_ascending">↕ Oldest</string>
     <string name="post_author_scan">Finding author replies · %1$d / %2$d pages checked</string>
     <string name="post_author_scan_retry">Loading incomplete. Tap to retry</string>
     <string name="post_author_empty">No author replies</string>

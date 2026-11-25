@@ -2004,7 +2004,6 @@
     <string name="post_only_author">只看楼主</string>
     <string name="post_author_replies">楼主回复</string>
     <string name="post_all_replies">全部回复</string>
-    <string name="post_sort_ascending">↕ 正序</string>
     <string name="post_author_scan">正在查找楼主回复 · 已检查 %1$d / %2$d 页</string>
     <string name="post_author_scan_retry">加载未完成，点此重试</string>
     <string name="post_author_empty">暂无楼主回复</string>

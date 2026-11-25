@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ThumbUp
@@ -57,6 +58,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.WavyProgressIndicatorDefaults
@@ -208,7 +212,6 @@ import io.github.nodyssey.ui.resources.post_reply_to
 import io.github.nodyssey.ui.resources.post_share_image
 import io.github.nodyssey.ui.resources.post_share_image_failed
 import io.github.nodyssey.ui.resources.post_share_image_generating
-import io.github.nodyssey.ui.resources.post_sort_ascending
 import io.github.nodyssey.ui.resources.post_title_copied
 import io.github.nodyssey.ui.resources.post_track_full
 import io.github.nodyssey.ui.resources.post_track_thread
@@ -2330,36 +2333,34 @@ private fun CommentsHeader(
                 MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
             },
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToggleButton(
+                checked = state.onlyAuthor,
+                onCheckedChange = { onToggleOnlyAuthor() },
+                buttonSize = ToggleButtonSize.ExtraSmall,
+                icon = {
+                    if (state.onlyAuthor) PlazaIcon(Icons.Default.Check, contentDescription = null)
+                },
+                colors = ToggleButtonDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    checkedContainerColor = Color.Transparent,
+                    checkedContentColor = MaterialTheme.colorScheme.primary,
+                ),
+                elevation = null,
+                contentPadding = PaddingValues(horizontal = Spacing.xs),
+            ) {
+                Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelMedium)
+            }
             if (original) {
-                // The official header is one compact line: a small 只看楼主 and 自动续页, not the
-                // 1.3.4 row's 48dp TextButton and static sort label.
-                Text(
-                    text = stringResource(Res.string.post_only_author),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                        .clickable(onClick = onToggleOnlyAuthor)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                )
                 Text(
                     text = stringResource(Res.string.post_auto_paging),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 8.dp),
                 )
-            } else {
-                TextButton(
-                    onClick = onToggleOnlyAuthor,
-                    shape = CircleShape,
-                    colors = ButtonDefaults.textButtonColors(containerColor = if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, contentColor = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
-                    contentPadding = PaddingValues(horizontal = 8.dp),
-                ) {
-                    Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelSmall)
-                }
-                Text(stringResource(Res.string.post_sort_ascending), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
         }
     }

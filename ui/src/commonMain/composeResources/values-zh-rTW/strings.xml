@@ -1708,7 +1708,6 @@
     <string name="post_only_author">只看樓主</string>
     <string name="post_author_replies">樓主回覆</string>
     <string name="post_all_replies">全部回覆</string>
-    <string name="post_sort_ascending">↕ 正序</string>
     <string name="post_author_scan">正在尋找樓主回覆 · 已檢查 %1$d / %2$d 頁</string>
     <string name="post_author_scan_retry">載入未完成，點此重試</string>
     <string name="post_author_empty">暫無樓主回覆</string>
