@@ -990,6 +990,7 @@
     <string name="viewer_save">儲存</string>
 
     <string name="viewer_gesture_hint">點兩下放大 · 下拉關閉</string>
+    <string name="viewer_zoom_hint">點兩下或雙指縮放</string>
     <string name="viewer_saved">已儲存到相簿</string>
     <string name="viewer_save_failed">儲存失敗，稍後再試</string>
     <string name="viewer_save_unsupported">Android 10 以下不能免權限寫相簿，可用「分享」傳到其他應用程式</string>
