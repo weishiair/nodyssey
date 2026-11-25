@@ -1,14 +1,24 @@
 package io.github.nodyssey.ui.mail
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -19,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.LinkAnnotation
@@ -27,10 +38,13 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.mail.MailAttachment
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.isSafeMailLink
+import io.github.nodyssey.ui.account.formatBytes
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.mail_attachment_hint
@@ -67,11 +81,21 @@ import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GroupedListItem
+import io.github.plaza.designsys.component.IconBadge
+import io.github.plaza.designsys.component.LayerCard
+import io.github.plaza.designsys.component.LayerDivider
 import io.github.plaza.designsys.component.LayerPageGutter
+import io.github.plaza.designsys.component.PlazaIcon
+import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.SectionLabel
+import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TopBarAction
+import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.readableWidth
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
@@ -122,6 +146,7 @@ fun MailDetailRoute(viewModel: MailDetailViewModel, onBack: () -> Unit, onOpenWe
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MailDetailScreen(
     state: MailDetailUiState,
@@ -139,7 +164,8 @@ fun MailDetailScreen(
     sent: Boolean = false,
 ) {
     val appBarState = rememberOneHandAppBarState()
-    val linkColor = MaterialTheme.colorScheme.primary
+    val colors = MaterialTheme.colorScheme
+    val linkColor = colors.primary
     val body = remember(state.body, state.verificationCode, linkColor, onOpenWebsite) {
         buildAnnotatedString {
             append(state.body)
@@ -186,84 +212,294 @@ fun MailDetailScreen(
             )
         },
     ) { padding ->
-        Column(
-            Modifier.padding(padding).fillMaxSize().readableWidth().verticalScroll(rememberScrollState())
-                .padding(LayerPageGutter),
-            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
-        ) {
-            if (state.loading) PlazaSpinner()
-            if (state.expired) Text(stringResource(Res.string.mail_connection_expired))
-            state.error?.let { error ->
-                Text(stringResource(error.messageRes()), color = MaterialTheme.colorScheme.error)
-                if (state.message == null) TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
-            }
-            state.message?.let { mail ->
-                SelectionContainer {
-                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-                        Text(
-                            mail.subject?.takeIf(String::isNotBlank) ?: stringResource(Res.string.mail_no_subject),
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                        Column {
-                            Text(stringResource(Res.string.mail_from, mail.sender, mail.fromAddress), style = MaterialTheme.typography.bodyMedium)
-                            Text(stringResource(Res.string.mail_to, mail.toAddress), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(mailTimestamp(mail.receivedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (sent) mail.deliveryLabel()?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall) }
-                        }
-                        state.verificationCode?.let { MailVerificationCodeCard(it) }
-                        HorizontalDivider()
-                        if (mail.formattedBody == null && state.body.isBlank()) {
-                            Text(stringResource(Res.string.mail_no_body), style = MaterialTheme.typography.bodyLarge)
-                        } else if (mail.formattedBody == null) {
-                            Text(body, style = MaterialTheme.typography.bodyMedium)
+        Box(Modifier.padding(padding).fillMaxSize()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .readableWidth()
+                    .align(Alignment.TopCenter)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = LayerPageGutter, vertical = Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                if (state.loading) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = Spacing.xxl), contentAlignment = Alignment.Center) {
+                        PlazaSpinner()
+                    }
+                }
+                if (state.expired) {
+                    LayerCard(contentPadding = PaddingValues(Spacing.lg)) {
+                        Text(stringResource(Res.string.mail_connection_expired), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                state.error?.let { error ->
+                    LayerCard(
+                        containerColor = colors.errorContainer.copy(alpha = 0.55f),
+                        contentPadding = PaddingValues(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        Text(stringResource(error.messageRes()), color = colors.onErrorContainer)
+                        if (state.message == null) {
+                            FilledTonalButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
                         }
                     }
                 }
-                mail.formattedBody?.let { html ->
-                    if (html.remoteImages.any { it !in state.remoteImages }) {
-                        Column {
-                            TextButton(onClick = onLoadRemoteImages, enabled = !state.loading && !state.loadingRemoteImages) {
-                                val label = if (state.loadingRemoteImages) Res.string.mail_remote_images_loading else Res.string.mail_remote_images_load
-                                Text(stringResource(label))
-                            }
-                            if (state.remoteImagesFailed) {
+                state.message?.let { mail ->
+                    // Header card: subject, tags, sender avatar & metadata
+                    LayerCard(
+                        contentPadding = PaddingValues(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                    ) {
+                        SelectionContainer {
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                                 Text(
-                                    stringResource(Res.string.mail_remote_images_failed),
-                                    color = MaterialTheme.colorScheme.error,
+                                    text = mail.subject?.takeIf(String::isNotBlank) ?: stringResource(Res.string.mail_no_subject),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                val delivery = if (sent) mail.deliveryLabel()?.let { stringResource(it) } else null
+                                val tags = mail.tags.orEmpty()
+                                if (delivery != null || tags.isNotEmpty()) {
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        delivery?.let {
+                                            TonalTag(it, colors.primaryContainer, colors.onPrimaryContainer)
+                                        }
+                                        tags.forEach { tag ->
+                                            TonalTag(tag.name, colors.secondaryContainer, colors.onSecondaryContainer)
+                                        }
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    val avatarSeed = mail.sender.ifBlank { mail.fromAddress }.ifBlank { "?" }
+                                    UserAvatar(url = null, name = avatarSeed, size = 40.dp)
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(
+                                            text = stringResource(Res.string.mail_from, mail.sender, mail.fromAddress),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        Text(
+                                            text = mailTimestamp(mail.receivedAt),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = TABULAR_FIGURES),
+                                            color = colors.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                LayerDivider(startInset = 0.dp)
+                                Text(
+                                    text = stringResource(Res.string.mail_to, mail.toAddress),
                                     style = MaterialTheme.typography.bodySmall,
+                                    color = colors.onSurfaceVariant,
                                 )
                             }
                         }
                     }
-                    MailHtmlReader(html, state.remoteImages, onOpenWebsite, Modifier.fillMaxWidth())
-                }
-                if (mail.hasAttachments) {
-                    Column {
-                        Text(stringResource(Res.string.mail_attachments), style = MaterialTheme.typography.titleMedium)
-                        if (state.loadingAttachments || savingAttachment) Text(stringResource(Res.string.mail_loading))
-                        state.attachmentError?.let { error ->
-                            val message = if (error == MailError.PERMISSION) Res.string.mail_scope_attachment_read else error.messageRes()
-                            Text(stringResource(message), color = MaterialTheme.colorScheme.error)
-                            TextButton(onClick = onRetryAttachments) { Text(stringResource(Res.string.action_retry)) }
-                        }
-                        if (onSaveAttachment != null) {
-                            state.attachments.forEach { attachment ->
-                                TextButton(onClick = { onSaveAttachment(attachment) }, enabled = !savingAttachment) {
-                                    Text(attachment.suggestedName)
+
+                    state.verificationCode?.let { MailVerificationCodeCard(it) }
+
+                    // Remote images prompt card (if HTML has pending remote images)
+                    mail.formattedBody?.let { html ->
+                        if (html.remoteImages.any { it !in state.remoteImages }) {
+                            LayerCard(
+                                containerColor = colors.secondaryContainer.copy(alpha = 0.65f),
+                                contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    PlazaIcon(
+                                        PlazaIcons.Image,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = colors.onSecondaryContainer,
+                                    )
+                                    val label = if (state.loadingRemoteImages) Res.string.mail_remote_images_loading else Res.string.mail_remote_images_load
+                                    Text(
+                                        text = stringResource(label),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = colors.onSecondaryContainer,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    if (state.loadingRemoteImages) {
+                                        PlazaSpinner(Modifier.size(18.dp))
+                                    } else {
+                                        FilledTonalButton(
+                                            onClick = onLoadRemoteImages,
+                                            enabled = !state.loading && !state.loadingRemoteImages,
+                                            contentPadding = PaddingValues(horizontal = Spacing.md),
+                                        ) {
+                                            Text(stringResource(Res.string.mail_remote_images_load))
+                                        }
+                                    }
+                                }
+                                if (state.remoteImagesFailed) {
+                                    Text(
+                                        text = stringResource(Res.string.mail_remote_images_failed),
+                                        color = colors.error,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
                                 }
                             }
                         }
-                        saveError?.let { Text(stringResource(it.messageRes()), color = MaterialTheme.colorScheme.error) }
-                        if (attachmentSaved) Text(stringResource(Res.string.mail_attachment_saved))
-                        if (onSaveAttachment == null || state.attachmentError != null || saveError != null ||
-                            (!state.loadingAttachments && state.attachments.isEmpty())
-                        ) {
-                            Text(stringResource(Res.string.mail_attachment_hint))
-                            TextButton(onClick = { onOpenWebsite("https://seek.li/") }) {
-                                Text(stringResource(Res.string.mail_open_website))
+                    }
+
+                    // Body reading card
+                    LayerCard(contentPadding = PaddingValues(Spacing.lg)) {
+                        val html = mail.formattedBody
+                        when {
+                            html != null -> {
+                                MailHtmlReader(html, state.remoteImages, onOpenWebsite, Modifier.fillMaxWidth())
+                            }
+
+                            state.body.isBlank() -> {
+                                Text(
+                                    text = stringResource(Res.string.mail_no_body),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = colors.onSurfaceVariant,
+                                )
+                            }
+
+                            else -> {
+                                SelectionContainer {
+                                    Text(body, style = MaterialTheme.typography.bodyMedium)
+                                }
                             }
                         }
                     }
+
+                    // Attachments section
+                    if (mail.hasAttachments) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            SectionLabel(stringResource(Res.string.mail_attachments))
+                            if (state.loadingAttachments) {
+                                LayerCard(contentPadding = PaddingValues(Spacing.lg)) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        PlazaSpinner(Modifier.size(18.dp))
+                                        Text(
+                                            stringResource(Res.string.mail_loading),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = colors.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                            if (onSaveAttachment != null && state.attachments.isNotEmpty()) {
+                                Column {
+                                    state.attachments.forEachIndexed { index, attachment ->
+                                        val detail = listOfNotNull(
+                                            attachment.size.takeIf { it > 0 }?.let(::formatBytes),
+                                            attachment.contentType?.takeIf(String::isNotBlank),
+                                        ).joinToString(" · ").takeIf(String::isNotEmpty)
+                                        GroupedListItem(
+                                            first = index == 0,
+                                            last = index == state.attachments.lastIndex,
+                                            enabled = !savingAttachment,
+                                            onClick = { onSaveAttachment(attachment) },
+                                            leadingContent = {
+                                                IconBadge(colors.secondaryContainer, colors.onSecondaryContainer, size = 38.dp) {
+                                                    PlazaIcon(PlazaIcons.AttachFile, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                }
+                                            },
+                                            headlineContent = {
+                                                Text(
+                                                    attachment.suggestedName,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            },
+                                            supportingContent = detail?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+                                            trailingContent = {
+                                                if (savingAttachment) {
+                                                    PlazaSpinner(Modifier.size(18.dp))
+                                                } else {
+                                                    PlazaIcon(
+                                                        PlazaIcons.Download,
+                                                        contentDescription = null,
+                                                        tint = colors.primary,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                            if (attachmentSaved) {
+                                LayerCard(
+                                    containerColor = colors.primaryContainer.copy(alpha = 0.5f),
+                                    contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md),
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        PlazaIcon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = colors.primary,
+                                        )
+                                        Text(
+                                            stringResource(Res.string.mail_attachment_saved),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = colors.onPrimaryContainer,
+                                        )
+                                    }
+                                }
+                            }
+                            state.attachmentError?.let { error ->
+                                val message = if (error == MailError.PERMISSION) Res.string.mail_scope_attachment_read else error.messageRes()
+                                LayerCard(
+                                    containerColor = colors.errorContainer.copy(alpha = 0.55f),
+                                    contentPadding = PaddingValues(Spacing.lg),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                ) {
+                                    Text(stringResource(message), color = colors.onErrorContainer)
+                                    FilledTonalButton(onClick = onRetryAttachments) { Text(stringResource(Res.string.action_retry)) }
+                                }
+                            }
+                            saveError?.let { error ->
+                                LayerCard(
+                                    containerColor = colors.errorContainer.copy(alpha = 0.55f),
+                                    contentPadding = PaddingValues(Spacing.lg),
+                                ) {
+                                    Text(stringResource(error.messageRes()), color = colors.onErrorContainer)
+                                }
+                            }
+                            if (onSaveAttachment == null || state.attachmentError != null || saveError != null ||
+                                (!state.loadingAttachments && state.attachments.isEmpty())
+                            ) {
+                                LayerCard(
+                                    contentPadding = PaddingValues(Spacing.lg),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                ) {
+                                    Text(
+                                        stringResource(Res.string.mail_attachment_hint),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = colors.onSurfaceVariant,
+                                    )
+                                    FilledTonalButton(onClick = { onOpenWebsite("https://seek.li/") }) {
+                                        PlazaIcon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(stringResource(Res.string.mail_open_website))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.size(Spacing.xl))
                 }
             }
         }
