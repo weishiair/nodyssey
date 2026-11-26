@@ -9,10 +9,9 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -22,16 +21,16 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReusableContent
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -100,6 +99,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.readValue
 import kotlinx.cinterop.useContents
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -110,6 +110,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import platform.CoreGraphics.CGRectZero
@@ -149,7 +150,6 @@ import platform.UIKit.willMoveToParentViewController
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.math.PI
-import kotlin.math.abs
 
 /**
  * The iOS app: one system navigation stack per tab, with one Compose screen in each pushed
@@ -1036,6 +1036,7 @@ private class NativeShell(
         val (page, request) = activeSqueeze ?: return
         activeSqueeze = null
         request.finished = true
+        request.pendingFrames.clear()
         if (page.state.squeezeRequest === request) page.state.squeezeRequest = null
     }
 
@@ -1044,6 +1045,7 @@ private class NativeShell(
         activeSqueeze = null
         if (!request.finished) {
             request.finished = true
+            request.pendingFrames.clear()
             if (page.state.squeezeRequest === request) page.state.squeezeRequest = null
             request.onCancel()
         }
@@ -1057,13 +1059,21 @@ private class NativeShell(
         if (closingDestination != null) sync(closingDestination)
     }
 
+    private class SqueezeFrame(
+        val seq: Int,
+        val offset: Double,
+        val finalCommit: CompletableDeferred<Unit>? = null,
+    )
+
     /**
      * Request for a Compose-clock root-pane squeeze hosted on the list [Page].
      *
-     * Running the spring inside the list page's Compose frame clock (`Animatable` / `withFrameNanos`)
-     * drives the list's layout width while [PaneSqueezeSyncView] applies [onPresent] from Compose's
-     * own UIKit interop transaction so the details pane's GPU transform commits in the exact Core
-     * Animation transaction that presents that Metal frame.
+     * Running the spring inside the list page's Compose frame clock (`Animatable`) drives the
+     * list's layout width while a reused 1×1 invisible [UIKitView]'s `onReset` callback runs
+     * directly inside Compose's `InteropSyncTransaction.performTransaction()` — the exact Core
+     * Animation transaction that presents that Metal frame — so both per-frame details translation
+     * and final-frame completion stay locked to the presented Metal drawable without waiting for
+     * `layoutSubviews()` or guessing frame counts.
      */
     private class PaneSqueezeRequest(
         val destination: TopLevelDestination,
@@ -1076,69 +1086,90 @@ private class NativeShell(
         val onCancel: () -> Unit,
     ) {
         var finished = false
-        var presentedOffset = from
+        val pendingFrames = ArrayDeque<SqueezeFrame>()
     }
 
     /**
-     * Isolated host for [PaneSqueezeRequest] so setting [PageState.squeezeRequest] never recomposes
-     * the screen content beside it.
+     * Isolated host for [PaneSqueezeRequest] so updating squeeze state never recomposes the
+     * screen content beside it.
      */
-    @OptIn(ExperimentalComposeUiApi::class)
+    @OptIn(ExperimentalComposeUiApi::class, ExperimentalForeignApi::class)
     @Composable
     private fun PaneSqueezeRunner(state: PageState) {
         val request = state.squeezeRequest ?: return
-        val latestRequest by rememberUpdatedState(request)
-        UIKitView(
-            factory = { PaneSqueezeSyncView() },
-            modifier = Modifier.fillMaxWidth().height(1.dp),
-            properties = SqueezeSyncInterop,
-            update = { view ->
-                view.onPresentedWidth = { width ->
-                    val active = latestRequest
-                    if (!active.finished) {
-                        val offset = (width - LIST_PANE_WIDTH).coerceAtLeast(0.0)
-                        active.presentedOffset = offset
-                        active.onPresent(offset)
-                    }
+        key(request) {
+            var frame by remember { mutableStateOf(SqueezeFrame(seq = 0, offset = request.from)) }
+            var lastEnqueuedSeq by remember { mutableIntStateOf(0) }
+            val currentFrame = frame
+            ReusableContent(currentFrame.seq) {
+                UIKitView(
+                    factory = {
+                        UIView(frame = CGRectZero.readValue()).apply {
+                            alpha = 0.0
+                            backgroundColor = UIColor.clearColor
+                            userInteractionEnabled = false
+                            accessibilityElementsHidden = true
+                        }
+                    },
+                    modifier = Modifier.size(1.dp),
+                    properties = SqueezeSyncInterop,
+                    onReset = {
+                        request.pendingFrames.removeFirstOrNull()?.let { committed ->
+                            if (!request.finished) {
+                                request.onPresent(committed.offset)
+                                committed.finalCommit?.complete(Unit)
+                            }
+                        }
+                    },
+                    onRelease = { request.pendingFrames.clear() },
+                )
+            }
+            // One FIFO entry per ReusableContent key change matches LayoutNode.onReuse() 1-to-1
+            // (initial mount seq=0 and same-seq recompositions do not invoke onReuse).
+            SideEffect {
+                if (currentFrame.seq != lastEnqueuedSeq) {
+                    lastEnqueuedSeq = currentFrame.seq
+                    request.pendingFrames.addLast(currentFrame)
                 }
-            },
-            onRelease = { view -> view.onPresentedWidth = null },
-        )
-        LaunchedEffect(request) {
-            if (request.finished) return@LaunchedEffect
-            // Critically damped spring, response 0.36s: ω = 2π / 0.36, stiffness = ω².
-            val omega = (2.0 * PI / 0.36).toFloat()
-            val animatable = Animatable(request.from.toFloat())
-            try {
-                animatable.animateTo(
-                    targetValue = request.to.toFloat(),
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = omega * omega,
-                        visibilityThreshold = 1.0f,
-                    ),
-                ) {
-                    if (!request.finished) {
-                        request.onTick(value.toDouble())
-                    }
-                }
-                if (!request.finished) {
-                    // Commit the exact resting width and allow up to two frames for the presented
-                    // Metal drawable to align the details pane before swapping containers.
-                    request.onTick(request.to)
-                    repeat(2) {
-                        if (!request.finished && abs(request.presentedOffset - request.to) > 1.0) {
-                            withFrameNanos {}
+            }
+            LaunchedEffect(request) {
+                if (request.finished) return@LaunchedEffect
+                // Critically damped spring, response 0.36s: ω = 2π / 0.36, stiffness = ω².
+                val omega = (2.0 * PI / 0.36).toFloat()
+                val animatable = Animatable(request.from.toFloat())
+                var seq = 0
+                try {
+                    animatable.animateTo(
+                        targetValue = request.to.toFloat(),
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = omega * omega,
+                            visibilityThreshold = 1.0f,
+                        ),
+                    ) {
+                        if (!request.finished) {
+                            val offset = value.toDouble()
+                            request.onTick(offset)
+                            frame = SqueezeFrame(seq = ++seq, offset = offset)
                         }
                     }
-                }
-                if (!request.finished) {
-                    request.finished = true
-                    request.onEnd()
-                }
-            } finally {
-                if (state.squeezeRequest === request) {
-                    state.squeezeRequest = null
+                    if (!request.finished) {
+                        val finalCommit = CompletableDeferred<Unit>()
+                        request.onTick(request.to)
+                        frame = SqueezeFrame(seq = ++seq, offset = request.to, finalCommit = finalCommit)
+                        // Await the exact onDisplay() commit callback for the resting-width Metal
+                        // frame; bounded only so an off-window view can never stall cleanup.
+                        withTimeoutOrNull(FINAL_SQUEEZE_COMMIT_TIMEOUT_MS) { finalCommit.await() }
+                    }
+                    if (!request.finished) {
+                        request.finished = true
+                        request.onEnd()
+                    }
+                } finally {
+                    request.pendingFrames.clear()
+                    if (state.squeezeRequest === request) {
+                        state.squeezeRequest = null
+                    }
                 }
             }
         }
@@ -1420,28 +1451,7 @@ private class NativeShell(
     }
 }
 
-/**
- * Invisible 1pt-tall [UIView] placed inside the squeezed Compose root box so Compose's interop
- * transaction updates its bounds in the same Core Animation transaction that presents each Metal
- * frame, keeping the UIKit details pane locked to the rendered list edge with zero frame skew.
- */
-@OptIn(ExperimentalForeignApi::class)
-private class PaneSqueezeSyncView : UIView(frame = CGRectZero.readValue()) {
-    var onPresentedWidth: ((Double) -> Unit)? = null
-
-    init {
-        alpha = 0.0
-        backgroundColor = UIColor.clearColor
-        userInteractionEnabled = false
-        accessibilityElementsHidden = true
-    }
-
-    override fun layoutSubviews() {
-        super.layoutSubviews()
-        val width = bounds.useContents { size.width }
-        if (width > 0.0) onPresentedWidth?.invoke(width)
-    }
-}
+private const val FINAL_SQUEEZE_COMMIT_TIMEOUT_MS = 250L
 
 @OptIn(ExperimentalComposeUiApi::class)
 private val SqueezeSyncInterop = UIKitInteropProperties(
