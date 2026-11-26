@@ -388,7 +388,7 @@ private class NativeShell(
     private var foregroundObserver: Any? = null
     private var clipboardCheckJob: Job? = null
     private var clipboardOffer by mutableStateOf<ClipboardPost?>(null)
-    private var activePage by mutableStateOf<Page?>(null)
+    private var activePageState by mutableStateOf<PageState?>(null)
     private var closed = false
 
     suspend fun awaitTransitions() {
@@ -474,8 +474,11 @@ private class NativeShell(
         checkClipboardPost()
     }
 
-    /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
-    private class Page(val key: NavKey, val controller: UIViewController, val owner: PageOwner) {
+    /**
+     * Compose-observed state for a [Page], kept separate from [Page.controller] so the controller's
+     * Compose lambda never retains its own `UIViewController` across the ObjC/Kotlin boundary.
+     */
+    private class PageState {
         /**
          * Temporary width in UIKit points while a root-pane squeeze animates in Compose's layout
          * phase so the backing UIView / CAMetalLayer keeps a fixed width. [Double.NaN] at rest.
@@ -486,6 +489,14 @@ private class NativeShell(
         var squeezeRequest by mutableStateOf<PaneSqueezeRequest?>(null)
     }
 
+    /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
+    private class Page(
+        val key: NavKey,
+        val controller: UIViewController,
+        val owner: PageOwner,
+        val state: PageState,
+    )
+
     private class PageOwner : ViewModelStoreOwner {
         override val viewModelStore = ViewModelStore()
     }
@@ -494,7 +505,7 @@ private class NativeShell(
         val stack = stacks.getValue(destination)
         val entry = providers.getValue(destination)(key)
         val owner = PageOwner()
-        lateinit var page: Page
+        val state = PageState()
         val controller =
             ComposeUIViewController(
                 configure = {
@@ -519,7 +530,7 @@ private class NativeShell(
                                 Modifier
                                     .fillMaxSize()
                                     .layout { measurable, constraints ->
-                                        val squeezeWidth = page.squeezeWidthPt
+                                        val squeezeWidth = state.squeezeWidthPt
                                         val targetWidth =
                                             if (!squeezeWidth.isNaN()) {
                                                 squeezeWidth.dp.roundToPx().coerceIn(0, constraints.maxWidth)
@@ -539,7 +550,7 @@ private class NativeShell(
                                 // the composed theme knows (seed colours, dynamic colour).
                                 val accent = MaterialTheme.colorScheme.primary
                                 SideEffect {
-                                    if (activePage == page) {
+                                    if (activePageState === state) {
                                         systemTabs.tabBar.tintColor = UIColor.colorWithRed(
                                             accent.red.toDouble(),
                                             accent.green.toDouble(),
@@ -549,15 +560,15 @@ private class NativeShell(
                                     }
                                 }
                                 entry.Content()
-                                PaneSqueezeRunner(page)
+                                PaneSqueezeRunner(state)
                                 ClipboardPostSnackbarOverlay(
                                     modifier = Modifier,
-                                    active = activePage == page,
+                                    active = activePageState === state,
                                     offer = clipboardOffer,
                                     onHandled = ::handleClipboardOffer,
                                 )
                                 val reminder by updateReminderViewModel.launchReminder.collectAsStateWithLifecycle()
-                                if (activePage == page && settings.onboardingSeen && onboarding == null) {
+                                if (activePageState === state && settings.onboardingSeen && onboarding == null) {
                                     reminder?.let { release ->
                                         UpdateReminderDialog(
                                             release = release,
@@ -574,8 +585,7 @@ private class NativeShell(
                     }
                 }
             }
-        page = Page(key, controller, owner)
-        return page
+        return Page(key, controller, owner, state)
     }
 
     /**
@@ -664,7 +674,7 @@ private class NativeShell(
                     val listPage = currentRootSplit.list
                     // Constrain Compose before expanding the UIView once behind the opaque
                     // details pane, avoiding per-frame Metal resizes.
-                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + startOffset
+                    listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + startOffset
                     currentRootSplit.controller.beginSqueeze(offset = startOffset, layoutNow = !currentRootSplit.controller.isSqueezing)
                     lateinit var request: PaneSqueezeRequest
                     request =
@@ -675,17 +685,17 @@ private class NativeShell(
                             isClosing = true,
                             onTick = { offset ->
                                 currentRootSplit.controller.updateSqueezeOffset(offset)
-                                listPage.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                                listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + offset
                             },
                             onEnd = {
                                 if (activeSqueeze?.second === request) activeSqueeze = null
                                 currentRootSplit.controller.updateSqueezeOffset(fullOpenOffset)
-                                listPage.squeezeWidthPt = Double.NaN
+                                listPage.state.squeezeWidthPt = Double.NaN
                                 sync(destination)
                             },
                             onCancel = {
                                 currentRootSplit.controller.updateSqueezeOffset(fullOpenOffset)
-                                listPage.squeezeWidthPt = Double.NaN
+                                listPage.state.squeezeWidthPt = Double.NaN
                             },
                         )
                     startSqueeze(listPage, request)
@@ -701,11 +711,11 @@ private class NativeShell(
                 val listPage = currentRootSplit.list
                 val resumeFrom = interruptedOffset ?: currentRootSplit.controller.detailsOffset
                 if (onScreen && resumeFrom > 0.0 && !UIAccessibilityIsReduceMotionEnabled()) {
-                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + resumeFrom
+                    listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + resumeFrom
                     currentRootSplit.controller.beginSqueeze(offset = resumeFrom, layoutNow = !currentRootSplit.controller.isSqueezing)
                     startOpeningSqueeze(destination, listPage, currentRootSplit, resumeFrom)
                 } else {
-                    listPage.squeezeWidthPt = Double.NaN
+                    listPage.state.squeezeWidthPt = Double.NaN
                     currentRootSplit.controller.endSqueeze()
                 }
             }
@@ -750,7 +760,7 @@ private class NativeShell(
                 val rootGroup = layout.first() as PaneGroup.Split
                 val listPage = pages[rootGroup.listIndex]
                 val rootSplit = splits.getValue(listPage)
-                listPage.squeezeWidthPt = LIST_PANE_WIDTH + openingOffset
+                listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + openingOffset
                 rootSplit.controller.beginSqueeze(offset = openingOffset)
             }
             navigationController.setViewControllers(controllers, animated = animated)
@@ -775,10 +785,10 @@ private class NativeShell(
                     val from = rootSplit.controller.fullyOpenOffset
                     if (from > 0.0) {
                         rootSplit.controller.updateSqueezeOffset(from)
-                        listPage.squeezeWidthPt = LIST_PANE_WIDTH + from
+                        listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + from
                         startOpeningSqueeze(destination, listPage, rootSplit, from)
                     } else {
-                        listPage.squeezeWidthPt = Double.NaN
+                        listPage.state.squeezeWidthPt = Double.NaN
                         rootSplit.controller.endSqueeze()
                     }
                 }
@@ -786,14 +796,14 @@ private class NativeShell(
                 interruptedOffset != null && interruptedOffset > 0.0 -> {
                     // Another thread was selected while the split was mid-squeeze; slide cleanly
                     // from the current offset back to resting width.
-                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + interruptedOffset
+                    listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + interruptedOffset
                     rootSplit.controller.beginSqueeze(offset = interruptedOffset, layoutNow = !rootSplit.controller.isSqueezing)
                     startOpeningSqueeze(destination, listPage, rootSplit, interruptedOffset)
                 }
 
                 rootSplit.controller.isSqueezing || rootSplit.controller.detailsOffset != 0.0 -> {
                     // A pair that stayed the root through an interrupted collapse returns to rest.
-                    listPage.squeezeWidthPt = Double.NaN
+                    listPage.state.squeezeWidthPt = Double.NaN
                     rootSplit.controller.endSqueeze()
                 }
             }
@@ -858,24 +868,29 @@ private class NativeShell(
         deferredSyncs.remove(destination)?.let { relayout -> sync(destination, relayout) }
     }
 
+    /** Built outside [Split] so its Compose lambda does not retain [Split] across ObjC/Kotlin. */
+    private fun emptyDetailPlaceholder(listKey: NavKey): UIViewController {
+        val text = emptyDetailTextOf(listKey)
+        return ComposeUIViewController {
+            NodysseyChrome(container, settings) {
+                DeviceLocals(fixedBottomBarHeight, windowLandscape) {
+                    // On the page colour, as every screen's `Scaffold` is; Android's pane scaffold
+                    // paints it there, and here nothing else would.
+                    Box(Modifier.fillMaxSize().background(LocalPlazaLayers.current.page)) {
+                        EmptyDetailPane(text)
+                    }
+                }
+            }
+        }
+    }
+
     /** One list and its details, side by side; see [PaneSplitController]. */
     private inner class Split(
         destination: TopLevelDestination,
         val list: Page,
     ) {
         /** The right half before anything has been opened in it, as on Android. */
-        private val placeholder =
-            ComposeUIViewController {
-                NodysseyChrome(container, settings) {
-                    DeviceLocals(fixedBottomBarHeight) {
-                        // On the page colour, as every screen's `Scaffold` is; Android's pane scaffold
-                        // paints it there, and here nothing else would.
-                        Box(Modifier.fillMaxSize().background(LocalPlazaLayers.current.page)) {
-                            EmptyDetailPane(emptyDetailTextOf(list.key))
-                        }
-                    }
-                }
-            }
+        private val placeholder = emptyDetailPlaceholder(list.key)
 
         // The placeholder is already the navigation root before UIKit sees this nested controller.
         val controller = PaneSplitController(placeholder)
@@ -942,7 +957,13 @@ private class NativeShell(
 
         /** Gives the pages back, to be drawn full-window or released. */
         fun empty() {
-            list.squeezeWidthPt = Double.NaN
+            list.state.squeezeWidthPt = Double.NaN
+            swapOverlay?.removeFromSuperview()
+            swapOverlay = null
+            details.interactivePopGestureRecognizer?.delegate = null
+            if (details.hasContentPopGesture()) {
+                details.interactiveContentPopGestureRecognizer?.delegate = null
+            }
             controller.releasePages()
         }
     }
@@ -962,15 +983,15 @@ private class NativeShell(
                 isClosing = false,
                 onTick = { offset ->
                     rootSplit.controller.updateSqueezeOffset(offset)
-                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                    listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + offset
                 },
                 onEnd = {
                     if (activeSqueeze?.second === request) activeSqueeze = null
-                    listPage.squeezeWidthPt = Double.NaN
+                    listPage.state.squeezeWidthPt = Double.NaN
                     rootSplit.controller.endSqueeze()
                 },
                 onCancel = {
-                    listPage.squeezeWidthPt = Double.NaN
+                    listPage.state.squeezeWidthPt = Double.NaN
                     rootSplit.controller.endSqueeze()
                 },
             )
@@ -982,7 +1003,7 @@ private class NativeShell(
         request: PaneSqueezeRequest,
     ) {
         activeSqueeze = page to request
-        page.squeezeRequest = request
+        page.state.squeezeRequest = request
     }
 
     /** Stops the running spring without snapping its visual offset so a reversed squeeze can continue in place. */
@@ -990,7 +1011,7 @@ private class NativeShell(
         val (page, request) = activeSqueeze ?: return
         activeSqueeze = null
         request.finished = true
-        if (page.squeezeRequest === request) page.squeezeRequest = null
+        if (page.state.squeezeRequest === request) page.state.squeezeRequest = null
     }
 
     private fun finishSqueeze() {
@@ -998,7 +1019,7 @@ private class NativeShell(
         activeSqueeze = null
         if (!request.finished) {
             request.finished = true
-            if (page.squeezeRequest === request) page.squeezeRequest = null
+            if (page.state.squeezeRequest === request) page.state.squeezeRequest = null
             request.onCancel()
         }
     }
@@ -1031,12 +1052,12 @@ private class NativeShell(
     }
 
     /**
-     * Isolated host for [PaneSqueezeRequest] so setting [Page.squeezeRequest] never recomposes
+     * Isolated host for [PaneSqueezeRequest] so setting [PageState.squeezeRequest] never recomposes
      * the screen content beside it.
      */
     @Composable
-    private fun PaneSqueezeRunner(page: Page) {
-        val request = page.squeezeRequest ?: return
+    private fun PaneSqueezeRunner(state: PageState) {
+        val request = state.squeezeRequest ?: return
         LaunchedEffect(request) {
             if (request.finished) return@LaunchedEffect
             // Critically damped spring, response 0.36s: ω = 2π / 0.36, stiffness = ω².
@@ -1060,8 +1081,8 @@ private class NativeShell(
                     request.onEnd()
                 }
             } finally {
-                if (page.squeezeRequest === request) {
-                    page.squeezeRequest = null
+                if (state.squeezeRequest === request) {
+                    state.squeezeRequest = null
                 }
             }
         }
@@ -1075,7 +1096,11 @@ private class NativeShell(
      * when the transition is over, and [sync] calls it at once for a tab that is not on screen.
      */
     private fun flushReleases() {
-        pendingRelease.forEach { it.owner.viewModelStore.clear() }
+        pendingRelease.forEach {
+            it.state.squeezeRequest = null
+            it.state.squeezeWidthPt = Double.NaN
+            it.owner.viewModelStore.clear()
+        }
         pendingRelease.clear()
     }
 
@@ -1182,7 +1207,7 @@ private class NativeShell(
     }
 
     private fun refreshActivePage() {
-        activePage = mirrors.getValue(selectedTab).views.lastOrNull()
+        activePageState = mirrors.getValue(selectedTab).views.lastOrNull()?.state
     }
 
     private fun checkClipboardPost() {
