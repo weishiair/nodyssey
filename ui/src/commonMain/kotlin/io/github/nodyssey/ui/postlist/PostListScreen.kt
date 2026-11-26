@@ -184,6 +184,7 @@ import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -464,12 +465,60 @@ fun PostListScreen(
     }
 
     val refreshState = posts.loadState.refresh
+    // Only show a spinner on the collapsed refresh pill for a refresh the user explicitly triggered
+    // from this button. Binding directly to `posts.loadState.refresh` turned the button into a
+    // disabled spinner on cold start / TTL background refreshes or Room invalidations before the
+    // user ever tapped it. Keyed on board + sort (not `startPage`) so refreshing from a later page
+    // does not drop the flag when `onGoToPage(FIRST_PAGE)` resets `startPage` back to 1.
+    var manualRefreshPending by remember(state.categorySlug, state.sort) {
+        mutableStateOf(false)
+    }
+    var awaitingFirstPageReset by remember(state.categorySlug, state.sort) {
+        mutableStateOf(false)
+    }
+    var sawManualRefreshLoading by remember(state.categorySlug, state.sort) {
+        mutableStateOf(false)
+    }
+    LaunchedEffect(manualRefreshPending, awaitingFirstPageReset, state.startPage, refreshState) {
+        if (!manualRefreshPending) {
+            awaitingFirstPageReset = false
+            sawManualRefreshLoading = false
+            return@LaunchedEffect
+        }
+        if (awaitingFirstPageReset) {
+            if (state.startPage == FIRST_PAGE) {
+                awaitingFirstPageReset = false
+            } else {
+                delay(MANUAL_REFRESH_LOADING_GRACE_MILLIS)
+                if (state.startPage != FIRST_PAGE) {
+                    manualRefreshPending = false
+                    awaitingFirstPageReset = false
+                }
+            }
+            return@LaunchedEffect
+        }
+        if (refreshState is LoadState.Loading) {
+            sawManualRefreshLoading = true
+        } else if (sawManualRefreshLoading) {
+            manualRefreshPending = false
+            sawManualRefreshLoading = false
+        } else {
+            delay(MANUAL_REFRESH_LOADING_GRACE_MILLIS)
+            if (posts.loadState.refresh !is LoadState.Loading) {
+                manualRefreshPending = false
+            }
+        }
+    }
     val pressHaptics = rememberPlatformHaptics()
     val refreshFeed: () -> Unit = {
         pressHaptics.refreshTriggered()
+        val resetToFirstPage = state.startPage > FIRST_PAGE
+        manualRefreshPending = true
+        awaitingFirstPageReset = resetToFirstPage
+        sawManualRefreshLoading = !resetToFirstPage && refreshState is LoadState.Loading
         // A window opened at a later page has no page-one rows to scroll to; resetting to page one
         // swaps in a fresh page-one pager instead of refreshing the offset window.
-        if (state.startPage > FIRST_PAGE) {
+        if (resetToFirstPage) {
             onGoToPage(FIRST_PAGE)
         } else {
             posts.refresh()
@@ -482,7 +531,7 @@ fun PostListScreen(
             icon = Icons.Default.Refresh,
             nativeSymbol = "arrow.clockwise",
             onClick = refreshFeed,
-            loading = refreshState is LoadState.Loading,
+            loading = manualRefreshPending && !awaitingFirstPageReset && refreshState is LoadState.Loading,
             emphasized = true,
         )
 
@@ -603,6 +652,9 @@ fun PostListScreen(
                     return@launch
                 }
             }
+            manualRefreshPending = false
+            awaitingFirstPageReset = false
+            sawManualRefreshLoading = false
             onGoToPage(target)
         }
     }
@@ -1024,6 +1076,9 @@ private const val FIRST_PAGE = 1
  * meanwhile, so nothing about the wait is invisible.
  */
 private const val APPEND_WAIT_MILLIS = 15_000L
+
+/** Grace window for an explicit refresh tap to transition Paging into `LoadState.Loading`. */
+private const val MANUAL_REFRESH_LOADING_GRACE_MILLIS = 3_000L
 
 /**
  * The home header uses two rows on a narrow window and one on a wide window.

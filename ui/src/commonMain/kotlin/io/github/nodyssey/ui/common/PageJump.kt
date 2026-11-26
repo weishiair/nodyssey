@@ -340,7 +340,13 @@ private fun FloatingPageJumpRail(
                 }
             }
         },
-        modifier = modifier.then(if (vertical) Modifier.width(56.dp) else Modifier.heightIn(min = 56.dp)),
+        modifier = modifier.then(
+            if (vertical) {
+                Modifier.width(56.dp).heightIn(min = 56.dp)
+            } else {
+                Modifier.heightIn(min = 56.dp).widthIn(min = 56.dp)
+            },
+        ),
         vertical = vertical,
     ) {
         val toolbarModifier = modifier
