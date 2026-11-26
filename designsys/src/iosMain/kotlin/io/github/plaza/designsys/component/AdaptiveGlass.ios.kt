@@ -240,7 +240,8 @@ actual fun AdaptiveGlassTopBar(
             }
             bar.setItems(listOf(item), animated = false)
         },
-        onRelease = {
+        onRelease = { host ->
+            host.bar.setItems(emptyList<UINavigationItem>(), animated = false)
             focus.restore()
             NativeMenuShield.lower()
         },
@@ -317,6 +318,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
             state.action.prominent != next.prominent
 
     fun dispose() {
+        view.menu = null
         focus.restore()
         NativeMenuShield.lower()
     }

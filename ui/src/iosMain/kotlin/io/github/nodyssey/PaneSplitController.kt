@@ -2,6 +2,7 @@ package io.github.nodyssey
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
+import platform.CoreGraphics.CGAffineTransformMakeTranslation
 import platform.CoreGraphics.CGRectMake
 import platform.UIKit.UIColor
 import platform.UIKit.UINavigationController
@@ -36,24 +37,71 @@ internal class PaneSplitController(
     private var list: UIViewController? = null
 
     /**
-     * How far the details pane sits right of its resting position, in points. Animating this
-     * squeezes the list between the window's left edge and the sliding detail, so the first
-     * thread opening reads as the right pane pushing the list into its column rather than a cut.
+     * Whether a root-pane squeeze is currently playing. While active, [list]'s UIView stays at
+     * full container width so Skiko/Metal does not reallocate its CAMetalLayer drawable every
+     * frame; Compose narrows the list column in its layout pass while [details] and [divider]
+     * translate via GPU transforms.
+     */
+    var isSqueezing = false
+        private set
+
+    /**
+     * How far the details pane sits right of its resting position, in points.
      */
     var detailsOffset = 0.0
-        set(value) {
-            if (field == value) return
-            field = value
-            view.setNeedsLayout()
-            view.layoutIfNeeded()
-        }
+        private set
 
     /** The offset at which the details pane is just off the right edge and the list spans the window. */
     val fullyOpenOffset: Double
-        get() = view.bounds.useContents { size.width - LIST_PANE_WIDTH }
+        get() = view.bounds.useContents { (size.width - LIST_PANE_WIDTH).coerceAtLeast(0.0) }
+
+    /**
+     * Enters squeeze mode with [details] and [divider] shifted right by [offset] points.
+     * Pass [layoutNow] = true when expanding an already-mounted split before a closing squeeze
+     * so the one-time full-width frame update happens behind the opaque details pane.
+     */
+    fun beginSqueeze(
+        offset: Double,
+        layoutNow: Boolean = false,
+    ) {
+        val modeChanged = !isSqueezing
+        isSqueezing = true
+        detailsOffset = offset
+        if (modeChanged) {
+            view.setNeedsLayout()
+            if (layoutNow) view.layoutIfNeeded()
+        }
+        applyDetailsShift(offset)
+    }
+
+    /** Updates the details translation during an active squeeze without a UIKit layout pass. */
+    fun updateSqueezeOffset(offset: Double) {
+        if (detailsOffset == offset) return
+        detailsOffset = offset
+        applyDetailsShift(offset)
+    }
+
+    /** Leaves squeeze mode and restores [list] to its resting [LIST_PANE_WIDTH] frame. */
+    fun endSqueeze() {
+        val changed = isSqueezing || detailsOffset != 0.0
+        isSqueezing = false
+        detailsOffset = 0.0
+        applyDetailsShift(0.0)
+        if (changed) {
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
+        }
+    }
+
+    private fun applyDetailsShift(offset: Double) {
+        val shift = CGAffineTransformMakeTranslation(offset, 0.0)
+        divider.transform = shift
+        details.view.transform = shift
+    }
 
     override fun viewDidLoad() {
         super.viewDidLoad()
+        view.clipsToBounds = true
         adopt(details)
         divider.backgroundColor = UIColor.separatorColor
         view.addSubview(divider)
@@ -68,7 +116,7 @@ internal class PaneSplitController(
             it.removeFromParentViewController()
         }
         list = controller
-        if (controller != null) adopt(controller)
+        if (controller != null) adopt(controller, belowDetails = true)
         view.setNeedsLayout()
     }
 
@@ -79,19 +127,29 @@ internal class PaneSplitController(
             details.viewControllers
                 .filterIsInstance<UIViewController>()
                 .filter { it != placeholder }
+        isSqueezing = false
+        detailsOffset = 0.0
+        applyDetailsShift(0.0)
         details.delegate = null
         details.setViewControllers(listOf(placeholder), animated = false)
         released.forEach { it.view.removeFromSuperview() }
         showList(null)
     }
 
-    private fun adopt(child: UIViewController) {
+    private fun adopt(
+        child: UIViewController,
+        belowDetails: Boolean = false,
+    ) {
         // A visible navigation stack clears parent before removing its outgoing view.
         // UIKit also checks that view hierarchy when adopting a child, so detach the view
         // first even when parentViewController is already null.
         child.view.removeFromSuperview()
         addChildViewController(child)
-        view.addSubview(child.view)
+        if (belowDetails && details.view.superview == view) {
+            view.insertSubview(child.view, belowSubview = details.view)
+        } else {
+            view.addSubview(child.view)
+        }
         child.didMoveToParentViewController(this)
     }
 
@@ -99,21 +157,24 @@ internal class PaneSplitController(
         super.viewDidLayoutSubviews()
         val scale = view.traitCollection.displayScale.takeIf { it > 0.0 } ?: 2.0
         val hairline = 1.0 / scale
+        val shiftOffset = if (isSqueezing) detailsOffset else 0.0
+        // Reset transforms before assigning frames; UIKit's frame is undefined under non-identity transforms.
+        applyDetailsShift(0.0)
         view.bounds.useContents {
             val height = size.height
-            // The details pane keeps its resting width at every offset — the thread is laid out
-            // once — while the list takes whatever room is left and re-lays out at each width.
-            list?.view?.setFrame(CGRectMake(0.0, 0.0, LIST_PANE_WIDTH + detailsOffset, height))
-            divider.setFrame(CGRectMake(LIST_PANE_WIDTH + detailsOffset, 0.0, hairline, height))
+            val listWidth = if (isSqueezing) size.width else LIST_PANE_WIDTH
+            list?.view?.setFrame(CGRectMake(0.0, 0.0, listWidth, height))
+            divider.setFrame(CGRectMake(LIST_PANE_WIDTH, 0.0, hairline, height))
             details.view.setFrame(
                 CGRectMake(
-                    LIST_PANE_WIDTH + hairline + detailsOffset,
+                    LIST_PANE_WIDTH + hairline,
                     0.0,
-                    size.width - LIST_PANE_WIDTH - hairline,
+                    (size.width - LIST_PANE_WIDTH - hairline).coerceAtLeast(0.0),
                     height,
                 ),
             )
         }
+        if (shiftOffset != 0.0) applyDetailsShift(shiftOffset)
     }
 
     // UISplitViewController cannot be pushed onto a UINavigationController (Apple's documented
@@ -123,4 +184,4 @@ internal class PaneSplitController(
 }
 
 /** Material's default list pane width. */
-private const val LIST_PANE_WIDTH = 360.0
+internal const val LIST_PANE_WIDTH = 360.0

@@ -14,6 +14,7 @@ import platform.UIKit.UIKeyInputProtocol
 import platform.UIKit.UINavigationBar
 import platform.UIKit.UIResponder
 import platform.UIKit.UIView
+import kotlin.native.ref.WeakReference
 
 /**
  * Keeps a pop-up menu from bringing up the software keyboard.
@@ -34,19 +35,22 @@ import platform.UIKit.UIView
  * Remove when Compose Multiplatform stops holding first responder for hardware keys, or lets an
  * interop view opt out of it.
  */
+@OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 internal class NativeMenuFocus {
-    private var released: UIResponder? = null
+    // Weak so a navigation bar or button inside a ComposeUIViewController never forms an
+    // ObjC/Kotlin retain cycle back through Compose's OverlayInputView when the page pops.
+    private var released: WeakReference<UIResponder>? = null
 
     fun releaseFor(view: UIView) {
         val window = view.window ?: return
         val current = firstResponder(window) ?: return
         // A text field keeps its keyboard: that one is asked for.
         if (current is UIKeyInputProtocol) return
-        if (current.resignFirstResponder()) released = current
+        if (current.resignFirstResponder()) released = WeakReference(current)
     }
 
     fun restore() {
-        val responder = released ?: return
+        val responder = released?.get()
         released = null
         val window = (responder as? UIView)?.window ?: return
         if (firstResponder(window) == null) responder.becomeFirstResponder()

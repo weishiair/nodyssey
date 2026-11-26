@@ -34,6 +34,7 @@ internal fun nativeSheetLocals(): Array<ProvidedValue<*>> = arrayOf(
     LocalImageActions provides LocalImageActions.current,
     LocalImageHostRepository provides LocalImageHostRepository.current,
     LocalIosPad provides LocalIosPad.current,
+    LocalIosPadLandscape provides LocalIosPadLandscape.current,
     LocalOpenNetworkCheck provides LocalOpenNetworkCheck.current,
     LocalOpenReportCompare provides LocalOpenReportCompare.current,
     LocalReadMarkPaint provides LocalReadMarkPaint.current,
