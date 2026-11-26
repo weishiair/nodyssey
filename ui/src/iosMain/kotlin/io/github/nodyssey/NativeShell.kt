@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -26,15 +28,21 @@ import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.uikit.OnFocusBehavior
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
+import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
@@ -56,6 +64,7 @@ import io.github.nodyssey.ui.common.LocalBottomBarSafeAreaOverlap
 import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.LocalIosPad
 import io.github.nodyssey.ui.common.LocalIosPadLandscape
+import io.github.nodyssey.ui.common.LocalIosPadSqueezing
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.common.clipboardPostToOffer
@@ -89,6 +98,7 @@ import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeGlassAvailable
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCSignatureOverride
+import kotlinx.cinterop.readValue
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -102,6 +112,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
+import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSSelectorFromString
@@ -126,6 +137,7 @@ import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
 import platform.UIKit.UIViewAnimationOptionCurveEaseOut
 import platform.UIKit.UIViewController
+import platform.UIKit.accessibilityElementsHidden
 import platform.UIKit.addChildViewController
 import platform.UIKit.didMoveToParentViewController
 import platform.UIKit.hidesBottomBarWhenPushed
@@ -137,6 +149,7 @@ import platform.UIKit.willMoveToParentViewController
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.math.PI
+import kotlin.math.abs
 
 /**
  * The iOS app: one system navigation stack per tab, with one Compose screen in each pushed
@@ -529,6 +542,8 @@ private class NativeShell(
                                 LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
                                 // 测评对比 from any report card's 对比 (n), onto this page's tab.
                                 LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
+                                // Read during TabScaffold layout so narrow-gutter interpolation only runs mid-squeeze.
+                                LocalIosPadSqueezing provides { !state.squeezeWidthPt.isNaN() },
                             ) {
                                 Box(
                                     Modifier
@@ -689,8 +704,10 @@ private class NativeShell(
                             to = fullOpenOffset,
                             isClosing = true,
                             onTick = { offset ->
-                                currentRootSplit.controller.updateSqueezeOffset(offset)
                                 listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                            },
+                            onPresent = { offset ->
+                                currentRootSplit.controller.updateSqueezeOffset(offset.coerceIn(0.0, fullOpenOffset))
                             },
                             onEnd = {
                                 if (activeSqueeze?.second === request) activeSqueeze = null
@@ -987,8 +1004,11 @@ private class NativeShell(
                 to = 0.0,
                 isClosing = false,
                 onTick = { offset ->
-                    rootSplit.controller.updateSqueezeOffset(offset)
                     listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                },
+                onPresent = { offset ->
+                    val maxOffset = rootSplit.controller.fullyOpenOffset.coerceAtLeast(from)
+                    rootSplit.controller.updateSqueezeOffset(offset.coerceIn(0.0, maxOffset))
                 },
                 onEnd = {
                     if (activeSqueeze?.second === request) activeSqueeze = null
@@ -1041,8 +1061,9 @@ private class NativeShell(
      * Request for a Compose-clock root-pane squeeze hosted on the list [Page].
      *
      * Running the spring inside the list page's Compose frame clock (`Animatable` / `withFrameNanos`)
-     * updates the list's layout width and the details pane's GPU transform in the same VSync
-     * transaction while keeping the list's `UIView` / `CAMetalLayer` at full width throughout.
+     * drives the list's layout width while [PaneSqueezeSyncView] applies [onPresent] from Compose's
+     * own UIKit interop transaction so the details pane's GPU transform commits in the exact Core
+     * Animation transaction that presents that Metal frame.
      */
     private class PaneSqueezeRequest(
         val destination: TopLevelDestination,
@@ -1050,19 +1071,39 @@ private class NativeShell(
         val to: Double,
         val isClosing: Boolean,
         val onTick: (Double) -> Unit,
+        val onPresent: (Double) -> Unit,
         val onEnd: () -> Unit,
         val onCancel: () -> Unit,
     ) {
         var finished = false
+        var presentedOffset = from
     }
 
     /**
      * Isolated host for [PaneSqueezeRequest] so setting [PageState.squeezeRequest] never recomposes
      * the screen content beside it.
      */
+    @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     private fun PaneSqueezeRunner(state: PageState) {
         val request = state.squeezeRequest ?: return
+        val latestRequest by rememberUpdatedState(request)
+        UIKitView(
+            factory = { PaneSqueezeSyncView() },
+            modifier = Modifier.fillMaxWidth().height(1.dp),
+            properties = SqueezeSyncInterop,
+            update = { view ->
+                view.onPresentedWidth = { width ->
+                    val active = latestRequest
+                    if (!active.finished) {
+                        val offset = (width - LIST_PANE_WIDTH).coerceAtLeast(0.0)
+                        active.presentedOffset = offset
+                        active.onPresent(offset)
+                    }
+                }
+            },
+            onRelease = { view -> view.onPresentedWidth = null },
+        )
         LaunchedEffect(request) {
             if (request.finished) return@LaunchedEffect
             // Critically damped spring, response 0.36s: ω = 2π / 0.36, stiffness = ω².
@@ -1079,6 +1120,16 @@ private class NativeShell(
                 ) {
                     if (!request.finished) {
                         request.onTick(value.toDouble())
+                    }
+                }
+                if (!request.finished) {
+                    // Commit the exact resting width and allow up to two frames for the presented
+                    // Metal drawable to align the details pane before swapping containers.
+                    request.onTick(request.to)
+                    repeat(2) {
+                        if (!request.finished && abs(request.presentedOffset - request.to) > 1.0) {
+                            withFrameNanos {}
+                        }
                     }
                 }
                 if (!request.finished) {
@@ -1368,6 +1419,36 @@ private class NativeShell(
             details.viewControllers.size > 1 && details.transitionCoordinator == null
     }
 }
+
+/**
+ * Invisible 1pt-tall [UIView] placed inside the squeezed Compose root box so Compose's interop
+ * transaction updates its bounds in the same Core Animation transaction that presents each Metal
+ * frame, keeping the UIKit details pane locked to the rendered list edge with zero frame skew.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private class PaneSqueezeSyncView : UIView(frame = CGRectZero.readValue()) {
+    var onPresentedWidth: ((Double) -> Unit)? = null
+
+    init {
+        alpha = 0.0
+        backgroundColor = UIColor.clearColor
+        userInteractionEnabled = false
+        accessibilityElementsHidden = true
+    }
+
+    override fun layoutSubviews() {
+        super.layoutSubviews()
+        val width = bounds.useContents { size.width }
+        if (width > 0.0) onPresentedWidth?.invoke(width)
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+private val SqueezeSyncInterop = UIKitInteropProperties(
+    interactionMode = UIKitInteropInteractionMode.NonCooperative,
+    isNativeAccessibilityEnabled = false,
+    placedAsOverlay = true,
+)
 
 /**
  * Reports the window size and the visible tab bar height after layout, so the shell can choose its

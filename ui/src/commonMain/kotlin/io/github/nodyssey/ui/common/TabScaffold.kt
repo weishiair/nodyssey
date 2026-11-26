@@ -28,6 +28,14 @@ internal val LocalIosPad = staticCompositionLocalOf { false }
  */
 internal val LocalIosPadLandscape = compositionLocalOf<Boolean?> { null }
 
+/**
+ * Whether the hosting iPad tab root is mid-squeeze between full-width and split-pane layout.
+ * Stored as a lambda read during [TabScaffold]'s layout pass so toggling squeeze mode never
+ * recomposes the screen body, while keeping static narrow layouts (e.g. 560dp on Android or
+ * resting iPad split views) completely unchanged.
+ */
+internal val LocalIosPadSqueezing = staticCompositionLocalOf<() -> Boolean> { { false } }
+
 internal val TabContentMaxWidth = 720.dp
 internal val IosPadTabContentMaxWidth = 960.dp
 internal val WideTabMinWidth = 600.dp
@@ -38,14 +46,18 @@ internal fun tabContentMaxWidth(isIosPad: Boolean, landscape: Boolean): Dp =
 
 /**
  * Horizontal outer gutter for [TabScaffold]. Full [Spacing.lg] at [WideTabMinWidth] and above,
- * zero at [TabSqueezePaddingMinWidth] and below, ramped linearly in between so squeezing through
- * [WideTabMinWidth] shrinks the content column monotonically without a sudden outward pop.
+ * and zero below it at rest. During an iPad split-pane squeeze ([squeezing] = true), ramps
+ * linearly across [TabSqueezePaddingMinWidth]..[WideTabMinWidth] so the content column shrinks
+ * monotonically without an outward pop.
  */
-internal fun tabHorizontalPadding(availableWidth: Dp): Dp =
+internal fun tabHorizontalPadding(
+    availableWidth: Dp,
+    squeezing: Boolean = false,
+): Dp =
     when {
         availableWidth >= WideTabMinWidth -> Spacing.lg
 
-        availableWidth <= TabSqueezePaddingMinWidth -> 0.dp
+        !squeezing || availableWidth <= TabSqueezePaddingMinWidth -> 0.dp
 
         else -> {
             val fraction =
@@ -60,8 +72,9 @@ internal fun tabContentWidth(
     availableHeight: Dp,
     isIosPad: Boolean,
     windowLandscape: Boolean? = null,
+    squeezing: Boolean = false,
 ): Dp {
-    val padding = tabHorizontalPadding(availableWidth)
+    val padding = tabHorizontalPadding(availableWidth, squeezing = squeezing)
     val inner = (availableWidth - padding * 2).coerceAtLeast(0.dp)
     if (availableWidth < WideTabMinWidth && padding <= 0.dp) return inner
     val maxContentWidth = tabContentMaxWidth(isIosPad, landscape = windowLandscape ?: (availableWidth > availableHeight))
@@ -91,6 +104,7 @@ internal fun TabScaffold(
     }
     val isIosPad = LocalIosPad.current
     val windowLandscape = LocalIosPadLandscape.current
+    val isSqueezing = LocalIosPadSqueezing.current
     // SubcomposeLayout instead of BoxWithConstraints so intermediate widths during a split-pane
     // squeeze re-measure in the layout phase without recomposing Scaffold, headers or native glass
     // controls unless the `wide` breakpoint actually changes.
@@ -109,6 +123,7 @@ internal fun TabScaffold(
                 availableHeight = availableHeight,
                 isIosPad = isIosPad,
                 windowLandscape = windowLandscape,
+                squeezing = isIosPad && isSqueezing(),
             ).roundToPx().coerceIn(0, constraints.maxWidth)
         val childConstraints = constraints.copy(minWidth = contentWidthPx, maxWidth = contentWidthPx)
         val placeables =

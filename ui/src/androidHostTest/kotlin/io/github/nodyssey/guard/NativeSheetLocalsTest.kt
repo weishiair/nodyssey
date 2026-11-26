@@ -33,6 +33,8 @@ class NativeSheetLocalsTest {
             "LocalFixedBottomBarHeight" to "tab bar under the presenting screen",
             "LocalBottomBarSafeAreaOverlap" to "tab bar under the presenting screen",
             "LocalKeepBottomBarVisibleOnScroll" to "tab bar under the presenting screen",
+            // Split-pane squeeze animation state of the presenting iPad tab root.
+            "LocalIosPadSqueezing" to "split-pane squeeze state of the presenting tab root",
         )
 
     private val designsysNotForwarded =
