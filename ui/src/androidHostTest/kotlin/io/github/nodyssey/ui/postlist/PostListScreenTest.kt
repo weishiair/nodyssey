@@ -1035,6 +1035,53 @@ class PostListScreenTest {
     }
 
     @Test
+    fun `tapping collapsed refresh from a later page keeps manual refresh spinner when page one starts slowly`() {
+        val posts = (1..40).map { feedPost(1000L + it, "post $it", page = 40) }
+        var state by mutableStateOf(pagedState(startPage = 40))
+        var refreshState: LoadState by mutableStateOf(LoadState.Loading)
+        var requestedPage: Int? = null
+        composeRule.setContent {
+            PlazaTheme(frostedGlass = true) {
+                ScreenUnderTest(
+                    posts = posts,
+                    refresh = refreshState,
+                    append = LoadState.NotLoading(true),
+                    state = state,
+                    onPostClick = {},
+                    onBoardClick = {},
+                    onSortChange = {},
+                    onRecoverInBrowser = {},
+                    onGoToPage = { requestedPage = it },
+                )
+            }
+        }
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsEnabled().performClick()
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { assertEquals(1, requestedPage) }
+
+        // Old page finishes loading before page one arrives, then page one takes > 500ms to begin loading.
+        composeRule.runOnIdle { refreshState = LoadState.NotLoading(false) }
+        composeRule.mainClock.advanceTimeBy(800L)
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { state = pagedState(startPage = 1) }
+        composeRule.mainClock.advanceTimeBy(800L)
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { refreshState = LoadState.Loading }
+        composeRule.waitForIdle()
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsNotEnabled()
+
+        composeRule.runOnIdle { refreshState = LoadState.NotLoading(false) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsEnabled()
+    }
+
+    @Test
     fun `page rail without collapsed action keeps showing page number when collapsed`() {
         composeRule.setContent {
             PlazaTheme(frostedGlass = true) {

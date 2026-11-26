@@ -473,12 +473,28 @@ fun PostListScreen(
     var manualRefreshPending by remember(state.categorySlug, state.sort) {
         mutableStateOf(false)
     }
+    var awaitingFirstPageReset by remember(state.categorySlug, state.sort) {
+        mutableStateOf(false)
+    }
     var sawManualRefreshLoading by remember(state.categorySlug, state.sort) {
         mutableStateOf(false)
     }
-    LaunchedEffect(manualRefreshPending, refreshState) {
+    LaunchedEffect(manualRefreshPending, awaitingFirstPageReset, state.startPage, refreshState) {
         if (!manualRefreshPending) {
+            awaitingFirstPageReset = false
             sawManualRefreshLoading = false
+            return@LaunchedEffect
+        }
+        if (awaitingFirstPageReset) {
+            if (state.startPage == FIRST_PAGE) {
+                awaitingFirstPageReset = false
+            } else {
+                delay(MANUAL_REFRESH_LOADING_GRACE_MILLIS)
+                if (state.startPage != FIRST_PAGE) {
+                    manualRefreshPending = false
+                    awaitingFirstPageReset = false
+                }
+            }
             return@LaunchedEffect
         }
         if (refreshState is LoadState.Loading) {
@@ -496,11 +512,13 @@ fun PostListScreen(
     val pressHaptics = rememberPlatformHaptics()
     val refreshFeed: () -> Unit = {
         pressHaptics.refreshTriggered()
+        val resetToFirstPage = state.startPage > FIRST_PAGE
         manualRefreshPending = true
-        sawManualRefreshLoading = state.startPage == FIRST_PAGE && refreshState is LoadState.Loading
+        awaitingFirstPageReset = resetToFirstPage
+        sawManualRefreshLoading = !resetToFirstPage && refreshState is LoadState.Loading
         // A window opened at a later page has no page-one rows to scroll to; resetting to page one
         // swaps in a fresh page-one pager instead of refreshing the offset window.
-        if (state.startPage > FIRST_PAGE) {
+        if (resetToFirstPage) {
             onGoToPage(FIRST_PAGE)
         } else {
             posts.refresh()
@@ -513,7 +531,7 @@ fun PostListScreen(
             icon = Icons.Default.Refresh,
             nativeSymbol = "arrow.clockwise",
             onClick = refreshFeed,
-            loading = manualRefreshPending && refreshState is LoadState.Loading,
+            loading = manualRefreshPending && !awaitingFirstPageReset && refreshState is LoadState.Loading,
             emphasized = true,
         )
 
@@ -635,6 +653,7 @@ fun PostListScreen(
                 }
             }
             manualRefreshPending = false
+            awaitingFirstPageReset = false
             sawManualRefreshLoading = false
             onGoToPage(target)
         }
@@ -1059,7 +1078,7 @@ private const val FIRST_PAGE = 1
 private const val APPEND_WAIT_MILLIS = 15_000L
 
 /** Grace window for an explicit refresh tap to transition Paging into `LoadState.Loading`. */
-private const val MANUAL_REFRESH_LOADING_GRACE_MILLIS = 500L
+private const val MANUAL_REFRESH_LOADING_GRACE_MILLIS = 3_000L
 
 /**
  * The home header uses two rows on a narrow window and one on a wide window.
