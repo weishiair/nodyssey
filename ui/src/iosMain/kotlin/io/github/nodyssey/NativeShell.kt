@@ -623,11 +623,28 @@ private class NativeShell(
         val wasRootSplit = groups.getValue(destination).firstOrNull() is PaneGroup.Split
         val isRootSplit = layout.firstOrNull() is PaneGroup.Split
         val animated = onScreen && !needsRelayout && wasRootSplit == isRootSplit
-        // A new swap or a relayout ends whatever squeeze is still playing on this tab by jumping
-        // it to the end; an interrupted collapse leaves the pair fully open, so the swap runs.
-        if (activeSqueeze?.second?.destination == destination || needsRelayout) {
-            finishSqueeze()
-        }
+        val currentRootSplit =
+            splits.values.firstOrNull { it.controller == navigationController.viewControllers.firstOrNull() }
+        val activeForTab = activeSqueeze?.second?.takeIf { it.destination == destination }
+        // Keep the current in-flight offset when reversing or retargeting an active root squeeze
+        // on this tab so rapid open -> back -> open transitions smoothly reverse in place instead
+        // of snapping off-screen or short-circuiting when mirror.reconcile returns null.
+        val canReverseInPlace =
+            activeForTab != null &&
+                onScreen &&
+                !needsRelayout &&
+                wasRootSplit &&
+                currentRootSplit != null &&
+                !UIAccessibilityIsReduceMotionEnabled()
+        val interruptedOffset =
+            if (canReverseInPlace) {
+                val offset = currentRootSplit.controller.detailsOffset
+                cancelSqueezeInPlace()
+                offset
+            } else {
+                if (activeForTab != null || needsRelayout) finishSqueeze()
+                null
+            }
         if (
             onScreen && !needsRelayout && wasRootSplit && !isRootSplit &&
             !UIAccessibilityIsReduceMotionEnabled()
@@ -635,45 +652,66 @@ private class NativeShell(
             // Closing the pair plays first: the details slide off the right edge while the list
             // widens back in Compose's layout pass over a fixed full-width Metal surface. The
             // actual UIKit swap happens on a second pass where the pair is already fully open.
-            splits.values
-                .firstOrNull { it.controller == navigationController.viewControllers.firstOrNull() }
-                ?.takeIf { !it.controller.isSqueezing && it.controller.detailsOffset == 0.0 }
-                ?.let { rootSplit ->
-                    val fullOpenOffset = rootSplit.controller.fullyOpenOffset
-                    if (fullOpenOffset > 0.0) {
-                        val listPage = rootSplit.list
-                        // Constrain Compose to LIST_PANE_WIDTH before expanding the UIView once
-                        // behind the opaque details pane, avoiding per-frame Metal resizes.
-                        listPage.squeezeWidthPt = LIST_PANE_WIDTH
-                        rootSplit.controller.beginSqueeze(offset = 0.0, layoutNow = true)
-                        lateinit var request: PaneSqueezeRequest
-                        request =
-                            PaneSqueezeRequest(
-                                destination = destination,
-                                from = 0.0,
-                                to = fullOpenOffset,
-                                isClosing = true,
-                                onTick = { offset ->
-                                    rootSplit.controller.updateSqueezeOffset(offset)
-                                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + offset
-                                },
-                                onEnd = {
-                                    if (activeSqueeze?.second === request) activeSqueeze = null
-                                    rootSplit.controller.updateSqueezeOffset(fullOpenOffset)
-                                    listPage.squeezeWidthPt = Double.NaN
-                                    sync(destination)
-                                },
-                                onCancel = {
-                                    rootSplit.controller.updateSqueezeOffset(fullOpenOffset)
-                                    listPage.squeezeWidthPt = Double.NaN
-                                },
-                            )
-                        startSqueeze(listPage, request)
-                        return
-                    }
+            val startOffset =
+                when {
+                    interruptedOffset != null -> interruptedOffset
+                    currentRootSplit != null && !currentRootSplit.controller.isSqueezing && currentRootSplit.controller.detailsOffset == 0.0 -> 0.0
+                    else -> null
                 }
+            if (currentRootSplit != null && startOffset != null) {
+                val fullOpenOffset = currentRootSplit.controller.fullyOpenOffset
+                if (fullOpenOffset > startOffset) {
+                    val listPage = currentRootSplit.list
+                    // Constrain Compose before expanding the UIView once behind the opaque
+                    // details pane, avoiding per-frame Metal resizes.
+                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + startOffset
+                    currentRootSplit.controller.beginSqueeze(offset = startOffset, layoutNow = !currentRootSplit.controller.isSqueezing)
+                    lateinit var request: PaneSqueezeRequest
+                    request =
+                        PaneSqueezeRequest(
+                            destination = destination,
+                            from = startOffset,
+                            to = fullOpenOffset,
+                            isClosing = true,
+                            onTick = { offset ->
+                                currentRootSplit.controller.updateSqueezeOffset(offset)
+                                listPage.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                            },
+                            onEnd = {
+                                if (activeSqueeze?.second === request) activeSqueeze = null
+                                currentRootSplit.controller.updateSqueezeOffset(fullOpenOffset)
+                                listPage.squeezeWidthPt = Double.NaN
+                                sync(destination)
+                            },
+                            onCancel = {
+                                currentRootSplit.controller.updateSqueezeOffset(fullOpenOffset)
+                                listPage.squeezeWidthPt = Double.NaN
+                            },
+                        )
+                    startSqueeze(listPage, request)
+                    return
+                }
+            }
         }
-        val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
+        val reconciled = mirror.reconcile(keys)
+        if (reconciled == null && !needsRelayout) {
+            // Re-opening the same detail during a closing squeeze leaves mirror.keys unchanged, so
+            // reconcile returns null even though the split is still offset toward the right edge.
+            if (isRootSplit && currentRootSplit != null && (currentRootSplit.controller.isSqueezing || currentRootSplit.controller.detailsOffset != 0.0)) {
+                val listPage = currentRootSplit.list
+                val resumeFrom = interruptedOffset ?: currentRootSplit.controller.detailsOffset
+                if (onScreen && resumeFrom > 0.0 && !UIAccessibilityIsReduceMotionEnabled()) {
+                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + resumeFrom
+                    currentRootSplit.controller.beginSqueeze(offset = resumeFrom, layoutNow = !currentRootSplit.controller.isSqueezing)
+                    startOpeningSqueeze(destination, listPage, currentRootSplit, resumeFrom)
+                } else {
+                    listPage.squeezeWidthPt = Double.NaN
+                    currentRootSplit.controller.endSqueeze()
+                }
+            }
+            return
+        }
+        val pages = reconciled ?: mirror.views
         val openingRootSplit =
             onScreen && !needsRelayout && !wasRootSplit && isRootSplit && !UIAccessibilityIsReduceMotionEnabled()
         val openingOffset =
@@ -720,7 +758,7 @@ private class NativeShell(
                 val details = pages.subList(group.listIndex + 1, group.listIndex + 1 + group.detailCount)
                 splits.getValue(pages[group.listIndex]).show(
                     details.map { it.controller.also { controller -> controller.hidesBottomBarWhenPushed = false } },
-                    animated = animated,
+                    animated = animated && interruptedOffset == null,
                 )
             }
         } finally {
@@ -738,32 +776,19 @@ private class NativeShell(
                     if (from > 0.0) {
                         rootSplit.controller.updateSqueezeOffset(from)
                         listPage.squeezeWidthPt = LIST_PANE_WIDTH + from
-                        lateinit var request: PaneSqueezeRequest
-                        request =
-                            PaneSqueezeRequest(
-                                destination = destination,
-                                from = from,
-                                to = 0.0,
-                                isClosing = false,
-                                onTick = { offset ->
-                                    rootSplit.controller.updateSqueezeOffset(offset)
-                                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + offset
-                                },
-                                onEnd = {
-                                    if (activeSqueeze?.second === request) activeSqueeze = null
-                                    listPage.squeezeWidthPt = Double.NaN
-                                    rootSplit.controller.endSqueeze()
-                                },
-                                onCancel = {
-                                    listPage.squeezeWidthPt = Double.NaN
-                                    rootSplit.controller.endSqueeze()
-                                },
-                            )
-                        startSqueeze(listPage, request)
+                        startOpeningSqueeze(destination, listPage, rootSplit, from)
                     } else {
                         listPage.squeezeWidthPt = Double.NaN
                         rootSplit.controller.endSqueeze()
                     }
+                }
+
+                interruptedOffset != null && interruptedOffset > 0.0 -> {
+                    // Another thread was selected while the split was mid-squeeze; slide cleanly
+                    // from the current offset back to resting width.
+                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + interruptedOffset
+                    rootSplit.controller.beginSqueeze(offset = interruptedOffset, layoutNow = !rootSplit.controller.isSqueezing)
+                    startOpeningSqueeze(destination, listPage, rootSplit, interruptedOffset)
                 }
 
                 rootSplit.controller.isSqueezing || rootSplit.controller.detailsOffset != 0.0 -> {
@@ -917,8 +942,39 @@ private class NativeShell(
 
         /** Gives the pages back, to be drawn full-window or released. */
         fun empty() {
+            list.squeezeWidthPt = Double.NaN
             controller.releasePages()
         }
+    }
+
+    private fun startOpeningSqueeze(
+        destination: TopLevelDestination,
+        listPage: Page,
+        rootSplit: Split,
+        from: Double,
+    ) {
+        lateinit var request: PaneSqueezeRequest
+        request =
+            PaneSqueezeRequest(
+                destination = destination,
+                from = from,
+                to = 0.0,
+                isClosing = false,
+                onTick = { offset ->
+                    rootSplit.controller.updateSqueezeOffset(offset)
+                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                },
+                onEnd = {
+                    if (activeSqueeze?.second === request) activeSqueeze = null
+                    listPage.squeezeWidthPt = Double.NaN
+                    rootSplit.controller.endSqueeze()
+                },
+                onCancel = {
+                    listPage.squeezeWidthPt = Double.NaN
+                    rootSplit.controller.endSqueeze()
+                },
+            )
+        startSqueeze(listPage, request)
     }
 
     private fun startSqueeze(
@@ -927,6 +983,14 @@ private class NativeShell(
     ) {
         activeSqueeze = page to request
         page.squeezeRequest = request
+    }
+
+    /** Stops the running spring without snapping its visual offset so a reversed squeeze can continue in place. */
+    private fun cancelSqueezeInPlace() {
+        val (page, request) = activeSqueeze ?: return
+        activeSqueeze = null
+        request.finished = true
+        if (page.squeezeRequest === request) page.squeezeRequest = null
     }
 
     private fun finishSqueeze() {
@@ -975,8 +1039,8 @@ private class NativeShell(
         val request = page.squeezeRequest ?: return
         LaunchedEffect(request) {
             if (request.finished) return@LaunchedEffect
-            // Critically damped spring, response 0.42s: ω = 2π / 0.42, stiffness = ω².
-            val omega = (2.0 * PI / 0.42).toFloat()
+            // Critically damped spring, response 0.36s: ω = 2π / 0.36, stiffness = ω².
+            val omega = (2.0 * PI / 0.36).toFloat()
             val animatable = Animatable(request.from.toFloat())
             try {
                 animatable.animateTo(
@@ -984,7 +1048,7 @@ private class NativeShell(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = omega * omega,
-                        visibilityThreshold = 0.5f,
+                        visibilityThreshold = 1.0f,
                     ),
                 ) {
                     if (!request.finished) {
