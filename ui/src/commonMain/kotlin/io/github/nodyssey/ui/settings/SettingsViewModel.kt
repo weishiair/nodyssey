@@ -24,6 +24,7 @@ import io.github.nodyssey.data.proxy.routes
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.settings.AccountBadgeStyle
 import io.github.nodyssey.data.settings.AppLanguage
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.ReportFormat
@@ -205,6 +206,10 @@ class SettingsViewModel(
 
     fun setDisplayRefreshRate(value: Int) {
         viewModelScope.launch { settings.setDisplayRefreshRate(value) }
+    }
+
+    fun setPadLayoutMode(value: PadLayoutMode) {
+        viewModelScope.launch { settings.setPadLayoutMode(value) }
     }
 
     fun setFontScale(value: Float) {

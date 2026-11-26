@@ -1,6 +1,8 @@
 package io.github.nodyssey
 
+import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.navigation3.runtime.NavKey
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.ui.login.WebViewGoal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -169,6 +171,14 @@ class PaneRoleTest {
         val stack = mutableListOf<NavKey>(PostListKey, thread, list, PostDetailKey(2))
         stack.closeList(list)
         assertEquals(listOf<NavKey>(PostListKey, thread), stack)
+    }
+
+    @Test
+    fun `single-page pad layout collapses a multi-pane directive to one partition`() {
+        val wide = PaneScaffoldDirective.Default.copy(maxHorizontalPartitions = 2)
+
+        assertEquals(2, resolvePaneDirective(wide, PadLayoutMode.SPLIT).maxHorizontalPartitions)
+        assertEquals(1, resolvePaneDirective(wide, PadLayoutMode.SINGLE).maxHorizontalPartitions)
     }
 
     @Test

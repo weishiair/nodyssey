@@ -1,5 +1,6 @@
 package io.github.nodyssey.ui.navigation
 
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.ui.navigation.PaneGroup.Single
 import io.github.nodyssey.ui.navigation.PaneGroup.Split
 import org.junit.Assert.assertEquals
@@ -35,6 +36,15 @@ class PaneLayoutTest {
         assertTrue(supportsIosListDetail(width = 1366.0, height = 1024.0))
         assertFalse(supportsIosListDetail(width = 1024.0, height = 1366.0))
         assertFalse(supportsIosListDetail(width = 720.0, height = 550.0))
+    }
+
+    @Test
+    fun `full-page pad layout disables iPad landscape split and keeps iPhone single-pane`() {
+        assertTrue(resolvesIosListDetail(isPad = true, width = 1366.0, height = 1024.0, layoutMode = PadLayoutMode.SPLIT))
+        assertFalse(resolvesIosListDetail(isPad = true, width = 1366.0, height = 1024.0, layoutMode = PadLayoutMode.SINGLE))
+        assertFalse(resolvesIosListDetail(isPad = false, width = 1366.0, height = 1024.0, layoutMode = PadLayoutMode.SPLIT))
+        assertFalse(resolvesIosListDetail(isPad = true, width = 1024.0, height = 1366.0, layoutMode = PadLayoutMode.SPLIT))
+        assertEquals(listOf(Single(0), Single(1)), groups("tab", "thread", expanded = false))
     }
 
     @Test

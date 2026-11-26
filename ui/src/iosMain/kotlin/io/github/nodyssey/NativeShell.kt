@@ -75,7 +75,7 @@ import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
-import io.github.nodyssey.ui.navigation.supportsIosListDetail
+import io.github.nodyssey.ui.navigation.resolvesIosListDetail
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
 import io.github.nodyssey.ui.postlist.HomeFeedStates
@@ -305,6 +305,8 @@ private class NativeShell(
 
     private var listDetailExpanded by mutableStateOf(false)
     private var windowLandscape by mutableStateOf<Boolean?>(null)
+    private var windowWidth = 0.0
+    private var windowHeight = 0.0
 
     // The system tab bar's height, measured after layout; the reading controls share its band.
     private var fixedBottomBarHeight by mutableStateOf<Dp?>(49.dp)
@@ -785,7 +787,9 @@ private class NativeShell(
                 listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + openingOffset
                 rootSplit.controller.beginSqueeze(offset = openingOffset)
             }
-            navigationController.setViewControllers(controllers, animated = animated)
+            if (navigationController.viewControllers != controllers) {
+                navigationController.setViewControllers(controllers, animated = animated)
+            }
             layout.filterIsInstance<PaneGroup.Split>().forEach { group ->
                 val details = pages.subList(group.listIndex + 1, group.listIndex + 1 + group.detailCount)
                 splits.getValue(pages[group.listIndex]).show(
@@ -852,8 +856,16 @@ private class NativeShell(
 
     private fun onSystemTabLayout(width: Double, height: Double, bottomBarHeight: Double?) {
         if (bottomBarHeight != null) fixedBottomBarHeight = bottomBarHeight.dp
-        if (width > 0.0 && height > 0.0) windowLandscape = width > height
-        val expanded = isPad && supportsIosListDetail(width, height)
+        if (width > 0.0 && height > 0.0) {
+            windowWidth = width
+            windowHeight = height
+            windowLandscape = width > height
+        }
+        refreshListDetailExpanded()
+    }
+
+    private fun refreshListDetailExpanded() {
+        val expanded = resolvesIosListDetail(isPad, windowWidth, windowHeight, settings.padLayoutMode)
         if (expanded == listDetailExpanded) return
         listDetailExpanded = expanded
         TopLevelDestination.entries.forEach { sync(it, relayout = true) }
@@ -1196,6 +1208,7 @@ private class NativeShell(
         scope.launch {
             container.settingsRepository.settings.collect { latest ->
                 settings = latest
+                refreshListDetailExpanded()
                 // The bars UIKit draws follow the app's own light/dark answer, not only the OS's, the
                 // way `NodysseyRoot` makes the status bar follow it on Android.
                 root.overrideUserInterfaceStyle =

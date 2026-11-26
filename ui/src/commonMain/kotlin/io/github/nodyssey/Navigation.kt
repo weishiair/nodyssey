@@ -20,6 +20,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
@@ -66,6 +67,7 @@ import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.NotificationTab
 import io.github.nodyssey.data.session.AccountRepository
 import io.github.nodyssey.data.settings.BottomBarStyle
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
@@ -131,13 +133,14 @@ import org.jetbrains.compose.resources.stringResource
 fun MainNavigation(
     container: AppContainer,
     modifier: Modifier = Modifier,
+    initialSettings: UserSettings? = null,
     initialTab: TopLevelDestination = TopLevelDestination.HOME,
     launchRequest: LaunchRequest? = null,
     onLaunchRequestHandled: () -> Unit = {},
 ) {
     // Hoisted out of the navigation lambdas below, which are not composable.
     val navigationSettings by container.settingsRepository.settings.collectAsStateWithLifecycle(
-        initialValue = UserSettings(),
+        initialValue = initialSettings ?: UserSettings(),
     )
     val historySession by container.sessionRepository.state.collectAsStateWithLifecycle()
     LaunchedEffect(historySession.isSignedIn, historySession.fingerprint) {
@@ -268,8 +271,11 @@ fun MainNavigation(
     }
 
     val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
-    val paneDirective = remember(windowAdaptiveInfo) {
-        calculatePaneScaffoldDirective(windowAdaptiveInfo).copy(horizontalPartitionSpacerSize = 0.dp)
+    val paneDirective = remember(windowAdaptiveInfo, navigationSettings.padLayoutMode) {
+        resolvePaneDirective(
+            base = calculatePaneScaffoldDirective(windowAdaptiveInfo).copy(horizontalPartitionSpacerSize = 0.dp),
+            layoutMode = navigationSettings.padLayoutMode,
+        )
     }
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
@@ -931,6 +937,20 @@ internal fun EmptyDetailPane(text: StringResource) {
         )
     }
 }
+
+/**
+ * Applies the user's tablet layout choice to [base]: [PadLayoutMode.SINGLE] collapses a wide
+ * multi-pane directive down to a single full-window partition.
+ */
+internal fun resolvePaneDirective(
+    base: PaneScaffoldDirective,
+    layoutMode: PadLayoutMode,
+): PaneScaffoldDirective =
+    if (layoutMode == PadLayoutMode.SINGLE) {
+        base.copy(maxHorizontalPartitions = 1)
+    } else {
+        base
+    }
 
 /**
  * Which half of a list-detail layout a destination is drawn in, or null if it takes the whole window.
