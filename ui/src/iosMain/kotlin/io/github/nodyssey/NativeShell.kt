@@ -487,6 +487,9 @@ private class NativeShell(
 
         /** Active Compose-clock squeeze hosted on this page, if any. */
         var squeezeRequest by mutableStateOf<PaneSqueezeRequest?>(null)
+
+        /** Set once the page has left its navigation stack so its Compose tree and UIKitViews tear down. */
+        var released by mutableStateOf(false)
     }
 
     /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
@@ -514,70 +517,72 @@ private class NativeShell(
                     if (key.makesRoomForKeyboard()) onFocusBehavior = OnFocusBehavior.DoNothing
                 },
             ) {
-                NodysseyChrome(container, settings) {
-                    DeviceLocals(fixedBottomBarHeight, windowLandscape) {
-                        CompositionLocalProvider(
-                            // The page's own store rather than the controller's default one, so that a
-                            // view model lives exactly as long as its entry is on the stack — see
-                            // [flushReleases] — and not as long as UIKit keeps the controller around.
-                            LocalViewModelStoreOwner provides owner,
-                            // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
-                            LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
-                            // 测评对比 from any report card's 对比 (n), onto this page's tab.
-                            LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
-                        ) {
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .layout { measurable, constraints ->
-                                        val squeezeWidth = state.squeezeWidthPt
-                                        val targetWidth =
-                                            if (!squeezeWidth.isNaN()) {
-                                                squeezeWidth.dp.roundToPx().coerceIn(0, constraints.maxWidth)
-                                            } else {
-                                                constraints.maxWidth
-                                            }
-                                        val placeable =
-                                            measurable.measure(
-                                                constraints.copy(minWidth = targetWidth, maxWidth = targetWidth),
-                                            )
-                                        layout(constraints.maxWidth, constraints.maxHeight) {
-                                            placeable.placeRelative(0, 0)
-                                        }
-                                    },
+                if (!state.released) {
+                    NodysseyChrome(container, settings) {
+                        DeviceLocals(fixedBottomBarHeight, windowLandscape) {
+                            CompositionLocalProvider(
+                                // The page's own store rather than the controller's default one, so that a
+                                // view model lives exactly as long as its entry is on the stack — see
+                                // [flushReleases] — and not as long as UIKit keeps the controller around.
+                                LocalViewModelStoreOwner provides owner,
+                                // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
+                                LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
+                                // 测评对比 from any report card's 对比 (n), onto this page's tab.
+                                LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
                             ) {
-                                // The system tab bar's selected item wears the app's accent, which only
-                                // the composed theme knows (seed colours, dynamic colour).
-                                val accent = MaterialTheme.colorScheme.primary
-                                SideEffect {
-                                    if (activePageState === state) {
-                                        systemTabs.tabBar.tintColor = UIColor.colorWithRed(
-                                            accent.red.toDouble(),
-                                            accent.green.toDouble(),
-                                            accent.blue.toDouble(),
-                                            accent.alpha.toDouble(),
-                                        )
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .layout { measurable, constraints ->
+                                            val squeezeWidth = state.squeezeWidthPt
+                                            val targetWidth =
+                                                if (!squeezeWidth.isNaN()) {
+                                                    squeezeWidth.dp.roundToPx().coerceIn(0, constraints.maxWidth)
+                                                } else {
+                                                    constraints.maxWidth
+                                                }
+                                            val placeable =
+                                                measurable.measure(
+                                                    constraints.copy(minWidth = targetWidth, maxWidth = targetWidth),
+                                                )
+                                            layout(constraints.maxWidth, constraints.maxHeight) {
+                                                placeable.placeRelative(0, 0)
+                                            }
+                                        },
+                                ) {
+                                    // The system tab bar's selected item wears the app's accent, which only
+                                    // the composed theme knows (seed colours, dynamic colour).
+                                    val accent = MaterialTheme.colorScheme.primary
+                                    SideEffect {
+                                        if (activePageState === state) {
+                                            systemTabs.tabBar.tintColor = UIColor.colorWithRed(
+                                                accent.red.toDouble(),
+                                                accent.green.toDouble(),
+                                                accent.blue.toDouble(),
+                                                accent.alpha.toDouble(),
+                                            )
+                                        }
                                     }
-                                }
-                                entry.Content()
-                                PaneSqueezeRunner(state)
-                                ClipboardPostSnackbarOverlay(
-                                    modifier = Modifier,
-                                    active = activePageState === state,
-                                    offer = clipboardOffer,
-                                    onHandled = ::handleClipboardOffer,
-                                )
-                                val reminder by updateReminderViewModel.launchReminder.collectAsStateWithLifecycle()
-                                if (activePageState === state && settings.onboardingSeen && onboarding == null) {
-                                    reminder?.let { release ->
-                                        UpdateReminderDialog(
-                                            release = release,
-                                            onDownload = {
-                                                updateReminderViewModel.acceptReminder()
-                                                SafariUriHandler.openUri(release.htmlUrl)
-                                            },
-                                            onPostpone = updateReminderViewModel::postponeReminder,
-                                        )
+                                    entry.Content()
+                                    PaneSqueezeRunner(state)
+                                    ClipboardPostSnackbarOverlay(
+                                        modifier = Modifier,
+                                        active = activePageState === state,
+                                        offer = clipboardOffer,
+                                        onHandled = ::handleClipboardOffer,
+                                    )
+                                    val reminder by updateReminderViewModel.launchReminder.collectAsStateWithLifecycle()
+                                    if (activePageState === state && settings.onboardingSeen && onboarding == null) {
+                                        reminder?.let { release ->
+                                            UpdateReminderDialog(
+                                                release = release,
+                                                onDownload = {
+                                                    updateReminderViewModel.acceptReminder()
+                                                    SafariUriHandler.openUri(release.htmlUrl)
+                                                },
+                                                onPostpone = updateReminderViewModel::postponeReminder,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1099,6 +1104,7 @@ private class NativeShell(
         pendingRelease.forEach {
             it.state.squeezeRequest = null
             it.state.squeezeWidthPt = Double.NaN
+            it.state.released = true
             it.owner.viewModelStore.clear()
         }
         pendingRelease.clear()
