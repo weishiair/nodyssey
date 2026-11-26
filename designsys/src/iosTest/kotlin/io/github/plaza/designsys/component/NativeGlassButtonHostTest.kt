@@ -2,8 +2,13 @@
 
 package io.github.plaza.designsys.component
 
+import androidx.compose.ui.graphics.Color
+import kotlinx.cinterop.useContents
+import platform.CoreGraphics.CGRectMake
 import platform.UIKit.UIColor
 import platform.UIKit.UIControlEventPrimaryActionTriggered
+import platform.UIKit.UIView
+import platform.UIKit.labelColor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -59,5 +64,27 @@ class NativeGlassButtonHostTest {
 
         assertFalse(host.hasVisualChange(refresh))
         assertNull(host.view.configuration?.baseBackgroundColor)
+    }
+
+    @Test
+    fun `horizontal toolbar keeps trailing button inside narrow bounds without clipping`() {
+        val host = NativeGlassToolbarHost(vertical = false)
+        val actions = listOf(
+            GlassAction("Mark selected as read", {}, title = "Mark all selected as read", symbol = "checkmark.circle"),
+            GlassAction("Move selected", {}, title = "Move to another folder", symbol = "folder"),
+            GlassAction("Tags", {}, title = "Tags", symbol = "tag"),
+        )
+        host.update(actions, UIColor.labelColor, UIColor.blueColor, Color.White, dark = false, scale = 1f)
+        val toolbarWidth = 240.0
+        host.view.setFrame(CGRectMake(0.0, 0.0, toolbarWidth, 56.0))
+        host.view.layoutIfNeeded()
+
+        val arranged = host.stack.arrangedSubviews
+        assertEquals(3, arranged.size)
+        val trailingButton = arranged.last() as UIView
+        val frameInContent = host.view.contentView.convertRect(trailingButton.frame, fromView = host.stack)
+        val (rightEdge, width) = frameInContent.useContents { (origin.x + size.width) to size.width }
+        assertTrue(rightEdge <= toolbarWidth + 0.5, "Trailing button overflowed toolbar: rightEdge=$rightEdge")
+        assertTrue(width >= 44.0, "Trailing button was squashed below tappable width: width=$width")
     }
 }

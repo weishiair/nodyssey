@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasScrollAction
@@ -992,6 +993,45 @@ class PostListScreenTest {
             .performClick()
 
         composeRule.runOnIdle { assertEquals(1, requested) }
+    }
+
+    @Test
+    fun `tapping collapsed refresh from a later page keeps manual refresh spinner while page one loads`() {
+        val posts = (1..40).map { feedPost(1000L + it, "post $it", page = 40) }
+        var state by mutableStateOf(pagedState(startPage = 40))
+        var refreshState: LoadState by mutableStateOf(LoadState.NotLoading(false))
+        composeRule.setContent {
+            PlazaTheme(frostedGlass = true) {
+                ScreenUnderTest(
+                    posts = posts,
+                    refresh = refreshState,
+                    append = LoadState.NotLoading(true),
+                    state = state,
+                    onPostClick = {},
+                    onBoardClick = {},
+                    onSortChange = {},
+                    onRecoverInBrowser = {},
+                    onGoToPage = { target ->
+                        state = pagedState(startPage = target)
+                        refreshState = LoadState.Loading
+                    },
+                )
+            }
+        }
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsEnabled().performClick()
+        composeRule.waitForIdle()
+
+        // Scrolling down again while page one is still loading must keep the manual refresh spinner active.
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsNotEnabled()
+
+        composeRule.runOnIdle { refreshState = LoadState.NotLoading(false) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsEnabled()
     }
 
     @Test

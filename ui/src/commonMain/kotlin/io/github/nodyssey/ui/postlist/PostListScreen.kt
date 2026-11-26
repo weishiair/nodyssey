@@ -468,11 +468,12 @@ fun PostListScreen(
     // Only show a spinner on the collapsed refresh pill for a refresh the user explicitly triggered
     // from this button. Binding directly to `posts.loadState.refresh` turned the button into a
     // disabled spinner on cold start / TTL background refreshes or Room invalidations before the
-    // user ever tapped it.
-    var manualRefreshPending by remember(state.categorySlug, state.sort, state.startPage) {
+    // user ever tapped it. Keyed on board + sort (not `startPage`) so refreshing from a later page
+    // does not drop the flag when `onGoToPage(FIRST_PAGE)` resets `startPage` back to 1.
+    var manualRefreshPending by remember(state.categorySlug, state.sort) {
         mutableStateOf(false)
     }
-    var sawManualRefreshLoading by remember(state.categorySlug, state.sort, state.startPage) {
+    var sawManualRefreshLoading by remember(state.categorySlug, state.sort) {
         mutableStateOf(false)
     }
     LaunchedEffect(manualRefreshPending, refreshState) {
@@ -496,7 +497,7 @@ fun PostListScreen(
     val refreshFeed: () -> Unit = {
         pressHaptics.refreshTriggered()
         manualRefreshPending = true
-        sawManualRefreshLoading = refreshState is LoadState.Loading
+        sawManualRefreshLoading = state.startPage == FIRST_PAGE && refreshState is LoadState.Loading
         // A window opened at a later page has no page-one rows to scroll to; resetting to page one
         // swaps in a fresh page-one pager instead of refreshing the offset window.
         if (state.startPage > FIRST_PAGE) {
@@ -633,6 +634,8 @@ fun PostListScreen(
                     return@launch
                 }
             }
+            manualRefreshPending = false
+            sawManualRefreshLoading = false
             onGoToPage(target)
         }
     }

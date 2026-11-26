@@ -70,6 +70,7 @@ import platform.UIKit.UIStackView
 import platform.UIKit.UIStackViewAlignmentCenter
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
+import platform.UIKit.UIViewAnimationOptionAllowUserInteraction
 import platform.UIKit.UIViewAnimationOptionCurveEaseOut
 import platform.UIKit.UIVisualEffectView
 import platform.UIKit.accessibilityLabel
@@ -413,9 +414,9 @@ private class NativeGlassActionState(var action: GlassAction) {
         UIAction.actionWithHandler { if (action.enabled && !action.loading) action.onClick() }
 }
 
-private class NativeGlassToolbarHost(private val vertical: Boolean) {
+internal class NativeGlassToolbarHost(private val vertical: Boolean) {
     val view = floatingMaterialView(interactive = true, maximumRadius = 0.0)
-    private val stack = UIStackView().apply {
+    internal val stack = UIStackView().apply {
         axis = if (vertical) UILayoutConstraintAxisVertical else UILayoutConstraintAxisHorizontal
         spacing = 0.0
     }
@@ -466,11 +467,20 @@ private class NativeGlassToolbarHost(private val vertical: Boolean) {
                     stack.addArrangedSubview(it.view)
                     val minExtent = if (index == 0) PRIMARY_TOOLBAR_BUTTON_SIZE else SECONDARY_TOOLBAR_BUTTON_SIZE
                     it.view.heightAnchor.constraintGreaterThanOrEqualToConstant(minExtent).active = true
-                    it.view.widthAnchor.constraintGreaterThanOrEqualToConstant(minExtent).active = true
-                    it.view.setContentCompressionResistancePriority(
-                        UILayoutPriorityRequired,
-                        forAxis = if (vertical) UILayoutConstraintAxisVertical else UILayoutConstraintAxisHorizontal,
-                    )
+                    it.view.widthAnchor.constraintGreaterThanOrEqualToConstant(minExtent).apply {
+                        // Below the stack's required trailing edge so horizontal toolbars (e.g.
+                        // mail bulk actions on narrow screens) truncate labels rather than clipping
+                        // trailing buttons, yet above UIButton's default 750 compression resistance
+                        // so every button keeps a tappable minimum width.
+                        priority = TOOLBAR_MIN_WIDTH_PRIORITY
+                        active = true
+                    }
+                    if (vertical) {
+                        it.view.setContentCompressionResistancePriority(
+                            UILayoutPriorityRequired,
+                            forAxis = UILayoutConstraintAxisVertical,
+                        )
+                    }
                 }
                 created.update(action, tint, dark, scale)
                 if (animate) {
@@ -478,7 +488,7 @@ private class NativeGlassToolbarHost(private val vertical: Boolean) {
                     UIView.animateWithDuration(
                         duration = TOOLBAR_FADE_IN_SECONDS,
                         delay = 0.0,
-                        options = UIViewAnimationOptionCurveEaseOut,
+                        options = TOOLBAR_FADE_OPTIONS,
                         animations = { created.view.alpha = 1.0 },
                         completion = null,
                     )
@@ -492,7 +502,7 @@ private class NativeGlassToolbarHost(private val vertical: Boolean) {
                     UIView.animateWithDuration(
                         duration = TOOLBAR_CROSS_FADE_SECONDS,
                         delay = 0.0,
-                        options = UIViewAnimationOptionCurveEaseOut,
+                        options = TOOLBAR_FADE_OPTIONS,
                         animations = { existing.view.alpha = 1.0 },
                         completion = null,
                     )
@@ -511,7 +521,7 @@ private class NativeGlassToolbarHost(private val vertical: Boolean) {
         UIView.animateWithDuration(
             duration = TOOLBAR_FADE_OUT_SECONDS,
             delay = 0.0,
-            options = UIViewAnimationOptionCurveEaseOut,
+            options = TOOLBAR_FADE_OPTIONS,
             animations = { snapshot.alpha = 0.0 },
             completion = {
                 snapshot.removeFromSuperview()
@@ -649,8 +659,10 @@ private fun pin(child: UIView, parent: UIView, inset: Double) {
 }
 
 /**
- * Pins the toolbar stack inside [parent] while giving the trailing axis edge high-but-breakable
- * priority so mid-flight spring contraction clips smoothly instead of squashing buttons.
+ * Pins the toolbar stack inside [parent]. Vertical rails give the bottom edge high-but-breakable
+ * priority so mid-flight spring contraction clips smoothly instead of squashing icons; horizontal
+ * toolbars keep a required trailing edge so titled action bars compress labels instead of clipping
+ * trailing buttons off-screen.
  */
 private fun pinToolbarStack(child: UIView, parent: UIView, inset: Double, vertical: Boolean) {
     parent.addSubview(child)
@@ -661,8 +673,6 @@ private fun pinToolbarStack(child: UIView, parent: UIView, inset: Double, vertic
     val bottom = child.bottomAnchor.constraintEqualToAnchor(parent.bottomAnchor, constant = -inset)
     if (vertical) {
         bottom.priority = TOOLBAR_TRAILING_PRIORITY
-    } else {
-        trailing.priority = TOOLBAR_TRAILING_PRIORITY
     }
     NSLayoutConstraint.activateConstraints(listOf(leading, trailing, top, bottom))
 }
@@ -704,9 +714,12 @@ private const val BADGE_SIZE = 8.0
 private const val PRIMARY_TOOLBAR_BUTTON_SIZE = 48.0
 private const val SECONDARY_TOOLBAR_BUTTON_SIZE = 44.0
 private const val TOOLBAR_TRAILING_PRIORITY = 750f // UILayoutPriorityDefaultHigh
+private const val TOOLBAR_MIN_WIDTH_PRIORITY = 900f
 private const val TOOLBAR_FADE_IN_SECONDS = 0.22
 private const val TOOLBAR_FADE_OUT_SECONDS = 0.16
 private const val TOOLBAR_CROSS_FADE_SECONDS = 0.18
+private val TOOLBAR_FADE_OPTIONS =
+    UIViewAnimationOptionCurveEaseOut or UIViewAnimationOptionAllowUserInteraction
 
 internal fun Color.toUIColor(): UIColor = UIColor(red = red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = alpha.toDouble())
 
