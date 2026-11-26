@@ -1,5 +1,8 @@
 package io.github.nodyssey
 
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.useContents
+import platform.CoreGraphics.CGRectMake
 import platform.UIKit.UINavigationController
 import platform.UIKit.UIViewController
 import platform.UIKit.addChildViewController
@@ -8,7 +11,9 @@ import platform.UIKit.removeFromParentViewController
 import platform.UIKit.willMoveToParentViewController
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Checks the UIKit containment and page transfers used by the iPad shell. */
 class PaneSplitControllerTest {
@@ -86,5 +91,33 @@ class PaneSplitControllerTest {
         outer.setViewControllers(listOf(list, detail), animated = false)
         assertEquals(outer, list.parentViewController)
         assertEquals(outer, detail.parentViewController)
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    @Test
+    fun `squeezing keeps the list view at full width and translates details without relayout`() {
+        val list = UIViewController(nibName = null, bundle = null)
+        val placeholder = UIViewController(nibName = null, bundle = null)
+        val split = PaneSplitController(placeholder)
+        split.view.setFrame(CGRectMake(0.0, 0.0, 1194.0, 834.0))
+        split.showList(list)
+        split.beginSqueeze(offset = split.fullyOpenOffset)
+        split.view.layoutIfNeeded()
+
+        assertTrue(split.isSqueezing)
+        assertEquals(1194.0, list.view.frame.useContents { size.width })
+        assertEquals(834.0, split.details.view.transform.useContents { tx })
+        // List stays below details so the opaque details pane covers its unused trailing area.
+        val subviews = split.view.subviews
+        assertTrue(subviews.indexOf(list.view) < subviews.indexOf(split.details.view))
+
+        split.updateSqueezeOffset(240.0)
+        assertEquals(1194.0, list.view.frame.useContents { size.width })
+        assertEquals(240.0, split.details.view.transform.useContents { tx })
+
+        split.endSqueeze()
+        assertFalse(split.isSqueezing)
+        assertEquals(0.0, split.details.view.transform.useContents { tx })
+        assertEquals(LIST_PANE_WIDTH, list.view.frame.useContents { size.width })
     }
 }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -69,6 +68,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -78,6 +79,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1018,42 +1020,84 @@ private fun FeedPageBar(
 ) {
     val layers = LocalPlazaLayers.current
     val gap = if (layers.frostedGlass) Spacing.sm else Spacing.xs
-    BoxWithConstraints(modifier.padding(Spacing.lg), contentAlignment = Alignment.BottomEnd) {
+    // SubcomposeLayout instead of BoxWithConstraints so squeezing the list pane does not recompose
+    // the floating native glass controls on every intermediate width when orientation is unchanged.
+    SubcomposeLayout(modifier.padding(Spacing.lg)) { constraints ->
         // Base the fit on all three keys, so collapsing the shortcuts while scrolling keeps the
         // controls in the same place. A short viewport can otherwise compress the FAB.
-        val short = maxHeight < Sizes.minTouchTarget * 3 + PlazaFabHeight + gap + Spacing.sm
-        val horizontal = (preferHorizontal || short) && maxWidth >= 280.dp
-        val controls: @Composable () -> Unit = {
-            PageJumpRail(
-                expanded = expanded,
-                page = page,
-                totalPages = totalPages,
-                onPrevious = onScrollToTop,
-                onNext = onNext,
-                onPageClick = onPageClick,
-                previousEnabled = canScrollToTop,
-                previousLabel = Res.string.action_scroll_to_top,
-                previousIcon = PlazaIcons.VerticalAlignTop,
-                previousNativeSymbol = "arrow.up.to.line",
-                vertical = !horizontal,
-                collapsedAction = collapsedAction,
-            )
-            PlazaExtendedFab(
-                text = stringResource(Res.string.action_create_post),
-                icon = Icons.Default.Edit,
-                nativeSymbol = "square.and.pencil",
-                onClick = onCreatePost,
-                expanded = expanded,
-            )
+        val short = constraints.maxHeight.toDp() < Sizes.minTouchTarget * 3 + PlazaFabHeight + gap + Spacing.sm
+        val horizontal = (preferHorizontal || short) && constraints.maxWidth.toDp() >= 280.dp
+        val childConstraints = constraints.copy(minWidth = 0, minHeight = 0)
+        val placeables =
+            subcompose(Unit) {
+                FeedPageBarControls(
+                    horizontal = horizontal,
+                    gap = gap,
+                    expanded = expanded,
+                    page = page,
+                    totalPages = totalPages,
+                    canScrollToTop = canScrollToTop,
+                    onScrollToTop = onScrollToTop,
+                    onNext = onNext,
+                    onPageClick = onPageClick,
+                    collapsedAction = collapsedAction,
+                    onCreatePost = onCreatePost,
+                )
+            }.map { it.measure(childConstraints) }
+        val contentWidth = placeables.maxOfOrNull { it.width } ?: 0
+        val contentHeight = placeables.maxOfOrNull { it.height } ?: 0
+        val layoutWidth = contentWidth.coerceIn(constraints.minWidth, constraints.maxWidth)
+        val layoutHeight = contentHeight.coerceIn(constraints.minHeight, constraints.maxHeight)
+        layout(layoutWidth, layoutHeight) {
+            placeables.forEach { it.placeRelative(layoutWidth - it.width, layoutHeight - it.height) }
         }
-        if (horizontal) {
-            Row(horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically) {
-                controls()
-            }
-        } else {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
-                controls()
-            }
+    }
+}
+
+@Composable
+private fun FeedPageBarControls(
+    horizontal: Boolean,
+    gap: Dp,
+    expanded: Boolean,
+    page: Int,
+    totalPages: Int,
+    canScrollToTop: Boolean,
+    onScrollToTop: () -> Unit,
+    onNext: () -> Unit,
+    onPageClick: () -> Unit,
+    collapsedAction: CollapsedRailAction,
+    onCreatePost: () -> Unit,
+) {
+    val controls: @Composable () -> Unit = {
+        PageJumpRail(
+            expanded = expanded,
+            page = page,
+            totalPages = totalPages,
+            onPrevious = onScrollToTop,
+            onNext = onNext,
+            onPageClick = onPageClick,
+            previousEnabled = canScrollToTop,
+            previousLabel = Res.string.action_scroll_to_top,
+            previousIcon = PlazaIcons.VerticalAlignTop,
+            previousNativeSymbol = "arrow.up.to.line",
+            vertical = !horizontal,
+            collapsedAction = collapsedAction,
+        )
+        PlazaExtendedFab(
+            text = stringResource(Res.string.action_create_post),
+            icon = Icons.Default.Edit,
+            nativeSymbol = "square.and.pencil",
+            onClick = onCreatePost,
+            expanded = expanded,
+        )
+    }
+    if (horizontal) {
+        Row(horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically) {
+            controls()
+        }
+    } else {
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
+            controls()
         }
     }
 }
@@ -1108,43 +1152,70 @@ private fun HomeHeader(
     scrollBehavior: TopAppBarScrollBehavior,
     wide: Boolean,
 ) {
+    val oneRow = wide && LocalDensity.current.fontScale <= 1.3f
     CollapsingHeader(
         scrollBehavior = scrollBehavior,
         modifier = Modifier.windowInsetsPadding(TopAppBarDefaults.windowInsets),
     ) {
-        if (wide && LocalDensity.current.fontScale <= 1.3f) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(end = LayerPageGutter),
-                horizontalArrangement = Arrangement.spacedBy(HeaderControlGap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+        // One shared Layout for both arrangements so crossing the wide breakpoint during an iPad
+        // split-pane squeeze repositions SiteSwitcher and SortButton without tearing down and
+        // recreating their native UIKit glass views mid-animation.
+        Layout(
+            modifier = Modifier.fillMaxWidth(),
+            content = {
                 SiteSwitcher(account = account)
-                SearchPill(onClick = onSearch, modifier = Modifier.weight(1f))
+                SearchPill(onClick = onSearch)
                 SortButton(sort = sort, onSortChange = onSortChange)
                 AccountButton(account = account, onClick = onAccountClick)
-            }
-            return@CollapsingHeader
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
+            },
+        ) { measurables, constraints ->
+            val maxWidth = constraints.maxWidth
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val gapPx = HeaderControlGap.roundToPx()
+            if (oneRow) {
+                val trailingPx = LayerPageGutter.roundToPx()
+                val site = measurables[0].measure(loose)
+                val sort = measurables[2].measure(loose)
+                val account = measurables[3].measure(loose)
+                val searchWidth =
+                    (maxWidth - trailingPx - site.width - sort.width - account.width - gapPx * 3)
+                        .coerceAtLeast(0)
+                val search = measurables[1].measure(Constraints(minWidth = searchWidth, maxWidth = searchWidth))
+                val height = maxOf(site.height, search.height, sort.height, account.height)
+                layout(maxWidth, height) {
+                    var x = 0
+                    site.placeRelative(x, (height - site.height) / 2)
+                    x += site.width + gapPx
+                    search.placeRelative(x, (height - search.height) / 2)
+                    x += search.width + gapPx
+                    sort.placeRelative(x, (height - sort.height) / 2)
+                    x += sort.width + gapPx
+                    account.placeRelative(x, (height - account.height) / 2)
+                }
+            } else {
                 // The site button's own 8dp inset puts the wordmark on the 16dp margin; the account's
                 // 48dp target is drawn 6dp off the edge, which lands its 28dp face on the same 16dp.
-                .padding(start = Spacing.sm, end = AccountEndInset),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SiteSwitcher(account = account, modifier = Modifier.weight(1f))
-            AccountButton(account = account, onClick = onAccountClick)
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(HeaderControlGap),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SearchPill(onClick = onSearch, modifier = Modifier.weight(1f))
-            SortButton(sort = sort, onSortChange = onSortChange)
+                val startSmPx = Spacing.sm.roundToPx()
+                val endAccountPx = AccountEndInset.roundToPx()
+                val horizontalMdPx = Spacing.md.roundToPx()
+                val account = measurables[3].measure(loose)
+                val siteMax = (maxWidth - startSmPx - endAccountPx - account.width).coerceAtLeast(0)
+                val site = measurables[0].measure(Constraints(minWidth = 0, maxWidth = siteMax))
+                val row1Height = maxOf(site.height, account.height)
+
+                val sort = measurables[2].measure(loose)
+                val searchWidth =
+                    (maxWidth - horizontalMdPx * 2 - sort.width - gapPx)
+                        .coerceAtLeast(0)
+                val search = measurables[1].measure(Constraints(minWidth = searchWidth, maxWidth = searchWidth))
+                val row2Height = maxOf(search.height, sort.height)
+                layout(maxWidth, row1Height + row2Height) {
+                    site.placeRelative(startSmPx, (row1Height - site.height) / 2)
+                    account.placeRelative(maxWidth - endAccountPx - account.width, (row1Height - account.height) / 2)
+                    search.placeRelative(horizontalMdPx, row1Height + (row2Height - search.height) / 2)
+                    sort.placeRelative(horizontalMdPx + search.width + gapPx, row1Height + (row2Height - sort.height) / 2)
+                }
+            }
         }
     }
 }

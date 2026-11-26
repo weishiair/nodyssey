@@ -1,5 +1,8 @@
 package io.github.nodyssey
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -19,6 +22,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.uikit.OnFocusBehavior
 import androidx.compose.ui.unit.Dp
@@ -50,6 +55,7 @@ import io.github.nodyssey.ui.common.ListFabCentreAboveSafeArea
 import io.github.nodyssey.ui.common.LocalBottomBarSafeAreaOverlap
 import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.LocalIosPad
+import io.github.nodyssey.ui.common.LocalIosPadLandscape
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.common.clipboardPostToOffer
@@ -82,9 +88,7 @@ import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.nativeGlassAvailable
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.ObjCSignatureOverride
-import kotlinx.cinterop.cValue
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -100,12 +104,8 @@ import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
-import platform.Foundation.NSRunLoop
-import platform.Foundation.NSRunLoopCommonModes
 import platform.Foundation.NSSelectorFromString
 import platform.Foundation.NSURL
-import platform.QuartzCore.CADisplayLink
-import platform.QuartzCore.CAFrameRateRange
 import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationDidBecomeActiveNotification
@@ -137,7 +137,6 @@ import platform.UIKit.willMoveToParentViewController
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.math.PI
-import kotlin.math.exp
 
 /**
  * The iOS app: one system navigation stack per tab, with one Compose screen in each pushed
@@ -292,6 +291,7 @@ private class NativeShell(
         }
 
     private var listDetailExpanded by mutableStateOf(false)
+    private var windowLandscape by mutableStateOf<Boolean?>(null)
 
     // The system tab bar's height, measured after layout; the reading controls share its band.
     private var fixedBottomBarHeight by mutableStateOf<Dp?>(49.dp)
@@ -378,8 +378,8 @@ private class NativeShell(
      */
     private var syncing = false
 
-    /** The root-pane squeeze still playing, if any; see [PaneSqueeze]. */
-    private var squeeze: PaneSqueeze? = null
+    /** The root-pane squeeze still playing, if any; see [PaneSqueezeRequest]. */
+    private var activeSqueeze: Pair<Page, PaneSqueezeRequest>? = null
 
     // UIKit holds delegates weakly; these fields are what keeps them alive.
     private val tabBarDelegate = TabBarDelegate()
@@ -405,8 +405,7 @@ private class NativeShell(
     fun close() {
         if (closed) return
         closed = true
-        squeeze?.finish()
-        squeeze = null
+        finishSqueeze()
         scope.cancel()
         foregroundObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
         splits.values.forEach { pairs ->
@@ -476,7 +475,16 @@ private class NativeShell(
     }
 
     /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
-    private class Page(val key: NavKey, val controller: UIViewController, val owner: PageOwner)
+    private class Page(val key: NavKey, val controller: UIViewController, val owner: PageOwner) {
+        /**
+         * Temporary width in UIKit points while a root-pane squeeze animates in Compose's layout
+         * phase so the backing UIView / CAMetalLayer keeps a fixed width. [Double.NaN] at rest.
+         */
+        var squeezeWidthPt by mutableDoubleStateOf(Double.NaN)
+
+        /** Active Compose-clock squeeze hosted on this page, if any. */
+        var squeezeRequest by mutableStateOf<PaneSqueezeRequest?>(null)
+    }
 
     private class PageOwner : ViewModelStoreOwner {
         override val viewModelStore = ViewModelStore()
@@ -496,7 +504,7 @@ private class NativeShell(
                 },
             ) {
                 NodysseyChrome(container, settings) {
-                    DeviceLocals(fixedBottomBarHeight) {
+                    DeviceLocals(fixedBottomBarHeight, windowLandscape) {
                         CompositionLocalProvider(
                             // The page's own store rather than the controller's default one, so that a
                             // view model lives exactly as long as its entry is on the stack — see
@@ -507,7 +515,26 @@ private class NativeShell(
                             // 测评对比 from any report card's 对比 (n), onto this page's tab.
                             LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
                         ) {
-                            Box(Modifier.fillMaxSize()) {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .layout { measurable, constraints ->
+                                        val squeezeWidth = page.squeezeWidthPt
+                                        val targetWidth =
+                                            if (!squeezeWidth.isNaN()) {
+                                                squeezeWidth.dp.roundToPx().coerceIn(0, constraints.maxWidth)
+                                            } else {
+                                                constraints.maxWidth
+                                            }
+                                        val placeable =
+                                            measurable.measure(
+                                                constraints.copy(minWidth = targetWidth, maxWidth = targetWidth),
+                                            )
+                                        layout(constraints.maxWidth, constraints.maxHeight) {
+                                            placeable.placeRelative(0, 0)
+                                        }
+                                    },
+                            ) {
                                 // The system tab bar's selected item wears the app's accent, which only
                                 // the composed theme knows (seed colours, dynamic colour).
                                 val accent = MaterialTheme.colorScheme.primary
@@ -522,6 +549,7 @@ private class NativeShell(
                                     }
                                 }
                                 entry.Content()
+                                PaneSqueezeRunner(page)
                                 ClipboardPostSnackbarOverlay(
                                     modifier = Modifier,
                                     active = activePage == page,
@@ -595,35 +623,65 @@ private class NativeShell(
         val wasRootSplit = groups.getValue(destination).firstOrNull() is PaneGroup.Split
         val isRootSplit = layout.firstOrNull() is PaneGroup.Split
         val animated = onScreen && !needsRelayout && wasRootSplit == isRootSplit
-        // A new swap or a relayout ends whatever squeeze is still playing by jumping it to the
-        // end; an interrupted collapse leaves the pair fully open, so the swap below still runs.
-        squeeze?.finish()
-        squeeze = null
+        // A new swap or a relayout ends whatever squeeze is still playing on this tab by jumping
+        // it to the end; an interrupted collapse leaves the pair fully open, so the swap runs.
+        if (activeSqueeze?.second?.destination == destination || needsRelayout) {
+            finishSqueeze()
+        }
         if (
             onScreen && !needsRelayout && wasRootSplit && !isRootSplit &&
             !UIAccessibilityIsReduceMotionEnabled()
         ) {
             // Closing the pair plays first: the details slide off the right edge while the list
-            // widens back. The actual swap happens on a second pass — this same path — where the
-            // pair is already fully open and the full-width page takes its place invisibly.
+            // widens back in Compose's layout pass over a fixed full-width Metal surface. The
+            // actual UIKit swap happens on a second pass where the pair is already fully open.
             splits.values
                 .firstOrNull { it.controller == navigationController.viewControllers.firstOrNull() }
-                ?.takeIf { it.controller.detailsOffset == 0.0 }
+                ?.takeIf { !it.controller.isSqueezing && it.controller.detailsOffset == 0.0 }
                 ?.let { rootSplit ->
-                    squeeze =
-                        PaneSqueeze(
-                            from = 0.0,
-                            to = rootSplit.controller.fullyOpenOffset,
-                            apply = { rootSplit.controller.detailsOffset = it },
-                            onEnd = {
-                                squeeze = null
-                                sync(destination)
-                            },
-                        )
-                    return
+                    val fullOpenOffset = rootSplit.controller.fullyOpenOffset
+                    if (fullOpenOffset > 0.0) {
+                        val listPage = rootSplit.list
+                        // Constrain Compose to LIST_PANE_WIDTH before expanding the UIView once
+                        // behind the opaque details pane, avoiding per-frame Metal resizes.
+                        listPage.squeezeWidthPt = LIST_PANE_WIDTH
+                        rootSplit.controller.beginSqueeze(offset = 0.0, layoutNow = true)
+                        lateinit var request: PaneSqueezeRequest
+                        request =
+                            PaneSqueezeRequest(
+                                destination = destination,
+                                from = 0.0,
+                                to = fullOpenOffset,
+                                isClosing = true,
+                                onTick = { offset ->
+                                    rootSplit.controller.updateSqueezeOffset(offset)
+                                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                                },
+                                onEnd = {
+                                    if (activeSqueeze?.second === request) activeSqueeze = null
+                                    rootSplit.controller.updateSqueezeOffset(fullOpenOffset)
+                                    listPage.squeezeWidthPt = Double.NaN
+                                    sync(destination)
+                                },
+                                onCancel = {
+                                    rootSplit.controller.updateSqueezeOffset(fullOpenOffset)
+                                    listPage.squeezeWidthPt = Double.NaN
+                                },
+                            )
+                        startSqueeze(listPage, request)
+                        return
+                    }
                 }
         }
         val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
+        val openingRootSplit =
+            onScreen && !needsRelayout && !wasRootSplit && isRootSplit && !UIAccessibilityIsReduceMotionEnabled()
+        val openingOffset =
+            if (openingRootSplit) {
+                navigationController.view.bounds.useContents { (size.width - LIST_PANE_WIDTH).coerceAtLeast(0.0) }
+            } else {
+                0.0
+            }
 
         syncing = true
         try {
@@ -648,6 +706,15 @@ private class NativeShell(
                             splits.getOrPut(pages[group.listIndex]) { Split(destination, pages[group.listIndex]) }.controller
                     }
                 }
+            if (openingRootSplit && openingOffset > 0.0) {
+                // Enter squeeze mode before UIKit lays out the newly mounted pair so the reused
+                // list controller never shrinks to 360pt and back to full width on frame zero.
+                val rootGroup = layout.first() as PaneGroup.Split
+                val listPage = pages[rootGroup.listIndex]
+                val rootSplit = splits.getValue(listPage)
+                listPage.squeezeWidthPt = LIST_PANE_WIDTH + openingOffset
+                rootSplit.controller.beginSqueeze(offset = openingOffset)
+            }
             navigationController.setViewControllers(controllers, animated = animated)
             layout.filterIsInstance<PaneGroup.Split>().forEach { group ->
                 val details = pages.subList(group.listIndex + 1, group.listIndex + 1 + group.detailCount)
@@ -660,27 +727,49 @@ private class NativeShell(
             syncing = false
         }
         (layout.firstOrNull() as? PaneGroup.Split)?.let { group ->
-            val rootSplit = splits.getValue(pages[group.listIndex])
+            val listPage = pages[group.listIndex]
+            val rootSplit = splits.getValue(listPage)
             when {
-                onScreen && !needsRelayout && !wasRootSplit && !UIAccessibilityIsReduceMotionEnabled() -> {
-                    // Frame one of the pair must look exactly like the page it replaces: laid out
-                    // fully open — list spanning the window, details just off the right edge —
-                    // then the incoming pane pushes the list into its column.
+                openingRootSplit && openingOffset > 0.0 -> {
+                    // Lay out the pair once with details shifted off the right edge and list still
+                    // spanning the window, then start the Compose-clock spring from that width.
                     navigationController.view.layoutIfNeeded()
-                    rootSplit.controller.detailsOffset = rootSplit.controller.fullyOpenOffset
-                    val from = rootSplit.controller.detailsOffset
-                    squeeze =
-                        PaneSqueeze(
-                            from = from,
-                            to = 0.0,
-                            apply = { rootSplit.controller.detailsOffset = it },
-                            onEnd = { squeeze = null },
-                        )
+                    val from = rootSplit.controller.fullyOpenOffset
+                    if (from > 0.0) {
+                        rootSplit.controller.updateSqueezeOffset(from)
+                        listPage.squeezeWidthPt = LIST_PANE_WIDTH + from
+                        lateinit var request: PaneSqueezeRequest
+                        request =
+                            PaneSqueezeRequest(
+                                destination = destination,
+                                from = from,
+                                to = 0.0,
+                                isClosing = false,
+                                onTick = { offset ->
+                                    rootSplit.controller.updateSqueezeOffset(offset)
+                                    listPage.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                                },
+                                onEnd = {
+                                    if (activeSqueeze?.second === request) activeSqueeze = null
+                                    listPage.squeezeWidthPt = Double.NaN
+                                    rootSplit.controller.endSqueeze()
+                                },
+                                onCancel = {
+                                    listPage.squeezeWidthPt = Double.NaN
+                                    rootSplit.controller.endSqueeze()
+                                },
+                            )
+                        startSqueeze(listPage, request)
+                    } else {
+                        listPage.squeezeWidthPt = Double.NaN
+                        rootSplit.controller.endSqueeze()
+                    }
                 }
 
-                rootSplit.controller.detailsOffset != 0.0 -> {
+                rootSplit.controller.isSqueezing || rootSplit.controller.detailsOffset != 0.0 -> {
                     // A pair that stayed the root through an interrupted collapse returns to rest.
-                    rootSplit.controller.detailsOffset = 0.0
+                    listPage.squeezeWidthPt = Double.NaN
+                    rootSplit.controller.endSqueeze()
                 }
             }
         }
@@ -706,6 +795,7 @@ private class NativeShell(
 
     private fun onSystemTabLayout(width: Double, height: Double, bottomBarHeight: Double?) {
         if (bottomBarHeight != null) fixedBottomBarHeight = bottomBarHeight.dp
+        if (width > 0.0 && height > 0.0) windowLandscape = width > height
         val expanded = isPad && supportsIosListDetail(width, height)
         if (expanded == listDetailExpanded) return
         listDetailExpanded = expanded
@@ -831,76 +921,85 @@ private class NativeShell(
         }
     }
 
-    /**
-     * The motion for a root-pane change the controllers cannot animate: rather than the swap —
-     * which stays instant, since UIKit cannot carry a view between containers mid-flight — a
-     * [CADisplayLink] ticks a critically damped spring that pushes the pair's details pane in
-     * from (or out to) the right edge while the list page re-lays out at each width. [finish]
-     * jumps to the end value and invalidates the link so no running link retains its target; the
-     * end callback is for natural completion only, so an interrupting sync never re-enters.
-     */
-    @OptIn(ExperimentalForeignApi::class)
-    private class PaneSqueeze(
-        private val from: Double,
-        private val to: Double,
-        private val apply: (Double) -> Unit,
-        private val onEnd: () -> Unit,
+    private fun startSqueeze(
+        page: Page,
+        request: PaneSqueezeRequest,
     ) {
-        private val target = SqueezeTarget(this)
-        private var link: CADisplayLink? = null
-        private var startTimestamp = Double.NaN
-        private var done = false
+        activeSqueeze = page to request
+        page.squeezeRequest = request
+    }
 
-        private class SqueezeTarget(
-            private val owner: PaneSqueeze,
-        ) : NSObject() {
-            @ObjCAction
-            fun tick(link: CADisplayLink) {
-                owner.tick(link)
-            }
+    private fun finishSqueeze() {
+        val (page, request) = activeSqueeze ?: return
+        activeSqueeze = null
+        if (!request.finished) {
+            request.finished = true
+            if (page.squeezeRequest === request) page.squeezeRequest = null
+            request.onCancel()
         }
+    }
 
-        init {
-            val link = CADisplayLink.displayLinkWithTarget(target, NSSelectorFromString("tick:"))
-            link.preferredFrameRateRange =
-                cValue<CAFrameRateRange> {
-                    minimum = 80.0f
-                    maximum = 120.0f
-                    preferred = 120.0f
+    private fun finishSqueezeForTabSwitch(newTab: TopLevelDestination) {
+        val current = activeSqueeze ?: return
+        if (current.second.destination == newTab) return
+        val closingDestination = current.second.destination.takeIf { current.second.isClosing }
+        finishSqueeze()
+        if (closingDestination != null) sync(closingDestination)
+    }
+
+    /**
+     * Request for a Compose-clock root-pane squeeze hosted on the list [Page].
+     *
+     * Running the spring inside the list page's Compose frame clock (`Animatable` / `withFrameNanos`)
+     * updates the list's layout width and the details pane's GPU transform in the same VSync
+     * transaction while keeping the list's `UIView` / `CAMetalLayer` at full width throughout.
+     */
+    private class PaneSqueezeRequest(
+        val destination: TopLevelDestination,
+        val from: Double,
+        val to: Double,
+        val isClosing: Boolean,
+        val onTick: (Double) -> Unit,
+        val onEnd: () -> Unit,
+        val onCancel: () -> Unit,
+    ) {
+        var finished = false
+    }
+
+    /**
+     * Isolated host for [PaneSqueezeRequest] so setting [Page.squeezeRequest] never recomposes
+     * the screen content beside it.
+     */
+    @Composable
+    private fun PaneSqueezeRunner(page: Page) {
+        val request = page.squeezeRequest ?: return
+        LaunchedEffect(request) {
+            if (request.finished) return@LaunchedEffect
+            // Critically damped spring, response 0.42s: ω = 2π / 0.42, stiffness = ω².
+            val omega = (2.0 * PI / 0.42).toFloat()
+            val animatable = Animatable(request.from.toFloat())
+            try {
+                animatable.animateTo(
+                    targetValue = request.to.toFloat(),
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = omega * omega,
+                        visibilityThreshold = 0.5f,
+                    ),
+                ) {
+                    if (!request.finished) {
+                        request.onTick(value.toDouble())
+                    }
                 }
-            link.addToRunLoop(NSRunLoop.mainRunLoop, NSRunLoopCommonModes)
-            this.link = link
-        }
-
-        private fun tick(link: CADisplayLink) {
-            if (done) return
-            if (startTimestamp.isNaN()) startTimestamp = link.timestamp
-            val t = link.timestamp - startTimestamp
-            // Critically damped spring, response 0.42s: p(t) = 1 − (1 + ωt)·e^(−ωt).
-            val w = 2.0 * PI / 0.42
-            val p = 1.0 - (1.0 + w * t) * exp(-w * t)
-            if (p > 0.999 || t >= 0.6) {
-                complete()
-            } else {
-                apply(from + (to - from) * p)
+                if (!request.finished) {
+                    request.finished = true
+                    request.onEnd()
+                }
+            } finally {
+                if (page.squeezeRequest === request) {
+                    page.squeezeRequest = null
+                }
             }
-        }
-
-        private fun complete() {
-            if (done) return
-            done = true
-            apply(to)
-            link?.invalidate()
-            link = null
-            onEnd()
-        }
-
-        fun finish() {
-            if (done) return
-            done = true
-            apply(to)
-            link?.invalidate()
-            link = null
         }
     }
 
@@ -1003,6 +1102,7 @@ private class NativeShell(
     }
 
     private fun selectTab(destination: TopLevelDestination) {
+        finishSqueezeForTabSwitch(destination)
         selectedTab = destination
         systemTabs.selectedIndex = destination.ordinal.toULong()
         updateTabBar()
@@ -1078,7 +1178,9 @@ private class NativeShell(
             tabBarController: UITabBarController,
             didSelectViewController: UIViewController,
         ) {
-            selectedTab = destinationOf(didSelectViewController) ?: return
+            val destination = destinationOf(didSelectViewController) ?: return
+            finishSqueezeForTabSwitch(destination)
+            selectedTab = destination
             updateTabBar()
             refreshActivePage()
         }
@@ -1258,6 +1360,7 @@ private val bottomBarSafeAreaOverlap: Dp
 @Composable
 private fun DeviceLocals(
     fixedBottomBarHeight: Dp?,
+    windowLandscape: Boolean? = null,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -1269,6 +1372,7 @@ private fun DeviceLocals(
             if (isPad) {
                 CompositionLocalProvider(
                     LocalIosPad provides true,
+                    LocalIosPadLandscape provides windowLandscape,
                     LocalOneHandMode provides false,
                     LocalOneHandModeAvailable provides false,
                     content = content,
