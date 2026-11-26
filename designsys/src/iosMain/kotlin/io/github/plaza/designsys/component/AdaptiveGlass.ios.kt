@@ -37,8 +37,10 @@ import platform.QuartzCore.kCACornerCurveContinuous
 import platform.UIKit.NSDirectionalRectEdgeLeading
 import platform.UIKit.NSDirectionalRectEdgeTrailing
 import platform.UIKit.NSLayoutConstraint
+import platform.UIKit.NSLineBreakByClipping
 import platform.UIKit.NSLineBreakByTruncatingTail
 import platform.UIKit.UIAccessibilityAnnouncementNotification
+import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 import platform.UIKit.UIAccessibilityPostNotification
 import platform.UIKit.UIAction
 import platform.UIKit.UIBarButtonItem
@@ -68,6 +70,7 @@ import platform.UIKit.UIStackView
 import platform.UIKit.UIStackViewAlignmentCenter
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
+import platform.UIKit.UIViewAnimationOptionCurveEaseOut
 import platform.UIKit.UIVisualEffectView
 import platform.UIKit.accessibilityLabel
 import platform.UIKit.labelColor
@@ -95,16 +98,18 @@ actual fun AdaptiveGlassButton(action: GlassAction, modifier: Modifier, fallback
     val scale = LocalPlazaFontScale.current
     val host = remember { NativeGlassButtonHost(action) }
     val remeasure = rememberUIKitInteropRemeasureRequester()
-    UIKitView(
-        factory = { host.view },
-        modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
-        properties = NativeGlassInterop,
-        update = {
-            host.update(action, accent.toUIColor(), dark, scale, prominentBackground.toUIColor())
-            remeasure.requestRemeasure()
-        },
-        onRelease = { host.dispose() },
-    )
+    AnimatedGlassSize(modifier = modifier) { sizeModifier ->
+        UIKitView(
+            factory = { host.view },
+            modifier = sizeModifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
+            properties = NativeGlassInterop,
+            update = {
+                host.update(action, accent.toUIColor(), dark, scale, prominentBackground.toUIColor())
+                remeasure.requestRemeasure()
+            },
+            onRelease = { host.dispose() },
+        )
+    }
 }
 
 @Composable
@@ -121,19 +126,22 @@ actual fun AdaptiveGlassToolbar(
     val dark = LocalPlazaDarkTheme.current
     val scale = LocalPlazaFontScale.current
     val host = remember(vertical) { NativeGlassToolbarHost(vertical) }
+    val accent = MaterialTheme.colorScheme.primary
     val foreground = MaterialTheme.colorScheme.onSurfaceVariant
     val surface = LocalPlazaLayers.current.raised.copy(alpha = if (dark) 0.50f else 0.65f)
     val remeasure = rememberUIKitInteropRemeasureRequester()
-    UIKitView(
-        factory = { host.view },
-        modifier = modifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
-        properties = NativeGlassInterop,
-        update = {
-            host.update(actions, foreground.toUIColor(), surface.toUIColor(), dark, scale)
-            remeasure.requestRemeasure()
-        },
-        onRelease = { host.dispose() },
-    )
+    AnimatedGlassSize(modifier = modifier) { sizeModifier ->
+        UIKitView(
+            factory = { host.view },
+            modifier = sizeModifier.remeasureRequester(remeasure).clipNativeToCompose(host.view),
+            properties = NativeGlassInterop,
+            update = {
+                host.update(actions, foreground.toUIColor(), accent.toUIColor(), surface, dark, scale)
+                remeasure.requestRemeasure()
+            },
+            onRelease = { host.dispose() },
+        )
+    }
 }
 
 @Composable
@@ -300,6 +308,13 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
     // The menu is the button's own, so it may only reach back to the button weakly.
     private val anchor = WeakReference<UIView>(view)
 
+    fun hasVisualChange(next: GlassAction): Boolean =
+        state.action.symbol != next.symbol ||
+            state.action.title != next.title ||
+            state.action.subtitle != next.subtitle ||
+            state.action.loading != next.loading ||
+            state.action.prominent != next.prominent
+
     fun dispose() {
         focus.restore()
         NativeMenuShield.lower()
@@ -319,7 +334,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
         view.enabled = action.enabled && !action.loading
         view.accessibilityLabel = action.label
         view.configuration = when {
-            grouped -> UIButtonConfiguration.plainButtonConfiguration()
+            grouped -> UIButtonConfiguration.plainButtonConfiguration().apply { baseForegroundColor = accent }
             else -> plaza_glass_button_configuration(action.prominent) ?: materialButtonConfiguration(action.prominent)
         }.apply {
             if (action.compact) buttonSize = UIButtonConfigurationSize.UIButtonConfigurationSizeSmall
@@ -345,7 +360,10 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
                     ) * scale,
                 weight = if (pullDown) platform.UIKit.UIImageSymbolWeightSemibold else platform.UIKit.UIImageSymbolWeightRegular,
             )
-            titleLineBreakMode = NSLineBreakByTruncatingTail
+            // Clip rather than ellipsis on icon+title prominent pills (e.g. PlazaExtendedFab) so
+            // expanding from a circle does not flash "..." mid-flight.
+            val expandingPill = !grouped && action.prominent && action.symbol != null && action.subtitle == null && action.menu.isEmpty()
+            titleLineBreakMode = if (expandingPill) NSLineBreakByClipping else NSLineBreakByTruncatingTail
             subtitleLineBreakMode = NSLineBreakByTruncatingTail
             titleAlignment = UIButtonConfigurationTitleAlignment.UIButtonConfigurationTitleAlignmentCenter
             imagePadding = 6.0
@@ -356,7 +374,7 @@ internal class NativeGlassButtonHost(initial: GlassAction, private val grouped: 
                         UIFontMetrics.defaultMetrics.scaledFontForFont(UIFont.systemFontOfSize(10.0 * scale))
                     )
             }
-            if (action.prominent) baseBackgroundColor = prominentBackground
+            if (!grouped && action.prominent) baseBackgroundColor = prominentBackground
             titleTextAttributesTransformer = { attributes ->
                 val font = if (action.compact) {
                     UIFont.systemFontOfSize(13.0 * scale, weight = platform.UIKit.UIFontWeightSemibold)
@@ -395,41 +413,118 @@ private class NativeGlassActionState(var action: GlassAction) {
         UIAction.actionWithHandler { if (action.enabled && !action.loading) action.onClick() }
 }
 
-private class NativeGlassToolbarHost(vertical: Boolean) {
+private class NativeGlassToolbarHost(private val vertical: Boolean) {
     val view = floatingMaterialView(interactive = true, maximumRadius = 0.0)
     private val stack = UIStackView().apply {
         axis = if (vertical) UILayoutConstraintAxisVertical else UILayoutConstraintAxisHorizontal
         spacing = 0.0
     }
     private val buttons = mutableListOf<NativeGlassButtonHost>()
+    private val transientOverlays = mutableListOf<UIView>()
+    private var hasUpdated = false
+    private var lastEffectKey: Pair<Boolean, Color>? = null
 
     init {
+        view.contentView.clipsToBounds = true
         // UIToolbar only lays out horizontally. A UIStackView inside the official glass effect is
         // needed for the vertical page rail; remove this host if UIKit adds a vertical toolbar.
-        pin(stack, view.contentView, 4.0)
+        pinToolbarStack(stack, view.contentView, inset = 4.0, vertical = vertical)
     }
 
-    fun update(actions: List<GlassAction>, foreground: UIColor, surface: UIColor, dark: Boolean, scale: Float) {
+    fun update(
+        actions: List<GlassAction>,
+        foreground: UIColor,
+        accent: UIColor,
+        surface: Color,
+        dark: Boolean,
+        scale: Float,
+    ) {
         view.overrideUserInterfaceStyle = interfaceStyle(dark)
-        plaza_glass_effect(true, surface)?.let { view.effect = it }
+        // Reassigning a fresh UIGlassEffect on every update restarts iOS 26's materialization
+        // animation and makes the glass capsule blink mid-morph. Only swap when appearance changes.
+        val effectKey = dark to surface
+        if (lastEffectKey != effectKey) {
+            lastEffectKey = effectKey
+            plaza_glass_effect(true, surface.toUIColor())?.let { view.effect = it }
+        }
+        val animate = hasUpdated && view.window != null && !UIAccessibilityIsReduceMotionEnabled()
+        hasUpdated = true
+
         while (buttons.size > actions.size) {
             val host = buttons.removeAt(buttons.lastIndex)
+            if (animate) fadeOutGhost(host.view)
             host.dispose()
             stack.removeArrangedSubview(host.view)
             host.view.removeFromSuperview()
         }
         actions.forEachIndexed { index, action ->
-            val host = buttons.getOrNull(index) ?: NativeGlassButtonHost(action, grouped = true).also {
-                buttons += it
-                stack.addArrangedSubview(it.view)
-                it.view.heightAnchor.constraintGreaterThanOrEqualToConstant(44.0).active = true
-                it.view.widthAnchor.constraintGreaterThanOrEqualToConstant(44.0).active = true
+            val tint = if (action.prominent) accent else foreground
+            val existing = buttons.getOrNull(index)
+            if (existing == null) {
+                val created = NativeGlassButtonHost(action, grouped = true).also {
+                    buttons += it
+                    stack.addArrangedSubview(it.view)
+                    val minExtent = if (index == 0) PRIMARY_TOOLBAR_BUTTON_SIZE else SECONDARY_TOOLBAR_BUTTON_SIZE
+                    it.view.heightAnchor.constraintGreaterThanOrEqualToConstant(minExtent).active = true
+                    it.view.widthAnchor.constraintGreaterThanOrEqualToConstant(minExtent).active = true
+                    it.view.setContentCompressionResistancePriority(
+                        UILayoutPriorityRequired,
+                        forAxis = if (vertical) UILayoutConstraintAxisVertical else UILayoutConstraintAxisHorizontal,
+                    )
+                }
+                created.update(action, tint, dark, scale)
+                if (animate) {
+                    created.view.alpha = 0.0
+                    UIView.animateWithDuration(
+                        duration = TOOLBAR_FADE_IN_SECONDS,
+                        delay = 0.0,
+                        options = UIViewAnimationOptionCurveEaseOut,
+                        animations = { created.view.alpha = 1.0 },
+                        completion = null,
+                    )
+                }
+            } else {
+                val crossFade = animate && existing.hasVisualChange(action)
+                if (crossFade) fadeOutGhost(existing.view)
+                existing.update(action, tint, dark, scale)
+                if (crossFade) {
+                    existing.view.alpha = 0.0
+                    UIView.animateWithDuration(
+                        duration = TOOLBAR_CROSS_FADE_SECONDS,
+                        delay = 0.0,
+                        options = UIViewAnimationOptionCurveEaseOut,
+                        animations = { existing.view.alpha = 1.0 },
+                        completion = null,
+                    )
+                }
             }
-            host.update(action, foreground, dark, scale)
         }
     }
 
-    fun dispose() = buttons.forEach { it.dispose() }
+    private fun fadeOutGhost(sourceView: UIView) {
+        val snapshot = sourceView.snapshotViewAfterScreenUpdates(false) ?: return
+        val frameInContent = view.contentView.convertRect(sourceView.frame, fromView = stack)
+        snapshot.userInteractionEnabled = false
+        snapshot.setFrame(frameInContent)
+        view.contentView.addSubview(snapshot)
+        transientOverlays += snapshot
+        UIView.animateWithDuration(
+            duration = TOOLBAR_FADE_OUT_SECONDS,
+            delay = 0.0,
+            options = UIViewAnimationOptionCurveEaseOut,
+            animations = { snapshot.alpha = 0.0 },
+            completion = {
+                snapshot.removeFromSuperview()
+                transientOverlays.remove(snapshot)
+            },
+        )
+    }
+
+    fun dispose() {
+        transientOverlays.forEach { it.removeFromSuperview() }
+        transientOverlays.clear()
+        buttons.forEach { it.dispose() }
+    }
 }
 
 private class NativeGlassNoticeHost {
@@ -553,6 +648,25 @@ private fun pin(child: UIView, parent: UIView, inset: Double) {
     )
 }
 
+/**
+ * Pins the toolbar stack inside [parent] while giving the trailing axis edge high-but-breakable
+ * priority so mid-flight spring contraction clips smoothly instead of squashing buttons.
+ */
+private fun pinToolbarStack(child: UIView, parent: UIView, inset: Double, vertical: Boolean) {
+    parent.addSubview(child)
+    child.translatesAutoresizingMaskIntoConstraints = false
+    val leading = child.leadingAnchor.constraintEqualToAnchor(parent.leadingAnchor, constant = inset)
+    val trailing = child.trailingAnchor.constraintEqualToAnchor(parent.trailingAnchor, constant = -inset)
+    val top = child.topAnchor.constraintEqualToAnchor(parent.topAnchor, constant = inset)
+    val bottom = child.bottomAnchor.constraintEqualToAnchor(parent.bottomAnchor, constant = -inset)
+    if (vertical) {
+        bottom.priority = TOOLBAR_TRAILING_PRIORITY
+    } else {
+        trailing.priority = TOOLBAR_TRAILING_PRIORITY
+    }
+    NSLayoutConstraint.activateConstraints(listOf(leading, trailing, top, bottom))
+}
+
 private fun GlassAction.barItem(
     anchor: WeakReference<UIView>? = null,
     current: () -> GlassAction?,
@@ -587,6 +701,12 @@ private fun GlassMenuAction.uiAction(onSelect: () -> Unit): UIAction =
     }
 
 private const val BADGE_SIZE = 8.0
+private const val PRIMARY_TOOLBAR_BUTTON_SIZE = 48.0
+private const val SECONDARY_TOOLBAR_BUTTON_SIZE = 44.0
+private const val TOOLBAR_TRAILING_PRIORITY = 750f // UILayoutPriorityDefaultHigh
+private const val TOOLBAR_FADE_IN_SECONDS = 0.22
+private const val TOOLBAR_FADE_OUT_SECONDS = 0.16
+private const val TOOLBAR_CROSS_FADE_SECONDS = 0.18
 
 internal fun Color.toUIColor(): UIColor = UIColor(red = red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = alpha.toDouble())
 

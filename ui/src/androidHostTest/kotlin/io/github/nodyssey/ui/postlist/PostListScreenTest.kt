@@ -8,6 +8,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyDescendant
@@ -970,6 +971,27 @@ class PostListScreenTest {
             assertEquals(0, listState.firstVisibleItemScrollOffset)
         }
         composeRule.onNodeWithContentDescription("刷新").assertDoesNotExist()
+    }
+
+    @Test
+    fun `collapsed refresh stays interactive and shows no spinner during background refresh`() {
+        var requested: Int? = null
+        setScreen(
+            posts = (1..40).map { feedPost(1000L + it, "post $it", page = 40) },
+            refresh = LoadState.Loading,
+            state = pagedState(startPage = 40),
+            onGoToPage = { requested = it },
+        )
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithContentDescription("刷新")
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
+
+        composeRule.runOnIdle { assertEquals(1, requested) }
     }
 
     @Test

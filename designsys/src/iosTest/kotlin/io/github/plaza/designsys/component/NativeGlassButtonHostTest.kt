@@ -7,6 +7,8 @@ import platform.UIKit.UIControlEventPrimaryActionTriggered
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Reusing UIKit controls must not retain the factory's account or publish an operation twice.
@@ -43,5 +45,19 @@ class NativeGlassButtonHostTest {
         host.update(ready, UIColor.blueColor, dark = false, scale = 1f)
         host.view.sendActionsForControlEvents(UIControlEventPrimaryActionTriggered)
         assertEquals(2, published)
+    }
+
+    @Test
+    fun `grouped prominent action keeps plain toolbar background while reporting visual swaps`() {
+        val page = GlassAction("Page", {}, title = "1", subtitle = "/ 10")
+        val refresh = GlassAction("Refresh", {}, symbol = "arrow.clockwise", prominent = true)
+        val host = NativeGlassButtonHost(page, grouped = true)
+        host.update(page, UIColor.grayColor, dark = false, scale = 1f)
+
+        assertTrue(host.hasVisualChange(refresh))
+        host.update(refresh, UIColor.blueColor, dark = false, scale = 1f)
+
+        assertFalse(host.hasVisualChange(refresh))
+        assertNull(host.view.configuration?.baseBackgroundColor)
     }
 }
