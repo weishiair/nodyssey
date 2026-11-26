@@ -1130,7 +1130,7 @@ data class ReplyAuthorInfo(val level: Int?, val joinedDays: Int?)
 
 /** The counter must never turn original floor 121 into filtered reply 3, or invent missing totals. */
 internal fun PostDetailUiState.readerLastFloor(): Int? {
-    val loaded = lastFloorNumber(comments)
+    val loaded = lastFloorNumber(comments.filterIndexed { index, _ -> !isCrossPageHotCopy(index) })
     val known = lastFloor ?: replyCount.takeUnless { onlyAuthor }
     return when {
         known != null -> maxOf(known, loaded)
@@ -1139,41 +1139,54 @@ internal fun PostDetailUiState.readerLastFloor(): Int? {
     }
 }
 
+private fun PostDetailUiState.sourcePage(index: Int): Int =
+    commentSourcePages.getOrNull(index) ?: commentPages.getOrNull(index) ?: firstLoadedPage
+
+internal fun PostDetailUiState.isFeaturedReply(index: Int): Boolean =
+    !onlyAuthor && comments[index].isHot && sourcePage(index) == 1
+
+/** A later floor featured on page 1 can also appear at its original position on a loaded page. */
+internal fun PostDetailUiState.isCrossPageHotCopy(index: Int): Boolean {
+    val comment = comments[index]
+    return comment.isHot && !comment.isPinned && sourcePage(index) == 1 &&
+        (NodeSeekSite.parseFloorNumber(comment.floor) ?: 0) > NodeSeekSite.COMMENTS_PER_PAGE
+}
+
+/** Ordinary rows retain their keys when the original page joins the reading window. */
+internal fun PostDetailUiState.commentKey(index: Int): Any {
+    val comment = comments[index]
+    val key = comment.commentId ?: comment.floor?.let { "floor:$it" } ?: "unlabelled:$index"
+    return if (isCrossPageHotCopy(index)) "hot:$key" else key
+}
+
 /**
- * The site's DOM can put later floors ahead of earlier ones. Order the reading view numerically,
- * including cached replies, while carrying each reply's source page through the same permutation.
- *
- * 置顶 is the one exception: the site draws a pinned floor above the rest of the page, so it keeps
- * that place and the numeric order picks up after it.
+ * Keep pinned replies first, then the site's featured replies in the order page 1 sent them.
+ * The rest of the thread reads in floor order with the page each reply arrived on.
  */
 internal fun PostDetailUiState.readingView(): PostDetailUiState {
-    val ordered =
-        comments.indices.sortedWith(
-            compareBy(
-                { if (comments[it].isPinned) 0 else 1 },
-                { NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE },
-            ),
-        )
     val unique =
-        ordered.distinctBy { original ->
-            val comment = comments[original]
-            comment.commentId?.let { "comment:$it" }
-                ?: comment.floor?.let { "floor:$it" }
-                // A reply with neither id nor floor cannot be compared safely with another one.
-                ?: "position:$original"
-        }
+        comments.indices
+            .filterNot { onlyAuthor && isCrossPageHotCopy(it) }
+            .sortedWith(
+                compareBy(
+                    { if (comments[it].isPinned) 0 else 1 },
+                    { if (isFeaturedReply(it)) 0 else 1 },
+                    { if (isFeaturedReply(it)) it else NodeSeekSite.parseFloorNumber(comments[it].floor) ?: Int.MAX_VALUE },
+                ),
+            )
+            .distinctBy(::commentKey)
     if (!onlyAuthor) {
-        if (unique.withIndex().all { (index, original) -> index == original }) return this
+        if (unique.size == comments.size && unique.withIndex().all { (index, original) -> index == original }) return this
         return copy(
             comments = unique.map(comments::get),
-            commentPages = unique.map { commentPages.getOrNull(it) ?: firstLoadedPage },
+            commentPages = unique.map(::sourcePage),
         )
     }
     val matching = unique.filter { comments[it].isOriginalPoster || (body?.authorUid != null && comments[it].authorUid == body.authorUid) }
     val pages = ((matching.size + NodeSeekSite.COMMENTS_PER_PAGE - 1) / NodeSeekSite.COMMENTS_PER_PAGE).coerceAtLeast(1)
     return copy(
         comments = matching.map(comments::get),
-        commentSourcePages = matching.map { commentPages.getOrNull(it) ?: firstLoadedPage },
+        commentSourcePages = matching.map(::sourcePage),
         commentPages = matching.indices.map { it / NodeSeekSite.COMMENTS_PER_PAGE + 1 },
         firstLoadedPage = 1,
         lastLoadedPage = pages,

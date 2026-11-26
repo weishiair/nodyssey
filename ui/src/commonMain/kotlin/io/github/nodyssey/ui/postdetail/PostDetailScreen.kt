@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ThumbUp
@@ -57,6 +58,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.WavyProgressIndicatorDefaults
@@ -166,6 +170,7 @@ import io.github.nodyssey.ui.resources.post_author_scan
 import io.github.nodyssey.ui.resources.post_author_scan_retry
 import io.github.nodyssey.ui.resources.post_auto_paging
 import io.github.nodyssey.ui.resources.post_badge_awarded
+import io.github.nodyssey.ui.resources.post_badge_hot
 import io.github.nodyssey.ui.resources.post_badge_original_poster
 import io.github.nodyssey.ui.resources.post_badge_pinned
 import io.github.nodyssey.ui.resources.post_body_copied
@@ -208,7 +213,6 @@ import io.github.nodyssey.ui.resources.post_reply_to
 import io.github.nodyssey.ui.resources.post_share_image
 import io.github.nodyssey.ui.resources.post_share_image_failed
 import io.github.nodyssey.ui.resources.post_share_image_generating
-import io.github.nodyssey.ui.resources.post_sort_ascending
 import io.github.nodyssey.ui.resources.post_title_copied
 import io.github.nodyssey.ui.resources.post_track_full
 import io.github.nodyssey.ui.resources.post_track_thread
@@ -232,6 +236,8 @@ import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
 import io.github.plaza.designsys.component.AdaptivePullToRefreshIndicator
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
+import io.github.plaza.designsys.component.BadgeChip
+import io.github.plaza.designsys.component.BadgeTone
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.GroupedListItem
@@ -613,7 +619,7 @@ fun PostDetailScreen(
     LaunchedEffect(state.firstLoadedPage, state.error) {
         val anchor = prependAnchor ?: return@LaunchedEffect
         if (state.firstLoadedPage < anchor.page) {
-            val index = state.comments.indices.firstOrNull { state.comments[it].lazyKey(it) == anchor.key }
+            val index = state.comments.indices.firstOrNull { state.commentKey(it) == anchor.key }
             if (index != null && state.pendingScroll == null) {
                 listState.requestScrollToItem(state.headerItemCount + index, -anchor.offset)
             }
@@ -680,7 +686,7 @@ fun PostDetailScreen(
         // The floor when the site named one and it is on the page; otherwise the page's own start.
         // A floor can be missing from the page it was computed for — it was deleted, or the thread
         // was renumbered under it — and landing on the right page beats not moving at all.
-        val index = target.floor?.let { state.indexAtOrAfterFloor(it) }
+        val index = target.floor?.let { state.indexAtOrAfterFloor(it, target.page) }
             ?: state.firstIndexOfPage(target.page)
             ?: (state.headerItemCount + state.comments.size - 1).coerceAtLeast(0)
         listState.scrollToItem(index)
@@ -732,11 +738,11 @@ fun PostDetailScreen(
             state.isRefreshing ||
             state.isRefreshingTail
     val lastFloor = state.readerLastFloor()
-    val readingItemKeys = remember(state.comments, state.isAppending, state.showReadingEnd) {
+    val readingItemKeys = remember(state.comments, state.commentPages, state.commentSourcePages, state.firstLoadedPage, state.isAppending, state.showReadingEnd) {
         buildList<Any> {
             add("body")
             add("comments-header")
-            state.comments.forEachIndexed { index, comment -> add(comment.lazyKey(index)) }
+            state.comments.indices.forEach { add(state.commentKey(it)) }
             if (state.isAppending) {
                 add("appending")
             } else if (state.showReadingEnd) {
@@ -1611,7 +1617,7 @@ private fun ThreadList(
 
         itemsIndexed(
             items = state.comments,
-            key = { index, comment -> comment.lazyKey(index) },
+            key = { index, _ -> state.commentKey(index) },
         ) { index, comment ->
             // The site page this floor came from, which is the only page whose `__config__` carries
             // its Markdown. Read from the index rather than derived from the floor number: the list
@@ -1727,14 +1733,14 @@ private fun BlockAware(
     } else if (original) {
         Column(Modifier.fillMaxWidth()) {
             Box(Modifier.padding(horizontal = OriginalFloorInset, vertical = Spacing.sm)) {
-                BlockedFloorRow(floor = content.floor, onShow = { openedHere = true })
+                BlockedFloorRow(floor = content.floor, isHot = content.isHot, onShow = { openedHere = true })
             }
             HorizontalDivider(color = LocalPlazaLayers.current.divider.copy(alpha = 0.5f))
         }
     } else {
         // A row like the floor it stands in for, but a slim one: it is a line, not a post.
         FloorRow(verticalPadding = 0.dp) {
-            BlockedFloorRow(floor = content.floor, onShow = { openedHere = true })
+            BlockedFloorRow(floor = content.floor, isHot = content.isHot, onShow = { openedHere = true })
         }
     }
 }
@@ -1743,6 +1749,7 @@ private fun BlockAware(
 private fun BlockedFloorRow(
     floor: String?,
     onShow: () -> Unit,
+    isHot: Boolean = false,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1755,6 +1762,7 @@ private fun BlockedFloorRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp),
         )
+        if (isHot) HotReplyBadge()
         Text(
             text = floor?.let { "$it · " }.orEmpty() + stringResource(Res.string.post_comment_blocked),
             style = MaterialTheme.typography.labelMedium,
@@ -2316,7 +2324,8 @@ private fun CommentsHeader(
         val plus = if (state.onlyAuthor && (state.isScanningAuthor || state.authorScanError != null)) "+" else ""
         val title =
             if (original) {
-                stringResource(Res.string.post_comments_header, state.replyCount ?: state.comments.size) + plus
+                val count = state.replyCount ?: state.comments.indices.count { !state.isCrossPageHotCopy(it) }
+                stringResource(Res.string.post_comments_header, count) + plus
             } else {
                 stringResource(if (state.onlyAuthor) Res.string.post_author_replies else Res.string.post_all_replies) +
                     state.replyCount?.let { " $it" }.orEmpty() + plus
@@ -2330,36 +2339,34 @@ private fun CommentsHeader(
                 MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
             },
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToggleButton(
+                checked = state.onlyAuthor,
+                onCheckedChange = { onToggleOnlyAuthor() },
+                buttonSize = ToggleButtonSize.ExtraSmall,
+                icon = {
+                    if (state.onlyAuthor) PlazaIcon(Icons.Default.Check, contentDescription = null)
+                },
+                colors = ToggleButtonDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    checkedContainerColor = Color.Transparent,
+                    checkedContentColor = MaterialTheme.colorScheme.primary,
+                ),
+                elevation = null,
+                contentPadding = PaddingValues(horizontal = Spacing.xs),
+            ) {
+                Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelMedium)
+            }
             if (original) {
-                // The official header is one compact line: a small 只看楼主 and 自动续页, not the
-                // 1.3.4 row's 48dp TextButton and static sort label.
-                Text(
-                    text = stringResource(Res.string.post_only_author),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                        .clickable(onClick = onToggleOnlyAuthor)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                )
                 Text(
                     text = stringResource(Res.string.post_auto_paging),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 8.dp),
                 )
-            } else {
-                TextButton(
-                    onClick = onToggleOnlyAuthor,
-                    shape = CircleShape,
-                    colors = ButtonDefaults.textButtonColors(containerColor = if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, contentColor = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
-                    contentPadding = PaddingValues(horizontal = 8.dp),
-                ) {
-                    Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelSmall)
-                }
-                Text(stringResource(Res.string.post_sort_ascending), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -3432,7 +3439,7 @@ private val ACCOUNT_LEVEL_BADGE = Regex("Lv\\.?\\s*\\d+", RegexOption.IGNORE_CAS
 internal fun PostDetailUiState.visibleReplyAuthorUids(keys: Set<Any>): Set<Long> =
     comments.withIndex().mapNotNull { (index, comment) ->
         comment.authorUid?.takeIf {
-            it > 0 && comment.lazyKey(index) in keys && (!comment.isBlocked || showBlockedContent)
+            it > 0 && commentKey(index) in keys && (!comment.isBlocked || showBlockedContent)
         }
     }.toSet()
 
@@ -3545,7 +3552,7 @@ private fun List<InlineNode>.plainText(): String = joinToString("") { inline ->
 }
 
 /**
- * The floor's number, with the pin a 置顶 floor wears ahead of it.
+ * The floor number and any labels NodeSeek placed next to it.
  *
  * The site draws only the glyph — an `svg` with `title="置顶"` — so the word travels as the icon's
  * accessible name here: "2楼" on its own neither reads nor looks pinned.
@@ -3565,6 +3572,7 @@ internal fun FloorLabel(content: PostContent) {
                 modifier = Modifier.size(12.dp),
             )
         }
+        if (content.isHot) HotReplyBadge()
         Text(
             text = stringResource(Res.string.post_floor_number, floor.removePrefix("#")),
             style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = TABULAR_FIGURES),
@@ -3573,12 +3581,19 @@ internal fun FloorLabel(content: PostContent) {
     }
 }
 
+@Composable
+private fun HotReplyBadge() {
+    val label = stringResource(Res.string.post_badge_hot)
+    BadgeChip(
+        text = "HOT",
+        tone = BadgeTone.Caution,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = label },
+    )
+}
+
 private const val THREAD_HEADER_ITEMS = 2
 
 private data class PrependAnchor(val page: Int, val key: Any, val offset: Int)
-
-/** A floor without a comment id still needs a key that survives insertion of earlier pages. */
-private fun PostContent.lazyKey(index: Int): Any = commentId ?: floor?.let { "floor:$it" } ?: "unlabelled:$index"
 
 /**
  * The title/opening item and the comments header exist even on a page without an opening post.
@@ -3609,12 +3624,14 @@ private val PostDetailUiState.showReadingEnd: Boolean
  */
 private fun PostDetailUiState.startsNewReplies(index: Int): Boolean {
     val first = firstNewFloor ?: return false
+    if (isFeaturedReply(index)) return false
     val number = NodeSeekSite.parseFloorNumber(comments[index].floor) ?: return false
     if (number < first) return false
-    val previous = comments.getOrNull(index - 1)?.let { NodeSeekSite.parseFloorNumber(it.floor) }
+    val previousIndex = (index - 1 downTo 0).firstOrNull { !isFeaturedReply(it) }
+    val previous = previousIndex?.let { NodeSeekSite.parseFloorNumber(comments[it].floor) }
     // The top of a window that starts mid-thread: only where the new floors begin, not wherever a
     // jump happened to land among them.
-    if (previous == null) return index == 0 && NodeSeekSite.pageOfFloor(first) == NodeSeekSite.pageOfFloor(number)
+    if (previous == null) return previousIndex == null && NodeSeekSite.pageOfFloor(first) == NodeSeekSite.pageOfFloor(number)
     return previous < first
 }
 
@@ -3659,20 +3676,28 @@ private fun NewRepliesDivider() {
 }
 
 /** A deleted floor lands on the next surviving reply instead of the start of its server page. */
-private fun PostDetailUiState.indexAtOrAfterFloor(floor: String): Int? {
+private fun PostDetailUiState.indexAtOrAfterFloor(floor: String, page: Int): Int? {
     val number = NodeSeekSite.parseFloorNumber(floor) ?: return null
     if (number == 0) return 0.takeIf { firstLoadedPage == 1 && !onlyAuthor }
-    val exact = indexOfFloor(floor)
+    val exact = indexOfFloor(floor, page)
     if (exact != null) return exact
-    val next = comments.indexOfFirst { (NodeSeekSite.parseFloorNumber(it.floor) ?: -1) >= number }
-    return if (next >= 0) headerItemCount + next else null
+    val next = comments.indices.asSequence()
+        .filter { !isCrossPageHotCopy(it) && (commentPages.getOrNull(it) ?: firstLoadedPage) >= page }
+        .mapNotNull { index ->
+            val nextFloor = NodeSeekSite.parseFloorNumber(comments[index].floor)
+            nextFloor?.takeIf { it >= number }?.let { index to it }
+        }
+        .minByOrNull { it.second }
+    return next?.first?.plus(headerItemCount)
 }
 
 /** Mirrors [ThreadList]'s item order so a quote reference can scroll to the floor it points at. */
-private fun PostDetailUiState.indexOfFloor(floor: String): Int? {
-    val position = comments.indexOfFirst { it.floor == floor }
-    if (position < 0) return null
-    return headerItemCount + position
+private fun PostDetailUiState.indexOfFloor(floor: String, page: Int? = null): Int? {
+    val matching = comments.indices.asSequence().filter { comments[it].floor == floor }
+    val position = page?.let { matching.firstOrNull { index -> (commentPages.getOrNull(index) ?: firstLoadedPage) == it } }
+        ?: matching.firstOrNull { !isCrossPageHotCopy(it) }
+        ?: if (page == null) matching.firstOrNull() else null
+    return position?.plus(headerItemCount)
 }
 
 /**

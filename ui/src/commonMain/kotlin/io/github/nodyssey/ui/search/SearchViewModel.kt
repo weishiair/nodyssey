@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.Board
 import io.github.nodyssey.data.CategoryRepository
 import io.github.nodyssey.data.FeedPost
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -179,6 +181,8 @@ class SearchViewModel(
         executeSearch(query = typed, historyEntry = _uiState.value.historyEntryFor(typed))
     }
 
+    fun consumePostLink(): NodeSeekSite.InternalRoute.Post? = _uiState.getAndUpdate { it.copy(postToOpen = null) }.postToOpen
+
     fun selectHistory(entry: SearchHistoryEntry) {
         query.setTextAndPlaceCursorAtEnd(entry.query)
         _uiState.update {
@@ -256,6 +260,11 @@ class SearchViewModel(
         // The box is trimmed to what was actually searched, the way it used to be when the UiState
         // held the text — otherwise a stray space stays visible next to results that ignored it.
         if (this.query.text.toString() != normalized) this.query.setTextAndPlaceCursorAtEnd(normalized)
+        searchPostLink(normalized)?.let { post ->
+            pendingQuery = null
+            _uiState.update { it.copy(postToOpen = post) }
+            return
+        }
         userJob?.cancel()
         _uiState.update {
             it.copy(
@@ -416,7 +425,11 @@ data class SearchUiState(
      */
     val showSearchAvatar: Boolean = true,
     val searchAvatarSize: Int = SettingsRepository.DEFAULT_SEARCH_AVATAR_DP,
+    val postToOpen: NodeSeekSite.InternalRoute.Post? = null,
 )
+
+internal fun searchPostLink(query: String): NodeSeekSite.InternalRoute.Post? =
+    NodeSeekSite.parseInternalRoute(query.trim()) as? NodeSeekSite.InternalRoute.Post
 
 /** `/search` reads the boards' own `sortBy`, and reads it as 新帖子 when it is absent. */
 internal val DefaultSearchSort = FeedSort.POST_TIME

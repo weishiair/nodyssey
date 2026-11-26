@@ -91,6 +91,7 @@
     <string name="post_last_reply_by">%1$s 最后回复于 %2$s</string>
     <string name="post_view_count">%1$d 浏览</string>
     <string name="post_badge_pinned">置顶</string>
+    <string name="post_badge_hot">热评</string>
     <!-- 加精: the site labels its own marker 推荐阅读, so the a11y label says the same thing -->
     <string name="post_badge_awarded">推荐阅读</string>
     <string name="post_badge_locked">已锁帖</string>
@@ -268,7 +269,8 @@
     <string name="tab_profile">我的</string>
 
     <!-- Search: authenticated remote results and condition-aware local history -->
-    <string name="search_hint">搜索帖子</string>
+    <string name="search_hint">搜索帖子或粘贴链接</string>
+    <string name="search_open_post_link">打开帖子</string>
     <!-- 首页顶部的搜索框占位：点它进搜索页，帖子和用户都能搜。 -->
     <string name="home_search_hint">搜索帖子或用户</string>
     <string name="search_hint_board">在 %1$s 版块搜帖子</string>
@@ -1203,6 +1205,7 @@
     <string name="viewer_page">%1$d / %2$d</string>
     <!-- 查看器底部的手势提示（8g） -->
     <string name="viewer_gesture_hint">双击放大 · 下拉关闭</string>
+    <string name="viewer_zoom_hint">双击或双指缩放</string>
     <string name="viewer_save">保存</string>
     <string name="viewer_saved">已保存到相册</string>
     <string name="viewer_save_failed">保存失败，稍后再试</string>
@@ -2002,7 +2005,6 @@
     <string name="post_only_author">只看楼主</string>
     <string name="post_author_replies">楼主回复</string>
     <string name="post_all_replies">全部回复</string>
-    <string name="post_sort_ascending">↕ 正序</string>
     <string name="post_author_scan">正在查找楼主回复 · 已检查 %1$d / %2$d 页</string>
     <string name="post_author_scan_retry">加载未完成，点此重试</string>
     <string name="post_author_empty">暂无楼主回复</string>

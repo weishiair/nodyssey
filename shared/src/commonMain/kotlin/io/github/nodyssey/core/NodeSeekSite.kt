@@ -565,11 +565,11 @@ object NodeSeekSite {
      * or post link typed before the site enforced HTTPS survives as a literal `http://` anchor and
      * must still resolve internally instead of falling through to the browser.
      */
-    private fun isOwnSiteUrl(url: String): Boolean =
-        parseWebUrl(url)?.let { parsed ->
+    private fun parseOwnSiteUrl(url: String): WebUrl? =
+        parseWebUrl(url)?.takeIf { parsed ->
             (parsed.scheme == "https" || parsed.scheme == "http") &&
                 parsed.host?.lowercase() in OWN_SITE_HOSTS
-        } == true
+        }
 
     /** Ordinary links leave the app and are accepted only when they are normal web URLs. */
     fun isExternalWebUrl(url: String): Boolean =
@@ -629,10 +629,11 @@ object NodeSeekSite {
     private val TELEGRAM_OAUTH_HOSTS = setOf("oauth.telegram.org")
 
     /** Extracts the post id (and page, when present) from `/post-703863-2`. */
-    fun parsePostRoute(href: String?): PostRoute? {
-        val match = POST_PATH.find(href.orEmpty()) ?: return null
-        val id = match.groupValues[1].toLongOrNull() ?: return null
-        val page = match.groupValues[2].toIntOrNull() ?: 1
+    fun parsePostRoute(href: String?): PostRoute? = POST_PATH.find(href.orEmpty())?.toPostRoute()
+
+    private fun MatchResult.toPostRoute(): PostRoute? {
+        val id = groupValues[1].toLongOrNull() ?: return null
+        val page = groupValues[2].toIntOrNull() ?: 1
         return PostRoute(id, page)
     }
 
@@ -674,10 +675,12 @@ object NodeSeekSite {
 
     /** Classifies a clicked link: an in-app destination when it is one of ours, null for the browser. */
     fun parseInternalRoute(url: String): InternalRoute? {
-        if (!isOwnSiteUrl(url)) return null
+        val parsed = parseOwnSiteUrl(url) ?: return null
         val unwrapped = unwrapJumpUrl(url)
         if (unwrapped != url) return parseInternalRoute(unwrapped)
-        parsePostRoute(url)?.let { return InternalRoute.Post(it.postId, it.page) }
+        POST_PATH.matchEntire(parsed.path.orEmpty().trimEnd('/'))?.toPostRoute()?.let {
+            return InternalRoute.Post(it.postId, it.page)
+        }
         parseUid(url)?.let { return InternalRoute.Space(it) }
         parseMemberName(url)?.let { return InternalRoute.Member(it) }
         return parseNotificationRoute(url)

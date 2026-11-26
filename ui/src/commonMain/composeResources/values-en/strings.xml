@@ -90,6 +90,7 @@
     <string name="post_last_reply_by">Last reply by %1$s, %2$s</string>
     <string name="post_view_count">%1$d views</string>
     <string name="post_badge_pinned">Pinned</string>
+    <string name="post_badge_hot">Top comment</string>
     <string name="post_badge_awarded">Recommended</string>
     <string name="post_badge_locked">Locked</string>
     <string name="post_badge_locked_level">Level %1$d and up</string>
@@ -224,7 +225,8 @@
     <string name="tab_notifications">Alerts</string>
     <string name="tab_profile">Me</string>
 
-    <string name="search_hint">Search posts</string>
+    <string name="search_hint">Search posts or paste a link</string>
+    <string name="search_open_post_link">Open post</string>
     <string name="home_search_hint">Search posts or users</string>
     <string name="search_hint_board">Search posts in %1$s</string>
     <string name="search_user_hint">Search usernames</string>
@@ -995,6 +997,7 @@
     <string name="viewer_save">Save</string>
 
     <string name="viewer_gesture_hint">Double-tap to zoom · Swipe down to close</string>
+    <string name="viewer_zoom_hint">Double-tap or pinch to zoom</string>
     <string name="viewer_saved">Saved to the gallery</string>
     <string name="viewer_save_failed">Could not save — try again later</string>
     <string name="viewer_save_unsupported">Below Android 10 the gallery cannot be written without a permission; Share it to another app instead</string>
@@ -1714,7 +1717,6 @@
     <string name="post_only_author">Author only</string>
     <string name="post_author_replies">Author replies</string>
     <string name="post_all_replies">All replies</string>
-    <string name="post_sort_ascending">↕ Oldest</string>
     <string name="post_author_scan">Finding author replies · %1$d / %2$d pages checked</string>
     <string name="post_author_scan_retry">Loading incomplete. Tap to retry</string>
     <string name="post_author_empty">No author replies</string>

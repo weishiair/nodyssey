@@ -183,6 +183,8 @@ data class PostContent(
     val isPinned: Boolean = false,
     /** The page's signed-in account owns the thread and may pin this reply (never the opening post). */
     val canPin: Boolean = false,
+    /** NodeSeek featured this reply on the page that supplied it. */
+    val isHot: Boolean = false,
 )
 
 /**

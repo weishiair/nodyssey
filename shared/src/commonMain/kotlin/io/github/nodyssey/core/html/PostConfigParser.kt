@@ -39,6 +39,8 @@ internal data class PostConfig(
      * renders the pin in the markup, and [PostDetailParser] reads that as its second source.
      */
     val pinnedCommentIds: Set<Long> = emptySet(),
+    /** Missing entries leave the answer to the page's hot badge. */
+    val hotByCommentId: Map<Long, Boolean> = emptyMap(),
     /**
      * When each floor was last edited, per the blob's `comments[].time`.
      *
@@ -102,6 +104,7 @@ internal object PostConfigParser {
         val blocked = mutableSetOf<Long>()
         val own = mutableSetOf<Long>()
         val pinned = mutableSetOf<Long>()
+        val hot = mutableMapOf<Long, Boolean>()
         val edited = mutableMapOf<Long, FloorEditTime>()
         // Absent on a reshaped page, which costs the tallies but must not cost the thread-level
         // state sitting next to them — hence a loop over nothing rather than an early return.
@@ -121,6 +124,7 @@ internal object PostConfigParser {
             // `pined`, one n — the wire's own spelling. A site-side rename would cost only this
             // source: the markup carries the same pin, and [PostDetailParser] reads that too.
             if (comment.bool("pined")) pinned += commentId
+            (comment["hot"] as? JsonPrimitive)?.booleanOrNull?.let { hot[commentId] = it }
             // Safe cast, not `jsonObject`: that accessor throws on a reshaped `poster`, and this
             // loop is inside the pass that must not cost the page its tallies.
             if ((comment["poster"] as? JsonObject)?.bool("isMe") == true) own += commentId
@@ -132,6 +136,7 @@ internal object PostConfigParser {
             blockedCommentIds = blocked,
             ownCommentIds = own,
             pinnedCommentIds = pinned,
+            hotByCommentId = hot,
             editedTimes = edited,
             // Thread-level, so they sit on `postData` itself rather than inside `comments`.
             collected = postData.boolOrNull("collected"),

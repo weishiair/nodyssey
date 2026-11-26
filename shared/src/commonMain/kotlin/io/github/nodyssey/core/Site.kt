@@ -69,7 +69,7 @@ enum class Site(
      *
      * Kept apart from [hosts] because the two answer different questions. This widens only
      * [NodeSeekSite.isTrustedWebViewUrl] — where the web view may go. It must not widen
-     * `isOwnSiteUrl`: a nodeseek.com link *inside a DeepFlood post* is a link to another forum, and
+     * `parseOwnSiteUrl`: a nodeseek.com link *inside a DeepFlood post* is a link to another forum, and
      * opening it as an internal route would show a thread from the wrong site under the wrong ids.
      */
     val signInProviderHosts: Set<String> = emptySet(),

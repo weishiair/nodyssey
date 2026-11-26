@@ -56,6 +56,7 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -131,6 +132,7 @@ import io.github.nodyssey.ui.resources.search_history_empty
 import io.github.nodyssey.ui.resources.search_history_scope
 import io.github.nodyssey.ui.resources.search_in_board
 import io.github.nodyssey.ui.resources.search_load_more_failed
+import io.github.nodyssey.ui.resources.search_open_post_link
 import io.github.nodyssey.ui.resources.search_posts_tab
 import io.github.nodyssey.ui.resources.search_recent
 import io.github.nodyssey.ui.resources.search_recent_boards
@@ -169,6 +171,7 @@ fun SearchRoute(
     viewModel: SearchViewModel,
     threadOrigin: String,
     onPostClick: (FeedPost) -> Unit,
+    onOpenPostLink: (NodeSeekSite.InternalRoute.Post) -> Unit,
     onUserClick: (Long) -> Unit,
     onBack: () -> Unit,
     onSignIn: () -> Unit,
@@ -178,6 +181,9 @@ fun SearchRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val postResults = viewModel.postResults.collectAsLazyPagingItems()
+    LaunchedEffect(state.postToOpen) {
+        if (state.postToOpen != null) viewModel.consumePostLink()?.let(onOpenPostLink)
+    }
     SearchScreen(
         state = state,
         postResults = postResults,
@@ -251,6 +257,13 @@ fun SearchScreen(
 ) {
     var showOptionsSheet by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val canOpenPostLink by remember(queryState) {
+        derivedStateOf { searchPostLink(queryState.text.toString()) != null }
+    }
+    val submitSearch: () -> Unit = {
+        focusManager.clearFocus()
+        onSearch()
+    }
 
     /*
      * The chrome above the results folds away as they scroll, which on a phone is the difference
@@ -312,14 +325,12 @@ fun SearchScreen(
                     queryState = queryState,
                     placeholder = searchPlaceholder(state),
                     onBack = onBack,
-                    // Arriving with nothing searched yet means arriving to type; arriving back on a
-                    // result list does not, and a keyboard over the results would only hide them.
-                    autoFocus = state.submittedQuery == null,
-                    onSearch = onSearch,
+                    autoFocus = state.submittedQuery == null && !canOpenPostLink,
+                    onSearch = submitSearch,
                     // The users tab has no scope to set — the site matches a name fragment and
                     // returns the lot — so there is nothing for the button to open there.
                     onOpenOptions =
-                    if (state.target == SearchTarget.POSTS) {
+                    if (state.target == SearchTarget.POSTS && !canOpenPostLink) {
                         {
                             focusManager.clearFocus()
                             showOptionsSheet = true
@@ -330,7 +341,11 @@ fun SearchScreen(
                     optionsActive = state.hasCustomOptions,
                 )
 
-                if (resultPager == null) {
+                if (canOpenPostLink) {
+                    TextButton(onClick = submitSearch, modifier = Modifier.align(Alignment.End).padding(end = Spacing.md)) {
+                        Text(stringResource(Res.string.search_open_post_link))
+                    }
+                } else if (resultPager == null) {
                     TargetSwitch(selected = state.target, onTargetChange = onTargetChange)
                 } else {
                     ResultTabs(state = state, currentPage = resultPager.currentPage, onTargetChange = onTargetChange)
@@ -442,7 +457,6 @@ private fun SearchInputRow(
     onBack: (() -> Unit)? = null,
 ) {
     val focusRequester = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
     val layers = LocalPlazaLayers.current
     val searchLabel = stringResource(Res.string.action_search)
 
@@ -466,11 +480,7 @@ private fun SearchInputRow(
         TextField(
             state = queryState,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            onKeyboardAction = {
-                onSearch()
-                // The results are what was asked for; the keyboard would cover four of them.
-                focusManager.clearFocus()
-            },
+            onKeyboardAction = { onSearch() },
             lineLimits = TextFieldLineLimits.SingleLine,
             modifier =
             Modifier

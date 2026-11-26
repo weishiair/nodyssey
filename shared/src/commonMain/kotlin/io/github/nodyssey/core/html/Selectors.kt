@@ -114,6 +114,7 @@ object Selectors {
      * same way the blob's `pined` field is, and is matched as written.
      */
     const val CONTENT_PINNED_BADGE = "div.floor-link-wrapper svg.pined-comment-badge"
+    const val CONTENT_HOT_BADGE = "div.floor-link-wrapper .hot-badge"
 
     const val CONTENT_ARTICLE = "article.post-content"
     const val CONTENT_SIGNATURE = "div.signature"
