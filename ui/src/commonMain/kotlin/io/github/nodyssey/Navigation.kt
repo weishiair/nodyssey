@@ -22,6 +22,7 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
+import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
@@ -271,13 +272,18 @@ fun MainNavigation(
     }
 
     val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
-    val paneDirective = remember(windowAdaptiveInfo, navigationSettings.padLayoutMode) {
+    val windowSize = LocalWindowInfo.current.containerSize
+    val isLandscape = windowSize.width > windowSize.height
+    val paneDirective = remember(windowAdaptiveInfo, isLandscape, navigationSettings.padLayoutMode) {
         resolvePaneDirective(
             base = calculatePaneScaffoldDirective(windowAdaptiveInfo).copy(horizontalPartitionSpacerSize = 0.dp),
+            isLandscape = isLandscape,
             layoutMode = navigationSettings.padLayoutMode,
         )
     }
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
+    val shouldHandleSinglePaneLayout = shouldHandleSinglePaneInListDetail(paneDirective)
+    val listDetailBackBehavior = listDetailBackNavigationBehavior(paneDirective)
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
     val currentPredictiveBack by rememberUpdatedState(navigationSettings.predictiveBack)
     val layers = LocalPlazaLayers.current
@@ -291,7 +297,11 @@ fun MainNavigation(
     val bottomBarClearance = LocalBottomBarPosition.current.bottomBarClearance
     val currentBottomBarClearance by rememberUpdatedState(if (useFloatingBottomBar) bottomBarClearance else 0.dp)
     val listDetailSceneStrategy =
-        rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
+        rememberListDetailSceneStrategy<NavKey>(
+            shouldHandleSinglePaneLayout = shouldHandleSinglePaneLayout,
+            backNavigationBehavior = listDetailBackBehavior,
+            directive = paneDirective,
+        )
 
     // The bar belongs to the top-level destinations only. A thread, the image viewer and the web
     // view are full-screen by design — showing a tab bar under them would invite leaving mid-read.
@@ -731,7 +741,7 @@ fun MainNavigation(
                         eink = eink,
                         sceneStrategies = listOf(listDetailSceneStrategy),
                         sharedTransitionScope = this@SharedTransitionLayout,
-                        sharedThreadTransitions = !isListDetailExpanded,
+                        sharedThreadTransitions = !isListDetailExpanded && !shouldHandleSinglePaneLayout,
                         onBack = navigateBack,
                     )
                 }
@@ -939,17 +949,43 @@ internal fun EmptyDetailPane(text: StringResource) {
 }
 
 /**
- * Applies the user's tablet layout choice to [base]: [PadLayoutMode.SINGLE] collapses a wide
- * multi-pane directive down to a single full-window partition.
+ * Applies window orientation and the user's tablet layout choice to [base].
+ *
+ * Wide portrait tablets collapse to a single partition just like iPad (`supportsIosListDetail`),
+ * unless a physical separating vertical hinge already divides the window into two halves.
+ * [PadLayoutMode.SINGLE] always collapses multi-pane directives down to a single partition while
+ * preserving [PaneScaffoldDirective.excludedBounds] for hinge avoidance.
  */
 internal fun resolvePaneDirective(
     base: PaneScaffoldDirective,
+    isLandscape: Boolean,
     layoutMode: PadLayoutMode,
 ): PaneScaffoldDirective =
-    if (layoutMode == PadLayoutMode.SINGLE) {
-        base.copy(maxHorizontalPartitions = 1)
+    when {
+        layoutMode == PadLayoutMode.SINGLE -> base.copy(maxHorizontalPartitions = 1)
+        !isLandscape && base.excludedBounds.isEmpty() -> base.copy(maxHorizontalPartitions = 1)
+        else -> base
+    }
+
+/**
+ * Keeps single-pane scenes inside `ListDetailSceneStrategy` when [directive] carries physical
+ * hinge exclusion bounds so the single pane avoids the gap, while leaving ordinary single-screen
+ * devices on `SinglePaneSceneStrategy` to keep slide transitions and shared-element thread flights.
+ */
+internal fun shouldHandleSinglePaneInListDetail(directive: PaneScaffoldDirective): Boolean =
+    directive.excludedBounds.isNotEmpty()
+
+/**
+ * Single-pane scenes handled by `ListDetailSceneStrategy` (for hinge avoidance) pop one entry at a
+ * time so nested detail pushes (e.g. thread -> linked thread) do not skip straight back to the list
+ * under `PopUntilScaffoldValueChange`.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+internal fun listDetailBackNavigationBehavior(directive: PaneScaffoldDirective): BackNavigationBehavior =
+    if (directive.maxHorizontalPartitions <= 1) {
+        BackNavigationBehavior.PopLatest
     } else {
-        base
+        BackNavigationBehavior.PopUntilScaffoldValueChange
     }
 
 /**
