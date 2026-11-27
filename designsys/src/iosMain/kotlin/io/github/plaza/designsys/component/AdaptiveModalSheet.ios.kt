@@ -48,6 +48,7 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaExtraColors
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.LocalReadableWidthSpec
 import io.github.plaza.designsys.theme.nativeControls
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -104,6 +105,7 @@ actual fun AdaptiveModalSheet(
     val imageLongPress = LocalImageLongPress.current
     val richTextAppearance = LocalRichTextAppearance.current
     val stickerSizing = LocalStickerSizing.current
+    val readableWidthSpec = LocalReadableWidthSpec.current
     val uriHandler = LocalUriHandler.current
     val sheetColor = containerColor ?: layers.page
 
@@ -128,6 +130,7 @@ actual fun AdaptiveModalSheet(
     val latestImageLongPress by rememberUpdatedState(imageLongPress)
     val latestRichTextAppearance by rememberUpdatedState(richTextAppearance)
     val latestStickerSizing by rememberUpdatedState(stickerSizing)
+    val latestReadableWidthSpec by rememberUpdatedState(readableWidthSpec)
     val latestUriHandler by rememberUpdatedState(uriHandler)
     val latestSheetColor by rememberUpdatedState(sheetColor)
     val latestFitContent by rememberUpdatedState(fitContent)
@@ -176,6 +179,7 @@ actual fun AdaptiveModalSheet(
                         LocalImageLongPress provides latestImageLongPress,
                         LocalRichTextAppearance provides latestRichTextAppearance,
                         LocalStickerSizing provides latestStickerSizing,
+                        LocalReadableWidthSpec provides latestReadableWidthSpec,
                         LocalUriHandler provides latestUriHandler,
                     ) {
                         Surface(

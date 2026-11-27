@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -52,11 +50,11 @@ import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
-import io.github.plaza.designsys.theme.Sizes
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.glassFrostedBar
+import io.github.plaza.designsys.theme.readableWidth
 import kotlin.math.roundToInt
 
 /**
@@ -235,12 +233,10 @@ fun OneHandTopAppBar(
             Row(
                 modifier =
                 Modifier
-                    .fillMaxWidth()
                     // Over the page's own column: every screen under this bar holds its content to
                     // the readable width, and on a tablet a back arrow and actions out at the
                     // window's corners sat a hand's width outside it. See [ReadableTopBar].
-                    .wrapContentWidth(Alignment.CenterHorizontally)
-                    .widthIn(max = Sizes.readableContentWidth)
+                    .readableWidth()
                     .height(CollapsedHeight)
                     .padding(horizontal = ToolbarEdgePadding),
                 verticalAlignment = Alignment.CenterVertically,

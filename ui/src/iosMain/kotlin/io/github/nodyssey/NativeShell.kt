@@ -67,6 +67,7 @@ import io.github.nodyssey.ui.common.LocalIosPadSqueezing
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
 import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.common.clipboardPostToOffer
+import io.github.nodyssey.ui.common.iosPadReadableWidthSpec
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
 import io.github.nodyssey.ui.composer.PendingComposerShare
 import io.github.nodyssey.ui.navigation.PaneGroup
@@ -75,7 +76,7 @@ import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
-import io.github.nodyssey.ui.navigation.supportsIosListDetail
+import io.github.nodyssey.ui.navigation.resolvesIosListDetail
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
 import io.github.nodyssey.ui.postlist.HomeFeedStates
@@ -94,6 +95,7 @@ import io.github.plaza.core.runCatchingExceptCancellation
 import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.LocalReadableWidthSpec
 import io.github.plaza.designsys.theme.nativeGlassAvailable
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCSignatureOverride
@@ -305,6 +307,8 @@ private class NativeShell(
 
     private var listDetailExpanded by mutableStateOf(false)
     private var windowLandscape by mutableStateOf<Boolean?>(null)
+    private var windowWidth = 0.0
+    private var windowHeight = 0.0
 
     // The system tab bar's height, measured after layout; the reading controls share its band.
     private var fixedBottomBarHeight by mutableStateOf<Dp?>(49.dp)
@@ -501,6 +505,9 @@ private class NativeShell(
         /** Active Compose-clock squeeze hosted on this page, if any. */
         var squeezeRequest by mutableStateOf<PaneSqueezeRequest?>(null)
 
+        /** Whether this page is currently hosted inside a side-by-side [Split] rather than full-window. */
+        var inSplit by mutableStateOf(false)
+
         /** Set once the page has left its navigation stack so its Compose tree and UIKitViews tear down. */
         var released by mutableStateOf(false)
     }
@@ -532,7 +539,7 @@ private class NativeShell(
             ) {
                 if (!state.released) {
                     NodysseyChrome(container, settings) {
-                        DeviceLocals(fixedBottomBarHeight, windowLandscape) {
+                        DeviceLocals(fixedBottomBarHeight, windowLandscape, inSplit = state.inSplit) {
                             CompositionLocalProvider(
                                 // The page's own store rather than the controller's default one, so that a
                                 // view model lives exactly as long as its entry is on the stack — see
@@ -757,6 +764,7 @@ private class NativeShell(
         try {
             groups[destination] = layout
             drawnExpanded[destination] = listDetailExpanded
+            updatePageSplitStates(pages, layout)
             // A page goes into its new container only once it has left the old one: UIKit will not
             // give a controller two parents. Pairs no longer drawn give their pages back first.
             val lists = layout.filterIsInstance<PaneGroup.Split>().map { pages[it.listIndex] }.toSet()
@@ -785,7 +793,9 @@ private class NativeShell(
                 listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + openingOffset
                 rootSplit.controller.beginSqueeze(offset = openingOffset)
             }
-            navigationController.setViewControllers(controllers, animated = animated)
+            if (navigationController.viewControllers != controllers) {
+                navigationController.setViewControllers(controllers, animated = animated)
+            }
             layout.filterIsInstance<PaneGroup.Split>().forEach { group ->
                 val details = pages.subList(group.listIndex + 1, group.listIndex + 1 + group.detailCount)
                 splits.getValue(pages[group.listIndex]).show(
@@ -852,8 +862,16 @@ private class NativeShell(
 
     private fun onSystemTabLayout(width: Double, height: Double, bottomBarHeight: Double?) {
         if (bottomBarHeight != null) fixedBottomBarHeight = bottomBarHeight.dp
-        if (width > 0.0 && height > 0.0) windowLandscape = width > height
-        val expanded = isPad && supportsIosListDetail(width, height)
+        if (width > 0.0 && height > 0.0) {
+            windowWidth = width
+            windowHeight = height
+            windowLandscape = width > height
+        }
+        refreshListDetailExpanded()
+    }
+
+    private fun refreshListDetailExpanded() {
+        val expanded = resolvesIosListDetail(isPad, windowWidth, windowHeight, settings.padLayoutMode)
         if (expanded == listDetailExpanded) return
         listDetailExpanded = expanded
         TopLevelDestination.entries.forEach { sync(it, relayout = true) }
@@ -873,7 +891,9 @@ private class NativeShell(
         val dropped = mirror.platformPopped(remaining, stack)
         if (dropped == 0) return
         // settle reconciles navigation deferred during the pop against these surviving pages.
-        groups[destination] = paneGroups(mirror.views.map { it.key }, drawnExpanded.getValue(destination), ::paneKindOf)
+        val updatedGroups = paneGroups(mirror.views.map { it.key }, drawnExpanded.getValue(destination), ::paneKindOf)
+        groups[destination] = updatedGroups
+        updatePageSplitStates(mirror.views, updatedGroups)
         val splits = splits.getValue(destination)
         val views = mirror.views.toSet()
         splits.keys.filter { it !in views }.forEach { splits.remove(it)?.empty() }
@@ -895,7 +915,7 @@ private class NativeShell(
         val text = emptyDetailTextOf(listKey)
         return ComposeUIViewController {
             NodysseyChrome(container, settings) {
-                DeviceLocals(fixedBottomBarHeight, windowLandscape) {
+                DeviceLocals(fixedBottomBarHeight, windowLandscape, inSplit = true) {
                     // On the page colour, as every screen's `Scaffold` is; Android's pane scaffold
                     // paints it there, and here nothing else would.
                     Box(Modifier.fillMaxSize().background(LocalPlazaLayers.current.page)) {
@@ -1175,6 +1195,24 @@ private class NativeShell(
         }
     }
 
+    private fun updatePageSplitStates(
+        pages: List<Page>,
+        layout: List<PaneGroup>,
+    ) {
+        layout.forEach { group ->
+            when (group) {
+                is PaneGroup.Single -> pages.getOrNull(group.index)?.state?.inSplit = false
+
+                is PaneGroup.Split -> {
+                    pages.getOrNull(group.listIndex)?.state?.inSplit = true
+                    for (offset in 1..group.detailCount) {
+                        pages.getOrNull(group.listIndex + offset)?.state?.inSplit = true
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * Clears the view models of every page that has left its stack.
      *
@@ -1196,6 +1234,7 @@ private class NativeShell(
         scope.launch {
             container.settingsRepository.settings.collect { latest ->
                 settings = latest
+                refreshListDetailExpanded()
                 // The bars UIKit draws follow the app's own light/dark answer, not only the OS's, the
                 // way `NodysseyRoot` makes the status bar follow it on Android.
                 root.overrideUserInterfaceStyle =
@@ -1232,7 +1271,7 @@ private class NativeShell(
         val controller =
             ComposeUIViewController {
                 NodysseyChrome(container, settings) {
-                    DeviceLocals(fixedBottomBarHeight) {
+                    DeviceLocals(fixedBottomBarHeight, windowLandscape) {
                         OnboardingScreen(
                             onFinish = { scope.launch { container.settingsRepository.setOnboardingSeen(true) } },
                             appLinksEnabled = rememberAppLinkHandlingEnabled(),
@@ -1547,6 +1586,7 @@ private val bottomBarSafeAreaOverlap: Dp
 private fun DeviceLocals(
     fixedBottomBarHeight: Dp?,
     windowLandscape: Boolean? = null,
+    inSplit: Boolean = false,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -1559,6 +1599,11 @@ private fun DeviceLocals(
                 CompositionLocalProvider(
                     LocalIosPad provides true,
                     LocalIosPadLandscape provides windowLandscape,
+                    LocalReadableWidthSpec provides iosPadReadableWidthSpec(
+                        isIosPad = true,
+                        inSplit = inSplit,
+                        windowLandscape = windowLandscape,
+                    ),
                     LocalOneHandMode provides false,
                     LocalOneHandModeAvailable provides false,
                     content = content,

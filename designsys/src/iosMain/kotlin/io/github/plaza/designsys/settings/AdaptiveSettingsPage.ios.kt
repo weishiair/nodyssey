@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
@@ -28,6 +29,8 @@ import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaFontScale
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.LocalReadableWidthSpec
+import io.github.plaza.designsys.theme.ReadableWidthSpec
 import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.readValue
 import kotlinx.cinterop.useContents
@@ -42,6 +45,7 @@ import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSValue
 import platform.Foundation.setValue
 import platform.UIKit.CGRectValue
+import platform.UIKit.NSDirectionalEdgeInsetsMake
 import platform.UIKit.NSFontAttributeName
 import platform.UIKit.NSForegroundColorAttributeName
 import platform.UIKit.NSLayoutConstraint
@@ -115,6 +119,7 @@ import platform.UIKit.UITextFieldDelegateProtocol
 import platform.UIKit.UITextFieldViewMode
 import platform.UIKit.UIView
 import platform.UIKit.UIViewContentMode
+import platform.UIKit.UIVisualEffectView
 import platform.UIKit.labelColor
 import platform.UIKit.row
 import platform.UIKit.secondaryLabelColor
@@ -123,6 +128,7 @@ import platform.UIKit.systemRedColor
 import platform.UIKit.tertiaryLabelColor
 import platform.darwin.NSInteger
 import platform.darwin.NSObject
+import kotlin.math.abs
 
 // One view for the whole page, under the Compose canvas (not `placedAsOverlay`), so that whatever the
 // shell draws over a page — the clipboard offer, the update reminder — still lands on top of it.
@@ -167,6 +173,7 @@ actual fun AdaptiveSettingsPage(
             scale = LocalPlazaFontScale.current.toDouble(),
             largeText = largeText,
         )
+    val readableSpec = LocalReadableWidthSpec.current
     val host = remember { NativeSettingsPageHost() }
     UIKitView(
         factory = { host.view },
@@ -177,12 +184,12 @@ actual fun AdaptiveSettingsPage(
             .background(pageColor)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
         properties = SettingsPageInterop,
-        update = { host.update(page, onBack, palette) },
+        update = { host.update(page, onBack, palette, readableSpec) },
         onRelease = { host.dispose() },
     )
 }
 
-private data class NativeSettingsPalette(
+internal data class NativeSettingsPalette(
     val page: UIColor,
     val card: UIColor,
     val accent: UIColor,
@@ -219,27 +226,36 @@ private class NativeSettingsState {
     fun row(indexPath: NSIndexPath): NativeSettingsRow = sections[indexPath.section.toInt()].rows[indexPath.row.toInt()]
 }
 
-private class NativeSettingsView : UIView(frame = CGRectZero.readValue()) {
+internal class NativeSettingsView : UIView(frame = CGRectZero.readValue()) {
+    var onBeforeLayout: (() -> Unit)? = null
     var onLayout: (() -> Unit)? = null
 
     override fun layoutSubviews() {
+        onBeforeLayout?.invoke()
         super.layoutSubviews()
         onLayout?.invoke()
     }
 }
 
-private class NativeSettingsPageHost {
+internal class NativeSettingsPageHost {
     val view = NativeSettingsView()
     private val state = NativeSettingsState()
     private val source = NativeSettingsSource(state)
     private val barDelegate = NativeSettingsBarDelegate(state)
-    private val bar = UINavigationBar()
-    private val table = UITableView(frame = CGRectZero.readValue(), style = UITableViewStyle.UITableViewStyleInsetGrouped)
+    internal val barBackdrop = UIVisualEffectView(effect = null)
+    internal val bar = UINavigationBar()
+    internal val table = UITableView(frame = CGRectZero.readValue(), style = UITableViewStyle.UITableViewStyleInsetGrouped)
     private val titleItem = UINavigationItem(title = "")
     private val rows = mutableMapOf<String, NativeSettingsRow>()
     private val focus = NativeMenuFocus()
+    private val barLeadingConstraint = bar.leadingAnchor.constraintEqualToAnchor(view.leadingAnchor)
+    private val barTrailingConstraint = bar.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor)
+    private val tableLeadingConstraint = table.leadingAnchor.constraintEqualToAnchor(view.leadingAnchor)
+    private val tableTrailingConstraint = table.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor)
+    private val defaultTableMargins = table.directionalLayoutMargins
     private var shape: List<SettingsSectionShape>? = null
     private var palette: NativeSettingsPalette? = null
+    private var readableSpec: ReadableWidthSpec = ReadableWidthSpec.Default
     private var showRowIcons = false
     private var scrolled = false
     private var keyboardObserver: Any? = null
@@ -255,21 +271,29 @@ private class NativeSettingsPageHost {
         table.delegate = source
         table.cellLayoutMarginsFollowReadableWidth = true
         state.onScroll = ::onScroll
+        barBackdrop.userInteractionEnabled = false
         view.addSubview(table)
+        view.addSubview(barBackdrop)
         view.addSubview(bar)
+        barBackdrop.translatesAutoresizingMaskIntoConstraints = false
         bar.translatesAutoresizingMaskIntoConstraints = false
         table.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activateConstraints(
             listOf(
+                barBackdrop.topAnchor.constraintEqualToAnchor(view.topAnchor),
+                barBackdrop.leadingAnchor.constraintEqualToAnchor(view.leadingAnchor),
+                barBackdrop.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor),
+                barBackdrop.bottomAnchor.constraintEqualToAnchor(bar.bottomAnchor),
                 bar.topAnchor.constraintEqualToAnchor(view.safeAreaLayoutGuide.topAnchor),
-                bar.leadingAnchor.constraintEqualToAnchor(view.leadingAnchor),
-                bar.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor),
+                barLeadingConstraint,
+                barTrailingConstraint,
                 table.topAnchor.constraintEqualToAnchor(bar.topAnchor),
-                table.leadingAnchor.constraintEqualToAnchor(view.leadingAnchor),
-                table.trailingAnchor.constraintEqualToAnchor(view.trailingAnchor),
+                tableLeadingConstraint,
+                tableTrailingConstraint,
                 table.bottomAnchor.constraintEqualToAnchor(view.bottomAnchor),
             ),
         )
+        view.onBeforeLayout = { updateColumnInsets(requestLayout = false) }
         view.onLayout = ::updateTopInset
         keyboardObserver =
             NSNotificationCenter.defaultCenter.addObserverForName(
@@ -289,8 +313,17 @@ private class NativeSettingsPageHost {
             }
     }
 
-    fun update(page: SettingsPage, onBack: () -> Unit, palette: NativeSettingsPalette) {
+    fun update(
+        page: SettingsPage,
+        onBack: () -> Unit,
+        palette: NativeSettingsPalette,
+        readableSpec: ReadableWidthSpec,
+    ) {
         state.onBack = onBack
+        if (readableSpec != this.readableSpec) {
+            this.readableSpec = readableSpec
+            updateColumnInsets(requestLayout = true)
+        }
         if (palette.largeText != this.palette?.largeText || page.showRowIconsOnIos != showRowIcons) {
             // Text size and leading icons determine the layout of rows with custom controls.
             showRowIcons = page.showRowIconsOnIos
@@ -358,6 +391,7 @@ private class NativeSettingsPageHost {
     }
 
     fun dispose() {
+        view.onBeforeLayout = null
         view.onLayout = null
         state.onScroll = {}
         keyboardObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
@@ -368,6 +402,45 @@ private class NativeSettingsPageHost {
         bar.delegate = null
         rows.clear()
         state.sections = emptyList()
+    }
+
+    private fun updateColumnInsets(requestLayout: Boolean) {
+        val (width, height) = view.bounds.useContents { size.width to size.height }
+        if (width <= 0.0 || height <= 0.0) return
+        val (safeLeft, safeRight) = view.safeAreaInsets.useContents { left to right }
+        val safeWidth = (width - safeLeft - safeRight).coerceAtLeast(0.0)
+        val targetWidth = readableSpec.resolveWidth(safeWidth.dp, height.dp).value.toDouble()
+        val side = ((safeWidth - targetWidth) / 2.0).coerceAtLeast(0.0)
+        val centered = side > 0.5
+        val leading = if (centered) safeLeft + side else 0.0
+        val trailing = if (centered) -(safeRight + side) else 0.0
+        val followReadable = !centered
+        var changed = false
+        if (abs(barLeadingConstraint.constant - leading) > 0.5) {
+            barLeadingConstraint.constant = leading
+            tableLeadingConstraint.constant = leading
+            changed = true
+        }
+        if (abs(barTrailingConstraint.constant - trailing) > 0.5) {
+            barTrailingConstraint.constant = trailing
+            tableTrailingConstraint.constant = trailing
+            changed = true
+        }
+        if (table.cellLayoutMarginsFollowReadableWidth != followReadable) {
+            table.cellLayoutMarginsFollowReadableWidth = followReadable
+            table.preservesSuperviewLayoutMargins = followReadable
+            // Inset-grouped sections lose their rounded corners when superview margins shrink to
+            // zero inside an inset frame; restore the standard 16pt gutter to match Compose cards.
+            table.directionalLayoutMargins =
+                if (centered) {
+                    NSDirectionalEdgeInsetsMake(0.0, CENTERED_TABLE_GUTTER, 0.0, CENTERED_TABLE_GUTTER)
+                } else {
+                    defaultTableMargins
+                }
+            table.setNeedsLayout()
+            changed = true
+        }
+        if (changed && requestLayout) view.setNeedsLayout()
     }
 
     private fun updateTopInset() {
@@ -394,13 +467,16 @@ private class NativeSettingsPageHost {
 
     private fun applyBarAppearance() {
         val palette = palette ?: return
+        barBackdrop.effect =
+            if (scrolled) {
+                // Full-width chrome material so the bar stays centred over the column without a blur seam.
+                UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemChromeMaterial)
+            } else {
+                null
+            }
         val appearance =
             UINavigationBarAppearance().apply {
                 configureWithTransparentBackground()
-                if (scrolled) {
-                    // A standalone bar has no navigation controller to apply the scroll-edge effect.
-                    backgroundEffect = UIBlurEffect.effectWithStyle(UIBlurEffectStyle.UIBlurEffectStyleSystemChromeMaterial)
-                }
                 titleTextAttributes =
                     mapOf(
                         NSFontAttributeName to palette.font(17.0, semibold = true),
@@ -414,6 +490,7 @@ private class NativeSettingsPageHost {
 
 /** The widest a pop-up answer may grow beside its question, before the in-app text size. */
 private const val PICKER_MAX_WIDTH = 170.0
+private const val CENTERED_TABLE_GUTTER = 16.0
 private const val ROW_ICON_SIZE = 22.0
 private const val ROW_ICON_SPACING = 12.0
 

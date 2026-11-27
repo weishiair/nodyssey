@@ -43,6 +43,7 @@ import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.paddingWithKeyboard
 import io.github.plaza.designsys.theme.readableWidth
@@ -67,11 +68,17 @@ internal fun EmailSignInScreen(
         modifier = modifier,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(title = {}, navigationIcon = {
-                IconButton(onClick = onBack, enabled = !state.isSubmitting) {
-                    PlazaIcon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                }
-            })
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = onBack, enabled = !state.isSubmitting) {
+                            PlazaIcon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
+                        }
+                    },
+                )
+            }
         },
     ) { padding ->
         Column(

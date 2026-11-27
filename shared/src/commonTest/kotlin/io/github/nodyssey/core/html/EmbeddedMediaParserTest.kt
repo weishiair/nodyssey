@@ -75,6 +75,48 @@ class EmbeddedMediaParserTest {
     }
 
     @Test
+    fun `floor 4 of post 1081071 keeps the Fluent sticker beside its text`() {
+        val paragraph = assertIs<RichNode.Paragraph>(parse("fluent-sticker").single())
+
+        assertEquals(
+            listOf(InlineNode.Text("还在pending "), InlineNode.Sticker("https://www.nodeseek.com/static/image/sticker/emoji/22.png", null)),
+            paragraph.inlines,
+        )
+    }
+
+    @Test
+    fun `a bare Fluent sticker with a MOV source uses the same image preview`() {
+        val paragraph = assertIs<RichNode.Paragraph>(parse("bare-fluent-sticker").single())
+
+        assertEquals(listOf(InlineNode.Sticker("https://www.nodeseek.com/static/image/sticker/emoji/04.png", null)), paragraph.inlines)
+    }
+
+    @Test
+    fun `site video stickers without previews stay as inline placeholders`() {
+        val paragraph = assertIs<RichNode.Paragraph>(parse("unmapped-stickers").single())
+
+        assertEquals(
+            listOf(InlineNode.Text("Before"), InlineNode.Sticker("", "Wave"), InlineNode.Sticker("", null), InlineNode.Text("After")),
+            paragraph.inlines,
+        )
+    }
+
+    @Test
+    fun `a video sticker with an explicit poster keeps it as an inline image`() {
+        val paragraph = assertIs<RichNode.Paragraph>(parse("sticker-poster").single())
+
+        assertEquals(listOf(InlineNode.Sticker("https://www.nodeseek.com/static/image/sticker/new/03.webp", null)), paragraph.inlines)
+    }
+
+    @Test
+    fun `a sticker class and path on an external video still leave it as media`() {
+        assertEquals(
+            listOf(RichNode.EmbeddedMedia("https://cdn.example.com/static/image/sticker/emoji/22.webm")),
+            parse("external-sticker-video"),
+        )
+    }
+
+    @Test
     fun `formatting and table cells retain media as inline links`() {
         val nodes = parse("nested")
         val paragraph = assertIs<RichNode.Paragraph>(nodes[0])

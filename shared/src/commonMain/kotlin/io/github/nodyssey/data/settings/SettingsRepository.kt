@@ -116,6 +116,9 @@ class SettingsRepository(
                     ?.let { runCatching { AccountBadgeStyle.valueOf(it) }.getOrNull() },
                 displayRefreshRate = (preferences[KEY_DISPLAY_REFRESH_RATE] ?: 0)
                     .takeIf { it in DISPLAY_REFRESH_RATE_CHOICES } ?: 0,
+                padLayoutMode = preferences[KEY_PAD_LAYOUT_MODE]
+                    ?.let { runCatching { PadLayoutMode.valueOf(it) }.getOrNull() }
+                    ?: PadLayoutMode.SPLIT,
                 stickerUniformSize = preferences[KEY_STICKER_UNIFORM_SIZE] ?: true,
                 stickerSize = (preferences[KEY_STICKER_SIZE] ?: DEFAULT_STICKER_SIZE_SP)
                     .coerceIn(MIN_STICKER_SIZE_SP, MAX_STICKER_SIZE_SP),
@@ -301,6 +304,9 @@ class SettingsRepository(
 
     suspend fun setDisplayRefreshRate(hertz: Int) =
         edit { it[KEY_DISPLAY_REFRESH_RATE] = hertz.takeIf { rate -> rate in DISPLAY_REFRESH_RATE_CHOICES } ?: 0 }
+
+    /** 平板布局; see [UserSettings.padLayoutMode] for dual-pane vs full-page opening on wide screens. */
+    suspend fun setPadLayoutMode(mode: PadLayoutMode) = edit { it[KEY_PAD_LAYOUT_MODE] = mode.name }
 
     /**
      * 表情统一缩限. On — the default, and what every build before this one did — every inline sticker
@@ -757,6 +763,7 @@ class SettingsRepository(
         private val KEY_SHOW_AUTHOR_ACCOUNT_INFO = booleanPreferencesKey("show_author_account_info")
         private val KEY_ACCOUNT_BADGE_STYLE = stringPreferencesKey("account_badge_style")
         private val KEY_DISPLAY_REFRESH_RATE = intPreferencesKey("display_refresh_rate")
+        private val KEY_PAD_LAYOUT_MODE = stringPreferencesKey("pad_layout_mode")
 
         /** Zero releases the window's refresh-rate preference to the OS. */
         val DISPLAY_REFRESH_RATE_CHOICES = listOf(0, 60, 90, 120, 144, 165)
@@ -997,6 +1004,13 @@ data class UserSettings(
     /** Android window preference; zero follows the system and e-ink always releases the vote. */
     val displayRefreshRate: Int = 0,
     /**
+     * 平板布局 — whether tapping a thread, notification or message on a wide tablet screen opens
+     * side by side ([PadLayoutMode.SPLIT]) or full-window ([PadLayoutMode.SINGLE]).
+     *
+     * Exposed only on tablets/iPads; phones never enter a two-pane scene regardless of this value.
+     */
+    val padLayoutMode: PadLayoutMode = PadLayoutMode.SPLIT,
+    /**
      * 表情统一缩限. True — the default — draws every inline sticker in the same [stickerSize] square,
      * which at its smallest is the 20sp box that keeps a sticker inside a line of body text. False
      * draws each sticker at its own natural size, capped the way the site caps it.
@@ -1155,6 +1169,14 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class BottomBarStyle { FLOATING, STANDARD }
 
 enum class BottomBarPosition { LOW, MEDIUM, HIGH }
+
+/**
+ * How list-detail destinations open on a wide tablet/iPad screen.
+ *
+ * Stored by name on disk, so a constant may be added but never renamed. [SPLIT] stays the default
+ * (side-by-side list and detail), and [SINGLE] pushes every destination full-window instead.
+ */
+enum class PadLayoutMode { SPLIT, SINGLE }
 
 /**
  * How a thread's replies are drawn — see `PostDetailScreen`.

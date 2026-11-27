@@ -74,6 +74,7 @@ import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
 import io.github.plaza.designsys.theme.nativeControls
+import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
 /** Keep the original reading row; glass enters as a whole, like the bottom navigation. */
@@ -118,7 +119,7 @@ private fun ThreadReadingControlsRow(
     } else {
         stringResource(Res.string.post_floor_position, currentFloor)
     }
-    BottomBarBand(modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+    BottomBarBand(modifier.readableWidth().padding(horizontal = 12.dp)) {
         Box(
             Modifier.fillMaxWidth().padding(horizontal = 60.dp).align(Alignment.Center),
             contentAlignment = Alignment.Center,

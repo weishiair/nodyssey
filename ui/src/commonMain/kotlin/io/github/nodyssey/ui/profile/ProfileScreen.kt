@@ -82,6 +82,7 @@ import io.github.nodyssey.ui.common.AttendanceModeDialog
 import io.github.nodyssey.ui.common.LevelProgressLine
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.LocalIosPad
+import io.github.nodyssey.ui.common.LocalIosPadLandscape
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
@@ -282,7 +283,8 @@ fun ProfileScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val isIosPad = LocalIosPad.current
-    val allowTwoColumns = !isIosPad || LocalWindowInfo.current.containerSize.let { it.width > it.height }
+    val allowTwoColumns =
+        !isIosPad || (LocalIosPadLandscape.current ?: LocalWindowInfo.current.containerSize.let { it.width > it.height })
     // The sign-in request now runs on this screen, so its refusals have to land here too — and
     // through [SiteErrorSnackbar], because a bare sentence is the wrong answer to a wall: 领鸡腿
     // refused with 需要确认一下你不是机器人 and nothing to press left the reader knowing what was

@@ -11,6 +11,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.PlazaTheme
+import io.github.plaza.designsys.theme.ReadableWidthSpec
 import io.github.plaza.designsys.theme.Spacing
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -135,5 +136,30 @@ class TabScaffoldTest {
         squeezing = false
         rule.waitForIdle()
         assertEquals(narrowCount, contentRecompositions)
+    }
+
+    @Test
+    fun `full-page iPad readable spec matches resting tab content width and falls back in split or non-iPad`() {
+        assertEquals(
+            ReadableWidthSpec.Default,
+            iosPadReadableWidthSpec(isIosPad = false, inSplit = false, windowLandscape = true),
+        )
+        assertEquals(
+            ReadableWidthSpec.Default,
+            iosPadReadableWidthSpec(isIosPad = true, inSplit = true, windowLandscape = true),
+        )
+
+        val landscapeSpec = iosPadReadableWidthSpec(isIosPad = true, inSplit = false, windowLandscape = true)
+        val portraitSpec = iosPadReadableWidthSpec(isIosPad = true, inSplit = false, windowLandscape = false)
+        for (width in listOf(360, 560, 600, 744, 834, 900, 960, 1080, 1133, 1194, 1366)) {
+            assertEquals(
+                tabContentWidth(width.dp, 834.dp, isIosPad = true, windowLandscape = true),
+                landscapeSpec.resolveWidth(width.dp, 834.dp),
+            )
+            assertEquals(
+                tabContentWidth(width.dp, 1194.dp, isIosPad = true, windowLandscape = false),
+                portraitSpec.resolveWidth(width.dp, 1194.dp),
+            )
+        }
     }
 }

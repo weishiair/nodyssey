@@ -1,6 +1,10 @@
 package io.github.nodyssey
 
+import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.IntRect
 import androidx.navigation3.runtime.NavKey
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.ui.login.WebViewGoal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -169,6 +173,43 @@ class PaneRoleTest {
         val stack = mutableListOf<NavKey>(PostListKey, thread, list, PostDetailKey(2))
         stack.closeList(list)
         assertEquals(listOf<NavKey>(PostListKey, thread), stack)
+    }
+
+    @Test
+    fun `portrait wide tablets stay single-pane regardless of pad layout mode`() {
+        val wide = PaneScaffoldDirective.Default.copy(maxHorizontalPartitions = 2)
+
+        assertEquals(1, resolvePaneDirective(wide, isLandscape = false, PadLayoutMode.SPLIT).maxHorizontalPartitions)
+        assertEquals(1, resolvePaneDirective(wide, isLandscape = false, PadLayoutMode.SINGLE).maxHorizontalPartitions)
+        assertEquals(2, resolvePaneDirective(wide, isLandscape = true, PadLayoutMode.SPLIT).maxHorizontalPartitions)
+        assertEquals(1, resolvePaneDirective(wide, isLandscape = true, PadLayoutMode.SINGLE).maxHorizontalPartitions)
+    }
+
+    @Test
+    fun `single-page mode preserves hinge exclusion bounds and avoids the physical gap`() {
+        val hinge = listOf(Rect(left = 540f, top = 0f, right = 560f, bottom = 1000f))
+        val hingedWide = PaneScaffoldDirective.Default.copy(maxHorizontalPartitions = 2, excludedBounds = hinge)
+
+        assertEquals(2, resolvePaneDirective(hingedWide, isLandscape = false, PadLayoutMode.SPLIT).maxHorizontalPartitions)
+        val hingedSingle = resolvePaneDirective(hingedWide, isLandscape = true, PadLayoutMode.SINGLE)
+        assertEquals(1, hingedSingle.maxHorizontalPartitions)
+        assertEquals(hinge, hingedSingle.excludedBounds)
+
+        // Centered vertical hinge splits 1100px into [0..540) and [560..1100); single pane takes [0..540).
+        assertEquals(
+            IntRect(0, 0, 540, 1000),
+            singlePanePartitionBounds(1100, 1000, listOf(IntRect(540, 0, 560, 1000))),
+        )
+        // Hinge flush with the leading edge shifts the single pane to the trailing screen.
+        assertEquals(
+            IntRect(20, 0, 560, 1000),
+            singlePanePartitionBounds(560, 1000, listOf(IntRect(0, 0, 20, 1000))),
+        )
+        // A hinge outside the container leaves the container untouched.
+        assertEquals(
+            IntRect(0, 0, 540, 1000),
+            singlePanePartitionBounds(540, 1000, listOf(IntRect(540, 0, 560, 1000))),
+        )
     }
 
     @Test

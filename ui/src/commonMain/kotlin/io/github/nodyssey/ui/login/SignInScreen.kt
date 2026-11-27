@@ -96,6 +96,7 @@ import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -327,15 +328,18 @@ fun SignInScreen(
         containerColor = LocalPlazaLayers.current.page,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(if (addingAccount) Res.string.accounts_add else Res.string.sign_in_title, siteName)) },
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
-            )
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = { Text(stringResource(if (addingAccount) Res.string.accounts_add else Res.string.sign_in_title, siteName)) },
+                    navigationIcon = {
+                        IconButton(onClick = onClose) {
+                            PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
+                )
+            }
         },
     ) { padding ->
         Column(

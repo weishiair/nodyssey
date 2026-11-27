@@ -82,6 +82,7 @@ import io.github.plaza.designsys.component.PlazaChipDefaults
 import io.github.plaza.designsys.component.PlazaFieldDefaults
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.paddingWithKeyboard
 import io.github.plaza.designsys.theme.readableWidth
@@ -154,61 +155,64 @@ internal fun MailComposeScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.mail_compose)) },
-                navigationIcon = {
-                    IconButton(onClick = close, enabled = !locked) {
-                        PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
-                    }
-                },
-                actions = {
-                    if (!state.loading && !state.expired && !state.submitted) {
-                        Box {
-                            IconButton(onClick = { showingOptions = true }, enabled = !locked) {
-                                PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.mail_options))
-                            }
-                            DropdownMenu(expanded = showingOptions, onDismissRequest = { showingOptions = false }) {
-                                if (hasDraft) {
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = { Text(stringResource(Res.string.mail_compose)) },
+                    navigationIcon = {
+                        IconButton(onClick = close, enabled = !locked) {
+                            PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
+                        }
+                    },
+                    actions = {
+                        if (!state.loading && !state.expired && !state.submitted) {
+                            Box {
+                                IconButton(onClick = { showingOptions = true }, enabled = !locked) {
+                                    PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.mail_options))
+                                }
+                                DropdownMenu(expanded = showingOptions, onDismissRequest = { showingOptions = false }) {
+                                    if (hasDraft) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(Res.string.mail_compose_blank)) },
+                                            onClick = {
+                                                showingOptions = false
+                                                focus.clearFocus()
+                                                onStartBlank()
+                                            },
+                                        )
+                                    }
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.mail_compose_blank)) },
+                                        text = { Text(stringResource(Res.string.mail_folder_drafts)) },
                                         onClick = {
                                             showingOptions = false
                                             focus.clearFocus()
-                                            onStartBlank()
+                                            onOpenDrafts()
                                         },
                                     )
                                 }
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.mail_folder_drafts)) },
-                                    onClick = {
-                                        showingOptions = false
-                                        focus.clearFocus()
-                                        onOpenDrafts()
-                                    },
-                                )
                             }
                         }
-                    }
-                    if (sender != null && !state.submitted && !state.expired) {
-                        // Keep Send in the same Compose surface as the focused editor while the keyboard is open.
-                        Button(
-                            onClick = {
-                                focus.clearFocus()
-                                onSend()
-                            },
-                            enabled = state.canSend,
-                            modifier = Modifier.padding(end = Spacing.md),
-                        ) {
-                            if (state.sending) {
-                                PlazaSpinner(Modifier.size(16.dp))
-                            } else {
-                                PlazaIcon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                        if (sender != null && !state.submitted && !state.expired) {
+                            // Keep Send in the same Compose surface as the focused editor while the keyboard is open.
+                            Button(
+                                onClick = {
+                                    focus.clearFocus()
+                                    onSend()
+                                },
+                                enabled = state.canSend,
+                                modifier = Modifier.padding(end = Spacing.md),
+                            ) {
+                                if (state.sending) {
+                                    PlazaSpinner(Modifier.size(16.dp))
+                                } else {
+                                    PlazaIcon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                                }
+                                Text(stringResource(Res.string.mail_send), modifier = Modifier.padding(start = Spacing.sm))
                             }
-                            Text(stringResource(Res.string.mail_send), modifier = Modifier.padding(start = Spacing.sm))
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().paddingWithKeyboard(padding), contentAlignment = Alignment.TopCenter) {

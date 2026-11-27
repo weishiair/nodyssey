@@ -103,6 +103,7 @@ fun NodysseyRoot(
             AccountBoundary(container, initialSettings) {
                 MainNavigation(
                     container = container,
+                    initialSettings = storedSettings ?: initialSettings,
                     initialTab = initialTab,
                     launchRequest = launchRequest,
                     onLaunchRequestHandled = onLaunchRequestHandled,

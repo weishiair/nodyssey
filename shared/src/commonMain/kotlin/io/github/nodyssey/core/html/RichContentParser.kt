@@ -18,7 +18,7 @@ import io.github.plaza.core.richtext.RichNode
  */
 object RichContentParser {
 
-    /** NodeSeek's built-in emoji are `<img class="sticker">` and must stay inline with the text. */
+    /** NodeSeek marks both its image and video stickers with this class. */
     private const val STICKER_CLASS = "sticker"
 
     /**
@@ -104,7 +104,7 @@ object RichContentParser {
 
         "img" -> if (isSticker(element)) null else listOf(blockImage(element))
 
-        "iframe", "video" -> listOfNotNull(embeddedMedia(element))
+        "iframe", "video" -> if (videoSticker(element) != null) null else listOfNotNull(embeddedMedia(element))
 
         // An app marker that was not wrapped in a paragraph — the markdown renderer usually wraps it,
         // but a body that is nothing but the marker leaves it hanging directly off the article.
@@ -156,6 +156,7 @@ object RichContentParser {
             // accepts `<a><img></a>` — an unlucky marker containing an image would be read as one.
             val marker = child.appMarker()
             val media = (child as? Element)?.takeIf { it.tagName() == "iframe" || it.tagName() == "video" }
+                ?.takeUnless { videoSticker(it) != null }
                 ?.let(::embeddedMedia)
             val image = if (marker == null && media == null) child.blockImageElement() else null
             when {
@@ -236,10 +237,27 @@ object RichContentParser {
      * Keep the source rather than the executable markup. A video may put its URL on a child source.
      */
     private fun embeddedMedia(element: Element): RichNode.EmbeddedMedia? {
-        val sources = listOf(element.attr("src")) +
-            if (element.tagName() == "video") element.select(Selectors.CONTENT_MEDIA_SOURCE).map { it.attr("src") } else emptyList()
-        val url = sources.firstNotNullOfOrNull(::mediaUrl) ?: return null
+        val url = mediaSourceUrl(element) ?: return null
         return RichNode.EmbeddedMedia(url, element.attr("title").trim().ifBlank { null })
+    }
+
+    private fun videoSticker(element: Element): InlineNode.Sticker? {
+        if (element.tagName() != "video") return null
+        val source = mediaSourceUrl(element) ?: return null
+        val path = NodeSeekSite.ownSitePath(source) ?: return null
+        if (!element.hasClass(STICKER_CLASS) && !path.startsWith(NodeSeekSite.STICKER_PATH)) return null
+
+        val poster = mediaUrl(element.attr("poster"))?.takeIf { NodeSeekSite.ownSitePath(it) != null }
+        val preview = poster ?: NodeSeekSite.fluentStickerPreviewUrl(path)
+        return InlineNode.Sticker(url = preview.orEmpty(), alt = element.attr("title").trim().ifBlank { null })
+    }
+
+    private fun mediaSourceUrl(element: Element): String? {
+        mediaUrl(element.attr("src"))?.let { return it }
+        if (element.tagName() != "video") return null
+        return element.select(Selectors.CONTENT_MEDIA_SOURCE).firstNotNullOfOrNull {
+            mediaUrl(it.attr("src"))
+        }
     }
 
     private fun mediaUrl(source: String): String? {
@@ -372,10 +390,16 @@ object RichContentParser {
                 is Element -> when (node.tagName()) {
                     "br" -> result += InlineNode.LineBreak
 
-                    // A table cell or formatting wrapper cannot hold a media card. Keep a link
-                    // there rather than silently losing the media in the inline-only path.
-                    "iframe", "video" -> embeddedMedia(node)?.let {
-                        result += InlineNode.Link(text = it.title ?: it.url, url = it.url, style = style)
+                    "iframe", "video" -> {
+                        val sticker = videoSticker(node)
+                        if (sticker != null) {
+                            result += sticker
+                        } else {
+                            // Table cells and formatting wrappers keep media as a link.
+                            embeddedMedia(node)?.let {
+                                result += InlineNode.Link(text = it.title ?: it.url, url = it.url, style = style)
+                            }
+                        }
                     }
 
                     "strong", "b" -> result += parseInlines(node.childNodes(), style.copy(bold = true))

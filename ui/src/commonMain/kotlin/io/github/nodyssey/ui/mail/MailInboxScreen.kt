@@ -123,6 +123,7 @@ import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.StatusAction
 import io.github.plaza.designsys.component.StatusView
 import io.github.plaza.designsys.component.TopBarAction
@@ -358,28 +359,31 @@ fun MailInboxScreen(
                 }
 
                 searchVisible && controls != null -> {
-                    TopAppBar(
-                        navigationIcon = {
-                            IconButton(
-                                onClick = closeSearch,
-                                enabled = !state.markingAllRead && !state.changingMessages,
-                            ) {
-                                PlazaIcon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = stringResource(Res.string.action_close),
+                    ReadableTopBar { barInsets ->
+                        TopAppBar(
+                            windowInsets = barInsets,
+                            navigationIcon = {
+                                IconButton(
+                                    onClick = closeSearch,
+                                    enabled = !state.markingAllRead && !state.changingMessages,
+                                ) {
+                                    PlazaIcon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = stringResource(Res.string.action_close),
+                                    )
+                                }
+                            },
+                            title = {
+                                MailSearchTopBarField(
+                                    generation = state.generation,
+                                    query = state.filter.search,
+                                    enabled = !state.markingAllRead && !state.changingMessages,
+                                    onSearch = { controls.changeFilter(state.filter.copy(search = it)) },
                                 )
-                            }
-                        },
-                        title = {
-                            MailSearchTopBarField(
-                                generation = state.generation,
-                                query = state.filter.search,
-                                enabled = !state.markingAllRead && !state.changingMessages,
-                                onSearch = { controls.changeFilter(state.filter.copy(search = it)) },
-                            )
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
-                    )
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
+                        )
+                    }
                 }
 
                 else -> {
@@ -443,22 +447,24 @@ fun MailInboxScreen(
                             },
                         )
                         if (state.connected) {
-                            Box(Modifier.align(Alignment.BottomEnd)) {
-                                MailInboxOptions(
-                                    menu = menu,
-                                    setMenu = { menu = it },
-                                    state = state,
-                                    controls = controls,
-                                    onMarkAllRead = onMarkAllRead,
-                                    onRefresh = onRefresh,
-                                    onCreateAlias = { creatingAlias = true },
-                                    onAuthorize = onAuthorize,
-                                    onUseKey = {
-                                        keySwitchGeneration = state.generation
-                                        switchingToKey = true
-                                    },
-                                    onDisconnect = onDisconnect,
-                                )
+                            Box(Modifier.align(Alignment.BottomCenter).readableWidth().fillMaxWidth()) {
+                                Box(Modifier.align(Alignment.BottomEnd)) {
+                                    MailInboxOptions(
+                                        menu = menu,
+                                        setMenu = { menu = it },
+                                        state = state,
+                                        controls = controls,
+                                        onMarkAllRead = onMarkAllRead,
+                                        onRefresh = onRefresh,
+                                        onCreateAlias = { creatingAlias = true },
+                                        onAuthorize = onAuthorize,
+                                        onUseKey = {
+                                            keySwitchGeneration = state.generation
+                                            switchingToKey = true
+                                        },
+                                        onDisconnect = onDisconnect,
+                                    )
+                                }
                             }
                         }
                     }
