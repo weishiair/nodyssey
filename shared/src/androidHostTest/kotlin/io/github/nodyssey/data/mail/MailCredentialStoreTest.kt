@@ -11,6 +11,39 @@ import kotlin.test.assertFailsWith
 
 class MailCredentialStoreTest {
     @Test
+    fun `draft edits replace the same draft and a different credential cannot read it`() = runTest {
+        val store = testPreferenceStore(backgroundScope, "mail-drafts")
+        val cipher = object : SecretCipher {
+            override fun encrypt(plaintext: String) = "encrypted:$plaintext"
+
+            override fun decrypt(stored: String) = stored.removePrefix("encrypted:")
+        }
+        val credentials = DataStoreMailCredentialStore(store, cipher)
+        credentials.replace("sk_live_first")
+        val earlier = SavedMailDraft("first", MailDraft(to = "one@example.org", body = "Original"), savedAt = 1)
+        val another = SavedMailDraft("second", MailDraft(subject = "Another draft"), savedAt = 2)
+        val edited = earlier.copy(draft = earlier.draft.copy(body = "Edited"), savedAt = 3)
+        credentials.saveDraft(earlier)
+        credentials.saveDraft(another)
+        credentials.saveDraft(edited)
+
+        val reopened = DataStoreMailCredentialStore(store, cipher)
+        reopened.replace("sk_live_first")
+        assertEquals(listOf(edited, another), reopened.readDrafts())
+        reopened.deleteDraft(another.id)
+        assertEquals(listOf(edited), reopened.readDrafts())
+
+        reopened.replace("sk_live_other")
+        assertEquals(emptyList(), reopened.readDrafts())
+        reopened.expire()
+        reopened.replace("sk_live_first")
+        assertEquals(listOf(edited), reopened.readDrafts())
+        reopened.clear()
+        reopened.replace("sk_live_first")
+        assertEquals(emptyList(), reopened.readDrafts())
+    }
+
+    @Test
     fun `replacing a credential atomically clears identity scoped mailbox state`() = runTest {
         val store = testPreferenceStore(backgroundScope, "mail-credential-replace")
         val credentials = DataStoreMailCredentialStore(

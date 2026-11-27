@@ -240,12 +240,12 @@ class ReplyComposerViewModelTest {
         )
     }
 
-    /** 回复 and 引用 compose: the mention cannot share a line with a `>` and still be a blockquote. */
+    /** A blank line after the mentions keeps the following Markdown blockquote intact. */
     @Test
-    fun `一条评论既引用又回复时，@ 独占一行`() = runTest(dispatcher) {
+    fun `multiple reply targets stay above a leading blockquote`() = runTest(dispatcher) {
         val viewModel = viewModel(postId = 7L)
         viewModel.open(FloorReference(floor = 3, author = "nssk", excerpt = "占位"))
-        advanceUntilIdle()
+        viewModel.open(FloorReference(floor = 7, author = "reader", excerpt = "另一层"))
         viewModel.quote(FloorReference(floor = 9, author = "other", excerpt = "另一层"))
         advanceUntilIdle()
         viewModel.bodyState.typeMore("见上")
@@ -256,7 +256,7 @@ class ReplyComposerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "@nssk [#3](/post-7-1#3)\n" +
+            "@nssk [#3](/post-7-1#3) @reader [#7](/post-7-1#7)\n" +
                 "\n" +
                 "> @other [#9](/post-7-1#9)\n> 另一层\n" +
                 "\n" +
@@ -281,12 +281,12 @@ class ReplyComposerViewModelTest {
         assertEquals("> @nssk [#3](/post-7-1#3)\n> 占位\n\n好", repository.submission?.body)
     }
 
-    /** The quotes live in the body, so a restored draft gets them back for free — the chip does not. */
+    /** Restoring a draft keeps both its Markdown and the floor references stored alongside it. */
     @Test
-    fun `a restored draft keeps its quotes and the floor it replies to`() = runTest(dispatcher) {
+    fun `a restored draft keeps its quotes and targets`() = runTest(dispatcher) {
         val viewModel = viewModel(postId = 7L)
         viewModel.open(FloorReference(floor = 3, author = "nssk", excerpt = "占位"))
-        advanceUntilIdle()
+        viewModel.open(FloorReference(floor = 7, author = "reader", excerpt = "另一层"))
         viewModel.quote(FloorReference(floor = 9, author = "other", excerpt = "另一层"))
         advanceUntilIdle()
         viewModel.bodyState.typeMore("见上")
@@ -297,20 +297,71 @@ class ReplyComposerViewModelTest {
         second.open()
         advanceUntilIdle()
 
-        assertEquals(3, second.uiState.value.replyTo?.floor)
+        assertEquals(listOf(3, 7), second.uiState.value.replyTargets.map { it.floor })
         assertTrue(second.uiState.value.body.startsWith("> @other [#9](/post-7-1#9)"))
     }
 
     @Test
-    fun `a later floor replaces the reply target instead of answering the old one`() = runTest(dispatcher) {
+    fun `replying to another floor keeps the first target and text without duplicating a floor`() = runTest(dispatcher) {
         val viewModel = viewModel()
-        viewModel.open(FloorReference(floor = 12, author = "nssk", excerpt = "第一段"))
+        val opening = FloorReference(floor = 0, author = "nssk", excerpt = "第一段")
+        viewModel.open(opening)
         advanceUntilIdle()
+        viewModel.bodyState.typeText("两位说得都对")
+        runCurrent()
         viewModel.close()
         viewModel.open(FloorReference(floor = 20, author = "other", excerpt = "第二段"))
+        viewModel.open(opening.copy(excerpt = "已编辑"))
         advanceUntilIdle()
 
-        assertEquals(20, viewModel.uiState.value.replyTo?.floor)
+        viewModel.publish {}
+        advanceUntilIdle()
+
+        assertEquals(
+            "@nssk [#0](/post-1-1#0) @other [#20](/post-1-1#20) 两位说得都对",
+            repository.submission?.body,
+        )
+    }
+
+    @Test
+    fun `a draft can keep just its targets and removing one does not restore it on reopen`() = runTest(dispatcher) {
+        val first = viewModel()
+        first.open(FloorReference(floor = 3, author = "first", excerpt = ""))
+        first.open(FloorReference(floor = 9, author = "second", excerpt = ""))
+        advanceUntilIdle()
+
+        val restored = viewModel()
+        restored.open()
+        runCurrent()
+        assertEquals(listOf(3, 9), restored.uiState.value.replyTargets.map { it.floor })
+        assertFalse(restored.uiState.value.canPublish)
+
+        restored.removeReplyTarget(3)
+        restored.close()
+        restored.open()
+        runCurrent()
+        assertEquals(listOf(9), restored.uiState.value.replyTargets.map { it.floor })
+        restored.bodyState.typeText("只回复你")
+        advanceUntilIdle()
+
+        restored.publish {}
+        advanceUntilIdle()
+        assertEquals("@second [#9](/post-1-1#9) 只回复你", repository.submission?.body)
+    }
+
+    @Test
+    fun `adding a target keeps the floor from a legacy draft`() = runTest(dispatcher) {
+        repository.saveDraft(
+            1L,
+            CommentDraft(body = "一起回复", replyToFloor = 4, replyToAuthor = "first", replyToText = "原内容"),
+        )
+        val viewModel = viewModel()
+        viewModel.open(FloorReference(floor = 5, author = "second", excerpt = ""))
+        advanceUntilIdle()
+
+        viewModel.publish {}
+        advanceUntilIdle()
+        assertEquals("@first [#4](/post-1-1#4) @second [#5](/post-1-1#5) 一起回复", repository.submission?.body)
     }
 
     /** The field is not part of the state, so a publish that only reset the state would leak text. */

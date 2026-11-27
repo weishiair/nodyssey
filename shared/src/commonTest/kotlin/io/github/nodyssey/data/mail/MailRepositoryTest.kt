@@ -26,7 +26,7 @@ class MailRepositoryTest {
             answer = { httpResponse("""{"data":[$MAIL_JSON],"pagination":{"total":43,"limit":20,"offset":40}}""") }
         }
         val client = SeekMailClient(transport)
-        val page = client.inbox("sk_live_example", mailboxId = 7, offset = 40)
+        val page = client.list("sk_live_example", mailboxId = 7, offset = 40)
         assertEquals("https://seek.li/openapi/v1/mails?mailbox_id=7&folder=inbox&limit=20&offset=40", transport.requests.single().url)
         assertEquals("Bearer sk_live_example", transport.requests.single().headers["Authorization"])
         assertEquals(41, page.nextOffset)
@@ -38,9 +38,9 @@ class MailRepositoryTest {
         val transport = MailTestTransport()
         val client = SeekMailClient(transport)
         transport.answer = { httpResponse("""{"data":[],"pagination":{"total":43,"limit":20,"offset":40}}""") }
-        assertEquals(null, client.inbox("key", 7, 40).nextOffset)
+        assertEquals(null, client.list("key", 7, 40).nextOffset)
         transport.answer = { httpResponse("""{"data":[$MAIL_JSON],"pagination":{"total":1,"limit":20,"offset":0}}""") }
-        assertEquals(MailError.INVALID_RESPONSE, assertFailsWith<MailException> { client.inbox("key", 9, 0) }.error)
+        assertEquals(MailError.INVALID_RESPONSE, assertFailsWith<MailException> { client.list("key", 9, 0) }.error)
         transport.answer = { httpResponse("""{"data":$MAIL_JSON}""") }
         assertEquals(MailError.NOT_FOUND, assertFailsWith<MailException> { client.detail("key", 9, 21) }.error)
     }
@@ -52,12 +52,12 @@ class MailRepositoryTest {
         }
         val client = SeekMailClient(transport)
 
-        assertEquals(MailPage(emptyList(), nextOffset = null, total = 0), client.inbox("sk_live_example", 7, 0))
+        assertEquals(MailPage(emptyList(), nextOffset = null, total = 0), client.list("sk_live_example", 7, 0))
 
         transport.answer = { httpResponse("""{"data":null,"pagination":{"total":1,"limit":20,"offset":0}}""") }
-        assertEquals(MailError.INVALID_RESPONSE, assertFailsWith<MailException> { client.inbox("sk_live_example", 7, 0) }.error)
+        assertEquals(MailError.INVALID_RESPONSE, assertFailsWith<MailException> { client.list("sk_live_example", 7, 0) }.error)
         transport.answer = { httpResponse("""{"pagination":{"total":0,"limit":20,"offset":0}}""") }
-        assertEquals(MailError.INVALID_RESPONSE, assertFailsWith<MailException> { client.inbox("sk_live_example", 7, 0) }.error)
+        assertEquals(MailError.INVALID_RESPONSE, assertFailsWith<MailException> { client.list("sk_live_example", 7, 0) }.error)
     }
 
     @Test

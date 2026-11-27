@@ -42,7 +42,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
@@ -53,11 +52,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -133,6 +132,7 @@ import io.github.nodyssey.ui.resources.search_history_empty
 import io.github.nodyssey.ui.resources.search_history_scope
 import io.github.nodyssey.ui.resources.search_in_board
 import io.github.nodyssey.ui.resources.search_load_more_failed
+import io.github.nodyssey.ui.resources.search_open_post_link
 import io.github.nodyssey.ui.resources.search_posts_tab
 import io.github.nodyssey.ui.resources.search_recent
 import io.github.nodyssey.ui.resources.search_recent_boards
@@ -140,6 +140,7 @@ import io.github.nodyssey.ui.resources.search_remove_recent
 import io.github.nodyssey.ui.resources.search_user_hint
 import io.github.nodyssey.ui.resources.search_user_history_scope
 import io.github.nodyssey.ui.resources.search_users_tab
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
 import io.github.plaza.designsys.component.ChoiceSegments
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerCard
@@ -148,12 +149,14 @@ import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PillTabRow
 import io.github.plaza.designsys.component.PlazaChipDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TabLabel
 import io.github.plaza.designsys.component.UnderlineTabRow
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -168,6 +171,7 @@ fun SearchRoute(
     viewModel: SearchViewModel,
     threadOrigin: String,
     onPostClick: (FeedPost) -> Unit,
+    onOpenPostLink: (NodeSeekSite.InternalRoute.Post) -> Unit,
     onUserClick: (Long) -> Unit,
     onBack: () -> Unit,
     onSignIn: () -> Unit,
@@ -177,6 +181,9 @@ fun SearchRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val postResults = viewModel.postResults.collectAsLazyPagingItems()
+    LaunchedEffect(state.postToOpen) {
+        if (state.postToOpen != null) viewModel.consumePostLink()?.let(onOpenPostLink)
+    }
     SearchScreen(
         state = state,
         postResults = postResults,
@@ -250,6 +257,13 @@ fun SearchScreen(
 ) {
     var showOptionsSheet by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val canOpenPostLink by remember(queryState) {
+        derivedStateOf { searchPostLink(queryState.text.toString()) != null }
+    }
+    val submitSearch: () -> Unit = {
+        focusManager.clearFocus()
+        onSearch()
+    }
 
     /*
      * The chrome above the results folds away as they scroll, which on a phone is the difference
@@ -311,14 +325,12 @@ fun SearchScreen(
                     queryState = queryState,
                     placeholder = searchPlaceholder(state),
                     onBack = onBack,
-                    // Arriving with nothing searched yet means arriving to type; arriving back on a
-                    // result list does not, and a keyboard over the results would only hide them.
-                    autoFocus = state.submittedQuery == null,
-                    onSearch = onSearch,
+                    autoFocus = state.submittedQuery == null && !canOpenPostLink,
+                    onSearch = submitSearch,
                     // The users tab has no scope to set — the site matches a name fragment and
                     // returns the lot — so there is nothing for the button to open there.
                     onOpenOptions =
-                    if (state.target == SearchTarget.POSTS) {
+                    if (state.target == SearchTarget.POSTS && !canOpenPostLink) {
                         {
                             focusManager.clearFocus()
                             showOptionsSheet = true
@@ -329,7 +341,11 @@ fun SearchScreen(
                     optionsActive = state.hasCustomOptions,
                 )
 
-                if (resultPager == null) {
+                if (canOpenPostLink) {
+                    TextButton(onClick = submitSearch, modifier = Modifier.align(Alignment.End).padding(end = Spacing.md)) {
+                        Text(stringResource(Res.string.search_open_post_link))
+                    }
+                } else if (resultPager == null) {
                     TargetSwitch(selected = state.target, onTargetChange = onTargetChange)
                 } else {
                     ResultTabs(state = state, currentPage = resultPager.currentPage, onTargetChange = onTargetChange)
@@ -441,7 +457,6 @@ private fun SearchInputRow(
     onBack: (() -> Unit)? = null,
 ) {
     val focusRequester = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
     val layers = LocalPlazaLayers.current
     val searchLabel = stringResource(Res.string.action_search)
 
@@ -455,7 +470,7 @@ private fun SearchInputRow(
     ) {
         if (onBack != null) {
             IconButton(onClick = onBack) {
-                Icon(
+                PlazaIcon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(Res.string.action_back),
                     modifier = Modifier.size(SearchIconSize),
@@ -465,11 +480,7 @@ private fun SearchInputRow(
         TextField(
             state = queryState,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            onKeyboardAction = {
-                onSearch()
-                // The results are what was asked for; the keyboard would cover four of them.
-                focusManager.clearFocus()
-            },
+            onKeyboardAction = { onSearch() },
             lineLimits = TextFieldLineLimits.SingleLine,
             modifier =
             Modifier
@@ -496,7 +507,7 @@ private fun SearchInputRow(
                 Row(modifier = Modifier.padding(end = Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                     if (queryState.text.isNotEmpty()) {
                         IconButton(onClick = { queryState.clearText() }, modifier = Modifier.size(SearchKeySize)) {
-                            Icon(
+                            PlazaIcon(
                                 Icons.Default.Close,
                                 contentDescription = stringResource(Res.string.search_clear_query),
                                 modifier = Modifier.size(SearchIconSize - 2.dp),
@@ -534,7 +545,7 @@ private fun OptionsButton(
                 if (active) Badge(containerColor = MaterialTheme.colorScheme.primary)
             },
         ) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.Tune,
                 contentDescription = stringResource(Res.string.search_advanced),
                 modifier = Modifier.size(SearchIconSize - 2.dp),
@@ -662,7 +673,7 @@ private fun ResultScopeRow(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
+                        PlazaIcon(
                             Icons.Default.Close,
                             contentDescription = stringResource(Res.string.search_clear_board, title),
                             modifier = Modifier.size(14.dp),
@@ -677,7 +688,7 @@ private fun ResultScopeRow(
                 selected = false,
                 onClick = onOpenOptions,
                 label = { Text(stringResource(Res.string.search_all_boards), style = scopeLabelStyle()) },
-                trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                trailingIcon = { PlazaIcon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 modifier = Modifier.height(ScopeChipHeight),
                 shape = MaterialTheme.shapes.small,
                 colors = PlazaChipDefaults.filterChipColors(),
@@ -692,7 +703,7 @@ private fun ResultScopeRow(
                     style = scopeLabelStyle(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Icon(
+                PlazaIcon(
                     Icons.Default.ArrowDropDown,
                     contentDescription = stringResource(Res.string.action_sort),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -829,9 +840,13 @@ private fun PostResults(
             urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
         )
     }
-    PullToRefreshBox(
+    val pressHaptics = rememberPlatformHaptics()
+    AdaptivePullToRefreshBox(
         isRefreshing = posts.loadState.refresh is LoadState.Loading,
-        onRefresh = posts::refresh,
+        onRefresh = {
+            pressHaptics.refreshTriggered()
+            posts.refresh()
+        },
     ) {
         LazyColumn(
             state = listState,
@@ -963,7 +978,7 @@ private fun HistoryRow(
         last = last,
         onClick = onClick,
         leadingContent = {
-            Icon(
+            PlazaIcon(
                 if (recent.target == SearchTarget.POSTS) PlazaIcons.History else PlazaIcons.PersonSearch,
                 contentDescription = null,
             )
@@ -972,7 +987,7 @@ private fun HistoryRow(
         supportingContent = { HistoryScope(recent, boards) },
         trailingContent = {
             IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.search_remove_recent, recent.query))
+                PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.search_remove_recent, recent.query))
             }
         },
     )
@@ -1084,7 +1099,7 @@ private fun AdvancedSearchSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                             ) {
-                                Icon(
+                                PlazaIcon(
                                     PlazaIcons.Schedule,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,

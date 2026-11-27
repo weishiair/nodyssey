@@ -14,12 +14,10 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -56,7 +54,6 @@ import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.MediumButtonStyle
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_copy_link
 import io.github.nodyssey.ui.resources.action_done
@@ -77,9 +74,10 @@ import io.github.nodyssey.ui.resources.lucky_result
 import io.github.nodyssey.ui.resources.lucky_result_hint
 import io.github.nodyssey.ui.resources.lucky_start_floor
 import io.github.nodyssey.ui.resources.lucky_title
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.digitsOnly
 import io.github.plaza.designsys.component.rememberClipboardCopy
@@ -152,17 +150,10 @@ fun LuckyScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.lucky_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -344,7 +335,7 @@ private fun DrawTimeRow(
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onPickDate) {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.DateRange,
                         contentDescription = stringResource(Res.string.lucky_pick_date),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -477,7 +468,7 @@ private fun GeneratedLinkCard(
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = onCopy) {
-                        Icon(
+                        PlazaIcon(
                             PlazaIcons.ContentCopy,
                             contentDescription = stringResource(Res.string.action_copy_link),
                             modifier = Modifier.size(19.dp),

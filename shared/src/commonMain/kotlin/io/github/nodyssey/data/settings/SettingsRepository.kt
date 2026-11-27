@@ -100,7 +100,10 @@ class SettingsRepository(
                 fontScale = preferences[KEY_FONT_SCALE] ?: 1f,
                 oneHandMode = preferences[KEY_ONE_HAND_MODE] ?: oneHandModeDefault,
                 einkMode = preferences[KEY_EINK_MODE] ?: false,
-                frostedGlass = preferences[KEY_FROSTED_GLASS] ?: false,
+                frostedGlass = preferences[KEY_FROSTED_GLASS] ?: true,
+                bottomBarStyle = preferences[KEY_BOTTOM_BAR_STYLE]
+                    ?.let { runCatching { BottomBarStyle.valueOf(it) }.getOrNull() }
+                    ?: BottomBarStyle.FLOATING,
                 bottomBarPosition = preferences[KEY_BOTTOM_BAR_POSITION]
                     ?.let { runCatching { BottomBarPosition.valueOf(it) }.getOrNull() }
                     ?: BottomBarPosition.MEDIUM,
@@ -109,8 +112,13 @@ class SettingsRepository(
                     ?.let { runCatching { PostReplyStyle.valueOf(it) }.getOrNull() }
                     ?: PostReplyStyle.CARDS,
                 showAuthorAccountInfo = preferences[KEY_SHOW_AUTHOR_ACCOUNT_INFO] ?: true,
+                accountBadgeStyle = preferences[KEY_ACCOUNT_BADGE_STYLE]
+                    ?.let { runCatching { AccountBadgeStyle.valueOf(it) }.getOrNull() },
                 displayRefreshRate = (preferences[KEY_DISPLAY_REFRESH_RATE] ?: 0)
                     .takeIf { it in DISPLAY_REFRESH_RATE_CHOICES } ?: 0,
+                padLayoutMode = preferences[KEY_PAD_LAYOUT_MODE]
+                    ?.let { runCatching { PadLayoutMode.valueOf(it) }.getOrNull() }
+                    ?: PadLayoutMode.SPLIT,
                 stickerUniformSize = preferences[KEY_STICKER_UNIFORM_SIZE] ?: true,
                 stickerSize = (preferences[KEY_STICKER_SIZE] ?: DEFAULT_STICKER_SIZE_SP)
                     .coerceIn(MIN_STICKER_SIZE_SP, MAX_STICKER_SIZE_SP),
@@ -290,10 +298,15 @@ class SettingsRepository(
     /** 毛玻璃质感; see [UserSettings.frostedGlass]. */
     suspend fun setFrostedGlass(enabled: Boolean) = edit { it[KEY_FROSTED_GLASS] = enabled }
 
+    suspend fun setBottomBarStyle(style: BottomBarStyle) = edit { it[KEY_BOTTOM_BAR_STYLE] = style.name }
+
     suspend fun setBottomBarPosition(position: BottomBarPosition) = edit { it[KEY_BOTTOM_BAR_POSITION] = position.name }
 
     suspend fun setDisplayRefreshRate(hertz: Int) =
         edit { it[KEY_DISPLAY_REFRESH_RATE] = hertz.takeIf { rate -> rate in DISPLAY_REFRESH_RATE_CHOICES } ?: 0 }
+
+    /** 平板布局; see [UserSettings.padLayoutMode] for dual-pane vs full-page opening on wide screens. */
+    suspend fun setPadLayoutMode(mode: PadLayoutMode) = edit { it[KEY_PAD_LAYOUT_MODE] = mode.name }
 
     /**
      * 表情统一缩限. On — the default, and what every build before this one did — every inline sticker
@@ -436,6 +449,9 @@ class SettingsRepository(
     suspend fun setPostReplyStyle(style: PostReplyStyle) = edit { it[KEY_POST_REPLY_STYLE] = style.name }
 
     suspend fun setShowAuthorAccountInfo(enabled: Boolean) = edit { it[KEY_SHOW_AUTHOR_ACCOUNT_INFO] = enabled }
+
+    /** 等级徽章颜色; see [UserSettings.accountBadgeStyle]. */
+    suspend fun setAccountBadgeStyle(style: AccountBadgeStyle) = edit { it[KEY_ACCOUNT_BADGE_STYLE] = style.name }
 
     suspend fun setSearchHistoryLimit(limit: Int) {
         dataStore.edit { preferences ->
@@ -740,11 +756,14 @@ class SettingsRepository(
         private val KEY_ONE_HAND_MODE = booleanPreferencesKey("one_hand_mode")
         private val KEY_EINK_MODE = booleanPreferencesKey("eink_mode")
         private val KEY_FROSTED_GLASS = booleanPreferencesKey("frosted_glass")
+        private val KEY_BOTTOM_BAR_STYLE = stringPreferencesKey("bottom_bar_style")
         private val KEY_BOTTOM_BAR_POSITION = stringPreferencesKey("bottom_bar_position")
         private val KEY_PREDICTIVE_BACK = booleanPreferencesKey("predictive_back")
         private val KEY_POST_REPLY_STYLE = stringPreferencesKey("post_reply_style")
         private val KEY_SHOW_AUTHOR_ACCOUNT_INFO = booleanPreferencesKey("show_author_account_info")
+        private val KEY_ACCOUNT_BADGE_STYLE = stringPreferencesKey("account_badge_style")
         private val KEY_DISPLAY_REFRESH_RATE = intPreferencesKey("display_refresh_rate")
+        private val KEY_PAD_LAYOUT_MODE = stringPreferencesKey("pad_layout_mode")
 
         /** Zero releases the window's refresh-rate preference to the OS. */
         val DISPLAY_REFRESH_RATE_CHOICES = listOf(0, 60, 90, 120, 144, 165)
@@ -968,15 +987,29 @@ data class UserSettings(
      * liquid-glass gradient, floating pill geometry, and a directional 1dp specular rim. Reading
      * cards and post floors stay solid so reading contrast is unchanged.
      */
-    val frostedGlass: Boolean = false,
+    val frostedGlass: Boolean = true,
+    val bottomBarStyle: BottomBarStyle = BottomBarStyle.FLOATING,
     val bottomBarPosition: BottomBarPosition = BottomBarPosition.MEDIUM,
     val predictiveBack: Boolean = true,
     /** Reply presentation only; switching never changes floor keys, ordering or pagination. */
     val postReplyStyle: PostReplyStyle = PostReplyStyle.CARDS,
     /** Enrich thread authors with cached public account facts only while this is enabled. */
     val showAuthorAccountInfo: Boolean = true,
+    /**
+     * 等级徽章颜色, or null where the reader has never chosen: the badge then keeps the look it had
+     * when 毛玻璃质感 decided it — natural with the glass in force, vivid without — so nobody's
+     * threads change colour on the update that made it a setting of its own.
+     */
+    val accountBadgeStyle: AccountBadgeStyle? = null,
     /** Android window preference; zero follows the system and e-ink always releases the vote. */
     val displayRefreshRate: Int = 0,
+    /**
+     * 平板布局 — whether tapping a thread, notification or message on a wide tablet screen opens
+     * side by side ([PadLayoutMode.SPLIT]) or full-window ([PadLayoutMode.SINGLE]).
+     *
+     * Exposed only on tablets/iPads; phones never enter a two-pane scene regardless of this value.
+     */
+    val padLayoutMode: PadLayoutMode = PadLayoutMode.SPLIT,
     /**
      * 表情统一缩限. True — the default — draws every inline sticker in the same [stickerSize] square,
      * which at its smallest is the 20sp box that keeps a sticker inside a line of body text. False
@@ -1116,7 +1149,15 @@ data class UserSettings(
      * 通知 is where the blank is most often taken for a layout bug, so it is where the note sits.
      */
     val oneHandTipDismissed: Boolean = false,
-)
+) {
+    /**
+     * Whether 毛玻璃质感 is active for the chosen bottom-bar style. Switching to the classic docked
+     * bar disables glass across the app without overwriting the stored [frostedGlass] preference,
+     * so returning to [BottomBarStyle.FLOATING] restores it automatically.
+     */
+    val effectiveFrostedGlass: Boolean
+        get() = frostedGlass && bottomBarStyle == BottomBarStyle.FLOATING
+}
 
 /**
  * How 设置 · 主题 decides light or dark. [SYSTEM] is the default, and the only automatic one: the
@@ -1125,7 +1166,17 @@ data class UserSettings(
  */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+enum class BottomBarStyle { FLOATING, STANDARD }
+
 enum class BottomBarPosition { LOW, MEDIUM, HIGH }
+
+/**
+ * How list-detail destinations open on a wide tablet/iPad screen.
+ *
+ * Stored by name on disk, so a constant may be added but never renamed. [SPLIT] stays the default
+ * (side-by-side list and detail), and [SINGLE] pushes every destination full-window instead.
+ */
+enum class PadLayoutMode { SPLIT, SINGLE }
 
 /**
  * How a thread's replies are drawn — see `PostDetailScreen`.
@@ -1135,6 +1186,12 @@ enum class BottomBarPosition { LOW, MEDIUM, HIGH }
  * avatar beside the whole reply. [CARDS] stays the default.
  */
 enum class PostReplyStyle { FLAT, CARDS, ORIGINAL }
+
+/**
+ * How the author's 等级 badge is coloured: [VIVID] fills it with its rank's gradient, [NATURAL]
+ * leaves a faint tint behind and colours only the rank.
+ */
+enum class AccountBadgeStyle { VIVID, NATURAL }
 
 /**
  * Where the seed comes from: one of the six presets, the system wallpaper (API 31+), or a colour the

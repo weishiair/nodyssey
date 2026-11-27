@@ -8,7 +8,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasScrollAction
@@ -39,6 +41,7 @@ import io.github.nodyssey.data.Board
 import io.github.nodyssey.data.FeedPost
 import io.github.nodyssey.model.FeedSort
 import io.github.nodyssey.model.PostSummary
+import io.github.nodyssey.ui.common.PageJumpRail
 import io.github.nodyssey.ui.navigation.FloatingGlassTestContent
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.plaza.core.net.SiteError
@@ -825,6 +828,276 @@ class PostListScreenTest {
         composeRule.onNodeWithContentDescription("下一页").performClick()
 
         assertEquals(2, requested)
+    }
+
+    @Test
+    fun `scrolling down swaps collapsed page rail to refresh and scrolling back restores pagination`() {
+        setScreen(
+            posts = (1..40).map { feedPost(it.toLong(), "post $it", page = 1) },
+            state = pagedState(),
+        )
+
+        composeRule.onNodeWithContentDescription("第 1 / 217 页").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("刷新").assertDoesNotExist()
+
+        val listNode =
+            composeRule.onAllNodes(
+                hasScrollAction() and hasAnyDescendant(hasText("post ", substring = true)),
+            ).onLast()
+        listNode.performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("第 1 / 217 页").assertDoesNotExist()
+
+        listNode.performTouchInput { swipeDown(startY = top + 120f, endY = bottom * 0.8f) }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithContentDescription("第 1 / 217 页").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("刷新").assertDoesNotExist()
+    }
+
+    @Test
+    fun `tapping collapsed refresh reloads the feed, returns to top, and expands the page rail`() {
+        var loads = 0
+        val feedStates = HomeFeedStates()
+        val listState = feedStates.listState(null, FeedSort.LAST_REPLY)
+        val posts = (1..40).map { feedPost(it.toLong(), "post $it", page = 1) }
+        composeRule.setContent {
+            val scope = rememberCoroutineScope()
+            val pagingFlow =
+                remember(scope) {
+                    Pager(PagingConfig(pageSize = 40)) {
+                        object : PagingSource<Int, FeedPost>() {
+                            override fun getRefreshKey(state: PagingState<Int, FeedPost>): Int? = null
+
+                            override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FeedPost> {
+                                loads++
+                                return LoadResult.Page(data = posts, prevKey = null, nextKey = null)
+                            }
+                        }
+                    }.flow.cachedIn(scope)
+                }
+            val items = pagingFlow.collectAsLazyPagingItems()
+            PlazaTheme(frostedGlass = true) {
+                PostListScreen(
+                    state = pagedState(),
+                    postsFor = { items },
+                    feedStates = feedStates,
+                    onPostClick = {},
+                    onBoardClick = {},
+                    onSortChange = {},
+                    onSignInClick = {},
+                    onRecoverInBrowser = {},
+                )
+            }
+        }
+        composeRule.waitUntil { loads == 1 }
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().performClick()
+
+        composeRule.waitUntil { loads == 2 }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle {
+            assertEquals(0, listState.firstVisibleItemIndex)
+            assertEquals(0, listState.firstVisibleItemScrollOffset)
+        }
+        composeRule.onNodeWithContentDescription("第 1 / 217 页").assertIsDisplayed()
+    }
+
+    @Test
+    fun `tapping collapsed refresh from a later page resets back to page one`() {
+        var requested: Int? = null
+        setScreen(
+            posts = (1..40).map { feedPost(1000L + it, "post $it", page = 40) },
+            state = pagedState(startPage = 40),
+            onGoToPage = { requested = it },
+        )
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().performClick()
+
+        composeRule.runOnIdle { assertEquals(1, requested) }
+    }
+
+    @Test
+    fun `without page bar, scrolling down reveals refresh button and tapping it refreshes to top`() {
+        var loads = 0
+        val feedStates = HomeFeedStates()
+        val listState = feedStates.listState(null, FeedSort.LAST_REPLY)
+        val posts = (1..40).map { feedPost(it.toLong(), "post $it", page = 1) }
+        composeRule.setContent {
+            val scope = rememberCoroutineScope()
+            val pagingFlow =
+                remember(scope) {
+                    Pager(PagingConfig(pageSize = 40)) {
+                        object : PagingSource<Int, FeedPost>() {
+                            override fun getRefreshKey(state: PagingState<Int, FeedPost>): Int? = null
+
+                            override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FeedPost> {
+                                loads++
+                                return LoadResult.Page(data = posts, prevKey = null, nextKey = null)
+                            }
+                        }
+                    }.flow.cachedIn(scope)
+                }
+            val items = pagingFlow.collectAsLazyPagingItems()
+            PlazaTheme(frostedGlass = true) {
+                PostListScreen(
+                    state = PostListUiState(boards = boards, pageBarEnabled = false, totalPages = 217),
+                    postsFor = { items },
+                    feedStates = feedStates,
+                    onPostClick = {},
+                    onBoardClick = {},
+                    onSortChange = {},
+                    onSignInClick = {},
+                    onRecoverInBrowser = {},
+                )
+            }
+        }
+        composeRule.waitUntil { loads == 1 }
+        composeRule.onNodeWithContentDescription("刷新").assertDoesNotExist()
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().performClick()
+
+        composeRule.waitUntil { loads == 2 }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle {
+            assertEquals(0, listState.firstVisibleItemIndex)
+            assertEquals(0, listState.firstVisibleItemScrollOffset)
+        }
+        composeRule.onNodeWithContentDescription("刷新").assertDoesNotExist()
+    }
+
+    @Test
+    fun `collapsed refresh stays interactive and shows no spinner during background refresh`() {
+        var requested: Int? = null
+        setScreen(
+            posts = (1..40).map { feedPost(1000L + it, "post $it", page = 40) },
+            refresh = LoadState.Loading,
+            state = pagedState(startPage = 40),
+            onGoToPage = { requested = it },
+        )
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithContentDescription("刷新")
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
+
+        composeRule.runOnIdle { assertEquals(1, requested) }
+    }
+
+    @Test
+    fun `tapping collapsed refresh from a later page keeps manual refresh spinner while page one loads`() {
+        val posts = (1..40).map { feedPost(1000L + it, "post $it", page = 40) }
+        var state by mutableStateOf(pagedState(startPage = 40))
+        var refreshState: LoadState by mutableStateOf(LoadState.NotLoading(false))
+        composeRule.setContent {
+            PlazaTheme(frostedGlass = true) {
+                ScreenUnderTest(
+                    posts = posts,
+                    refresh = refreshState,
+                    append = LoadState.NotLoading(true),
+                    state = state,
+                    onPostClick = {},
+                    onBoardClick = {},
+                    onSortChange = {},
+                    onRecoverInBrowser = {},
+                    onGoToPage = { target ->
+                        state = pagedState(startPage = target)
+                        refreshState = LoadState.Loading
+                    },
+                )
+            }
+        }
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsEnabled().performClick()
+        composeRule.waitForIdle()
+
+        // Scrolling down again while page one is still loading must keep the manual refresh spinner active.
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsNotEnabled()
+
+        composeRule.runOnIdle { refreshState = LoadState.NotLoading(false) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsEnabled()
+    }
+
+    @Test
+    fun `tapping collapsed refresh from a later page keeps manual refresh spinner when page one starts slowly`() {
+        val posts = (1..40).map { feedPost(1000L + it, "post $it", page = 40) }
+        var state by mutableStateOf(pagedState(startPage = 40))
+        var refreshState: LoadState by mutableStateOf(LoadState.Loading)
+        var requestedPage: Int? = null
+        composeRule.setContent {
+            PlazaTheme(frostedGlass = true) {
+                ScreenUnderTest(
+                    posts = posts,
+                    refresh = refreshState,
+                    append = LoadState.NotLoading(true),
+                    state = state,
+                    onPostClick = {},
+                    onBoardClick = {},
+                    onSortChange = {},
+                    onRecoverInBrowser = {},
+                    onGoToPage = { requestedPage = it },
+                )
+            }
+        }
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsEnabled().performClick()
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { assertEquals(1, requestedPage) }
+
+        // Old page finishes loading before page one arrives, then page one takes > 500ms to begin loading.
+        composeRule.runOnIdle { refreshState = LoadState.NotLoading(false) }
+        composeRule.mainClock.advanceTimeBy(800L)
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { state = pagedState(startPage = 1) }
+        composeRule.mainClock.advanceTimeBy(800L)
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { refreshState = LoadState.Loading }
+        composeRule.waitForIdle()
+
+        feedList().performTouchInput { swipeUp(startY = bottom * 0.8f, endY = top + 120f) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsNotEnabled()
+
+        composeRule.runOnIdle { refreshState = LoadState.NotLoading(false) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("刷新").assertIsDisplayed().assertIsEnabled()
+    }
+
+    @Test
+    fun `page rail without collapsed action keeps showing page number when collapsed`() {
+        composeRule.setContent {
+            PlazaTheme(frostedGlass = true) {
+                PageJumpRail(
+                    expanded = false,
+                    page = 3,
+                    totalPages = 12,
+                    onPrevious = {},
+                    onNext = {},
+                    onPageClick = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("第 3 / 12 页").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("刷新").assertDoesNotExist()
     }
 
     private companion object {

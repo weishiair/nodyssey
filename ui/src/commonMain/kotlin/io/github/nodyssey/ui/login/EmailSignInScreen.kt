@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,8 +40,10 @@ import io.github.nodyssey.ui.resources.sign_in_submit
 import io.github.nodyssey.ui.resources.sign_in_use_email
 import io.github.nodyssey.ui.resources.sign_in_use_web
 import io.github.plaza.designsys.component.InlineBanner
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.paddingWithKeyboard
 import io.github.plaza.designsys.theme.readableWidth
@@ -67,11 +68,17 @@ internal fun EmailSignInScreen(
         modifier = modifier,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(title = {}, navigationIcon = {
-                IconButton(onClick = onBack, enabled = !state.isSubmitting) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                }
-            })
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = onBack, enabled = !state.isSubmitting) {
+                            PlazaIcon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
+                        }
+                    },
+                )
+            }
         },
     ) { padding ->
         Column(

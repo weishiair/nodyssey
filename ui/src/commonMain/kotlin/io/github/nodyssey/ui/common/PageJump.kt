@@ -1,10 +1,12 @@
 package io.github.nodyssey.ui.common
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,8 +38,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
@@ -91,11 +93,16 @@ import io.github.nodyssey.ui.resources.page_jump_title
 import io.github.nodyssey.ui.resources.page_jump_to
 import io.github.nodyssey.ui.resources.page_jump_unit_floor
 import io.github.nodyssey.ui.resources.page_jump_unit_page
+import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.AdaptiveGlassToolbar
 import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.TonalTile
+import io.github.plaza.designsys.component.liquidGlassInteractive
 import io.github.plaza.designsys.theme.ControlShape
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -105,6 +112,7 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.nativeControls
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -121,6 +129,23 @@ import org.jetbrains.compose.resources.stringResource
  * nothing at all, so each screen stacks [PageJumpRail] over whatever it has. What is shared is the
  * part that must not drift — the wording, the shortcuts, and what the numbers mean.
  */
+
+/**
+ * Optional action shown in place of the page number while [PageJumpRail] is collapsed.
+ *
+ * Used by the home feed so scrolling down turns the compact rail pill into a one-tap refresh
+ * button without adding a second floating control; scrolling back up expands the full rail again.
+ */
+@Immutable
+data class CollapsedRailAction(
+    val label: StringResource,
+    val icon: ImageVector,
+    val nativeSymbol: String,
+    val onClick: () -> Unit,
+    val enabled: Boolean = true,
+    val loading: Boolean = false,
+    val emphasized: Boolean = false,
+)
 
 /**
  * 翻页栏: the page you are on, with a step either side of it, stacked under the reader's thumb.
@@ -152,6 +177,7 @@ fun PageJumpRail(
     previousLabel: StringResource = Res.string.page_jump_previous,
     previousIcon: ImageVector = Icons.Default.KeyboardArrowUp,
     previousNativeSymbol: String = "chevron.up",
+    collapsedAction: CollapsedRailAction? = null,
 ) = PageJumpRail(
     expanded = expanded,
     page = page,
@@ -165,6 +191,7 @@ fun PageJumpRail(
     previousIcon = previousIcon,
     previousNativeSymbol = previousNativeSymbol,
     vertical = true,
+    collapsedAction = collapsedAction,
 )
 
 @Composable
@@ -181,8 +208,9 @@ internal fun PageJumpRail(
     previousIcon: ImageVector = Icons.Default.KeyboardArrowUp,
     previousNativeSymbol: String = "chevron.up",
     vertical: Boolean,
+    collapsedAction: CollapsedRailAction? = null,
 ) {
-    if (LocalPlazaLayers.current.frostedGlass || !vertical) {
+    if (nativeControls || LocalPlazaLayers.current.frostedGlass || !vertical) {
         FloatingPageJumpRail(
             expanded = expanded,
             page = page,
@@ -196,20 +224,41 @@ internal fun PageJumpRail(
             previousIcon = previousIcon,
             previousNativeSymbol = previousNativeSymbol,
             vertical = vertical,
+            collapsedAction = collapsedAction,
         )
         return
     }
     val motionScheme = MaterialTheme.motionScheme
+    val showCollapsedAction = !expanded && collapsedAction != null
+    val keyDescription =
+        if (showCollapsedAction) {
+            stringResource(collapsedAction.label)
+        } else {
+            stringResource(Res.string.page_jump_page_of, page, totalPages)
+        }
     // No arrangement spacing: each key paints 40dp inside a 48dp touch slot, and the 4dp of slack
     // that leaves on every side is exactly the 8dp gap the design draws between two keys. Asking for
     // 8dp on top of it would space them 16dp apart, and shrinking the slot to close the gap would
     // put a 40dp target under a thumb.
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         PageKey(
-            onClick = onPageClick,
-            contentDescription = stringResource(Res.string.page_jump_page_of, page, totalPages),
+            onClick = if (showCollapsedAction) collapsedAction.onClick else onPageClick,
+            enabled = if (showCollapsedAction) collapsedAction.enabled && !collapsedAction.loading else true,
+            contentDescription = keyDescription,
         ) {
-            PageNumber(page, totalPages)
+            AnimatedContent(
+                targetState = showCollapsedAction,
+                transitionSpec = {
+                    fadeIn(motionScheme.defaultEffectsSpec()) togetherWith fadeOut(motionScheme.fastEffectsSpec())
+                },
+                label = "pageRailKeyContent",
+            ) { showingAction ->
+                if (showingAction && collapsedAction != null) {
+                    CollapsedActionGlyph(collapsedAction)
+                } else {
+                    PageNumber(page, totalPages)
+                }
+            }
         }
         // Retracting upwards, into the page key rather than into the FAB below: the two keys belong
         // to the number they step, and the FAB is not theirs to grow out of.
@@ -226,14 +275,14 @@ internal fun PageJumpRail(
                     enabled = previousEnabled,
                     contentDescription = stringResource(previousLabel),
                 ) {
-                    Icon(previousIcon, contentDescription = null)
+                    PlazaIcon(previousIcon, contentDescription = null)
                 }
                 PageKey(
                     onClick = onNext,
                     enabled = page < totalPages,
                     contentDescription = stringResource(Res.string.page_jump_next),
                 ) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                    PlazaIcon(Icons.Default.KeyboardArrowDown, contentDescription = null)
                 }
             }
         }
@@ -254,39 +303,64 @@ private fun FloatingPageJumpRail(
     previousIcon: ImageVector,
     previousNativeSymbol: String,
     vertical: Boolean,
+    collapsedAction: CollapsedRailAction?,
 ) {
     val layers = LocalPlazaLayers.current
+    val motionScheme = MaterialTheme.motionScheme
+    val showCollapsedAction = !expanded && collapsedAction != null
     val pageDescription = stringResource(Res.string.page_jump_page_of, page, totalPages)
+    val collapsedDescription = collapsedAction?.let { stringResource(it.label) }
     val previousDescription = stringResource(previousLabel)
     val nextDescription = stringResource(Res.string.page_jump_next)
     AdaptiveGlassToolbar(
         actions = buildList {
-            add(
-                GlassAction(
-                    label = pageDescription,
-                    title = page.toString(),
-                    subtitle = stringResource(Res.string.page_jump_of_total, totalPages),
-                    onClick = onPageClick,
-                ),
-            )
-            if (expanded) {
-                add(GlassAction(previousDescription, onPrevious, symbol = previousNativeSymbol, enabled = previousEnabled))
-                add(GlassAction(nextDescription, onNext, symbol = "chevron.down", enabled = page < totalPages))
+            if (showCollapsedAction && collapsedDescription != null) {
+                add(
+                    GlassAction(
+                        label = collapsedDescription,
+                        onClick = collapsedAction.onClick,
+                        symbol = collapsedAction.nativeSymbol,
+                        enabled = collapsedAction.enabled && !collapsedAction.loading,
+                        prominent = collapsedAction.emphasized,
+                        loading = collapsedAction.loading,
+                    ),
+                )
+            } else {
+                add(
+                    GlassAction(
+                        label = pageDescription,
+                        title = page.toString(),
+                        subtitle = stringResource(Res.string.page_jump_of_total, totalPages),
+                        onClick = onPageClick,
+                    ),
+                )
+                if (expanded) {
+                    add(GlassAction(previousDescription, onPrevious, symbol = previousNativeSymbol, enabled = previousEnabled))
+                    add(GlassAction(nextDescription, onNext, symbol = "chevron.down", enabled = page < totalPages))
+                }
             }
         },
-        modifier = modifier.then(if (vertical) Modifier.width(56.dp) else Modifier.heightIn(min = 56.dp)),
+        modifier = modifier.then(
+            if (vertical) {
+                Modifier.width(56.dp).heightIn(min = 56.dp)
+            } else {
+                Modifier.heightIn(min = 56.dp).widthIn(min = 56.dp)
+            },
+        ),
         vertical = vertical,
     ) {
         val toolbarModifier = modifier
             .then(if (vertical) Modifier.width(56.dp) else Modifier.heightIn(min = 56.dp))
             .then(
                 if (layers.frostedGlass) {
-                    Modifier.glassChromeSurface(
-                        layers = layers,
-                        darkTheme = LocalPlazaDarkTheme.current,
-                        shape = CircleShape,
-                        backdrop = LocalLiquidGlassBackdrop.current,
-                    )
+                    Modifier
+                        .liquidGlassInteractive(FloatingCapsuleShape)
+                        .glassChromeSurface(
+                            layers = layers,
+                            darkTheme = LocalPlazaDarkTheme.current,
+                            shape = FloatingCapsuleShape,
+                            backdrop = LocalLiquidGlassBackdrop.current,
+                        )
                 } else {
                     Modifier
                 },
@@ -297,26 +371,42 @@ private fun FloatingPageJumpRail(
         )
         val shortcuts: @Composable () -> Unit = {
             IconButton(onClick = onPrevious, enabled = previousEnabled, modifier = Modifier.size(Sizes.minTouchTarget)) {
-                Icon(previousIcon, contentDescription = stringResource(previousLabel))
+                PlazaIcon(previousIcon, contentDescription = stringResource(previousLabel))
             }
             IconButton(onClick = onNext, enabled = page < totalPages, modifier = Modifier.size(Sizes.minTouchTarget)) {
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
+                PlazaIcon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.page_jump_next))
             }
         }
+        val keyDescription = if (showCollapsedAction) collapsedDescription.orEmpty() else pageDescription
         val pageKey: @Composable () -> Unit = {
             IconButton(
-                onClick = onPageClick,
+                onClick = if (showCollapsedAction) collapsedAction.onClick else onPageClick,
+                enabled = if (showCollapsedAction) collapsedAction.enabled && !collapsedAction.loading else true,
                 modifier = Modifier.size(Sizes.minTouchTarget)
-                    .semantics { contentDescription = pageDescription },
+                    .semantics { contentDescription = keyDescription },
             ) {
-                Box(Modifier.clearAndSetSemantics {}) { PageNumber(page, totalPages) }
+                Box(Modifier.clearAndSetSemantics {}) {
+                    AnimatedContent(
+                        targetState = showCollapsedAction,
+                        transitionSpec = {
+                            fadeIn(motionScheme.defaultEffectsSpec()) togetherWith fadeOut(motionScheme.fastEffectsSpec())
+                        },
+                        label = "floatingRailKeyContent",
+                    ) { showingAction ->
+                        if (showingAction && collapsedAction != null) {
+                            CollapsedActionGlyph(collapsedAction)
+                        } else {
+                            PageNumber(page, totalPages)
+                        }
+                    }
+                }
             }
         }
         if (vertical) {
             VerticalFloatingToolbar(
                 expanded = expanded,
                 modifier = toolbarModifier,
-                shape = CircleShape,
+                shape = FloatingCapsuleShape,
                 colors = colors,
                 contentPadding = PaddingValues(4.dp),
                 expandedShadowElevation = 0.dp,
@@ -327,7 +417,7 @@ private fun FloatingPageJumpRail(
             HorizontalFloatingToolbar(
                 expanded = expanded,
                 modifier = toolbarModifier,
-                shape = CircleShape,
+                shape = FloatingCapsuleShape,
                 colors = colors,
                 contentPadding = PaddingValues(4.dp),
                 expandedShadowElevation = 0.dp,
@@ -335,6 +425,98 @@ private fun FloatingPageJumpRail(
                 trailingContent = { shortcuts() },
             ) { pageKey() }
         }
+    }
+}
+
+/**
+ * Standalone pill matching [PageJumpRail]'s collapsed shape, used when the home feed hides the
+ * pagination rail so scrolling down still surfaces the same compact refresh control above the FAB.
+ */
+@Composable
+internal fun CollapsedRailActionButton(
+    action: CollapsedRailAction,
+    modifier: Modifier = Modifier,
+) {
+    val layers = LocalPlazaLayers.current
+    val description = stringResource(action.label)
+    val enabled = action.enabled && !action.loading
+    if (nativeControls || layers.frostedGlass) {
+        AdaptiveGlassButton(
+            action = GlassAction(
+                label = description,
+                onClick = action.onClick,
+                symbol = action.nativeSymbol,
+                enabled = enabled,
+                prominent = action.emphasized,
+                loading = action.loading,
+            ),
+            modifier = modifier.size(56.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .then(
+                        if (layers.frostedGlass) {
+                            Modifier
+                                .liquidGlassInteractive(FloatingCapsuleShape)
+                                .glassChromeSurface(
+                                    layers = layers,
+                                    darkTheme = LocalPlazaDarkTheme.current,
+                                    shape = FloatingCapsuleShape,
+                                    backdrop = LocalLiquidGlassBackdrop.current,
+                                )
+                        } else {
+                            Modifier
+                                .clip(FloatingCapsuleShape)
+                                .background(layers.raised)
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                IconButton(
+                    onClick = action.onClick,
+                    enabled = enabled,
+                    modifier = Modifier
+                        .size(Sizes.minTouchTarget)
+                        .semantics { contentDescription = description },
+                ) {
+                    Box(Modifier.clearAndSetSemantics {}) {
+                        CollapsedActionGlyph(action)
+                    }
+                }
+            }
+        }
+        return
+    }
+    PageKey(
+        onClick = action.onClick,
+        enabled = enabled,
+        contentDescription = description,
+    ) {
+        CollapsedActionGlyph(action)
+    }
+}
+
+@Composable
+private fun CollapsedActionGlyph(action: CollapsedRailAction) {
+    val tint =
+        if (action.emphasized && !LocalEinkMode.current) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            LocalContentColor.current
+        }
+    if (action.loading) {
+        PlazaSpinner(
+            size = 18.dp,
+            strokeWidth = 2.dp,
+            color = tint,
+        )
+    } else {
+        PlazaIcon(
+            imageVector = action.icon,
+            contentDescription = null,
+            tint = tint,
+        )
     }
 }
 
@@ -495,6 +677,7 @@ fun PageJumpSheet(
     val title = stringResource(Res.string.page_jump_title)
     PlazaSheet(
         onDismiss = onDismiss,
+        fitNativeSheetContent = true,
         sheetState =
         rememberBottomSheetState(
             initialValue = SheetValue.Hidden,
@@ -728,7 +911,7 @@ private fun PageNumberField(
             enabled = number != null,
             modifier = Modifier.size(GoButtonSize),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = stringResource(Res.string.page_jump_go),
             )
@@ -764,7 +947,7 @@ private fun UnitChip(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(unitLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Icon(PlazaIcons.SwapVert, contentDescription = null, modifier = Modifier.size(20.dp))
+            PlazaIcon(PlazaIcons.SwapVert, contentDescription = null, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -791,7 +974,7 @@ private fun JumpTile(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(destination.icon, contentDescription = null)
+            PlazaIcon(destination.icon, contentDescription = null)
             Column {
                 Text(
                     destination.label,

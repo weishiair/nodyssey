@@ -57,6 +57,9 @@ class ChallengeDetector(private val markers: PageMarkers) {
             return SiteError.RateLimited
         }
 
+        // After the throttle, for the reason [PageMarkers.edgeBlock] gives: a 429 wears the same title.
+        if (isEdgeBlock(statusCode, html, markers)) return SiteError.Cloudflare(url)
+
         if (statusCode !in 200..299) return SiteError.Http(statusCode)
 
         return SiteError.Unparsable
@@ -71,3 +74,15 @@ class ChallengeDetector(private val markers: PageMarkers) {
         return document.body().text()
     }
 }
+
+/**
+ * Whether the edge refused the request with its own block page — see [CLOUDFLARE_BLOCK_MARKERS].
+ *
+ * Reported as [SiteError.Cloudflare], whose recovery is the one that helps: the refused address in
+ * the web view. Not checked against [PageMarkers.usablePage]; both callers have done that first.
+ */
+fun isEdgeBlock(
+    statusCode: Int,
+    body: String,
+    markers: PageMarkers,
+): Boolean = statusCode == 403 && markers.edgeBlock.any(body::contains)

@@ -1,14 +1,23 @@
 package io.github.nodyssey.ui.settings
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
+import io.github.nodyssey.data.attendance.AutoAttendanceConfig
+import io.github.nodyssey.data.settings.PadLayoutMode
+import io.github.nodyssey.data.settings.ReadMarkStyle
+import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.plaza.designsys.theme.PlazaTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -103,5 +112,139 @@ class SettingsScreenTest {
 
         composeRule.waitForIdle()
         assertTrue(appliedScale != null)
+    }
+
+    @Test
+    fun `e ink mode disables light and dark choices`() {
+        showSettings(state = { SettingsUiState(UserSettings(einkMode = true)) })
+
+        composeRule.onNodeWithText("浅色").performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithText("深色").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `disabling uniform stickers hides their size slider`() {
+        val state = mutableStateOf(SettingsUiState(UserSettings(stickerUniformSize = false)))
+        showSettings(state = { state.value })
+        composeRule.onNodeWithTag(STICKER_SIZE_SLIDER_TAG).assertDoesNotExist()
+
+        composeRule.runOnIdle {
+            state.value = state.value.copy(settings = state.value.settings.copy(stickerUniformSize = true))
+        }
+        composeRule.onNodeWithTag(STICKER_SIZE_SLIDER_TAG).performScrollTo().assertExists()
+    }
+
+    @Test
+    fun `the read mark menu sends the chosen style and shows colors only when it paints a block`() {
+        val state = mutableStateOf(SettingsUiState(UserSettings(readMarkStyle = ReadMarkStyle.DIM)))
+        showSettings(
+            state = { state.value },
+            onReadMarkStyleChange = { style ->
+                state.value = state.value.copy(settings = state.value.settings.copy(readMarkStyle = style))
+            },
+        )
+        composeRule.onNodeWithText("标记颜色").assertDoesNotExist()
+
+        composeRule.onNodeWithText("已读标记").performScrollTo().performClick()
+        composeRule.onNodeWithText("整块染色（标已读）").performClick()
+
+        composeRule.runOnIdle { assertEquals(ReadMarkStyle.BLOCK, state.value.settings.readMarkStyle) }
+        composeRule.onNodeWithText("标记颜色").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun `the report format segment sends the report format enum`() {
+        var selected: ReportFormat? = null
+        showSettings(
+            state = { SettingsUiState(UserSettings(reportFormat = ReportFormat.SOURCE)) },
+            onReportFormatChange = { selected = it },
+        )
+
+        composeRule.onNodeWithText("数据卡片").performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertEquals(ReportFormat.ADAPTED, selected) }
+    }
+
+    @Test
+    fun `clearing the cache cannot be requested again until the current clear finishes`() {
+        val state = mutableStateOf(SettingsUiState(isClearingCache = true))
+        var requests = 0
+        showSettings(state = { state.value }, onClearCache = { requests++ })
+        val clear = composeRule.onNodeWithText("清除缓存")
+
+        clear.performScrollTo().performClick()
+        composeRule.runOnIdle {
+            assertEquals(0, requests)
+            state.value = state.value.copy(isClearingCache = false)
+        }
+        clear.performClick()
+        composeRule.runOnIdle { assertEquals(1, requests) }
+    }
+
+    @Test
+    fun `pad layout choice is hidden on phone screens`() {
+        showSettings(state = { SettingsUiState() })
+
+        composeRule.onNodeWithText("平板布局").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w840dp-h1200dp")
+    fun `pad layout choice appears on tablets and sends the selected layout mode`() {
+        var selected: PadLayoutMode? = null
+        showSettings(
+            state = { SettingsUiState(UserSettings(padLayoutMode = PadLayoutMode.SPLIT)) },
+            onPadLayoutModeChange = { selected = it },
+        )
+
+        composeRule.onNodeWithText("整页").performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertEquals(PadLayoutMode.SINGLE, selected) }
+    }
+
+    @Test
+    fun `attendance status is readable without becoming a clickable action`() {
+        showSettings(
+            state = { SettingsUiState() },
+            attendanceConfig = AutoAttendanceConfig(enabled = true),
+        )
+
+        composeRule.onNodeWithText("签到状态").performScrollTo().assertHasNoClickAction()
+    }
+
+    private fun showSettings(
+        state: () -> SettingsUiState,
+        attendanceConfig: AutoAttendanceConfig = AutoAttendanceConfig(),
+        onReadMarkStyleChange: (ReadMarkStyle) -> Unit = {},
+        onReportFormatChange: (ReportFormat) -> Unit = {},
+        onPadLayoutModeChange: (PadLayoutMode) -> Unit = {},
+        onClearCache: () -> Unit = {},
+    ) {
+        composeRule.setContent {
+            PlazaTheme {
+                SettingsScreen(
+                    state = state(),
+                    appLinkHandlingEnabled = null,
+                    attendanceConfig = attendanceConfig,
+                    onOpenAppLinkSettings = {},
+                    onBack = {},
+                    onOpenTheme = {},
+                    onThemeModeChange = {},
+                    onReadMarkStyleChange = onReadMarkStyleChange,
+                    onReadMarkColorChange = {},
+                    onOneHandModeChange = {},
+                    onFontScaleChange = {},
+                    onStickerUniformSizeChange = {},
+                    onStickerSizeChange = {},
+                    onImagesOnWifiOnlyChange = {},
+                    onReportFormatChange = onReportFormatChange,
+                    onHomePageBarChange = {},
+                    onUpdateCheckOnLaunchChange = {},
+                    onUpdateDevChannelChange = {},
+                    onPadLayoutModeChange = onPadLayoutModeChange,
+                    onClearCache = onClearCache,
+                )
+            }
+        }
     }
 }

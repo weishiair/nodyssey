@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.nodyssey.data.mail.MailAttachment
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailMessage
+import io.github.nodyssey.data.mail.MailRemoteImage
 import io.github.nodyssey.data.mail.MailRepository
 import io.github.nodyssey.data.mail.MailVerificationCode
 import io.github.nodyssey.di.AppContainer
@@ -26,6 +28,12 @@ data class MailDetailUiState(
     val body: String = "",
     val verificationCode: String? = null,
     val updatingRead: Boolean = false,
+    val attachments: List<MailAttachment> = emptyList(),
+    val loadingAttachments: Boolean = false,
+    val attachmentError: MailError? = null,
+    val remoteImages: Map<String, MailRemoteImage> = emptyMap(),
+    val loadingRemoteImages: Boolean = false,
+    val remoteImagesFailed: Boolean = false,
     val error: MailError? = null,
 )
 
@@ -38,6 +46,8 @@ class MailDetailViewModel(
     private var generation: Long? = null
     private var loadJob: Job? = null
     private var readJob: Job? = null
+    private var attachmentJob: Job? = null
+    private var imageJob: Job? = null
     val uiState = combine(state, repository.readStates) { detail, reads ->
         val mail = detail.message
         if (mail == null || reads.generation != generation) {
@@ -59,6 +69,8 @@ class MailDetailViewModel(
                 } else if (!connection.connected || connection.generation != generation) {
                     loadJob?.cancel()
                     readJob?.cancel()
+                    attachmentJob?.cancel()
+                    imageJob?.cancel()
                     state.value = MailDetailUiState(loading = false, expired = true)
                 }
             }
@@ -73,7 +85,9 @@ class MailDetailViewModel(
         val expected = generation ?: return
         if (state.value.expired) return
         loadJob?.cancel()
-        state.update { it.copy(loading = true, error = null) }
+        attachmentJob?.cancel()
+        imageJob?.cancel()
+        state.update { it.copy(loading = true, error = null, loadingRemoteImages = false) }
         loadJob = viewModelScope.launch {
             runCatchingExceptCancellation {
                 val mail = repository.detail(expected, mailboxId, mailId)
@@ -86,11 +100,56 @@ class MailDetailViewModel(
                         verificationCode = MailVerificationCode.extract(mail.subject, body),
                     )
                     if (!mail.isRead) setRead(true)
+                    if (mail.hasAttachments) loadAttachments()
                 }
             }.onFailure { error ->
                 if (!state.value.expired) state.update { it.copy(loading = false, error = error.mailError()) }
             }
         }
+    }
+
+    fun loadRemoteImages() {
+        val expected = generation ?: return
+        val detail = state.value
+        if (detail.loading || detail.loadingRemoteImages || detail.expired) return
+        val urls = detail.message?.formattedBody?.remoteImages.orEmpty().filterNot(detail.remoteImages::containsKey)
+        if (urls.isEmpty()) return
+        state.update { it.copy(loadingRemoteImages = true, remoteImagesFailed = false) }
+        imageJob = viewModelScope.launch {
+            val images = runCatchingExceptCancellation { repository.loadRemoteImages(expected, urls) }.getOrDefault(emptyMap())
+            if (repository.connection.value.generation == expected) {
+                state.update {
+                    it.copy(
+                        remoteImages = it.remoteImages + images,
+                        loadingRemoteImages = false,
+                        remoteImagesFailed = images.size < urls.size,
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadAttachments() {
+        val expected = generation ?: return
+        if (state.value.message?.hasAttachments != true || state.value.loadingAttachments) return
+        state.update { it.copy(loadingAttachments = true, attachmentError = null) }
+        attachmentJob = viewModelScope.launch {
+            runCatchingExceptCancellation { repository.attachments(expected, mailId) }
+                .onSuccess { attachments ->
+                    state.update { it.copy(attachments = attachments, loadingAttachments = false) }
+                }
+                .onFailure { error ->
+                    if (canSaveAttachment()) state.update { it.copy(loadingAttachments = false, attachmentError = error.mailError()) }
+                }
+        }
+    }
+
+    fun canSaveAttachment(): Boolean =
+        repository.connection.value.let { it.connected && it.generation == generation }
+
+    suspend fun downloadAttachment(attachment: MailAttachment): ByteArray {
+        val expected = generation ?: throw io.github.nodyssey.data.mail.MailException(MailError.UNAUTHORIZED)
+        return repository.downloadAttachment(expected, mailId, attachment)
     }
 
     fun toggleRead() {

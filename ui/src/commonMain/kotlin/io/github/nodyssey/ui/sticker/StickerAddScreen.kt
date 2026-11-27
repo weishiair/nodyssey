@@ -33,7 +33,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -41,8 +40,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -87,7 +84,6 @@ import io.github.nodyssey.ui.common.rememberNewClipboardText
 import io.github.nodyssey.ui.composer.MAX_IMAGES_PER_PICK
 import io.github.nodyssey.ui.composer.rememberImagePicker
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
 import io.github.nodyssey.ui.resources.composer_image_default_name
 import io.github.nodyssey.ui.resources.sticker_add
@@ -151,12 +147,13 @@ import io.github.nodyssey.ui.resources.sticker_upload_progress
 import io.github.nodyssey.ui.resources.sticker_upload_to
 import io.github.nodyssey.ui.resources.sticker_upload_waiting
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.ImageFallback
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaLoadingIndicator
 import io.github.plaza.designsys.component.SectionNote
@@ -229,14 +226,10 @@ fun StickerAddRoute(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.sticker_add),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -321,7 +314,7 @@ private fun ColumnScope.LinkTab(
     if (clipLinks.isNotEmpty() && !clipLinks.all { it in text }) {
         LayerCard(contentPadding = PaddingValues(Spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                Icon(PlazaIcons.ContentPaste, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                PlazaIcon(PlazaIcons.ContentPaste, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(Res.string.sticker_clipboard_found, clipLinks.size), style = MaterialTheme.typography.titleSmall)
                     Text(
@@ -406,7 +399,7 @@ private fun LinkPreviewTile(
             contentAlignment = Alignment.Center,
         ) {
             if (preview.loads == false) {
-                Icon(PlazaIcons.BrokenImage, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                PlazaIcon(PlazaIcons.BrokenImage, contentDescription = null, tint = MaterialTheme.colorScheme.error)
             } else {
                 StickerThumbnail(
                     url = preview.url,
@@ -643,7 +636,7 @@ internal fun HostImageGrid(
 @Composable
 internal fun SelectionCheck(modifier: Modifier = Modifier) {
     Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.primary, modifier = modifier.size(20.dp)) {
-        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(2.dp))
+        PlazaIcon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(2.dp))
     }
 }
 
@@ -743,7 +736,7 @@ private fun UploadRow(
 
             StickerUpload.State.UPLOADING -> Text("${(upload.progress * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
 
-            StickerUpload.State.DONE -> Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            StickerUpload.State.DONE -> PlazaIcon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
 
             StickerUpload.State.FAILED -> TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
         }
@@ -783,7 +776,7 @@ private fun ColumnScope.GitHubTab(
                     selected = source == null,
                     onClick = viewModel::newSource,
                     label = { Text(stringResource(Res.string.sticker_github_new_source)) },
-                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    leadingIcon = { PlazaIcon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 )
             }
             items(subscriptions, key = { it.slug }) { subscription ->
@@ -791,7 +784,7 @@ private fun ColumnScope.GitHubTab(
                     selected = source == subscription.slug,
                     onClick = { viewModel.editSource(subscription.slug) },
                     label = { Text("${subscription.slug} · ${subscription.folders.size}") },
-                    leadingIcon = { Icon(PlazaIcons.Code, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    leadingIcon = { PlazaIcon(PlazaIcons.Code, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 )
             }
         }
@@ -831,7 +824,7 @@ private fun ColumnScope.GitHubTab(
             val listing = current.listing
             LayerCard(contentPadding = PaddingValues(Spacing.md)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    Icon(PlazaIcons.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    PlazaIcon(PlazaIcons.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f)) {
                         Text("${listing.owner} / ${listing.repo}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         Text(

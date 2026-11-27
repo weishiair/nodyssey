@@ -20,6 +20,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
@@ -42,10 +43,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.roundToIntRect
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,11 +72,15 @@ import androidx.navigation3.ui.NavDisplay
 import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.NotificationTab
 import io.github.nodyssey.data.session.AccountRepository
+import io.github.nodyssey.data.settings.BottomBarStyle
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.FloatingBottomBarVisibility
 import io.github.nodyssey.ui.common.LocalBottomBarPosition
+import io.github.nodyssey.ui.common.LocalBottomBarStyle
+import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
@@ -128,13 +139,14 @@ import org.jetbrains.compose.resources.stringResource
 fun MainNavigation(
     container: AppContainer,
     modifier: Modifier = Modifier,
+    initialSettings: UserSettings? = null,
     initialTab: TopLevelDestination = TopLevelDestination.HOME,
     launchRequest: LaunchRequest? = null,
     onLaunchRequestHandled: () -> Unit = {},
 ) {
     // Hoisted out of the navigation lambdas below, which are not composable.
     val navigationSettings by container.settingsRepository.settings.collectAsStateWithLifecycle(
-        initialValue = UserSettings(),
+        initialValue = initialSettings ?: UserSettings(),
     )
     val historySession by container.sessionRepository.state.collectAsStateWithLifecycle()
     LaunchedEffect(historySession.isSignedIn, historySession.fingerprint) {
@@ -265,8 +277,14 @@ fun MainNavigation(
     }
 
     val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
-    val paneDirective = remember(windowAdaptiveInfo) {
-        calculatePaneScaffoldDirective(windowAdaptiveInfo).copy(horizontalPartitionSpacerSize = 0.dp)
+    val windowSize = LocalWindowInfo.current.containerSize
+    val isLandscape = windowSize.width > windowSize.height
+    val paneDirective = remember(windowAdaptiveInfo, isLandscape, navigationSettings.padLayoutMode) {
+        resolvePaneDirective(
+            base = calculatePaneScaffoldDirective(windowAdaptiveInfo).copy(horizontalPartitionSpacerSize = 0.dp),
+            isLandscape = isLandscape,
+            layoutMode = navigationSettings.padLayoutMode,
+        )
     }
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
@@ -277,8 +295,10 @@ fun MainNavigation(
         defaultSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
             defaultSuiteType == NavigationSuiteType.ShortNavigationBarMedium ||
             defaultSuiteType == NavigationSuiteType.NavigationBar
+    val useFloatingBottomBar =
+        isBottomBarLayout && (LocalFixedBottomBarHeight.current != null || LocalBottomBarStyle.current == BottomBarStyle.FLOATING)
     val bottomBarClearance = LocalBottomBarPosition.current.bottomBarClearance
-    val currentBottomBarClearance by rememberUpdatedState(if (isBottomBarLayout) bottomBarClearance else 0.dp)
+    val currentBottomBarClearance by rememberUpdatedState(if (useFloatingBottomBar) bottomBarClearance else 0.dp)
     val listDetailSceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
 
@@ -640,12 +660,17 @@ fun MainNavigation(
             )
         },
         modifier = modifier,
-        navigationSuiteType = if (isBottomBarLayout) NavigationSuiteType.None else defaultSuiteType,
-        navigationSuiteColors = NavigationSuiteDefaults.colors(navigationRailContainerColor = layers.page),
+        navigationSuiteType = if (useFloatingBottomBar) NavigationSuiteType.None else defaultSuiteType,
+        navigationSuiteColors =
+        NavigationSuiteDefaults.colors(
+            shortNavigationBarContainerColor = layers.card,
+            navigationBarContainerColor = layers.card,
+            navigationRailContainerColor = layers.page,
+        ),
         state = navigationSuiteState,
     ) {
-        val bottomBarVisibility = remember { MutableTransitionState(isBottomBarLayout && showNavigationSuite) }
-        bottomBarVisibility.targetState = isBottomBarLayout && showNavigationSuite
+        val bottomBarVisibility = remember { MutableTransitionState(useFloatingBottomBar && showNavigationSuite) }
+        bottomBarVisibility.targetState = useFloatingBottomBar && showNavigationSuite
         var composedNotices by remember { mutableIntStateOf(0) }
         // Keep capture through both exit animations. SnackbarHost may draw an outgoing notice
         // after currentSnackbarData clears, or overlap it with the next notice in the queue.
@@ -657,67 +682,72 @@ fun MainNavigation(
                 ),
         )
         Box(Modifier.fillMaxSize()) {
-            SharedTransitionLayout(
-                Modifier
-                    .fillMaxSize()
-                    .liquidGlassBackdropSource(navBackdrop)
-                    // iOS 26's swipe-anywhere back, within a tab's own stack only: a tab's root has no
-                    // content swipe on iOS, and here it would mean "jump to 首页" — which stays on the
-                    // edge swipe, as it always was.
-                    .contentSwipeBack(enabled = contentSwipeBackSupported && backStack.size > 1),
+            SinglePaneHingeAvoidance(
+                excludedBounds = if (isListDetailExpanded) emptyList() else paneDirective.excludedBounds,
+                modifier = Modifier.fillMaxSize(),
             ) {
-            /*
-             * Withheld on a two-pane window, where a row and the thread it opens are on screen at
-             * once and a single shared-element key would have two live claims on it. Provided as a
-             * composition local rather than threaded through every screen: the two ends of the
-             * flight are a feed row and a thread header, twelve composables apart, and the only
-             * thing they need to agree on is that the flight is happening at all.
-             *
-             * Withheld on electronic paper for a different reason: a title flying from a row into a
-             * header is a per-frame redraw of two moving areas, which is the most expensive shape a
-             * transition can have on a panel and the one that ghosts worst.
-             */
-                val eink = LocalEinkMode.current
-                val openNetworkCheck = remember(backStack) { { backStack.add(NetworkCheckKey) } }
-                val openReportCompare = remember(backStack) { { backStack.add(ReportCompareKey) } }
-                val stickerNavigation = remember(backStack) {
-                    val notices = StickerNotices()
-                    StickerNavigation(
-                        openManager = { backStack.add(StickerManageKey) },
-                        openSources = { backStack.add(StickerSourcesKey) },
-                        openImageHost = { backStack.add(ImageHostKey) },
-                        openAdd = { tab, source ->
-                            notices.clear()
-                            backStack.add(StickerAddKey(tab, source))
-                        },
-                        notices = notices,
-                    )
-                }
-                CompositionLocalProvider(
-                    // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
-                    LocalOpenNetworkCheck provides { openNetworkCheck() },
-                    LocalKeepBottomBarVisibleOnScroll provides (touchExploration || isListDetailExpanded),
-                    // 测评对比 from any report card's 对比 (n), onto whichever tab the card is in.
-                    LocalOpenReportCompare provides { openReportCompare() },
-                    // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
-                    LocalStickerNavigation provides stickerNavigation,
+                SharedTransitionLayout(
+                    Modifier
+                        .fillMaxSize()
+                        .liquidGlassBackdropSource(navBackdrop)
+                        // iOS 26's swipe-anywhere back, within a tab's own stack only: a tab's root has no
+                        // content swipe on iOS, and here it would mean "jump to 首页" — which stays on the
+                        // edge swipe, as it always was.
+                        .contentSwipeBack(enabled = contentSwipeBackSupported && backStack.size > 1),
                 ) {
-                    val navigateBack: () -> Unit = {
-                        if (backStack.size > 1) {
-                            backStack.removeLastOrNull()
-                        } else {
-                            currentTab = TopLevelDestination.HOME
-                        }
+                    /*
+                     * Withheld on a two-pane window, where a row and the thread it opens are on screen at
+                     * once and a single shared-element key would have two live claims on it. Provided as a
+                     * composition local rather than threaded through every screen: the two ends of the
+                     * flight are a feed row and a thread header, twelve composables apart, and the only
+                     * thing they need to agree on is that the flight is happening at all.
+                     *
+                     * Withheld on electronic paper for a different reason: a title flying from a row into a
+                     * header is a per-frame redraw of two moving areas, which is the most expensive shape a
+                     * transition can have on a panel and the one that ghosts worst.
+                     */
+                    val eink = LocalEinkMode.current
+                    val openNetworkCheck = remember(backStack) { { backStack.add(NetworkCheckKey) } }
+                    val openReportCompare = remember(backStack) { { backStack.add(ReportCompareKey) } }
+                    val stickerNavigation = remember(backStack) {
+                        val notices = StickerNotices()
+                        StickerNavigation(
+                            openManager = { backStack.add(StickerManageKey) },
+                            openSources = { backStack.add(StickerSourcesKey) },
+                            openImageHost = { backStack.add(ImageHostKey) },
+                            openAdd = { tab, source ->
+                                notices.clear()
+                                backStack.add(StickerAddKey(tab, source))
+                            },
+                            notices = notices,
+                        )
                     }
-                    NodysseyNavDisplay(
-                        entries = entries,
-                        predictiveBack = navigationSettings.predictiveBack,
-                        eink = eink,
-                        sceneStrategies = listOf(listDetailSceneStrategy),
-                        sharedTransitionScope = this@SharedTransitionLayout,
-                        sharedThreadTransitions = !isListDetailExpanded,
-                        onBack = navigateBack,
-                    )
+                    CompositionLocalProvider(
+                        // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
+                        LocalOpenNetworkCheck provides { openNetworkCheck() },
+                        LocalKeepBottomBarVisibleOnScroll provides (touchExploration || isListDetailExpanded),
+                        // 测评对比 from any report card's 对比 (n), onto whichever tab the card is in.
+                        LocalOpenReportCompare provides { openReportCompare() },
+                        // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
+                        LocalStickerNavigation provides stickerNavigation,
+                    ) {
+                        val navigateBack: () -> Unit = {
+                            if (backStack.size > 1) {
+                                backStack.removeLastOrNull()
+                            } else {
+                                currentTab = TopLevelDestination.HOME
+                            }
+                        }
+                        NodysseyNavDisplay(
+                            entries = entries,
+                            predictiveBack = navigationSettings.predictiveBack,
+                            eink = eink,
+                            sceneStrategies = listOf(listDetailSceneStrategy),
+                            sharedTransitionScope = this@SharedTransitionLayout,
+                            sharedThreadTransitions = !isListDetailExpanded,
+                            onBack = navigateBack,
+                        )
+                    }
                 }
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
@@ -734,7 +764,7 @@ fun MainNavigation(
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
                 val clipboardSnackbarBottomClearance by animateDpAsState(
-                    targetValue = if (isBottomBarLayout && showNavigationSuite) bottomBarClearance else 0.dp,
+                    targetValue = if (useFloatingBottomBar && showNavigationSuite) bottomBarClearance else 0.dp,
                     animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                     label = "clipboardSnackbarBottomClearance",
                 )
@@ -920,6 +950,106 @@ internal fun EmptyDetailPane(text: StringResource) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/**
+ * Applies window orientation and the user's tablet layout choice to [base].
+ *
+ * Wide portrait tablets collapse to a single partition just like iPad (`supportsIosListDetail`),
+ * unless a physical separating vertical hinge already divides the window into two halves.
+ * [PadLayoutMode.SINGLE] always collapses multi-pane directives down to a single partition while
+ * preserving [PaneScaffoldDirective.excludedBounds] for hinge avoidance.
+ */
+internal fun resolvePaneDirective(
+    base: PaneScaffoldDirective,
+    isLandscape: Boolean,
+    layoutMode: PadLayoutMode,
+): PaneScaffoldDirective =
+    when {
+        layoutMode == PadLayoutMode.SINGLE -> base.copy(maxHorizontalPartitions = 1)
+        !isLandscape && base.excludedBounds.isEmpty() -> base.copy(maxHorizontalPartitions = 1)
+        else -> base
+    }
+
+/**
+ * Places single-pane navigation content clear of physical separating vertical hinges in
+ * [excludedBounds] (window coordinates), mirroring `ThreePaneContentMeasurePolicy`'s hinge split.
+ *
+ * `rememberListDetailSceneStrategy(shouldHandleSinglePaneLayout = true)` was tried first, but
+ * `ThreePaneScaffoldScene` installs its own unconditional `NavigationBackHandler` that seeks
+ * `MutableThreePaneScaffoldState` during back swipes and ignores the app's `predictiveBack`
+ * switch (while still leaving non-pane destinations outside the scaffold). Keeping a single
+ * `Layout` here preserves subtree state across posture changes while letting `NodysseyNavDisplay`
+ * own back previews and transitions. Remove this wrapper once Material 3 Adaptive allows callers
+ * to opt out of `ListDetailSceneStrategy`'s internal predictive-back seeking.
+ */
+@Composable
+internal fun SinglePaneHingeAvoidance(
+    excludedBounds: List<Rect>,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        if (excludedBounds.isEmpty()) {
+            val placeables = measurables.map { it.measure(constraints) }
+            val width = placeables.maxOfOrNull { it.width } ?: constraints.minWidth
+            val height = placeables.maxOfOrNull { it.height } ?: constraints.minHeight
+            layout(width, height) {
+                placeables.forEach { it.place(0, 0) }
+            }
+        } else {
+            val maxWidth = constraints.maxWidth
+            val maxHeight = constraints.maxHeight
+            layout(maxWidth, maxHeight) {
+                val windowToLocal = coordinates?.windowToLocal(Offset.Zero) ?: Offset.Zero
+                val localExcluded = excludedBounds.map { it.translate(windowToLocal).roundToIntRect() }
+                val partition = singlePanePartitionBounds(maxWidth, maxHeight, localExcluded)
+                val childConstraints = Constraints.fixed(partition.width, partition.height)
+                measurables.forEach { measurable ->
+                    // Physical coordinates match window-space excludedBounds in both LTR and RTL.
+                    measurable.measure(childConstraints).place(partition.left, partition.top)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Picks the first unobstructed vertical partition inside a `[0, containerWidth) × [0, containerHeight)`
+ * container after cutting out [localExcludedBounds], matching `ThreePaneContentMeasurePolicy`.
+ */
+internal fun singlePanePartitionBounds(
+    containerWidth: Int,
+    containerHeight: Int,
+    localExcludedBounds: List<IntRect>,
+): IntRect {
+    val full = IntRect(0, 0, containerWidth, containerHeight)
+    if (containerWidth <= 0 || containerHeight <= 0 || localExcludedBounds.isEmpty()) return full
+    val partitions = mutableListOf<IntRect>()
+    var left = 0
+    var right = containerWidth
+    val overlapping =
+        localExcludedBounds
+            .filter { it.bottom > 0 && it.top < containerHeight && it.right > 0 && it.left < containerWidth }
+            .sortedBy { it.left }
+    for (excluded in overlapping) {
+        when {
+            excluded.left <= left -> left = maxOf(left, excluded.right)
+
+            excluded.right >= right -> right = minOf(right, excluded.left)
+
+            else -> {
+                if (excluded.left > left) {
+                    partitions += IntRect(left, 0, excluded.left, containerHeight)
+                }
+                left = maxOf(left, excluded.right)
+            }
+        }
+    }
+    if (left < right) {
+        partitions += IntRect(left, 0, right, containerHeight)
+    }
+    return partitions.firstOrNull { it.width > 0 } ?: full
 }
 
 /**

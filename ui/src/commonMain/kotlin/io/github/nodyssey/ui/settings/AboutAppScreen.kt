@@ -13,13 +13,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -90,7 +87,6 @@ import io.github.nodyssey.ui.resources.about_update_retry
 import io.github.nodyssey.ui.resources.about_update_unknown
 import io.github.nodyssey.ui.resources.about_upstream
 import io.github.nodyssey.ui.resources.about_version
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.settings_licenses
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.crash.CrashReport
@@ -101,9 +97,10 @@ import io.github.plaza.core.update.UpdateCheck
 import io.github.plaza.core.update.UpdateDownload
 import io.github.plaza.core.update.UpdateFailure
 import io.github.plaza.core.update.releaseNotesText
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.IconBadge
 import io.github.plaza.designsys.component.LayerCard
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionNote
@@ -177,17 +174,10 @@ fun AboutAppScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.about_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -363,7 +353,7 @@ private fun AppIdentity(
                         size = 18.dp,
                     )
                 } else {
-                    Icon(PlazaIcons.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                    PlazaIcon(PlazaIcons.History, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.width(Spacing.sm))
                 Text(stringResource(if (updateChecksSupported) Res.string.about_check_updates else Res.string.about_open_releases))
@@ -444,7 +434,7 @@ private fun UpdateCard(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
-                    Icon(PlazaIcons.Download, contentDescription = null)
+                    PlazaIcon(PlazaIcons.Download, contentDescription = null)
                 }
                 Text(
                     stringResource(Res.string.about_update_new_version, release.versionName),
@@ -510,7 +500,7 @@ private fun UpdateCard(
                             modifier = Modifier.fillMaxWidth(),
                             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                         ) {
-                            Icon(PlazaIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                            PlazaIcon(PlazaIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(Spacing.sm))
                             Text(
                                 stringResource(

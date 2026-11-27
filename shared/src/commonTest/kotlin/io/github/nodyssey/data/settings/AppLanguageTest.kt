@@ -3,6 +3,7 @@ package io.github.nodyssey.data.settings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -14,14 +15,20 @@ import kotlin.test.assertTrue
  */
 class AppLanguageTest {
 
-    /** The three regions that write Chinese in the traditional script, with and without a script subtag. */
+    /**
+     * All regions and scripts that resolve to Traditional Chinese, including tags carrying `@`
+     * locale extensions (such as `zh-Hant-MO@calendar=gregorian`).
+     */
     @Test
-    fun `traditional regions are recognised`() {
+    fun `traditional regions and locale extensions are recognised`() {
         assertTrue(isTraditionalChineseTag("zh-TW"))
         assertTrue(isTraditionalChineseTag("zh-HK"))
         assertTrue(isTraditionalChineseTag("zh-MO"))
         assertTrue(isTraditionalChineseTag("zh-Hant-TW"))
         assertTrue(isTraditionalChineseTag("zh-Hant-HK"))
+        assertTrue(isTraditionalChineseTag("zh-Hant-MO@calendar=gregorian"))
+        assertTrue(isTraditionalChineseTag("zh-MO@calendar=gregorian"))
+        assertTrue(isTraditionalChineseTag("zh-TW@calendar=roc"))
     }
 
     /** A bare script with no region — what a device set to 繁體中文 with no country reports. */
@@ -36,6 +43,7 @@ class AppLanguageTest {
         assertFalse(isTraditionalChineseTag("zh-CN"))
         assertFalse(isTraditionalChineseTag("zh-Hans-CN"))
         assertFalse(isTraditionalChineseTag("zh-SG"))
+        assertFalse(isTraditionalChineseTag("zh-Hans-TW@calendar=gregorian"))
     }
 
     /**
@@ -47,6 +55,7 @@ class AppLanguageTest {
     @Test
     fun `an explicit simplified script beats a traditional region`() {
         assertFalse(isTraditionalChineseTag("zh-Hans-HK"))
+        assertFalse(isTraditionalChineseTag("zh-Hans-HK@calendar=gregorian"))
     }
 
     /** Underscores are what a JVM `Locale.toString()` hands over, and they have to parse the same. */
@@ -79,5 +88,64 @@ class AppLanguageTest {
         assertEquals(AppLanguage.SYSTEM, AppLanguage.ofName(""))
         assertEquals(AppLanguage.SYSTEM, AppLanguage.ofName("KLINGON"))
         assertEquals(AppLanguage.ENGLISH, AppLanguage.ofName("ENGLISH"))
+    }
+
+    /**
+     * A leading tag that is not an exact `zh-TW` (including iOS Taiwan's `zh-Hant-TW`,
+     * `zh-Hant-HK`, `zh-HK`, `zh-Hant`, `zh-Hant-MO@calendar=gregorian`, and `zh-TW@calendar=roc`)
+     * is narrowed to `zh-TW` so `values-zh-rTW` always matches.
+     */
+    @Test
+    fun `traditional leads other than exact zh-TW are narrowed to zh-TW`() {
+        assertEquals(
+            listOf("zh-TW"),
+            narrowedForTraditionalChinese(listOf("zh-Hant-TW")),
+        )
+        assertEquals(
+            listOf("zh-TW", "en-US"),
+            narrowedForTraditionalChinese(listOf("zh-Hant-TW", "en-US")),
+        )
+        assertEquals(
+            listOf("zh-TW", "en-HK"),
+            narrowedForTraditionalChinese(listOf("zh-Hant-HK", "en-HK")),
+        )
+        assertEquals(listOf("zh-TW"), narrowedForTraditionalChinese(listOf("zh-HK")))
+        assertEquals(listOf("zh-TW"), narrowedForTraditionalChinese(listOf("zh-MO")))
+        assertEquals(listOf("zh-TW"), narrowedForTraditionalChinese(listOf("zh-Hant")))
+        assertEquals(
+            listOf("zh-TW"),
+            narrowedForTraditionalChinese(listOf("zh-Hant-MO@calendar=gregorian")),
+        )
+        assertEquals(
+            listOf("zh-TW"),
+            narrowedForTraditionalChinese(listOf("zh-TW@calendar=roc")),
+        )
+    }
+
+    /** A `zh-TW` further down the list is kept once — the narrowed head replaces the lead, not adds. */
+    @Test
+    fun `narrowing does not repeat a zh-TW already in the list`() {
+        assertEquals(
+            listOf("zh-TW", "en"),
+            narrowedForTraditionalChinese(listOf("zh-Hant-HK", "zh-TW", "en")),
+        )
+        assertEquals(
+            listOf("zh-TW", "en"),
+            narrowedForTraditionalChinese(listOf("zh-Hant-TW", "zh_tw", "en")),
+        )
+    }
+
+    /** Only the first entry decides, and exact `zh-TW` or non-Traditional leads are left alone. */
+    @Test
+    fun `lists that need no narrowing answer null`() {
+        assertNull(narrowedForTraditionalChinese(listOf("zh-TW")))
+        assertNull(narrowedForTraditionalChinese(listOf("zh_tw")))
+        assertNull(narrowedForTraditionalChinese(listOf("ZH-TW")))
+        assertNull(narrowedForTraditionalChinese(listOf("zh-Hans-HK")))
+        assertNull(narrowedForTraditionalChinese(listOf("zh-Hans-TW@calendar=gregorian")))
+        assertNull(narrowedForTraditionalChinese(listOf("zh-CN")))
+        assertNull(narrowedForTraditionalChinese(listOf("en-US")))
+        assertNull(narrowedForTraditionalChinese(emptyList()))
+        assertNull(narrowedForTraditionalChinese(listOf("en-US", "zh-Hant-HK")))
     }
 }

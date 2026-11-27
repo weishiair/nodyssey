@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.nodyssey.data.settings.BottomBarPosition
+import io.github.nodyssey.data.settings.BottomBarStyle
 import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SettingsRepository
@@ -92,6 +93,10 @@ class ThemeSettingsViewModel(
 
     fun setFrostedGlass(value: Boolean) {
         viewModelScope.launch { settings.setFrostedGlass(value) }
+    }
+
+    fun setBottomBarStyle(style: BottomBarStyle) {
+        viewModelScope.launch { settings.setBottomBarStyle(style) }
     }
 
     fun setBottomBarPosition(position: BottomBarPosition) {

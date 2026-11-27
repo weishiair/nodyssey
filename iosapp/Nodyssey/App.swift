@@ -17,6 +17,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        NodysseyApp.shared.applyLaunchLanguage()
         ComposeTokenizerGuard.install()
         UNUserNotificationCenter.current().delegate = self
         NodysseyApp.shared.registerBackgroundTasks()
@@ -83,20 +84,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
 
         NodysseyApp.shared.start { controller in
-            // iOS 26+ supplies the floating Liquid Glass bar when the app is linked with SDK 26+.
-            // Leave its appearance and translucency to UIKit. An older SDK keeps even iOS 27 in
-            // the legacy design; making that bar transparent does not turn it into Liquid Glass.
-            // The Actions build checks its SDK before building and again on the packaged app.
-            if #unavailable(iOS 26.0), let tabs = controller as? UITabBarController {
-                // Older systems use a full-width bar. Keep both states opaque rather than relying
-                // on UIKit to infer the scroll position from Compose.
-                let appearance = UITabBarAppearance()
-                appearance.configureWithOpaqueBackground()
-                appearance.backgroundColor = .systemBackground
-                tabs.tabBar.standardAppearance = appearance
-                tabs.tabBar.scrollEdgeAppearance = appearance
-                tabs.tabBar.isTranslucent = false
-            }
             window.rootViewController = controller
         }
     }

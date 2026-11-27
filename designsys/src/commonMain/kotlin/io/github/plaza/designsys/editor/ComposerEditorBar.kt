@@ -10,12 +10,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,10 +23,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.fadingEndEdge
 import io.github.plaza.designsys.resources.Res
@@ -34,10 +37,12 @@ import io.github.plaza.designsys.resources.composer_format_link
 import io.github.plaza.designsys.resources.composer_link_menu_image
 import io.github.plaza.designsys.resources.composer_link_menu_more
 import io.github.plaza.designsys.resources.composer_toolbar_customize
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.backdropGlass
-import io.github.plaza.designsys.theme.glassRimBorderStroke
+import io.github.plaza.designsys.theme.glassSheetRimBorderStroke
+import io.github.plaza.designsys.theme.nativeControls
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -137,16 +142,28 @@ private fun Strip(
     val darkTheme = LocalPlazaDarkTheme.current
     val scroll = rememberScrollState()
     // Recessed rather than raised: the strip is part of the page the writer is typing on.
+    // With native controls it floats as a capsule instead; it already sits above the keyboard because
+    // both composers apply imePadding upstream, so no insets here.
     Surface(
         color =
         if (layers.backdropGlass) {
-            layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.74f)
+            if (darkTheme) {
+                layers.raised.copy(alpha = 0.68f)
+            } else {
+                lerp(layers.page, Color.White, 0.35f).copy(alpha = 0.92f)
+            }
         } else {
             layers.inset
         },
-        shape = LayerCardShape,
-        border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
-        modifier = modifier.fillMaxWidth().padding(BarMargin),
+        shape = if (nativeControls) {
+            CircleShape
+        } else if (layers.backdropGlass) {
+            FloatingCapsuleShape
+        } else {
+            LayerCardShape
+        },
+        border = if (layers.backdropGlass) layers.glassSheetRimBorderStroke(darkTheme) else null,
+        modifier = modifier.fillMaxWidth().padding(if (nativeControls) CapsuleMargin else BarMargin),
     ) {
         Row(
             modifier = Modifier
@@ -182,7 +199,7 @@ private fun Strip(
             appMenu?.invoke()
             onCustomize?.let { customize ->
                 IconButton(onClick = customize, modifier = Modifier.size(QuickKeySize)) {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.Build,
                         contentDescription = stringResource(Res.string.composer_toolbar_customize),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -207,15 +224,16 @@ private fun LinkTemplateMenu(
 ) {
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.composer_format_link)) },
-        leadingIcon = { Icon(PlazaIcons.Link, contentDescription = null) },
+        leadingIcon = { PlazaIcon(PlazaIcons.Link, contentDescription = null) },
         onClick = onLink,
     )
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.composer_link_menu_image)) },
-        leadingIcon = { Icon(PlazaIcons.Image, contentDescription = null) },
+        leadingIcon = { PlazaIcon(PlazaIcons.Image, contentDescription = null) },
         onClick = onImage,
     )
 }
 
 private val BarMargin = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp)
+private val CapsuleMargin = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
 private val QuickKeySize = 40.dp

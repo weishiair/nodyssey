@@ -1,16 +1,23 @@
 package io.github.nodyssey.ui.mail
 
 import io.github.nodyssey.data.mail.DefaultMailRepository
+import io.github.nodyssey.data.mail.MailAttachment
 import io.github.nodyssey.data.mail.MailAuthMode
 import io.github.nodyssey.data.mail.MailConnection
 import io.github.nodyssey.data.mail.MailCredentialStore
+import io.github.nodyssey.data.mail.MailDraft
 import io.github.nodyssey.data.mail.MailError
 import io.github.nodyssey.data.mail.MailException
+import io.github.nodyssey.data.mail.MailFolder
+import io.github.nodyssey.data.mail.MailListFilter
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.mail.MailPage
 import io.github.nodyssey.data.mail.MailReadStates
 import io.github.nodyssey.data.mail.MailRepository
+import io.github.nodyssey.data.mail.MailTag
 import io.github.nodyssey.data.mail.Mailbox
+import io.github.nodyssey.data.mail.OutgoingMail
+import io.github.nodyssey.data.mail.SavedMailDraft
 import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.HttpRequest
 import io.github.plaza.core.net.HttpResponse
@@ -43,6 +50,126 @@ class MailViewModelTest {
 
     @After
     fun tearDown() = Dispatchers.resetMain()
+
+    @Test
+    fun `closing waits for the save and a new compose automatically resumes the latest draft`() = runTest(dispatcher) {
+        val written = CompletableDeferred<Unit>()
+        val saved = mutableMapOf<String, SavedMailDraft>()
+        val repository = FakeMailRepository().apply {
+            readDraftsAnswer = { saved.values.toList() }
+            saveDraftAnswer = { id, draft ->
+                written.await()
+                saved[id] = SavedMailDraft(id, draft, savedAt = 1)
+            }
+        }
+        val draft = MailDraft(mailboxId = 7, to = "incomplete@", subject = "Unsent", body = "First version")
+        val composer = MailComposeViewModel(repository, generation = 1, selectedMailboxId = 7)
+        advanceUntilIdle()
+        composer.edit(draft)
+        composer.saveAndClose()
+        advanceUntilIdle()
+        assertNull(composer.uiState.value.nextAction)
+
+        written.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(MailComposeAction.CLOSE, composer.uiState.value.nextAction)
+        val id = saved.keys.single()
+        val older = SavedMailDraft("older", draft.copy(subject = "Older draft"), savedAt = 0)
+        saved[older.id] = older
+        val restored = MailComposeViewModel(repository, generation = 1, selectedMailboxId = null)
+        advanceUntilIdle()
+        assertEquals(draft, restored.uiState.value.draft)
+
+        val latest = draft.copy(body = "Second version")
+        restored.edit(latest)
+        restored.startBlank()
+        advanceUntilIdle()
+        assertFalse(restored.uiState.value.draft.hasText)
+        assertEquals(mapOf(id to SavedMailDraft(id, latest, savedAt = 1), older.id to older), saved)
+
+        val selected = MailComposeViewModel(repository, generation = 1, selectedMailboxId = null, existingDraftId = older.id)
+        advanceUntilIdle()
+        assertEquals(older.draft, selected.uiState.value.draft)
+    }
+
+    @Test
+    fun `pressing Send twice while a request is pending submits only one message`() = runTest(dispatcher) {
+        val waiting = CompletableDeferred<Unit>()
+        val submitted = mutableListOf<OutgoingMail>()
+        val repository = FakeMailRepository().apply {
+            sendAnswer = { message ->
+                submitted += message
+                waiting.await()
+            }
+        }
+        val composer = MailComposeViewModel(repository, generation = 1, selectedMailboxId = 7)
+        advanceUntilIdle()
+        val message = OutgoingMail(7, listOf("test@example.org"), "Hello", "Message")
+        composer.edit(MailDraft(mailboxId = 7, to = "test@example.org", subject = "Hello", body = "Message"))
+
+        composer.send()
+        composer.send()
+        advanceUntilIdle()
+        assertTrue(composer.uiState.value.sending)
+        assertEquals(listOf(message), submitted)
+
+        waiting.complete(Unit)
+        advanceUntilIdle()
+        composer.send()
+        advanceUntilIdle()
+        assertTrue(composer.uiState.value.submitted)
+        assertEquals(listOf(message), submitted)
+    }
+
+    @Test
+    fun `send rejection keeps the draft and the server reason until the connection changes`() = runTest(dispatcher) {
+        val repository = FakeMailRepository().apply {
+            sendAnswer = { throw MailException(MailError.INVALID_INPUT, 400, "Sending quota reached") }
+        }
+        val composer = MailComposeViewModel(repository, generation = 1, selectedMailboxId = 7)
+        advanceUntilIdle()
+        val draft = MailDraft(mailboxId = 7, to = "test@example.org", subject = "Hello", body = "Message")
+        composer.edit(draft)
+
+        composer.send()
+        advanceUntilIdle()
+        assertEquals(draft, composer.uiState.value.draft)
+        assertEquals(400, composer.uiState.value.responseStatus)
+        assertEquals("Sending quota reached", composer.uiState.value.rejection)
+
+        repository.connection.value = MailConnection(initialized = true, generation = 2, connected = true)
+        advanceUntilIdle()
+        assertTrue(composer.uiState.value.expired)
+        assertFalse(composer.uiState.value.draft.hasText)
+    }
+
+    @Test
+    fun `a partially completed move reloads the inbox and leaves the failed message selected`() = runTest(dispatcher) {
+        val moves = mutableListOf<Long>()
+        val second = MAIL.copy(id = 22)
+        val repository = FakeMailRepository().apply {
+            inboxAnswer = { _, _ ->
+                val messages = if (moves.isEmpty()) listOf(MAIL, second) else listOf(second)
+                MailPage(messages, null, messages.size)
+            }
+            moveAnswer = { id, _ ->
+                if (id == second.id) throw MailException(MailError.RATE_LIMITED)
+                moves += id
+            }
+        }
+        val inbox = MailInboxViewModel(repository, AppDispatchers(dispatcher, dispatcher))
+        advanceUntilIdle()
+        inbox.toggleSelection()
+        inbox.selectVisible()
+        advanceUntilIdle()
+        inbox.moveSelected(15)
+        advanceUntilIdle()
+
+        assertEquals(listOf(MAIL.id), moves)
+        assertEquals(listOf(second.id), inbox.uiState.value.messages.map(MailMessage::id))
+        assertEquals(setOf(second.id), inbox.uiState.value.selectedIds)
+        assertEquals(MailError.RATE_LIMITED, inbox.uiState.value.mailboxActionError)
+    }
 
     @Test
     fun `global inbox checks update an empty inbox without another screen request and reject stale snapshots`() = runTest(dispatcher) {
@@ -626,6 +753,42 @@ internal class FakeMailRepository : MailRepository {
     }
 
     override suspend fun mailboxes(generation: Long) = availableMailboxes
+
+    override suspend fun list(generation: Long, mailboxId: Long?, offset: Int, filter: MailListFilter) =
+        inbox(generation, mailboxId, offset)
+
+    override suspend fun folders(generation: Long): List<MailFolder> = emptyList()
+
+    var sendAnswer: suspend (OutgoingMail) -> Unit = { error("Unexpected send") }
+
+    override suspend fun send(generation: Long, mail: OutgoingMail) = sendAnswer(mail)
+
+    var readDraftsAnswer: suspend () -> List<SavedMailDraft> = { emptyList() }
+    var saveDraftAnswer: suspend (String, MailDraft) -> Unit = { _, _ -> error("Unexpected draft save") }
+
+    override suspend fun drafts(generation: Long) = readDraftsAnswer()
+
+    override suspend fun saveDraft(generation: Long, id: String, draft: MailDraft) = saveDraftAnswer(id, draft)
+
+    override suspend fun tags(generation: Long): List<MailTag> = emptyList()
+
+    override suspend fun createTag(generation: Long, name: String) = error("Unexpected tag creation")
+
+    override suspend fun setTag(generation: Long, id: Long, tagId: Long, attach: Boolean) = error("Unexpected tag change")
+
+    override suspend fun checkAddress(generation: Long, address: String) = error("Unexpected address check")
+
+    override suspend fun createMailbox(generation: Long, address: String) = error("Unexpected mailbox creation")
+
+    override suspend fun attachments(generation: Long, mailId: Long): List<MailAttachment> = emptyList()
+
+    override suspend fun downloadAttachment(generation: Long, mailId: Long, attachment: MailAttachment) = error("Unexpected download")
+
+    override suspend fun flag(generation: Long, id: Long, flagged: Boolean) = error("Unexpected flag request")
+
+    var moveAnswer: suspend (Long, Long?) -> Unit = { _, _ -> error("Unexpected move request") }
+
+    override suspend fun move(generation: Long, id: Long, folderId: Long?) = moveAnswer(id, folderId)
 
     override suspend fun inbox(generation: Long, mailboxId: Long?, offset: Int): MailPage {
         offsets += offset

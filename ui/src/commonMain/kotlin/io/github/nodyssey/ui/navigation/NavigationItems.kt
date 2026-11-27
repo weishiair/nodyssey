@@ -2,10 +2,10 @@ package io.github.nodyssey.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -29,23 +28,32 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavKey
+import com.kyant.backdrop.isRuntimeShaderSupported
 import io.github.nodyssey.NotificationsKey
 import io.github.nodyssey.PostListKey
 import io.github.nodyssey.ProfileKey
@@ -55,11 +63,17 @@ import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.tab_home
 import io.github.nodyssey.ui.resources.tab_notifications
 import io.github.nodyssey.ui.resources.tab_profile
+import io.github.plaza.designsys.component.LiquidGlassBottomTabs
+import io.github.plaza.designsys.component.LocalLiquidGlassTabScale
+import io.github.plaza.designsys.component.PlazaIcon
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.glassNavigationContainerColor
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -122,7 +136,7 @@ fun NodysseyNavigationItems(
             selected = selected,
             onClick = { onSelect(destination) },
             icon = {
-                Icon(
+                PlazaIcon(
                     imageVector = if (selected) destination.selectedIcon else destination.icon,
                     contentDescription = null,
                     modifier = Modifier.size(NavigationIconSize),
@@ -154,9 +168,11 @@ fun NodysseyNavigationItems(
 }
 
 private val NavigationIconSize = 20.dp
+private val GlassNavigationIconSize = 21.dp
 
-private val GlassBottomBarShape = CircleShape
-private val GlassPillIndicatorShape = CircleShape
+private val GlassBottomBarShape = FloatingCapsuleShape
+private val GlassPillIndicatorShape = FloatingCapsuleShape
+private val TabGap = 4.dp
 
 /** Safe-area positioning shared by the Compose and UIKit tab contents. */
 @Composable
@@ -206,6 +222,45 @@ internal fun BottomNavigationTabs(
     val darkTheme = LocalPlazaDarkTheme.current
     val backdrop = LocalLiquidGlassBackdrop.current
     val scheme = MaterialTheme.colorScheme
+    val entries = TopLevelDestination.entries
+    val selectedIndex = entries.indexOf(current)
+
+    if (layers.backdropGlass && backdrop != null && isRuntimeShaderSupported()) {
+        LiquidGlassBottomTabs(
+            selectedIndex = selectedIndex,
+            tabsCount = entries.size,
+            onTabSelected = { index -> entries.getOrNull(index)?.let(onSelect) },
+            backdrop = backdrop,
+            containerColor = layers.glassNavigationContainerColor(darkTheme),
+            accentColor = scheme.primary,
+            darkTheme = darkTheme,
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+        ) {
+            entries.forEach { destination ->
+                FloatingTabItem(
+                    destination = destination,
+                    selected = destination == current,
+                    darkTheme = darkTheme,
+                    unreadCount = unreadCount,
+                    onClick = { onSelect(destination) },
+                )
+            }
+        }
+        return
+    }
+
+    var lastSelectedIndex by remember { mutableIntStateOf(0) }
+    SideEffect { if (selectedIndex >= 0) lastSelectedIndex = selectedIndex }
+    val position by animateFloatAsState(
+        targetValue = (if (selectedIndex >= 0) selectedIndex else lastSelectedIndex).toFloat(),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "glassNavIndicator",
+    )
+    val indicatorAlpha by animateFloatAsState(
+        targetValue = if (current == null) 0f else 1f,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+        label = "glassNavIndicatorAlpha",
+    )
 
     Row(
         modifier = Modifier
@@ -219,74 +274,102 @@ internal fun BottomNavigationTabs(
                 backdrop = backdrop,
                 style = GlassSurfaceStyle.Navigation,
             )
-            .padding(horizontal = 5.dp, vertical = 4.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .drawBehind {
+                if (indicatorAlpha <= 0.001f) return@drawBehind
+                val n = entries.size
+                val gap = TabGap.toPx()
+                val itemWidth = (size.width - gap * (n - 1)) / n
+                val left = position * (itemWidth + gap)
+                val leftPx = if (layoutDirection == LayoutDirection.Rtl) size.width - left - itemWidth else left
+                val outline = GlassPillIndicatorShape.createOutline(Size(itemWidth, size.height), layoutDirection, this)
+                val indicatorColor =
+                    if (layers.backdropGlass) {
+                        (if (darkTheme) Color.White else Color.Black).copy(alpha = (if (darkTheme) 0.14f else 0.08f) * indicatorAlpha)
+                    } else {
+                        scheme.secondaryContainer.copy(alpha = (if (darkTheme) 0.56f else 0.68f) * indicatorAlpha)
+                    }
+                translate(left = leftPx) {
+                    drawOutline(outline = outline, color = indicatorColor)
+                }
+            }
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(TabGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TopLevelDestination.entries.forEach { destination ->
-            val selected = destination == current
-            val scale by animateFloatAsState(
-                targetValue = if (selected) 1.02f else 1f,
-                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
-                label = "glassNavTabScale",
+        entries.forEach { destination ->
+            FloatingTabItem(
+                destination = destination,
+                selected = destination == current,
+                darkTheme = darkTheme,
+                unreadCount = unreadCount,
+                onClick = { onSelect(destination) },
             )
-            val pillColor by animateColorAsState(
-                targetValue =
-                if (selected) {
-                    scheme.secondaryContainer.copy(alpha = if (darkTheme) 0.56f else 0.68f)
-                } else {
-                    Color.Transparent
-                },
-                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
-                label = "glassNavTabPill",
-            )
-            val contentColor by animateColorAsState(
-                targetValue = if (selected) scheme.primary else scheme.onSurface,
-                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
-                label = "glassNavTabContent",
-            )
-            val label = stringResource(destination.label)
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                    }
-                    .clip(GlassPillIndicatorShape)
-                    .background(pillColor, GlassPillIndicatorShape)
-                    .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(destination) }),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                BadgedBox(
-                    badge = {
-                        if (destination == TopLevelDestination.NOTIFICATIONS && unreadCount > 0) {
-                            Badge { Text(unreadCount.coerceAtMost(99).toString()) }
-                        }
-                    },
-                ) {
-                    Icon(
-                        imageVector = if (selected) destination.selectedIcon else destination.icon,
-                        contentDescription = null,
-                        tint = contentColor,
-                        modifier = Modifier.size(NavigationIconSize),
-                    )
-                }
-                Text(
-                    text = label,
-                    color = contentColor,
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    ),
-                    maxLines = 1,
-                )
-            }
         }
+    }
+}
+
+@Composable
+private fun RowScope.FloatingTabItem(
+    destination: TopLevelDestination,
+    selected: Boolean,
+    darkTheme: Boolean,
+    unreadCount: Int,
+    onClick: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val dropletScale = LocalLiquidGlassTabScale.current
+    val inactiveColor = scheme.onSurface.copy(alpha = if (darkTheme) 0.72f else 0.68f)
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) scheme.primary else inactiveColor,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+        label = "glassNavTabContent",
+    )
+    val label = stringResource(destination.label)
+
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .graphicsLayer {
+                val s = dropletScale()
+                scaleX = s
+                scaleY = s
+            }
+            .clip(GlassPillIndicatorShape)
+            .selectable(
+                selected = selected,
+                role = Role.Tab,
+                interactionSource = null,
+                indication = null,
+                onClick = onClick,
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+    ) {
+        BadgedBox(
+            badge = {
+                if (destination == TopLevelDestination.NOTIFICATIONS && unreadCount > 0) {
+                    Badge { Text(unreadCount.coerceAtMost(99).toString()) }
+                }
+            },
+        ) {
+            PlazaIcon(
+                imageVector = if (selected) destination.selectedIcon else destination.icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(GlassNavigationIconSize),
+            )
+        }
+        Text(
+            text = label,
+            color = contentColor,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            ),
+            maxLines = 1,
+        )
     }
 }

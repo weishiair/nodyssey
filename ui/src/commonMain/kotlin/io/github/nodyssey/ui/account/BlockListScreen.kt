@@ -14,13 +14,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -62,7 +60,6 @@ import io.github.nodyssey.ui.resources.account_blocked_count
 import io.github.nodyssey.ui.resources.account_confirm_unblock_action
 import io.github.nodyssey.ui.resources.account_confirm_unblock_body
 import io.github.nodyssey.ui.resources.account_confirm_unblock_title
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.block_tab_titles
 import io.github.nodyssey.ui.resources.block_tab_users
 import io.github.nodyssey.ui.resources.block_title
@@ -75,12 +72,13 @@ import io.github.nodyssey.ui.resources.keywords_regex_placeholder
 import io.github.nodyssey.ui.resources.keywords_regex_toggle
 import io.github.nodyssey.ui.resources.keywords_remove
 import io.github.nodyssey.ui.resources.keywords_rule_regex
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.SectionLabel
@@ -189,17 +187,10 @@ fun BlockListScreen(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.block_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -382,7 +373,7 @@ private fun TitleRulesContent(
             onClick = { onRegexChange(!state.isRegex) },
             label = { Text(stringResource(Res.string.keywords_regex_toggle)) },
             leadingIcon = if (state.isRegex) {
-                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                { PlazaIcon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
             } else {
                 null
             },
@@ -405,7 +396,7 @@ private fun TitleRulesContent(
                     },
                     trailingContent = {
                         IconButton(onClick = { onRemove(rule) }) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.keywords_remove, rule.text))
+                            PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.keywords_remove, rule.text))
                         }
                     },
                 )
@@ -520,7 +511,7 @@ private fun BlockedEmptyState(text: String) {
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
+            PlazaIcon(
                 PlazaIcons.VisibilityOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -26,12 +26,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -86,9 +84,11 @@ import io.github.nodyssey.ui.resources.sticker_manage_show
 import io.github.nodyssey.ui.resources.sticker_menu_move_top
 import io.github.nodyssey.ui.resources.sticker_menu_save_to_mine
 import io.github.nodyssey.ui.resources.sticker_undo
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbar
 import io.github.plaza.designsys.component.rememberClipboardCopy
@@ -151,11 +151,11 @@ fun StickerGroupRoute(
                 navigationIcon = {
                     if (selecting) {
                         IconButton(onClick = viewModel::clearSelection) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_cancel))
+                            PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_cancel))
                         }
                     } else {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
+                            PlazaIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
                         }
                     }
                 },
@@ -163,10 +163,10 @@ fun StickerGroupRoute(
                     when {
                         selecting && mine -> {
                             IconButton(onClick = viewModel::moveSelectedToTop, enabled = selection.isNotEmpty()) {
-                                Icon(PlazaIcons.VerticalAlignTop, contentDescription = stringResource(Res.string.sticker_menu_move_top))
+                                PlazaIcon(PlazaIcons.VerticalAlignTop, contentDescription = stringResource(Res.string.sticker_menu_move_top))
                             }
                             IconButton(onClick = viewModel::deleteSelected, enabled = selection.isNotEmpty()) {
-                                Icon(Icons.Default.Delete, contentDescription = stringResource(Res.string.action_delete))
+                                PlazaIcon(Icons.Default.Delete, contentDescription = stringResource(Res.string.action_delete))
                             }
                         }
 
@@ -174,13 +174,13 @@ fun StickerGroupRoute(
                             onClick = { viewModel.saveSelectedToMine { added = it } },
                             enabled = selection.isNotEmpty(),
                         ) {
-                            Icon(Icons.Default.FavoriteBorder, contentDescription = stringResource(Res.string.sticker_menu_save_to_mine))
+                            PlazaIcon(Icons.Default.FavoriteBorder, contentDescription = stringResource(Res.string.sticker_menu_save_to_mine))
                         }
 
                         item != null -> {
                             if (current.cells.any { it.url != null }) {
                                 IconButton(onClick = viewModel::startSelecting) {
-                                    Icon(PlazaIcons.Checklist, contentDescription = stringResource(Res.string.sticker_group_select))
+                                    PlazaIcon(PlazaIcons.Checklist, contentDescription = stringResource(Res.string.sticker_group_select))
                                 }
                             }
                             GroupMenu(
@@ -266,17 +266,17 @@ fun StickerGroupRoute(
         )
     }
     if (confirmingBroken) {
-        AlertDialog(
-            onDismissRequest = { confirmingBroken = false },
-            title = { Text(stringResource(Res.string.sticker_manage_remove_broken_confirm, current?.brokenCount ?: 0)) },
-            text = { Text(stringResource(Res.string.sticker_manage_remove_broken_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.removeBroken()
-                    confirmingBroken = false
-                }) { Text(stringResource(Res.string.sticker_group_remove), color = MaterialTheme.colorScheme.error) }
+        AdaptiveAlertDialog(
+            onDismiss = { confirmingBroken = false },
+            title = stringResource(Res.string.sticker_manage_remove_broken_confirm, current?.brokenCount ?: 0),
+            message = stringResource(Res.string.sticker_manage_remove_broken_body),
+            confirmLabel = stringResource(Res.string.sticker_group_remove),
+            onConfirm = {
+                viewModel.removeBroken()
+                confirmingBroken = false
             },
-            dismissButton = { TextButton(onClick = { confirmingBroken = false }) { Text(stringResource(Res.string.action_cancel)) } },
+            dismissLabel = stringResource(Res.string.action_cancel),
+            destructive = true,
         )
     }
 }
@@ -291,12 +291,12 @@ private fun GroupMenu(
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
+            PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(if (item.hidden) Res.string.sticker_manage_show else Res.string.sticker_manage_hide)) },
-                leadingIcon = { Icon(if (item.hidden) PlazaIcons.Visibility else PlazaIcons.VisibilityOff, contentDescription = null) },
+                leadingIcon = { PlazaIcon(if (item.hidden) PlazaIcons.Visibility else PlazaIcons.VisibilityOff, contentDescription = null) },
                 onClick = {
                     open = false
                     onToggleHidden()
@@ -305,7 +305,7 @@ private fun GroupMenu(
             if (item is StickerGroupItem.Mine) {
                 DropdownMenuItem(
                     text = { Text(stringResource(Res.string.sticker_manage_export)) },
-                    leadingIcon = { Icon(PlazaIcons.Link, contentDescription = null) },
+                    leadingIcon = { PlazaIcon(PlazaIcons.Link, contentDescription = null) },
                     enabled = item.count > 0,
                     onClick = {
                         open = false
@@ -316,7 +316,7 @@ private fun GroupMenu(
             onOpenRepo?.let { openRepo ->
                 DropdownMenuItem(
                     text = { Text(stringResource(Res.string.sticker_manage_open_repo)) },
-                    leadingIcon = { Icon(PlazaIcons.Code, contentDescription = null) },
+                    leadingIcon = { PlazaIcon(PlazaIcons.Code, contentDescription = null) },
                     onClick = {
                         open = false
                         openRepo()
@@ -464,7 +464,7 @@ private fun GroupCellView(
             when {
                 cell.url == null -> Text(cell.id, fontSize = 28.sp)
 
-                cell.broken -> Icon(PlazaIcons.BrokenImage, contentDescription = cell.name, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                cell.broken -> PlazaIcon(PlazaIcons.BrokenImage, contentDescription = cell.name, tint = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 else -> StickerThumbnail(
                     url = cell.url,
@@ -513,7 +513,7 @@ private fun CellSheet(
                     contentAlignment = Alignment.Center,
                 ) {
                     if (cell.broken) {
-                        Icon(PlazaIcons.BrokenImage, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        PlazaIcon(PlazaIcons.BrokenImage, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         StickerThumbnail(
                             url = url,
@@ -575,7 +575,7 @@ private fun SheetAction(
         modifier = modifier,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Icon(icon, contentDescription = null, tint = if (color == Color.Unspecified) LocalContentColor.current else color)
+            PlazaIcon(icon, contentDescription = null, tint = if (color == Color.Unspecified) LocalContentColor.current else color)
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,

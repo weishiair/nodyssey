@@ -13,11 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -58,10 +55,10 @@ import io.github.nodyssey.ui.resources.about_site
 import io.github.nodyssey.ui.resources.about_site_hint
 import io.github.nodyssey.ui.resources.about_telegram_channel
 import io.github.nodyssey.ui.resources.about_telegram_group
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_retry
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.LayerCard
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -118,17 +115,10 @@ fun AboutCommunityScreen(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.about_community_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -167,7 +157,7 @@ fun AboutCommunityScreen(
                     subtitle = CommunityLinks.RSS_DISPLAY,
                     icon = PlazaIcons.Article,
                     trailing = {
-                        Icon(
+                        PlazaIcon(
                             PlazaIcons.ContentCopy,
                             contentDescription = stringResource(Res.string.about_copy_rss),
                         )
@@ -230,7 +220,7 @@ private fun CommunityStats(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Icon(PlazaIcons.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+            PlazaIcon(PlazaIcons.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     text =
@@ -299,7 +289,7 @@ private fun FriendSiteChips(onOpenUri: (String) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
                     Text(name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
-                    Icon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
+                    PlazaIcon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
                 }
             }
         }

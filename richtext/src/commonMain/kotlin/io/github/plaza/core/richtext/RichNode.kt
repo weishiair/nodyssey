@@ -231,6 +231,7 @@ sealed interface InlineNode {
     @Serializable
     @SerialName("sticker")
     data class Sticker(
+        /** Empty when the site identifies a sticker without providing a displayable image. */
         val url: String,
         val alt: String?,
     ) : InlineNode

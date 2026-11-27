@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
@@ -54,6 +53,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaLayers
 import io.github.plaza.designsys.theme.cardShadow
@@ -117,6 +118,7 @@ fun GroupedListItem(
     contentPadding: PaddingValues = ListItemDefaults.ContentPadding,
 ) {
     val layers = LocalPlazaLayers.current
+    val pressHaptics = rememberPlatformHaptics()
     val textStart = remember { TextStart() }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val headline: @Composable () -> Unit = {
@@ -152,7 +154,10 @@ fun GroupedListItem(
     when {
         checked != null && onCheckedChange != null ->
             SegmentedListItem(
-                onClick = { onCheckedChange(!checked) },
+                onClick = {
+                    pressHaptics.toggle()
+                    onCheckedChange(!checked)
+                },
                 shapes = shapes,
                 modifier =
                 decorated.semantics {
@@ -456,7 +461,7 @@ fun GroupedListItemSwitch(
         enabled = enabled,
         thumbContent =
         if (checked) {
-            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(SwitchDefaults.IconSize)) }
+            { PlazaIcon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(SwitchDefaults.IconSize)) }
         } else {
             null
         },

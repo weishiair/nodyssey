@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.nodyssey.data.security.SecretCipher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.Json
+import okio.ByteString.Companion.encodeUtf8
 
 interface MailCredentialStore {
     suspend fun read(): String
@@ -32,7 +34,15 @@ interface MailCredentialStore {
 
     suspend fun clearNotificationCursors() = Unit
 
+    suspend fun readDrafts(): List<SavedMailDraft> = emptyList()
+
+    suspend fun saveDraft(draft: SavedMailDraft): Unit = throw MailException(MailError.STORAGE)
+
+    suspend fun deleteDraft(id: String) = Unit
+
     suspend fun clear()
+
+    suspend fun expire() = clear()
 }
 
 class DataStoreMailCredentialStore(
@@ -101,10 +111,43 @@ class DataStoreMailCredentialStore(
     }
 
     override suspend fun clear(): Unit = storage {
+        dataStore.edit { preferences ->
+            preferences.remove(KEY)
+            preferences.asMap().keys.filter { it.name.startsWith(DRAFT_PREFIX) }.forEach { preferences.remove(it) }
+        }
+    }
+
+    override suspend fun expire(): Unit = storage {
         dataStore.edit { it.remove(KEY) }
     }
 
-    private suspend fun storage(block: suspend () -> Unit) {
+    override suspend fun readDrafts(): List<SavedMailDraft> = storage {
+        val preferences = dataStore.data.first()
+        val prefix = draftPrefix(preferences)
+        preferences.asMap().entries
+            .filter { it.key.name.startsWith(prefix) }
+            .map { entry -> Json.decodeFromString<SavedMailDraft>(cipher.decrypt(entry.value as String)) }
+            .sortedByDescending(SavedMailDraft::savedAt)
+    }
+
+    override suspend fun saveDraft(draft: SavedMailDraft): Unit = storage {
+        val encoded = Json.encodeToString(draft)
+        val encrypted = cipher.encrypt(encoded) ?: throw MailException(MailError.STORAGE)
+        if (cipher.decrypt(encrypted) != encoded) throw MailException(MailError.STORAGE)
+        dataStore.edit { it[stringPreferencesKey(draftPrefix(it) + draft.id)] = encrypted }
+    }
+
+    override suspend fun deleteDraft(id: String): Unit = storage {
+        dataStore.edit { it.remove(stringPreferencesKey(draftPrefix(it) + id)) }
+    }
+
+    private fun draftPrefix(preferences: Preferences): String {
+        val credential = cipher.decrypt(preferences[KEY].orEmpty())
+        if (credential.isBlank()) throw MailException(MailError.STORAGE)
+        return "$DRAFT_PREFIX${credential.encodeUtf8().sha256().hex()}-"
+    }
+
+    private suspend fun <T> storage(block: suspend () -> T): T =
         try {
             block()
         } catch (cancelled: CancellationException) {
@@ -112,12 +155,11 @@ class DataStoreMailCredentialStore(
         } catch (_: Exception) {
             throw MailException(MailError.STORAGE)
         }
-    }
-
     private companion object {
         val KEY = stringPreferencesKey("api-key")
         val DEFAULT_MAILBOX_ID = longPreferencesKey("default-mailbox-id")
         const val NOTIFICATION_CURSOR_PREFIX = "mail-notification-cursor-"
+        const val DRAFT_PREFIX = "mail-draft-"
 
         fun notificationCursorKey(mailboxId: Long?) = longPreferencesKey("$NOTIFICATION_CURSOR_PREFIX${mailboxId ?: "all"}")
     }

@@ -3,10 +3,6 @@ package io.github.nodyssey.data.mail
 import com.fleeksoft.ksoup.Ksoup
 import io.github.nodyssey.core.html.Selectors
 
-/**
- * Email is untrusted content. Convert it to selectable text; never run it in the authenticated
- * WebView or fetch remote images. HTML-only mail keeps paragraphs, table cells and safe link targets.
- */
 object MailBody {
     fun text(mail: MailMessage): String {
         mail.bodyText?.takeIf(String::isNotBlank)?.let { return it.trim() }

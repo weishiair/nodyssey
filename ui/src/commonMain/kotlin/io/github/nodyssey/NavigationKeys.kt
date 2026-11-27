@@ -119,6 +119,9 @@ data object AboutAppKey : NavKey
 data object AboutCommunityKey : NavKey
 
 @Serializable
+data object VpsCalculatorKey : NavKey
+
+@Serializable
 data object PrivacyKey : NavKey
 
 @Serializable
@@ -336,6 +339,12 @@ data object CommunityToolsKey : NavKey
 
 @Serializable
 data object MailInboxKey : NavKey
+
+@Serializable
+internal data class MailComposeKey(val generation: Long, val mailboxId: Long?, val draftId: String? = null) : NavKey
+
+@Serializable
+internal data class MailDraftsKey(val generation: Long) : NavKey
 
 /** IDs only: neither credentials nor mail content belong in a saved back stack. */
 @Serializable

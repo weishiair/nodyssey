@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
@@ -68,6 +67,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SectionLabel
@@ -251,7 +251,7 @@ private fun ConversationRow(
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     if (conversation.isSystem) {
-                        Icon(
+                        PlazaIcon(
                             PlazaIcons.PushPin,
                             contentDescription = stringResource(Res.string.messages_pinned),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -306,7 +306,7 @@ private fun ConversationAvatar(conversation: MessageConversation) {
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(PlazaIcons.Campaign, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            PlazaIcon(PlazaIcons.Campaign, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     } else {
         UserAvatar(url = conversation.avatarUrl, name = conversation.userName, size = CONVERSATION_AVATAR)

@@ -73,6 +73,8 @@ import io.github.nodyssey.data.attendance.AttendanceSession
 import io.github.nodyssey.data.attendance.AttendanceWriteGate
 import io.github.nodyssey.data.attendance.AutoAttendance
 import io.github.nodyssey.data.attendance.MultiAccountAttendance
+import io.github.nodyssey.data.calculator.DefaultVpsCalculatorRepository
+import io.github.nodyssey.data.calculator.VpsCalculatorRepository
 import io.github.nodyssey.data.composer.CommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultCommentComposerRepository
 import io.github.nodyssey.data.composer.DefaultPostComposerRepository
@@ -85,6 +87,8 @@ import io.github.nodyssey.data.composer.PostEditor
 import io.github.nodyssey.data.diagnostics.BrowserIdentities
 import io.github.nodyssey.data.diagnostics.NetworkDiagnostics
 import io.github.nodyssey.data.diagnostics.OkHttpNetworkDiagnostics
+import io.github.nodyssey.data.diagnostics.PostResponseDiagnosticStore
+import io.github.nodyssey.data.diagnostics.PostResponseDiagnosticsInterceptor
 import io.github.nodyssey.data.diagnostics.SessionSummary
 import io.github.nodyssey.data.dns.DataStoreDohSettings
 import io.github.nodyssey.data.dns.DohCapabilities
@@ -439,14 +443,20 @@ class DefaultAppContainer(
         )
     }
 
+    private val postResponseStore by lazy {
+        PostResponseDiagnosticStore(
+            appContext.getSharedPreferences("post-response-diagnostics-${site.name.lowercase()}", Context.MODE_PRIVATE),
+            clock,
+        )
+    }
+
+    private val postResponseDiagnostics by lazy {
+        PostResponseDiagnosticsInterceptor(siteConfig, clock, postResponseStore::save)
+    }
+
     /**
-     * 网络自检, wired to the two clients whose numbers are worth comparing.
-     *
-     * The forum's client and GitHub's, because the pair is what makes either number mean anything —
-     * see `ProbeTarget`. [gitHubClient] is deliberately the one used for the second probe rather than
-     * a client built here: it is routed as `THIRD_PARTY`, so a reader who chose `FORUM_ONLY` sees a
-     * proxied path and a direct one measured side by side, which is exactly the comparison that
-     * setting creates and the one nothing else in the app displays.
+     * The forum and update clients take their actual routes, so FORUM_ONLY proxy users see both
+     * paths measured separately. Saved post failures remain distinct from the home-page probe.
      */
     override val networkDiagnostics: NetworkDiagnostics by lazy {
         OkHttpNetworkDiagnostics(
@@ -477,6 +487,7 @@ class DefaultAppContainer(
                 )
             },
             dispatchers = dispatchers,
+            postResponses = postResponseStore,
         )
     }
 
@@ -496,6 +507,8 @@ class DefaultAppContainer(
             // client rebuilt.
             .proxySelector(AppProxySelector(liveProxyConfig, ProxyClientKind.FORUM))
             .proxyAuthenticator(AppProxyAuthenticator(liveProxyConfig))
+            .addInterceptor(postResponseDiagnostics)
+            .addNetworkInterceptor(postResponseDiagnostics.connectionInterceptor)
             // Applied to page *and* image requests, which both have to look like the mobile site.
             .addInterceptor(
                 BrowserHeadersInterceptor(
@@ -863,14 +876,24 @@ class DefaultAppContainer(
         )
     }
 
+    override val vpsCalculatorRepository: VpsCalculatorRepository by lazy {
+        DefaultVpsCalculatorRepository(
+            dataStore = appContext.vpsCalculatorDataStore,
+            http = lifetime.guard(OkHttpTransport(imageHostClient)),
+            dispatchers = dispatchers,
+            clock = clock,
+        )
+    }
+
     override val mailRepository: MailRepository by lazy {
         // A 307/308 must never forward the provider's signed payload to another origin.
-        val mailClient = ownClient(imageHostClient.newBuilder().cookieJar(SeekMailCookieJar(cookieStore)).followRedirects(false).retryOnConnectionFailure(false).build())
+        val apiClient = ownClient(imageHostClient.newBuilder().followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build())
+        val mailClient = ownClient(apiClient.newBuilder().cookieJar(SeekMailCookieJar(cookieStore)).build())
         val forumClient = ownClient(okHttpClient.newBuilder().followRedirects(false).retryOnConnectionFailure(false).build())
         DefaultMailRepository(
             credentials = DataStoreMailCredentialStore(appContext.mailDataStore, KeystoreSecretCipher()),
             clock = clock,
-            http = OkHttpTransport(imageHostClient),
+            http = OkHttpTransport(apiClient),
             dispatchers = dispatchers,
             sessionCookies = cookieStore,
             sessionHttp = OkHttpTransport(mailClient),

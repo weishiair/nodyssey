@@ -91,6 +91,7 @@
     <string name="post_last_reply_by">%1$s 最后回复于 %2$s</string>
     <string name="post_view_count">%1$d 浏览</string>
     <string name="post_badge_pinned">置顶</string>
+    <string name="post_badge_hot">热评</string>
     <!-- 加精: the site labels its own marker 推荐阅读, so the a11y label says the same thing -->
     <string name="post_badge_awarded">推荐阅读</string>
     <string name="post_badge_locked">已锁帖</string>
@@ -104,6 +105,8 @@
     <string name="post_edited_at">编辑于 %1$s</string>
 
     <!-- Post composer -->
+    <string name="composer_title_edit">编辑帖子</string>
+    <string name="composer_title_new">发帖</string>
     <string name="composer_title_hint">一句话说清主题</string>
     <string name="composer_body_hint">写下正文，支持 Markdown…</string>
     <string name="composer_title_count">%1$d/%2$d</string>
@@ -232,7 +235,8 @@
     <string name="post_reply_preview_title">预览 · 回复</string>
     <string name="post_reply_preview_title_floor">预览 · 回复 #%1$d</string>
     <string name="post_reply_draft_saved">草稿已保存 %1$s</string>
-    <string name="post_reply_quote_remove">移除回复对象</string>
+    <string name="post_reply_add_target">添加回复对象</string>
+    <string name="post_reply_quote_remove">移除回复对象 %1$s</string>
     <string name="post_reply_publish_failed">发布失败：%1$s，草稿已保留</string>
     <string name="post_reply_publish_unavailable">评论发布接口尚未接入</string>
     <string name="post_quote_prefix">#%1$d</string>
@@ -265,7 +269,8 @@
     <string name="tab_profile">我的</string>
 
     <!-- Search: authenticated remote results and condition-aware local history -->
-    <string name="search_hint">搜索帖子</string>
+    <string name="search_hint">搜索帖子或粘贴链接</string>
+    <string name="search_open_post_link">打开帖子</string>
     <!-- 首页顶部的搜索框占位：点它进搜索页，帖子和用户都能搜。 -->
     <string name="home_search_hint">搜索帖子或用户</string>
     <string name="search_hint_board">在 %1$s 版块搜帖子</string>
@@ -382,6 +387,11 @@
     <string name="settings_refresh_rate">屏幕刷新率</string>
     <string name="settings_refresh_rate_hint">不支持的档位置灰；实际刷新率由系统调度，较高档位可能增加耗电</string>
     <string name="settings_refresh_rate_value">%1$d Hz</string>
+    <!-- 仅平板/iPad 显示：宽屏横屏下点击列表项时采用双栏并排还是单开整页。 -->
+    <string name="settings_pad_layout_mode">平板布局</string>
+    <string name="settings_pad_layout_mode_hint">横屏宽屏下打开帖子、通知和私信的呈现方式</string>
+    <string name="settings_pad_layout_mode_split">双栏</string>
+    <string name="settings_pad_layout_mode_single">整页</string>
     <string name="settings_theme_light">浅色</string>
     <string name="settings_theme_dark">深色</string>
     <string name="settings_theme_mode">明暗</string>
@@ -499,7 +509,11 @@
     <string name="settings_search_avatar_preview">用头像找人，往往比认名字快</string>
     <!-- 阅读字号的预览句：说明自己在预览什么，不借一段假帖子 -->
     <string name="settings_text_preview">这是阅读字号的预览，帖子正文和列表标题会按这个大小显示。</string>
-    <string name="settings_content">内容</string>
+    <string name="settings_section_lists">列表</string>
+    <string name="settings_section_thread">帖子</string>
+    <string name="settings_section_interaction">操作</string>
+    <string name="settings_section_compose">发帖</string>
+    <string name="settings_section_storage">存储</string>
     <string name="settings_app_links">站内链接</string>
     <string name="settings_app_links_hint_on">已开启：在别的 App 里点 NodeSeek 的帖子、用户、通知链接会直接进来</string>
     <!-- 设置主页「站内链接」的第二行：系统把 NodeSeek 链接交给本 App / 仍交给浏览器 -->
@@ -626,7 +640,7 @@
     <string name="network_check_copy">复制结果</string>
     <string name="network_check_copied">已复制</string>
     <!-- 网络自检报告顶部的结论卡：只看论坛那一项，更新源失败时补一行 -->
-    <string name="network_check_summary_ok">论坛可以正常访问</string>
+    <string name="network_check_summary_ok">论坛首页请求成功</string>
     <string name="network_check_summary_failed">论坛无法访问</string>
     <string name="network_check_summary_updates">更新源：%1$s</string>
 
@@ -668,7 +682,19 @@
     <string name="network_check_yes">是</string>
     <string name="network_check_no">否</string>
 
-    <string name="network_check_section_forum">论坛</string>
+    <string name="network_check_section_forum">论坛首页探测</string>
+    <string name="network_check_post_failure_title">最近一次帖子请求失败</string>
+    <string name="network_check_post_failure_none">尚无记录</string>
+    <string name="network_check_post_failure_hint">帖子请求返回 HTTP 4xx/5xx 时自动保存最近一条脱敏记录，保留 7 天，恢复访问和重启后仍可复制。只记录固定响应特征，不保存 Cookie 值或正文。首页探测成功不代表帖子可访问。</string>
+    <string name="network_check_post_failure_clear">清除帖子失败记录</string>
+    <string name="network_check_post_failure_time">发生时间（UTC）</string>
+    <string name="network_check_post_failure_request">帖子地址</string>
+    <string name="network_check_post_failure_final">最终地址</string>
+    <string name="network_check_post_failure_headers">响应特征</string>
+    <string name="network_check_post_failure_body">错误页特征</string>
+    <string name="network_check_post_failure_sent_cookies">请求 Cookie 名称</string>
+    <string name="network_check_post_failure_received_cookies">响应 Cookie 名称</string>
+    <string name="network_check_post_failure_connection">当时的连接</string>
     <string name="network_check_section_updates">更新源</string>
     <string name="network_check_status">结果</string>
     <string name="network_check_stage">最远连接阶段</string>
@@ -1021,7 +1047,6 @@
     <string name="profile_guest_benefit_attendance_hint">每日 6–7 个</string>
     <string name="profile_sign_in">登录 %1$s</string>
     <string name="profile_sign_in_hint">在内置浏览器中完成，应用不保存你的密码</string>
-    <string name="profile_guest_section">游客也可以用</string>
 
     <string name="status_signed_in_title">已登录 %1$s</string>
     <string name="status_signed_in_body">应用现在会带着你的登录状态请求内容，内版这类版块可以直接看了。收藏、通知和签到都能用了。</string>
@@ -1185,6 +1210,7 @@
     <string name="viewer_page">%1$d / %2$d</string>
     <!-- 查看器底部的手势提示（8g） -->
     <string name="viewer_gesture_hint">双击放大 · 下拉关闭</string>
+    <string name="viewer_zoom_hint">双击或双指缩放</string>
     <string name="viewer_save">保存</string>
     <string name="viewer_saved">已保存到相册</string>
     <string name="viewer_save_failed">保存失败，稍后再试</string>
@@ -1984,7 +2010,6 @@
     <string name="post_only_author">只看楼主</string>
     <string name="post_author_replies">楼主回复</string>
     <string name="post_all_replies">全部回复</string>
-    <string name="post_sort_ascending">↕ 正序</string>
     <string name="post_author_scan">正在查找楼主回复 · 已检查 %1$d / %2$d 页</string>
     <string name="post_author_scan_retry">加载未完成，点此重试</string>
     <string name="post_author_empty">暂无楼主回复</string>
@@ -2015,6 +2040,10 @@
     <string name="settings_post_reply_style_original">原版</string>
     <string name="settings_show_author_account_info">显示作者注册天数</string>
     <string name="settings_show_author_account_info_hint">在主帖和回复中显示作者等级与注册天数</string>
+    <string name="settings_account_badge_style">等级徽章颜色</string>
+    <string name="settings_account_badge_style_hint">鲜艳为渐变底色，自然为浅底彩字</string>
+    <string name="settings_account_badge_style_vivid">鲜艳</string>
+    <string name="settings_account_badge_style_natural">自然</string>
     <string name="sign_in_diagnostics">查看登录诊断</string>
     <string name="sign_in_diagnostics_privacy">仅保存在当前登录页，不会自动上传。不包含账号、密码、验证码或 Cookie；复制后可发给开发者排查。</string>
     <string name="sign_in_use_email">邮箱验证码登录</string>
@@ -2083,7 +2112,7 @@
     <string name="mail_connect">连接邮箱</string>
     <string name="mail_connecting">正在验证…</string>
     <string name="mail_disconnect">断开连接</string>
-    <string name="mail_disconnect_hint">移除此设备保存的邮箱密钥并清空当前邮件。官网的邮箱和邮件会保留。</string>
+    <string name="mail_disconnect_hint">移除此设备保存的邮箱密钥并清空当前邮件和本机草稿。官网的邮箱和邮件会保留。</string>
     <string name="mail_inbox">收件箱</string>
     <string name="mail_choose_mailbox">选择邮箱</string>
     <string name="mail_no_mailboxes">账号下还没有邮箱，可前往官网创建。</string>
@@ -2103,13 +2132,15 @@
     <string name="mail_from">发件人：%1$s &lt;%2$s&gt;</string>
     <string name="mail_to">收件人：%1$s</string>
     <string name="mail_no_body">这封邮件没有可显示的正文。</string>
-    <string name="mail_plain_text_hint">以纯文本阅读，不加载远程图片。长按可选择和复制正文。</string>
+    <string name="mail_remote_images_load">加载远程图片</string>
+    <string name="mail_remote_images_loading">正在加载图片…</string>
+    <string name="mail_remote_images_failed">有图片未能加载，可以再试一次。</string>
     <string name="mail_attachment_hint">这封邮件有附件，请在官网查看或下载。</string>
     <string name="mail_open_website">在官网打开邮箱</string>
     <string name="mail_pane_empty">选择一封邮件开始阅读</string>
     <string name="mail_error_key">请输入完整的 sk_live_ 开头的 API Key。</string>
     <string name="mail_error_unauthorized">邮箱连接已失效，请重新授权或使用有效的 API Key 连接。</string>
-    <string name="mail_error_permission">密钥权限不足，请在官网检查 mailbox:read、mail:read 和 mail:manage 权限。</string>
+    <string name="mail_error_permission">邮箱权限不足，请在官网检查当前操作所需的权限。</string>
     <string name="mail_error_missing">这封邮件已不存在，或不属于当前邮箱。</string>
     <string name="mail_error_rate">请求过于频繁，请稍后再试。</string>
     <string name="mail_error_storage">无法安全保存或读取邮箱凭据，请稍后重试。</string>
@@ -2125,9 +2156,14 @@
     <string name="mail_poll_api_hint">前台约每 30 秒检查；邮箱页约每 15 秒</string>
     <string name="mail_poll_web_hint">前台约每 60 秒检查新邮件</string>
     <string name="mail_all_mailboxes">全部邮箱</string>
+    <string name="mail_filter_all">全部</string>
+    <string name="mail_manage">邮箱管理</string>
     <string name="mail_read_status">已读</string>
     <string name="mail_unread_status">未读</string>
-    <string name="mail_recipient_address">收件地址：%1$s</string>
+    <!-- 手机窄屏底部导航栏形态：悬浮胶囊或原版贴底。 -->
+    <string name="settings_bottom_bar_style">底部栏样式</string>
+    <string name="settings_bottom_bar_style_floating">悬浮</string>
+    <string name="settings_bottom_bar_style_standard">原版</string>
     <string name="settings_bottom_bar_position">底部栏位置</string>
     <string name="settings_bottom_bar_position_low">低</string>
     <string name="settings_bottom_bar_position_medium">中</string>
@@ -2151,4 +2187,127 @@
     <string name="about_open_releases">查看版本与下载</string>
     <string name="about_ios_update_hint">下载新版 IPA 后，请使用原有的签名工具安装。</string>
     <string name="notify_saved_alerts_section">已保存的提醒规则</string>
+    <string name="mail_address_copied">已复制邮箱地址</string>
+    <string name="mail_copy_address">复制邮箱地址</string>
+    <string name="mail_change_failed">操作未完成。%1$s</string>
+    <string name="mail_no_matches">没有匹配的邮件</string>
+    <string name="mail_star">添加星标</string>
+    <string name="mail_unstar">取消星标</string>
+    <string name="mail_folder_spam">垃圾邮件</string>
+    <string name="mail_folder_trash">回收站</string>
+    <string name="mail_mark_selected_read">标为已读</string>
+    <string name="mail_move_selected">移动到文件夹</string>
+    <string name="mail_search_hint">搜索邮件</string>
+    <string name="mail_select">多选</string>
+    <string name="mail_select_visible">全选当前结果</string>
+    <string name="mail_selected_count">选中 %1$d 封</string>
+    <string name="mail_attachment_saved">附件已保存</string>
+    <string name="mail_attachment_too_large">附件超过 32 MB，请在官网保存。</string>
+    <string name="mail_attachments">附件</string>
+    <string name="mail_error_input">请求未被接受，请检查输入后重试。</string>
+    <string name="mail_create_alias">创建邮箱别名</string>
+    <string name="mail_address">完整邮箱地址</string>
+    <string name="mail_alias_available">该地址可用</string>
+    <string name="mail_alias_unavailable">该地址不可用</string>
+    <string name="mail_alias_created">已创建 %1$s</string>
+    <string name="mail_check_address">检查可用性</string>
+    <string name="mail_scope_mailbox_write">创建别名需要 mailbox:write 权限。</string>
+    <string name="mail_folder_sent">发件箱</string>
+    <string name="mail_folder_drafts">草稿箱</string>
+    <string name="mail_draft_save">保存草稿</string>
+    <string name="mail_compose_blank">新建空白邮件</string>
+    <string name="mail_drafts_empty">还没有草稿</string>
+    <string name="mail_draft_storage_error">无法读取、保存或删除本机草稿，请重试。</string>
+    <string name="mail_compose">写邮件</string>
+    <string name="mail_compose_connection_expired">邮箱连接已改变，请返回收件箱重新写信。</string>
+    <string name="mail_compose_discard">放弃这封未发送的邮件？</string>
+    <string name="mail_compose_no_sender">当前账号没有可用的发件地址。</string>
+    <string name="mail_sending">正在发送…</string>
+    <string name="mail_sender_choice">发件邮箱 %1$s</string>
+    <string name="mail_recipients">收件人</string>
+    <string name="mail_recipients_cc">抄送</string>
+    <string name="mail_recipients_bcc">密送</string>
+    <string name="mail_recipients_hint">多个地址用逗号分隔</string>
+    <string name="mail_subject">主题</string>
+    <string name="mail_body">正文</string>
+    <string name="mail_send">发送</string>
+    <string name="mail_submitted">邮件已提交，可在发件箱查看状态。</string>
+    <string name="mail_send_uncertain">未收到发送确认，请先查看发件箱再重试。</string>
+    <string name="mail_send_http_rejected">邮件服务拒绝了发送请求（HTTP %1$d）。</string>
+    <string name="mail_delivery_sent">已发送</string>
+    <string name="mail_delivery_draft">草稿</string>
+    <string name="mail_delivery_failed">发送失败</string>
+    <string name="mail_delivery_queued">等待发送</string>
+    <string name="mail_delivery_scheduled">定时发送</string>
+    <string name="mail_scope_attachment_read">查看和下载附件需要 attachment:read 权限。</string>
+    <string name="mail_folders_unavailable">暂时无法读取自定义文件夹。</string>
+    <string name="mail_scope_tag_read">查看标签需要 tag:read 权限。</string>
+    <string name="mail_scope_tag_write">创建标签需要 tag:write 权限。</string>
+    <string name="mail_tags">标签</string>
+    <string name="mail_tag_create">创建标签</string>
+    <string name="mail_tag_name">标签名称</string>
+    <string name="mail_tag_no_filter">所有标签</string>
+    <string name="mail_tag_add">添加 %1$s</string>
+    <string name="mail_tag_remove">移除 %1$s</string>
+    <string name="profile_tile_vps_calculator">剩余价值\n计算器</string>
+    <string name="vps_title">剩余价值计算器</string>
+    <string name="vps_remaining">剩余价值</string>
+    <string name="vps_pick_due">请选择到期日期</string>
+    <string name="vps_expired">已到期</string>
+    <string name="vps_days">%1$d 天</string>
+    <string name="vps_premium">溢价 (CNY)</string>
+    <string name="vps_sale_price">预期总价 (CNY)</string>
+    <string name="vps_copy_text">复制文本</string>
+    <string name="vps_generate">生成图片</string>
+    <string name="vps_save_image">保存图片</string>
+    <string name="vps_price">续费价格</string>
+    <string name="vps_currency">币种</string>
+    <string name="vps_equivalent">≈ %1$s</string>
+    <string name="vps_cycle">付款周期</string>
+    <string name="vps_due_date">到期日期</string>
+    <string name="vps_clear_due">清除到期日期</string>
+    <string name="vps_trade_date">交易日期</string>
+    <string name="vps_rate">外币汇率</string>
+    <string name="vps_updated">更新于 %1$s</string>
+    <string name="vps_cached">缓存汇率 · %1$s</string>
+    <string name="vps_draft_save_failed">草稿暂未保存，修改后会重试</string>
+    <string name="vps_missing_valuation_inputs">请检查续费价格和汇率</string>
+    <!-- Attribution text requested by ExchangeRate-API for its open endpoint. -->
+    <string name="vps_rate_attribution">Rates By Exchange Rate API</string>
+    <string name="vps_rate_failed">汇率获取失败，可手动输入</string>
+    <string name="vps_rate_limited">已达汇率刷新次数上限，可手动输入</string>
+    <string name="vps_monthly">月付</string>
+    <string name="vps_quarterly">季付</string>
+    <string name="vps_semi_annually">半年</string>
+    <string name="vps_annually">年付</string>
+    <string name="vps_biennially">两年</string>
+    <string name="vps_triennially">三年</string>
+    <string name="vps_cny">人民币</string>
+    <string name="vps_usd">美元</string>
+    <string name="vps_eur">欧元</string>
+    <string name="vps_gbp">英镑</string>
+    <string name="vps_jpy">日元</string>
+    <string name="vps_hkd">港元</string>
+    <string name="vps_aud">澳元</string>
+    <string name="vps_sgd">新加坡元</string>
+    <string name="vps_krw">韩元</string>
+    <string name="vps_twd">新台币</string>
+    <string name="vps_cad">加元</string>
+    <string name="vps_estimate_title">VPS 剩余价值估算</string>
+    <string name="vps_table_header">| 项目 | 明细 |</string>
+    <string name="vps_renewal">续费金额</string>
+    <string name="vps_reference_rate">参考汇率</string>
+    <string name="vps_total">交易总价</string>
+    <string name="vps_cny_amount">¥%1$s</string>
+    <string name="vps_foreign_amount">%1$s %2$s</string>
+    <string name="vps_renewal_detail">%1$s / %2$s</string>
+    <string name="vps_expiry_detail">%1$s（交易日 %2$s，剩余 %3$s）</string>
+    <string name="vps_rate_detail">1 %1$s ≈ %2$s CNY</string>
+    <string name="vps_with_note">%1$s（%2$s）</string>
+    <string name="vps_approximate">约 %1$s</string>
+    <string name="vps_above_value">溢价 +%1$s</string>
+    <string name="vps_below_value">折价 -%1$s</string>
+    <string name="vps_at_value">原价</string>
+    <string name="vps_unknown">--</string>
+    <string name="vps_percent">%1$d%</string>
 </resources>

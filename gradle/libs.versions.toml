@@ -53,6 +53,7 @@ conscrypt = "2.7.0"
 jsoup = "1.23.2"
 ksoup = "0.2.6"
 coil = "3.6.3"
+zoomimage = "1.7.0"
 # libavif, AOMediaCodec's own Android build: the AV1 decoder compiled in, so a device that has
 # none can still be shown an AVIF. The version is libavif's release plus the commit it was cut
 # from, which is how that project publishes. See `AvifImageDecoder` in `:app`.
@@ -68,6 +69,10 @@ materialColorUtilities = "5.0.1"
 # Kyant's Compose Multiplatform Liquid Glass / backdrop engine (Apache-2.0). Real-time background
 # layer sampling, blur, vibrancy and SDF lens refraction for floating chrome when 毛玻璃质感 is on.
 backdrop = "2.0.1"
+# Kyant's continuous-curvature (G2) rounded rectangles and capsules — the shape library `backdrop`
+# already depends on, declared so `:designsys` can draw its corners with it. Keep it on the version
+# `backdrop` resolves.
+kyantShapes = "1.2.1"
 androidxDatastore = "1.2.1"
 androidxWork = "2.12.0"
 # KSP dropped the `<kotlin>-<ksp>` coordinate scheme. KSP2 is versioned independently from Kotlin,
@@ -137,6 +142,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 material-color-utilities = { module = "com.materialkolor:material-color-utilities", version.ref = "materialColorUtilities" }
 backdrop = { module = "io.github.kyant0:backdrop", version.ref = "backdrop" }
+kyant-shapes = { module = "io.github.kyant0:shapes", version.ref = "kyantShapes" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "androidxDatastore" }
 androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "androidxWork" }
 androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "androidxWork" }
@@ -151,6 +157,7 @@ coil-network-core = { module = "io.coil-kt.coil3:coil-network-core", version.ref
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 coil-test = { module = "io.coil-kt.coil3:coil-test", version.ref = "coil" }
 coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
+zoomimage-coil = { module = "io.github.panpf.zoomimage:zoomimage-compose-coil3", version.ref = "zoomimage" }
 libavif-android = { module = "org.aomedia.avif.android:avif", version.ref = "libavif" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }

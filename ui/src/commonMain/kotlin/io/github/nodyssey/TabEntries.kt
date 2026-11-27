@@ -91,6 +91,14 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
             onPostClick = { post ->
                 backStack.openFromList(key, PostDetailKey(post.summary.postId, preview = post.threadPreview(searchOrigin(key.query))), isListDetailExpanded())
             },
+            onOpenPostLink = { post ->
+                val detail = PostDetailKey(post.postId, page = post.page)
+                if (backStack.lastOrNull() != detail) {
+                    // The feed can already have opened this link before search was pushed on a wide window.
+                    backStack.remove(detail)
+                    backStack.openFromList(key, detail, isListDetailExpanded())
+                }
+            },
             // A user result now has a screen of its own, so it stays in the app. Finding
             // yourself in search must open the same self-shaped space 我的 opens.
             onUserClick = openSpace,
@@ -216,6 +224,7 @@ internal fun EntryProviderScope<NavKey>.tabRootEntries(nav: StackEntryScope) = w
                 blockList = { backStack.add(AccountBlockListKey()) },
                 mail = { backStack.add(MailInboxKey) },
                 aboutCommunity = { backStack.add(AboutCommunityKey) },
+                vpsCalculator = if (container.vpsCalculatorRepository != null) ({ backStack.add(VpsCalculatorKey) }) else null,
                 accountSettings = { backStack.add(AccountSettingsKey) },
                 notificationSettings = { backStack.add(NotificationSettingsKey) },
                 themeSettings = { backStack.add(ThemeSettingsKey) },

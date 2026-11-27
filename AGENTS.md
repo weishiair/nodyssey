@@ -114,7 +114,8 @@ Before submitting, run the same gates as `.github/workflows/ci.yml`. After build
   Stable `1.3.5` uses 100. The `1.3.6-test.1` through `1.3.6-test.10` snapshots use 101–110;
   `1.3.6-ios-test.1` and `1.3.6-ios-test.2` use 111 and 112. Stable `1.3.6` uses 113;
   `1.3.7-test.1` uses 114. Stable `1.3.10` uses 148; `1.3.11-ios-test.7` uses 164 and
-  stable `1.3.11` uses 165. Check newer builds before assigning the next code (at least 166).
+  stable `1.3.11` uses 165; stable `1.3.12` uses 172. Check newer builds before assigning the next
+  code (at least 173).
   Subsequent tests increment both `-test.N` and Android `versionCode`; never reuse an older code.
 - Keep the version in `gradle.properties`, name the artifact `nodyssey-v<versionName>.apk`, and
   publish test tags as GitHub prereleases. Legacy `-dev.N` tags remain supported.
@@ -204,7 +205,7 @@ are disposable.
   Never put a test version bump on `main`.
 - `dev` is the integration line for the next release. Feature and fix branches merge here, and test
   snapshots are cut from here. Keep its `gradle.properties` at the last stable version
-  (`1.3.11 / 165` after this release) — the test branch owns the bump.
+  (`1.3.12 / 172` after this release) — the test branch owns the bump.
 - Feature and fix branches use `<type>/<slug>`, with `type` one of `feature`, `fix`, `ios`,
   `android` or `docs` (for example `feature/original-thread-layout`). One feature per branch; do not
   mix an Android screen change and an iOS fix unless the user asked for a combined build. Legacy
@@ -233,6 +234,12 @@ are disposable.
 - Push only when the user asks, or when the task explicitly includes publishing. Never force-push or
   rewrite a shared branch; never reset, rename or delete a branch without saying where its commits
   went.
+- **Nothing reaches `dev` or `main` by a direct push** — not a one-line fix, not docs, not a CI
+  tweak, not a change already tried on a real device. Every change lands as a merged pull request
+  from a `<type>/<slug>` branch. `ci.yml` runs on pull requests, pushes to `main` and manual
+  dispatch only, so a commit pushed straight to `dev` is checked by nothing: `c7cc18e2` went in
+  that way, and the emulator crash it caused showed up later as a 30-minute `device-test` hang on
+  an unrelated pull request.
 - Feature and fix branches merge into `dev` through a pull request. `dev` merges into `main` through
   a separate release pull request, once the accumulated test builds are good. Test branches are
   snapshots and are not PR'd.
@@ -242,6 +249,32 @@ are disposable.
 - A pull request explains the problem and solution, links relevant issues, lists verification
   commands, and includes before/after screenshots for UI changes. Call out schema, dependency-lock,
   session, or scraping-selector changes explicitly.
+
+### Merge gate
+
+A pull request merges only when all of these hold:
+
+1. `build` and `device-test` are green on the pull request's **current head**. A pass on an earlier
+   head, a local run, or a sibling pull request does not count; after pushing to the branch, wait
+   for the new run.
+2. A cancelled or timed-out check is a failure until its log says otherwise. Rerun only when the log
+   shows an infrastructure cause — a dependency download error (`MavenArtifactFetcher`,
+   `Repository MavenRepo is disabled`), a runner that was never acquired, a system dialog such as
+   "Quickstep isn't responding" covering the app — and say in the pull request which job was rerun
+   and why. The same failure twice in a row is not infrastructure; reproduce it locally instead.
+3. A check GitHub cannot run (the macOS iOS job when no runner is acquired) is replaced by the same
+   Gradle tasks run on a Mac, with the commands and results pasted into the pull request, which also
+   says that the GitHub job did not run.
+4. If the base branch moved since CI ran and touched the same files or feature, merge the base into
+   the branch (never rebase a pushed branch) and let CI run again. A long-lived integration branch
+   such as `ios/native-experience` is refreshed from `dev` this way, through its own pull request,
+   before its pull request into `dev`.
+5. An agent merges only with the user's go-ahead for that pull request or batch, and says so before
+   merging anything into `dev` or `main`.
+
+Real-device testing complements CI; it never replaces it. When something on `dev` turns out broken,
+the fix goes through a `fix/*` pull request like any other change; to check `dev` itself, dispatch
+CI on it (`gh workflow run ci.yml --ref dev`).
 
 ## Security & Configuration
 

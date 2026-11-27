@@ -25,11 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -86,6 +84,8 @@ import io.github.nodyssey.ui.resources.vote_voter_uid
 import io.github.nodyssey.ui.resources.vote_voters_collapse
 import io.github.nodyssey.ui.resources.vote_voters_expand
 import io.github.nodyssey.ui.resources.vote_voters_more
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.SkeletonBar
@@ -322,7 +322,7 @@ private fun VoteHeader(
     Row(verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
+                PlazaIcon(
                     PlazaIcons.Poll,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
@@ -371,7 +371,7 @@ private fun VoteManageMenu(
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }, enabled = !state.manageInFlight) {
-            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.vote_manage))
+            PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.vote_manage))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (state.canLock) {
@@ -506,7 +506,7 @@ private fun VoteTick(
         contentAlignment = Alignment.Center,
     ) {
         if (selected) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Check,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
@@ -579,7 +579,7 @@ private fun VoteResultRow(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (item.voted) {
-                Icon(
+                PlazaIcon(
                     Icons.Default.Check,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
@@ -596,7 +596,7 @@ private fun VoteResultRow(
             // and which is half of why a public vote is public — is a feature nobody would find. It
             // stays put once open, because by then it is the way back.
             if (togglable) {
-                Icon(
+                PlazaIcon(
                     PlazaIcons.Group,
                     contentDescription = null,
                     tint =
@@ -706,7 +706,7 @@ private fun VoterStrip(
 @Composable
 private fun VoteLoading() {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
+        PlazaIcon(
             PlazaIcons.Poll,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
@@ -739,7 +739,7 @@ private fun VoteLoadFailed(
     onRetry: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
+        PlazaIcon(
             PlazaIcons.Poll,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -763,12 +763,13 @@ private fun VoteConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(title)) },
-        text = { Text(stringResource(body)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(confirm)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
+    AdaptiveAlertDialog(
+        onDismiss = onDismiss,
+        title = stringResource(title),
+        message = stringResource(body),
+        confirmLabel = stringResource(confirm),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(Res.string.action_cancel),
     )
 }
 

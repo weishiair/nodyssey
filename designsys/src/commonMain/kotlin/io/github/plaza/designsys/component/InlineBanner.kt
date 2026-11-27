@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +21,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 
 /**
  * A tinted message strip inside a page: an optional icon, an optional [title] over the [text], and an
@@ -64,7 +64,7 @@ fun InlineBanner(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             icon?.let {
-                Icon(
+                PlazaIcon(
                     it,
                     contentDescription = null,
                     // With a title the icon sits beside it, not halfway down the body.

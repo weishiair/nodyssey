@@ -1,5 +1,6 @@
 package io.github.nodyssey.core.net
 
+import io.github.nodyssey.core.NodeSeekSite
 import io.github.plaza.core.AppDispatchers
 import io.github.plaza.core.net.RecordingTransport
 import io.github.plaza.core.net.SiteError
@@ -132,6 +133,28 @@ class NodeSeekJsonClientTest {
         )
 
         assertTrue(error.error is SiteError.Cloudflare)
+    }
+
+    /**
+     * A write the edge refused with its block page. The 403 used to reach the write's own 401/403
+     * branch and come out as 请登录, sending a reader who was signed in all along to sign in again.
+     */
+    @Test
+    fun `a write refused by cloudflare's block page asks for web verification`() = runTest {
+        val blocked = httpResponse(
+            body = """<html><head><title>Attention Required! | Cloudflare</title></head>
+                <body><h1 data-translate="block_headline">Sorry, you have been blocked</h1></body></html>""",
+            code = 403,
+        )
+
+        val error = try {
+            client(blocked).postJson(PATH, "{}")
+            throw AssertionError("expected the call to fail")
+        } catch (exception: SiteException) {
+            exception.error
+        }
+
+        assertEquals(SiteError.Cloudflare(NodeSeekSite.BASE_URL + PATH), error)
     }
 
     private suspend fun errorFrom(answer: io.github.plaza.core.net.HttpResponse): SiteException =

@@ -1,20 +1,21 @@
 package io.github.nodyssey.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,16 +40,16 @@ import io.github.nodyssey.data.TrackedThreadStore
 import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.post_reply_count
 import io.github.nodyssey.ui.resources.tracked_threads_empty
 import io.github.nodyssey.ui.resources.tracked_threads_title
 import io.github.nodyssey.ui.resources.tracked_threads_untrack
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupDividerInset
 import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaText
-import io.github.plaza.designsys.component.OneHandTopAppBar
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.ThreadRowTitle
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.Spacing
@@ -87,34 +90,51 @@ fun TrackedThreadsRoute(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.tracked_threads_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .readableWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = LayerPageGutter, vertical = Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
-            if (threads.isEmpty()) {
-                Text(
-                    stringResource(Res.string.tracked_threads_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = Spacing.xs),
-                )
-            } else {
+        if (threads.isEmpty()) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .readableWidth(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(min = maxHeight)
+                        .padding(
+                            start = Spacing.xl,
+                            end = Spacing.xl,
+                            top = Spacing.xl,
+                            bottom = EMPTY_STATE_BOTTOM_LIFT,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        stringResource(Res.string.tracked_threads_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .readableWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = LayerPageGutter, vertical = Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
                 Column {
                     threads.forEachIndexed { index, thread ->
                         TrackedThreadRow(
@@ -130,6 +150,8 @@ fun TrackedThreadsRoute(
         }
     }
 }
+
+private val EMPTY_STATE_BOTTOM_LIFT = 72.dp
 
 /**
  * One followed thread, drawn the way 收藏 draws a collected one: the title, then the board, the
@@ -168,7 +190,7 @@ private fun TrackedThreadRow(
         },
         trailingContent = {
             IconButton(onClick = onUntrack) {
-                Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.tracked_threads_untrack, thread.title))
+                PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.tracked_threads_untrack, thread.title))
             }
         },
     )

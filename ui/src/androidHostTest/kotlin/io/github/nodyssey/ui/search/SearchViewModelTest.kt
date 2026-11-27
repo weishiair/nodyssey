@@ -4,6 +4,7 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.paging.PagingData
 import androidx.paging.testing.asSnapshot
+import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.core.net.JsonSource
 import io.github.nodyssey.data.CategoryRepository
 import io.github.nodyssey.data.FakePostRemoteDataSource
@@ -138,6 +139,37 @@ class SearchViewModelTest {
                 remote.searchRequests.single(),
             )
             assertEquals("android", vm.uiState.value.submittedQuery)
+        }
+
+    @Test
+    fun `a pasted post opens its own page each time even when signed out`() =
+        runTest(dispatcher) {
+            val vm = viewModel(session = MutableStateFlow(SessionState(isSignedIn = false)))
+            vm.selectTarget(SearchTarget.USERS)
+            type(vm, "  http://nodeseek.com/post-832584-2  ")
+
+            repeat(2) {
+                vm.submitSearch()
+                assertEquals(NodeSeekSite.InternalRoute.Post(832584, 2), vm.consumePostLink())
+                assertEquals(null, vm.consumePostLink())
+            }
+
+            assertEquals(null, vm.uiState.value.submittedQuery)
+        }
+
+    @Test
+    fun `an outside URL with a post shaped path is searched as a keyword`() =
+        runTest(dispatcher) {
+            val vm = viewModel()
+            val url = "https://example.com/post-832584-2"
+            type(vm, url)
+
+            vm.submitSearch()
+            advanceUntilIdle()
+            vm.postResults.ids()
+
+            assertEquals(null, vm.consumePostLink())
+            assertEquals(url, remote.searchRequests.single().query)
         }
 
     /**

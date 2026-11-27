@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.spend_got_it
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -82,7 +82,7 @@ fun SpendConfirmDialog(
     AlertDialog(
         onDismissRequest = { if (!isSending) onDismiss() },
         modifier = modifier,
-        icon = icon?.let { { Icon(it, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
+        icon = icon?.let { { PlazaIcon(it, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
         title = { Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {

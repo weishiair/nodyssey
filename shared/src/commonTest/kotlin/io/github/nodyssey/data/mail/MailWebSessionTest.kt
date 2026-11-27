@@ -99,7 +99,7 @@ class MailWebSessionTest {
         }
         val client = SeekMailClient(transport)
         assertEquals(listOf(7L), client.mailboxes("web:example-session").map { it.id })
-        assertEquals(1, client.inbox("web:example-session", 7, 0).nextOffset)
+        assertEquals(1, client.list("web:example-session", 7, 0).nextOffset)
         assertEquals("Hello", client.detail("web:example-session", 7, 21).subject)
         assertTrue(transport.requests.all { it.url.startsWith("https://seek.li/api/") })
         assertEquals("Bearer example-session", transport.requests.first().headers["Authorization"])

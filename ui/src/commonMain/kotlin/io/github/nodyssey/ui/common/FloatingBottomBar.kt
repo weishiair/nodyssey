@@ -25,14 +25,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nodyssey.data.settings.BottomBarPosition
-import io.github.plaza.designsys.theme.LocalPlazaLayers
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.nodyssey.data.settings.BottomBarStyle
+import io.github.plaza.designsys.component.PlazaFabHeight
+import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.nativeControls
 
 /** Navigation and the smaller reading controls sit on the same vertical centre line. */
 internal val FloatingBottomBarBandHeight = 58.dp
 private val FloatingBottomBarTopGap = 8.dp
 private val HomeIndicatorClearance = 13.dp
 
+/**
+ * How far above the safe area a list's floating action button is centred: the [Spacing.lg] margin
+ * the feed's page bar keeps, and half the button. Where no bar runs along the bottom, the reading
+ * controls of a thread are centred here too, so the two panes side by side share a line.
+ */
+internal val ListFabCentreAboveSafeArea = Spacing.lg + PlazaFabHeight / 2
+
+internal val LocalBottomBarStyle = compositionLocalOf { BottomBarStyle.FLOATING }
 internal val LocalBottomBarPosition = compositionLocalOf { BottomBarPosition.MEDIUM }
 internal val LocalFixedBottomBarHeight = compositionLocalOf<Dp?> { null }
 internal val LocalBottomBarSafeAreaOverlap = staticCompositionLocalOf { 0.dp }
@@ -49,10 +59,11 @@ internal val BottomBarPosition.bottomBarClearance
     get() = FloatingBottomBarTopGap + FloatingBottomBarBandHeight + bottomGap
 
 @Composable
-internal fun bottomBarInset(safeBottom: Dp): Dp {
-    val minimumInset = minOf(safeBottom, HomeIndicatorClearance)
-    return (safeBottom - LocalBottomBarSafeAreaOverlap.current).coerceAtLeast(minimumInset)
-}
+internal fun bottomBarInset(safeBottom: Dp): Dp = bottomBarInset(safeBottom, LocalBottomBarSafeAreaOverlap.current)
+
+/** [bottomBarInset] outside composition, for the iOS shell measuring its tab bar against the same base line. */
+internal fun bottomBarInset(safeBottom: Dp, overlap: Dp): Dp =
+    (safeBottom - overlap).coerceAtLeast(minOf(safeBottom, HomeIndicatorClearance))
 
 /** Additional space above the safe area already reserved by the page. */
 @Composable
@@ -92,14 +103,14 @@ internal fun FloatingBottomBarVisibility(
     content: @Composable AnimatedVisibilityScope.() -> Unit,
 ) {
     // UIKitView in Compose 1.13 tracks layout bounds, but not a parent graphics layer's alpha.
-    // Keep the shared slide for native glass; remove this split when interop propagates fading.
-    val nativeGlass = LocalPlazaLayers.current.nativeGlass
+    // Keep the shared slide for native controls; remove this split when interop propagates fading.
+    val nativeChrome = nativeControls
     AnimatedVisibility(
         visibleState = visibleState,
         enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } +
-            if (nativeGlass) EnterTransition.None else fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+            if (nativeChrome) EnterTransition.None else fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
         exit = slideOutVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } +
-            if (nativeGlass) ExitTransition.None else fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec()),
+            if (nativeChrome) ExitTransition.None else fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec()),
         modifier = modifier,
         content = content,
     )

@@ -1,5 +1,7 @@
 package io.github.nodyssey.ui.navigation
 
+import io.github.nodyssey.data.settings.PadLayoutMode
+
 /**
  * How the iOS shell groups a back stack into the controllers its `UINavigationController` holds.
  *
@@ -36,6 +38,17 @@ internal enum class PaneKind { LIST, LIST_WHEN_DETAIL, DETAIL, NONE }
 
 /** The list and detail need enough room side by side, even with the iPad in a resizable window. */
 internal fun supportsIosListDetail(width: Double, height: Double): Boolean = width >= 840.0 && width > height
+
+/**
+ * Whether the iOS shell should group list-detail pairs side by side for the current window size and
+ * user layout preference.
+ */
+internal fun resolvesIosListDetail(
+    isPad: Boolean,
+    width: Double,
+    height: Double,
+    layoutMode: PadLayoutMode,
+): Boolean = isPad && layoutMode == PadLayoutMode.SPLIT && supportsIosListDetail(width, height)
 
 /**
  * Groups [stack] for a window that does ([expanded]) or does not have room for two panes.

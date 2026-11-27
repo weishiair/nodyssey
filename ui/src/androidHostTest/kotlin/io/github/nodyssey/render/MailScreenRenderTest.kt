@@ -1,16 +1,21 @@
 package io.github.nodyssey.render
 
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
+import io.github.nodyssey.data.mail.MailAttachment
 import io.github.nodyssey.data.mail.MailAuthMode
 import io.github.nodyssey.data.mail.MailMessage
 import io.github.nodyssey.data.mail.MailPreview
+import io.github.nodyssey.data.mail.MailTag
 import io.github.nodyssey.data.mail.Mailbox
 import io.github.nodyssey.ui.mail.MailDetailScreen
 import io.github.nodyssey.ui.mail.MailDetailUiState
+import io.github.nodyssey.ui.mail.MailInboxControls
 import io.github.nodyssey.ui.mail.MailInboxScreen
 import io.github.nodyssey.ui.mail.MailInboxUiState
+import io.github.nodyssey.ui.mail.MailTagControls
 import io.github.plaza.designsys.theme.PlazaTheme
 import org.junit.Before
 import org.junit.Rule
@@ -33,7 +38,7 @@ class MailScreenRenderTest {
     @Test
     fun `mail connection`() {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(pureWhite = true, frostedGlass = true, oneHandMode = false) {
                 Inbox(MailInboxUiState(initializing = false))
             }
         }
@@ -43,7 +48,7 @@ class MailScreenRenderTest {
     @Test
     fun `mail inbox`() {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(pureWhite = true, frostedGlass = true, oneHandMode = false) {
                 Inbox(
                     MailInboxUiState(
                         initializing = false,
@@ -61,9 +66,36 @@ class MailScreenRenderTest {
     }
 
     @Test
+    fun `mail light list in pure white`() {
+        val examples = listOf(
+            OTP.copy(receivedAt = "2026-11-25T14:48:00Z"),
+            MAIL.copy(receivedAt = "2026-11-25T10:20:00Z"),
+            MAILS.first().copy(receivedAt = "2026-11-24T03:30:00Z", isFlagged = true),
+            MAILS[1].copy(receivedAt = "2026-11-23T09:35:00Z"),
+            MAILS.last().copy(receivedAt = "2026-11-22T03:30:00Z"),
+        )
+        composeRule.setContent {
+            PlazaTheme(darkTheme = false, pureWhite = true, frostedGlass = true, oneHandMode = false) {
+                Inbox(
+                    MailInboxUiState(
+                        initializing = false,
+                        connected = true,
+                        authMode = MailAuthMode.API_KEY,
+                        mailboxes = listOf(Mailbox(7, "reader@nodeseek.org"), Mailbox(9, "alerts@nodeseek.org")),
+                        messages = examples,
+                        nowMillis = 1795618800000,
+                        previews = examples.associate { it.id to MailPreview.from(it) },
+                    ),
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("mail-inbox-light-list-pure-white")
+    }
+
+    @Test
     fun `mail inbox marking all read`() {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(pureWhite = true, frostedGlass = true, oneHandMode = false) {
                 Inbox(
                     MailInboxUiState(
                         initializing = false,
@@ -85,7 +117,7 @@ class MailScreenRenderTest {
     @Test
     fun `mail empty inbox`() {
         composeRule.setContent {
-            PlazaTheme {
+            PlazaTheme(pureWhite = true, frostedGlass = true, oneHandMode = false) {
                 Inbox(
                     MailInboxUiState(
                         initializing = false,
@@ -101,9 +133,26 @@ class MailScreenRenderTest {
     }
 
     @Test
+    fun `disconnecting mail`() {
+        composeRule.setContent {
+            PlazaTheme(pureWhite = true, frostedGlass = true, oneHandMode = false) {
+                Inbox(
+                    MailInboxUiState(
+                        initializing = false,
+                        connected = true,
+                        authMode = MailAuthMode.API_KEY,
+                        confirmingDisconnect = true,
+                    ),
+                )
+            }
+        }
+        composeRule.onNode(isDialog()).captureRender("mail-disconnect-confirmation")
+    }
+
+    @Test
     fun `mail detail in dark`() {
         composeRule.setContent {
-            PlazaTheme(darkTheme = true) {
+            PlazaTheme(darkTheme = true, pureWhite = true, frostedGlass = true, oneHandMode = false) {
                 MailDetailScreen(
                     state = MailDetailUiState(
                         loading = false,
@@ -121,6 +170,86 @@ class MailScreenRenderTest {
         composeRule.onRoot().captureRender("mail-detail-dark")
     }
 
+    @Test
+    fun `mail inbox in dark`() {
+        val examples = listOf(
+            OTP.copy(receivedAt = "2026-11-25T14:48:00Z"),
+            MAIL.copy(receivedAt = "2026-11-25T10:20:00Z", tags = listOf(MailTag(1, "账单"), MailTag(2, "重要"))),
+            MAILS.first().copy(receivedAt = "2026-11-24T03:30:00Z", isFlagged = true),
+            MAILS[1].copy(receivedAt = "2026-11-23T09:35:00Z"),
+            MAILS.last().copy(receivedAt = "2026-11-22T03:30:00Z"),
+        )
+        composeRule.setContent {
+            PlazaTheme(darkTheme = true, pureWhite = true, frostedGlass = true, oneHandMode = false) {
+                Inbox(
+                    MailInboxUiState(
+                        initializing = false,
+                        connected = true,
+                        authMode = MailAuthMode.API_KEY,
+                        mailboxes = listOf(Mailbox(7, "reader@nodeseek.org"), Mailbox(9, "alerts@nodeseek.org")),
+                        messages = examples,
+                        nowMillis = 1795618800000,
+                        previews = examples.associate { it.id to MailPreview.from(it) },
+                    ),
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("mail-inbox-dark")
+    }
+
+    @Test
+    fun `mail inbox selection mode`() {
+        composeRule.setContent {
+            PlazaTheme(darkTheme = false, pureWhite = true, frostedGlass = true, oneHandMode = false) {
+                Inbox(
+                    MailInboxUiState(
+                        initializing = false,
+                        connected = true,
+                        authMode = MailAuthMode.API_KEY,
+                        mailboxes = listOf(Mailbox(7, "reader@nodeseek.org"), Mailbox(9, "alerts@nodeseek.org")),
+                        messages = MAILS,
+                        selectionMode = true,
+                        selectedIds = setOf(20, 22),
+                        nowMillis = 1794182400000,
+                        previews = MAILS.associate { it.id to MailPreview.from(it) },
+                    ),
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("mail-inbox-selection")
+    }
+
+    @Test
+    fun `mail detail light with attachments`() {
+        val mail = OTP.copy(
+            isRead = true,
+            hasAttachments = true,
+            tags = listOf(MailTag(1, "安全验证")),
+        )
+        composeRule.setContent {
+            PlazaTheme(darkTheme = false, pureWhite = true, frostedGlass = true, oneHandMode = false) {
+                MailDetailScreen(
+                    state = MailDetailUiState(
+                        loading = false,
+                        message = mail,
+                        body = mail.bodyText.orEmpty(),
+                        verificationCode = MailPreview.from(mail).verificationCode,
+                        attachments = listOf(
+                            MailAttachment(0, "invoice-2026-11.pdf", "application/pdf", 248_320),
+                            MailAttachment(1, "network-topology.png", "image/png", 1_420_800),
+                        ),
+                    ),
+                    onBack = {},
+                    onRetry = {},
+                    onToggleRead = {},
+                    onOpenWebsite = {},
+                    onSaveAttachment = {},
+                )
+            }
+        }
+        composeRule.onRoot().captureRender("mail-detail-attachments-light")
+    }
+
     @androidx.compose.runtime.Composable
     private fun Inbox(state: MailInboxUiState) {
         MailInboxScreen(
@@ -136,6 +265,22 @@ class MailScreenRenderTest {
             onLoadMore = {},
             onOpenMail = {},
             onOpenWebsite = {},
+            controls = MailInboxControls(
+                changeFilter = {},
+                toggleUnread = {},
+                loadFolders = {},
+                toggleSelection = {},
+                toggleSelected = {},
+                selectVisible = {},
+                markSelectedRead = {},
+                moveSelected = {},
+                toggleFlag = {},
+                checkAlias = {},
+                createAlias = {},
+                resetAlias = {},
+                tags = MailTagControls(load = {}, create = {}, clearCreated = {}, setSelected = { _, _ -> }),
+            ),
+            onCompose = {},
         )
     }
 }

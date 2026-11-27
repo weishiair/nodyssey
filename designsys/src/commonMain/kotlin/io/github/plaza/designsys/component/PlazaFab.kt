@@ -4,17 +4,18 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import io.github.plaza.designsys.theme.ControlShape
+import io.github.plaza.designsys.component.PlazaIcon
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -56,6 +57,7 @@ fun PlazaExtendedFab(
         } else {
             primaryContainer
         }
+    val shape = FloatingCapsuleShape
     AdaptiveGlassButton(
         action = GlassAction(
             label = text,
@@ -73,26 +75,33 @@ fun PlazaExtendedFab(
                     style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
                 )
             },
-            icon = { Icon(icon, contentDescription = null) },
+            icon = { PlazaIcon(icon, contentDescription = null) },
             onClick = onClick,
             expanded = expanded,
-            shape = ControlShape,
+            shape = shape,
             containerColor = container,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
             modifier = modifier
                 .then(
                     if (layers.backdropGlass) {
-                        Modifier.glassChromeSurface(
-                            layers = layers,
-                            darkTheme = darkTheme,
-                            shape = ControlShape,
-                            elevated = true,
-                            backdrop = backdrop,
-                            surfaceTint = primaryContainer.copy(alpha = if (darkTheme) 0.44f else 0.42f),
-                        )
+                        Modifier
+                            .liquidGlassInteractive(shape)
+                            .glassChromeSurface(
+                                layers = layers,
+                                darkTheme = darkTheme,
+                                shape = shape,
+                                elevated = true,
+                                backdrop = backdrop,
+                                hueTint = MaterialTheme.colorScheme.primary,
+                                surfaceTint = lerp(
+                                    primaryContainer,
+                                    MaterialTheme.colorScheme.primary,
+                                    if (darkTheme) 0.16f else 0.10f,
+                                ).copy(alpha = if (darkTheme) 0.46f else 0.48f),
+                            )
                     } else {
-                        Modifier.floatShadow(ControlShape, layers.shadows)
+                        Modifier.floatShadow(shape, layers.shadows)
                     },
                 )
                 .semantics { contentDescription = text },

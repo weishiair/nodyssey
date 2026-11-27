@@ -1,44 +1,16 @@
 package io.github.nodyssey.ui.settings
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.UserSettings
-import io.github.nodyssey.ui.common.PlazaSheet
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.keywords_alert_title
 import io.github.nodyssey.ui.resources.keywords_summary_count
 import io.github.nodyssey.ui.resources.keywords_summary_none
@@ -74,22 +46,13 @@ import io.github.nodyssey.ui.resources.notify_tracked_threads
 import io.github.nodyssey.ui.resources.notify_wifi_only
 import io.github.nodyssey.ui.resources.notify_wifi_only_hint
 import io.github.nodyssey.ui.resources.tracked_threads_title
-import io.github.plaza.designsys.component.ChoiceRow
-import io.github.plaza.designsys.component.GroupedListItem
-import io.github.plaza.designsys.component.GroupedListItemSwitch
-import io.github.plaza.designsys.component.GroupedRow
-import io.github.plaza.designsys.component.IconBadge
-import io.github.plaza.designsys.component.LayerCard
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
-import io.github.plaza.designsys.component.SectionLabel
-import io.github.plaza.designsys.component.SectionNote
-import io.github.plaza.designsys.component.groupedListItemColors
-import io.github.plaza.designsys.component.groupedRowTitleStyle
-import io.github.plaza.designsys.component.rememberOneHandAppBarState
+import io.github.plaza.designsys.settings.SettingsItem
+import io.github.plaza.designsys.settings.SettingsOption
+import io.github.plaza.designsys.settings.SettingsPage
+import io.github.plaza.designsys.settings.SettingsSection
+import io.github.plaza.designsys.settings.SettingsSectionStyle
 import io.github.plaza.designsys.theme.PlazaTheme
-import io.github.plaza.designsys.theme.Spacing
-import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -132,11 +95,11 @@ fun NotificationSettingsRoute(
 
 /**
  * Board f4, in 6d's cards: the master switch on a tinted card of its own, then 检查 and 通知渠道, then
- * the Telegram pointer.
+ * the Telegram pointer. On iOS the same page is the system list — see [SettingsPageScreen].
  *
  * 检查频率 is a row with its answer on the second line and the three choices in a sheet (6d2) rather
  * than a segmented control in the card: it is set once, and the sheet has the room to say what a
- * shorter interval costs.
+ * shorter interval costs. On iOS the sheet is the row's pop-up menu, and the cost is its title.
  */
 @Composable
 fun NotificationSettingsScreen(
@@ -159,304 +122,232 @@ fun NotificationSettingsScreen(
     onOpenLottery: (() -> Unit)? = null,
     backgroundPollingSupported: Boolean = platformHasBackgroundNotificationPolling,
 ) {
-    val enabled = settings.notificationsEnabled
-    val appBarState = rememberOneHandAppBarState()
-    var frequencySheet by remember { mutableStateOf(false) }
-    Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
-        topBar = {
-            OneHandTopAppBar(
-                title = stringResource(Res.string.notify_settings_title),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier =
-            Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .readableWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
-            verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
-        ) {
-            if (backgroundPollingSupported) {
-                // The master switch as 6d draws it: a group of its own in the primary container tone, larger
-                // type than the rows under it, because everything else on the page is conditional on it.
-                val scheme = MaterialTheme.colorScheme
-                GroupedListItem(
-                    first = true,
-                    last = true,
-                    checked = enabled,
-                    onCheckedChange = onEnabledChange,
-                    colors = groupedListItemColors(scheme.onPrimaryContainer, scheme.primaryContainer),
-                    headlineContent = {
-                        Text(
-                            stringResource(Res.string.notify_master_title),
-                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, lineHeight = 24.sp),
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            stringResource(Res.string.notify_master_hint),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = scheme.onPrimaryContainer,
-                        )
-                    },
-                    trailingContent = { GroupedListItemSwitch(checked = enabled) },
-                )
-
-                // Everything below the master switch is inert while it is off — f4's "主开关关闭时下方
-                // 全部禁用". Each control takes `enabled` and dims itself the way Material dims it; an
-                // alpha over the block on top of that would dim the text twice and turn the cards
-                // translucent over the page.
-                Column(verticalArrangement = Arrangement.spacedBy(SettingsItemGap)) {
-                    SectionLabel(stringResource(Res.string.notify_check_section))
-                    SettingsGroup {
-                        GroupedRow(
-                            icon = PlazaIcons.Schedule,
-                            title = stringResource(Res.string.notify_frequency),
-                            subtitle =
-                            stringResource(
-                                Res.string.notify_frequency_every,
-                                stringResource(pollMinutesLabel(settings.notificationPollMinutes)),
-                            ),
-                            first = true,
-                            enabled = enabled,
-                            onClick = { frequencySheet = true },
-                        )
-                        GroupedRow(
-                            icon = PlazaIcons.Wifi,
-                            title = stringResource(Res.string.notify_wifi_only),
-                            subtitle = stringResource(Res.string.notify_wifi_only_hint),
-                            checked = settings.notificationsWifiOnly,
-                            onCheckedChange = onWifiOnlyChange,
-                            enabled = enabled,
-                            trailing = { GroupedListItemSwitch(checked = settings.notificationsWifiOnly, enabled = enabled) },
-                        )
-                        GroupedRow(
-                            icon = PlazaIcons.Bedtime,
-                            title = stringResource(Res.string.notify_quiet_hours),
-                            subtitle = stringResource(Res.string.notify_quiet_hours_hint),
-                            last = true,
-                            checked = settings.notificationQuietHours,
-                            onCheckedChange = onQuietHoursChange,
-                            enabled = enabled,
-                            trailing = { GroupedListItemSwitch(checked = settings.notificationQuietHours, enabled = enabled) },
-                        )
-                    }
-
-                    SectionLabel(stringResource(Res.string.notify_channels_section))
-                    SettingsGroup {
-                        // One row for the two site groups, because one comment is filed under both and
-                        // the app posts one notification for it — see `NotificationChannels`.
-                        GroupedRow(
-                            title = stringResource(Res.string.notifications_interactions),
-                            first = true,
-                            icon = PlazaIcons.AlternateEmail,
-                            checked = settings.notifyInteractions,
-                            onCheckedChange = onNotifyInteractionsChange,
-                            enabled = enabled,
-                            trailing = { GroupedListItemSwitch(checked = settings.notifyInteractions, enabled = enabled) },
-                        )
-                        GroupedRow(
-                            title = stringResource(Res.string.notifications_messages),
-                            icon = Icons.Default.Email,
-                            checked = settings.notifyMessages,
-                            onCheckedChange = onNotifyMessagesChange,
-                            enabled = enabled,
-                            trailing = { GroupedListItemSwitch(checked = settings.notifyMessages, enabled = enabled) },
-                        )
-                        GroupedRow(
-                            title = stringResource(Res.string.notify_mail),
-                            subtitle = stringResource(Res.string.notify_mail_hint),
-                            last = true,
-                            icon = Icons.Default.Email,
-                            checked = settings.notifyMail,
-                            onCheckedChange = onNotifyMailChange,
-                            enabled = enabled,
-                            trailing = { GroupedListItemSwitch(checked = settings.notifyMail, enabled = enabled) },
-                        )
-                    }
-
-                    // The app's own alerts. They read public lists, so unlike the two above they work
-                    // signed out — the section says so rather than leaving it to be discovered.
-                    SectionLabel(stringResource(Res.string.notify_app_alerts_section))
-                    SettingsGroup {
-                        GroupedRow(
-                            title = stringResource(Res.string.notify_keyword_alerts),
-                            first = true,
-                            icon = PlazaIcons.Campaign,
-                            checked = settings.notifyKeywordAlerts,
-                            onCheckedChange = onNotifyKeywordAlertsChange,
-                            enabled = enabled,
-                            trailing = { GroupedListItemSwitch(checked = settings.notifyKeywordAlerts, enabled = enabled) },
-                        )
-                        GroupedRow(
-                            title = stringResource(Res.string.keywords_alert_title),
-                            subtitle = countSummary(alertCounts.keywords),
-                            onClick = onOpenAlertKeywords,
-                        )
-                        GroupedRow(
-                            title = stringResource(Res.string.notify_tracked_threads),
-                            icon = PlazaIcons.Forum,
-                            checked = settings.notifyTrackedThreads,
-                            onCheckedChange = onNotifyTrackedThreadsChange,
-                            enabled = enabled,
-                            trailing = { GroupedListItemSwitch(checked = settings.notifyTrackedThreads, enabled = enabled) },
-                        )
-                        GroupedRow(
-                            title = stringResource(Res.string.tracked_threads_title),
-                            subtitle = countSummary(alertCounts.trackedThreads),
-                            last = true,
-                            onClick = onOpenTrackedThreads,
-                        )
-                    }
-                    Text(
-                        stringResource(Res.string.notify_app_alerts_footer),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = Spacing.xs),
-                    )
-                }
-            } else {
-                SectionLabel(stringResource(Res.string.notify_background_unavailable_title))
-                SectionNote(stringResource(Res.string.notify_background_unavailable_body))
-                onOpenLottery?.let { open ->
-                    SettingsGroup {
-                        GroupedRow(
-                            title = stringResource(Res.string.lottery_title),
-                            subtitle = stringResource(Res.string.notify_lottery_hint),
-                            icon = PlazaIcons.Campaign,
-                            first = true,
-                            last = true,
-                            onClick = open,
-                        )
-                    }
-                }
-                SectionLabel(stringResource(Res.string.notify_saved_alerts_section))
-                SettingsGroup {
-                    GroupedRow(
-                        title = stringResource(Res.string.keywords_alert_title),
-                        subtitle = countSummary(alertCounts.keywords),
-                        first = true,
-                        onClick = onOpenAlertKeywords,
-                    )
-                    GroupedRow(
-                        title = stringResource(Res.string.tracked_threads_title),
-                        subtitle = countSummary(alertCounts.trackedThreads),
-                        last = true,
-                        onClick = onOpenTrackedThreads,
-                    )
-                }
-            }
-
-            // The Telegram pointer stays active regardless of the master switch: the site's own
-            // channel is the alternative to polling, not part of it.
-            TelegramCard(onClick = onOpenTelegram)
-        }
-    }
-
-    if (backgroundPollingSupported && frequencySheet) {
-        FrequencySheet(
-            selected = settings.notificationPollMinutes,
-            onSelect = {
-                onPollMinutesChange(it)
-                frequencySheet = false
-            },
-            onDismiss = { frequencySheet = false },
+    val keywordsRow =
+        SettingsItem.Link(
+            key = "alert-keywords",
+            title = stringResource(Res.string.keywords_alert_title),
+            value = countSummary(alertCounts.keywords),
+            onClick = onOpenAlertKeywords,
         )
-    }
-}
-
-/** 想要即时提醒？ — a card rather than a row, because it points out of this page and out of polling. */
-@Composable
-private fun TelegramCard(onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    LayerCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
-            IconBadge(containerColor = scheme.tertiaryContainer, contentColor = scheme.onTertiaryContainer) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    stringResource(Res.string.notify_telegram_title),
-                    style = groupedRowTitleStyle().copy(fontWeight = FontWeight.SemiBold),
-                )
-                Text(
-                    stringResource(Res.string.notify_telegram_body),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = scheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                stringResource(Res.string.notify_telegram_action),
-                color = scheme.primary,
-                style = MaterialTheme.typography.labelLarge,
+    val trackedThreadsRow =
+        SettingsItem.Link(
+            key = "tracked-threads",
+            title = stringResource(Res.string.tracked_threads_title),
+            value = countSummary(alertCounts.trackedThreads),
+            onClick = onOpenTrackedThreads,
+        )
+    // The Telegram pointer stays active regardless of the master switch: the site's own channel is the
+    // alternative to polling, not part of it.
+    val telegram =
+        SettingsSection(
+            key = "telegram",
+            style = SettingsSectionStyle.Callout,
+            items =
+            listOf(
+                SettingsItem.Link(
+                    key = "telegram",
+                    title = stringResource(Res.string.notify_telegram_title),
+                    description = stringResource(Res.string.notify_telegram_body),
+                    value = stringResource(Res.string.notify_telegram_action),
+                    icon = Icons.AutoMirrored.Filled.Send,
+                    onClick = onOpenTelegram,
+                ),
+            ),
+        )
+    val sections =
+        if (backgroundPollingSupported) {
+            pollingSections(
+                settings = settings,
+                onEnabledChange = onEnabledChange,
+                onPollMinutesChange = onPollMinutesChange,
+                onWifiOnlyChange = onWifiOnlyChange,
+                onQuietHoursChange = onQuietHoursChange,
+                onNotifyInteractionsChange = onNotifyInteractionsChange,
+                onNotifyMessagesChange = onNotifyMessagesChange,
+                onNotifyMailChange = onNotifyMailChange,
+                onNotifyKeywordAlertsChange = onNotifyKeywordAlertsChange,
+                onNotifyTrackedThreadsChange = onNotifyTrackedThreadsChange,
+                keywordsRow = keywordsRow,
+                trackedThreadsRow = trackedThreadsRow,
             )
-        }
-    }
+        } else {
+            listOfNotNull(
+                SettingsSection(
+                    key = "background-unavailable",
+                    header = stringResource(Res.string.notify_background_unavailable_title),
+                    footer = stringResource(Res.string.notify_background_unavailable_body),
+                ),
+                onOpenLottery?.let { open ->
+                    SettingsSection(
+                        key = "lottery",
+                        items =
+                        listOf(
+                            SettingsItem.Link(
+                                key = "lottery",
+                                title = stringResource(Res.string.lottery_title),
+                                description = stringResource(Res.string.notify_lottery_hint),
+                                icon = PlazaIcons.Campaign,
+                                onClick = open,
+                            ),
+                        ),
+                    )
+                },
+                SettingsSection(
+                    key = "saved-alerts",
+                    header = stringResource(Res.string.notify_saved_alerts_section),
+                    items = listOf(keywordsRow, trackedThreadsRow),
+                ),
+            )
+        } + telegram
+    SettingsPageScreen(
+        page = SettingsPage(title = stringResource(Res.string.notify_settings_title), sections = sections),
+        onBack = onBack,
+        modifier = modifier,
+    )
 }
 
 /**
- * 6d2 — the three intervals as radio rows in a sheet, with the cost of a short one said above them.
- *
- * A pick applies and closes in the same tap: the sheet is one question with three answers, and a
- * confirm button would make the reader answer it twice.
+ * Everything below the master switch is inert while it is off — f4's "主开关关闭时下方全部禁用" — except
+ * the two 管理 rows: what they manage is kept whether or not anything is being checked.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FrequencySheet(
-    selected: Int,
-    onSelect: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    PlazaSheet(
-        onDismiss = onDismiss,
-        title = stringResource(Res.string.notify_frequency),
-        subtitle = stringResource(Res.string.notify_frequency_hint),
-    ) {
-        Column(
-            modifier =
-            Modifier
-                .padding(horizontal = Spacing.xl)
-                .padding(bottom = Spacing.lg)
-                .navigationBarsPadding(),
-        ) {
-            Column(Modifier.selectableGroup()) {
-                SettingsRepository.POLL_MINUTE_CHOICES.forEach { minutes ->
-                    val isSelected = minutes == selected
-                    ChoiceRow(
-                        label =
-                        stringResource(Res.string.notify_frequency_every, stringResource(pollMinutesLabel(minutes))),
-                        selected = isSelected,
-                        onSelect = { onSelect(minutes) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                        textStyle =
-                        groupedRowTitleStyle().copy(
-                            fontSize = 16.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        ),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                        // Wraps at a large text size, as this sheet's own rows did before ChoiceRow.
-                        maxLines = Int.MAX_VALUE,
-                    )
-                }
-            }
+private fun pollingSections(
+    settings: UserSettings,
+    onEnabledChange: (Boolean) -> Unit,
+    onPollMinutesChange: (Int) -> Unit,
+    onWifiOnlyChange: (Boolean) -> Unit,
+    onQuietHoursChange: (Boolean) -> Unit,
+    onNotifyInteractionsChange: (Boolean) -> Unit,
+    onNotifyMessagesChange: (Boolean) -> Unit,
+    onNotifyMailChange: (Boolean) -> Unit,
+    onNotifyKeywordAlertsChange: (Boolean) -> Unit,
+    onNotifyTrackedThreadsChange: (Boolean) -> Unit,
+    keywordsRow: SettingsItem,
+    trackedThreadsRow: SettingsItem,
+): List<SettingsSection> {
+    val enabled = settings.notificationsEnabled
+    val choices = SettingsRepository.POLL_MINUTE_CHOICES
+    val frequencyOptions =
+        choices.map { minutes ->
+            SettingsOption(stringResource(Res.string.notify_frequency_every, stringResource(pollMinutesLabel(minutes))))
         }
-    }
+    // A value this build never wrote reads as the default, the way [pollMinutesLabel] names it.
+    val selectedFrequency =
+        choices.indexOf(settings.notificationPollMinutes).takeIf { it >= 0 }
+            ?: choices.indexOf(SettingsRepository.DEFAULT_POLL_MINUTES)
+    return listOf(
+        SettingsSection(
+            key = "master",
+            style = SettingsSectionStyle.Prominent,
+            items =
+            listOf(
+                SettingsItem.Toggle(
+                    key = "enabled",
+                    title = stringResource(Res.string.notify_master_title),
+                    description = stringResource(Res.string.notify_master_hint),
+                    checked = enabled,
+                    onCheckedChange = onEnabledChange,
+                ),
+            ),
+        ),
+        SettingsSection(
+            key = "check",
+            header = stringResource(Res.string.notify_check_section),
+            items =
+            listOf(
+                SettingsItem.Choice(
+                    key = "frequency",
+                    title = stringResource(Res.string.notify_frequency),
+                    prompt = stringResource(Res.string.notify_frequency_hint),
+                    options = frequencyOptions,
+                    selectedIndex = selectedFrequency,
+                    onSelect = { index -> onPollMinutesChange(choices[index]) },
+                    icon = PlazaIcons.Schedule,
+                    enabled = enabled,
+                ),
+                SettingsItem.Toggle(
+                    key = "wifi-only",
+                    title = stringResource(Res.string.notify_wifi_only),
+                    description = stringResource(Res.string.notify_wifi_only_hint),
+                    checked = settings.notificationsWifiOnly,
+                    onCheckedChange = onWifiOnlyChange,
+                    icon = PlazaIcons.Wifi,
+                    enabled = enabled,
+                ),
+                SettingsItem.Toggle(
+                    key = "quiet-hours",
+                    title = stringResource(Res.string.notify_quiet_hours),
+                    description = stringResource(Res.string.notify_quiet_hours_hint),
+                    checked = settings.notificationQuietHours,
+                    onCheckedChange = onQuietHoursChange,
+                    icon = PlazaIcons.Bedtime,
+                    enabled = enabled,
+                ),
+            ),
+        ),
+        // One row for the two site groups, because one comment is filed under both and the app posts
+        // one notification for it — see `NotificationChannels`.
+        SettingsSection(
+            key = "channels",
+            header = stringResource(Res.string.notify_channels_section),
+            items =
+            listOf(
+                SettingsItem.Toggle(
+                    key = "interactions",
+                    title = stringResource(Res.string.notifications_interactions),
+                    checked = settings.notifyInteractions,
+                    onCheckedChange = onNotifyInteractionsChange,
+                    icon = PlazaIcons.AlternateEmail,
+                    enabled = enabled,
+                ),
+                SettingsItem.Toggle(
+                    key = "messages",
+                    title = stringResource(Res.string.notifications_messages),
+                    checked = settings.notifyMessages,
+                    onCheckedChange = onNotifyMessagesChange,
+                    icon = Icons.Default.Email,
+                    enabled = enabled,
+                ),
+                SettingsItem.Toggle(
+                    key = "mail",
+                    title = stringResource(Res.string.notify_mail),
+                    description = stringResource(Res.string.notify_mail_hint),
+                    checked = settings.notifyMail,
+                    onCheckedChange = onNotifyMailChange,
+                    icon = Icons.Default.Email,
+                    enabled = enabled,
+                ),
+            ),
+        ),
+        // The app's own alerts. They read public lists, so unlike the two above they work signed out —
+        // the section says so rather than leaving it to be discovered.
+        SettingsSection(
+            key = "app-alerts",
+            header = stringResource(Res.string.notify_app_alerts_section),
+            footer = stringResource(Res.string.notify_app_alerts_footer),
+            items =
+            listOf(
+                SettingsItem.Toggle(
+                    key = "keyword-alerts",
+                    title = stringResource(Res.string.notify_keyword_alerts),
+                    checked = settings.notifyKeywordAlerts,
+                    onCheckedChange = onNotifyKeywordAlertsChange,
+                    icon = PlazaIcons.Campaign,
+                    enabled = enabled,
+                ),
+                keywordsRow,
+                SettingsItem.Toggle(
+                    key = "tracked-threads-alerts",
+                    title = stringResource(Res.string.notify_tracked_threads),
+                    checked = settings.notifyTrackedThreads,
+                    onCheckedChange = onNotifyTrackedThreadsChange,
+                    icon = PlazaIcons.Forum,
+                    enabled = enabled,
+                ),
+                trackedThreadsRow,
+            ),
+        ),
+    )
 }
 
 /** The three intervals the store accepts, by name. Anything else is a value this build never wrote. */

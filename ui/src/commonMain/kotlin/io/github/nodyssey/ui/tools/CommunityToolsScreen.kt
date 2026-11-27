@@ -7,12 +7,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,7 +18,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.about_community_hint
 import io.github.nodyssey.ui.resources.about_community_title
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.mail_entry_hint
 import io.github.nodyssey.ui.resources.mail_title
 import io.github.nodyssey.ui.resources.report_compare_subtitle
@@ -42,9 +38,10 @@ import io.github.nodyssey.ui.resources.tools_providers_subtitle
 import io.github.nodyssey.ui.resources.tools_ruling
 import io.github.nodyssey.ui.resources.tools_ruling_subtitle
 import io.github.nodyssey.ui.resources.tools_title
+import io.github.nodyssey.ui.resources.vps_title
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerPageGutter
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
@@ -77,22 +74,16 @@ fun CommunityToolsScreen(
     onAboutCommunity: () -> Unit,
     modifier: Modifier = Modifier,
     onMail: () -> Unit = {},
+    onVpsCalculator: (() -> Unit)? = null,
 ) {
     val appBarState = rememberOneHandAppBarState()
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.tools_title),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -179,6 +170,16 @@ fun CommunityToolsScreen(
                 last = true,
                 onClick = onMail,
             )
+
+            onVpsCalculator?.let { open ->
+                GroupedRow(
+                    title = stringResource(Res.string.vps_title),
+                    icon = PlazaIcons.Calculate,
+                    first = true,
+                    last = true,
+                    onClick = open,
+                )
+            }
 
             GroupedRow(
                 title = stringResource(Res.string.about_community_title),

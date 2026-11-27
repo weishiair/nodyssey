@@ -12,10 +12,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,6 +39,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.groupedRowTitleStyle
 import io.github.plaza.designsys.theme.Spacing
 
@@ -122,12 +123,14 @@ internal fun SettingsBlock(
  */
 @Composable
 internal fun <T> SettingsMenuRow(
-    icon: ImageVector,
+    icon: ImageVector?,
     title: String,
-    subtitle: String,
+    subtitle: String?,
     choices: List<Pair<T, String>>,
     selected: T,
     onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    first: Boolean = false,
     last: Boolean = false,
     enabled: Boolean = true,
     menuIcon: ImageVector = Icons.Default.ArrowDropDown,
@@ -140,13 +143,15 @@ internal fun <T> SettingsMenuRow(
         title = title,
         subtitle = subtitle,
         value = value,
+        modifier = modifier,
+        first = first,
         last = last,
         enabled = enabled,
         onClick = { expanded = true },
         showChevron = false,
         trailing = {
             Box {
-                Icon(menuIcon, contentDescription = null)
+                PlazaIcon(menuIcon, contentDescription = null)
                 DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
                     choices.forEachIndexed { index, (choice, label) ->
                         SelectableMenuItem(
@@ -234,4 +239,36 @@ internal fun SettingsTestSaveButtons(
             Text(saveLabel)
         }
     }
+}
+
+/**
+ * The slider every size control in the settings uses: Material's [Slider] with its default track.
+ *
+ * It used to hand [Slider] a `track` of its own — 16dp, with neither the stop indicator nor the
+ * ticks, since at nine or thirteen stops the dots crowd the track into a dotted line and say nothing
+ * the number beside the title does not. No overload can do that on both sides today: androidx
+ * material3 1.5.0-alpha28 removed the value-based `Slider(value, …, track)` outright — no hidden
+ * copy left for binary compatibility — while Compose Multiplatform's material3 1.13.0-alpha01 is
+ * alpha27 underneath and lacks the `Slider(state, onValueChange, …, track)` that replaced it. This
+ * module compiles against the second and `:app` ships the first, so a `track` here was a
+ * `NoSuchMethodError` on Android. Put the custom track back through the state-based overload once
+ * `composeMultiplatformMaterial3` is at least alpha28 underneath.
+ */
+@Composable
+internal fun SettingsSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    modifier: Modifier = Modifier,
+) {
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        onValueChangeFinished = onValueChangeFinished,
+        valueRange = valueRange,
+        steps = steps,
+        modifier = modifier,
+    )
 }

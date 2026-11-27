@@ -40,7 +40,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -101,6 +100,7 @@ import io.github.nodyssey.ui.resources.board_parked_title
 import io.github.nodyssey.ui.resources.board_restore
 import io.github.plaza.designsys.component.PlazaBackHandler
 import io.github.plaza.designsys.component.PlazaChipDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.fadingEndEdge
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalPlazaLayers
@@ -384,7 +384,7 @@ private fun BoardToggle(
             },
             label = "board-toggle-icon",
         ) { isExpanded ->
-            Icon(
+            PlazaIcon(
                 imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                 contentDescription =
                 stringResource(if (isExpanded) Res.string.action_hide_all_boards else Res.string.action_show_all_boards),
@@ -780,7 +780,7 @@ private fun BoardPill(
             // Described, since the × is the only thing saying what a tap here does.
             editing -> {
                 {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.Close,
                         contentDescription = stringResource(Res.string.board_park),
                         modifier = Modifier.size(PILL_ICON_SIZE),
@@ -794,7 +794,7 @@ private fun BoardPill(
             // TalkBack.
             board.adminOnly -> {
                 {
-                    Icon(
+                    PlazaIcon(
                         Icons.Default.Lock,
                         contentDescription = stringResource(Res.string.board_admin_only),
                         modifier = Modifier.size(14.dp),
@@ -851,7 +851,7 @@ private fun ParkedBoardChip(
             onClick = onClick,
             label = { Text(text = board.title, style = pillLabelStyle(selected = false), maxLines = 1) },
             leadingIcon = {
-                Icon(
+                PlazaIcon(
                     if (board.adminOnly) Icons.Default.Lock else Icons.Default.Add,
                     contentDescription = if (board.adminOnly) stringResource(Res.string.board_admin_only) else null,
                     modifier = Modifier.size(PILL_ICON_SIZE),

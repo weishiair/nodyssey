@@ -3,6 +3,7 @@ package io.github.plaza.designsys.editor
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -42,6 +42,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import io.github.plaza.designsys.component.AdaptiveModalSheet
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.SectionLabel
@@ -76,52 +78,70 @@ fun ToolbarCustomizeSheet(
     onReset: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        shape = PlazaSheetDefaults.shape,
-        dragHandle = { PlazaSheetDefaults.DragHandle() },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.lg)
-                .padding(bottom = Spacing.xl),
-            // No blanket arrangement: the gap between two rows and the gap between a heading and the
-            // list under it are different distances, and one `spacedBy` for the whole sheet can only
-            // ever be right for one of them.
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(Res.string.composer_toolbar_customize),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onReset) {
-                    Text(stringResource(Res.string.composer_toolbar_reset))
-                }
+    AdaptiveModalSheet(
+        onDismiss = onDismiss,
+        fallback = {
+            ModalBottomSheet(
+                onDismissRequest = onDismiss,
+                shape = PlazaSheetDefaults.shape,
+                dragHandle = { PlazaSheetDefaults.DragHandle() },
+            ) {
+                SheetContent(layout, onChange, onReset)
             }
+        },
+    ) {
+        Column {
+            SheetContent(layout, onChange, onReset)
+        }
+    }
+}
 
-            SectionLabel(
-                stringResource(Res.string.composer_toolbar_enabled),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                contentPadding = PaddingValues(top = Spacing.sm, bottom = Spacing.sm),
+@Composable
+private fun ColumnScope.SheetContent(
+    layout: ToolbarLayout,
+    onChange: (List<EditorAction>) -> Unit,
+    onReset: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Spacing.lg)
+            .padding(bottom = Spacing.xl),
+        // No blanket arrangement: the gap between two rows and the gap between a heading and the
+        // list under it are different distances, and one `spacedBy` for the whole sheet can only
+        // ever be right for one of them.
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(Res.string.composer_toolbar_customize),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
             )
-            EnabledKeys(enabled = layout.enabled, onChange = onChange)
+            TextButton(onClick = onReset) {
+                Text(stringResource(Res.string.composer_toolbar_reset))
+            }
+        }
 
-            if (layout.available.isNotEmpty()) {
-                SectionLabel(
-                    stringResource(Res.string.composer_toolbar_available),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    contentPadding = PaddingValues(top = Spacing.xl, bottom = Spacing.sm),
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(ROW_GAP)) {
-                    layout.available.forEach { action ->
-                        AvailableRow(
-                            action = action,
-                            onAdd = { onChange(layout.enabled + action) },
-                        )
-                    }
+        SectionLabel(
+            stringResource(Res.string.composer_toolbar_enabled),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            contentPadding = PaddingValues(top = Spacing.sm, bottom = Spacing.sm),
+        )
+        EnabledKeys(enabled = layout.enabled, onChange = onChange)
+
+        if (layout.available.isNotEmpty()) {
+            SectionLabel(
+                stringResource(Res.string.composer_toolbar_available),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                contentPadding = PaddingValues(top = Spacing.xl, bottom = Spacing.sm),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(ROW_GAP)) {
+                layout.available.forEach { action ->
+                    AvailableRow(
+                        action = action,
+                        onAdd = { onChange(layout.enabled + action) },
+                    )
                 }
             }
         }
@@ -226,7 +246,7 @@ private fun EnabledKeys(
 @Composable
 private fun DragHandle(modifier: Modifier = Modifier) {
     val label = stringResource(Res.string.composer_toolbar_reorder)
-    Icon(
+    PlazaIcon(
         imageVector = PlazaIcons.DragHandle,
         contentDescription = label,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -263,7 +283,7 @@ private fun EnabledRow(
             modifier = Modifier.padding(start = Spacing.md, end = Spacing.sm),
         ) {
             handle()
-            Icon(
+            PlazaIcon(
                 imageVector = action.icon,
                 contentDescription = null,
                 modifier = Modifier.size(KEY_ICON_SIZE),
@@ -280,7 +300,7 @@ private fun EnabledRow(
                 // is a control the user goes looking for.
                 modifier = Modifier.alpha(if (canRemove) 1f else DISABLED_ALPHA),
             ) {
-                Icon(
+                PlazaIcon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource(Res.string.composer_toolbar_remove),
                     modifier = Modifier.size(18.dp),
@@ -306,7 +326,7 @@ private fun AvailableRow(
             // halves are the same list, so their glyphs have to share a column.
             .padding(start = Spacing.md + HANDLE_SIZE + Spacing.md, end = Spacing.sm),
     ) {
-        Icon(
+        PlazaIcon(
             imageVector = action.icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -319,7 +339,7 @@ private fun AvailableRow(
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = onAdd) {
-            Icon(
+            PlazaIcon(
                 imageVector = Icons.Default.Add,
                 contentDescription = stringResource(Res.string.composer_toolbar_add),
                 modifier = Modifier.size(20.dp),

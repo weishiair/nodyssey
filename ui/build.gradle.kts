@@ -110,6 +110,7 @@ kotlin {
             // Avatars, stickers and attachments. `:designsys` already puts `coil-compose` on its
             // implementation face; a screen names `ImageRequest` and `AsyncImage` itself.
             implementation(libs.coil.compose)
+            implementation(libs.zoomimage.coil)
 
             // `BackHandler` in `commonMain` — the same line `:designsys` carries, and for the same
             // reason: the androidx one ships inside `activity-compose`.

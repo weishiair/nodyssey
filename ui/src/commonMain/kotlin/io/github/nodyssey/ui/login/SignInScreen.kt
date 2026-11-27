@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
@@ -94,8 +93,10 @@ import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaFieldDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
@@ -327,15 +328,18 @@ fun SignInScreen(
         containerColor = LocalPlazaLayers.current.page,
         snackbarHost = { PlazaSnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(if (addingAccount) Res.string.accounts_add else Res.string.sign_in_title, siteName)) },
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
-            )
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = { Text(stringResource(if (addingAccount) Res.string.accounts_add else Res.string.sign_in_title, siteName)) },
+                    navigationIcon = {
+                        IconButton(onClick = onClose) {
+                            PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
+                )
+            }
         },
     ) { padding ->
         Column(
@@ -618,7 +622,7 @@ private fun VerificationNotice(icon: ImageVector, text: String) {
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         modifier = Modifier.padding(horizontal = Spacing.xs),
     ) {
-        Icon(
+        PlazaIcon(
             icon,
             contentDescription = null,
             modifier = Modifier.size(18.dp),

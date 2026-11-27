@@ -1,5 +1,6 @@
 package io.github.nodyssey.ui.postdetail
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ThumbUp
@@ -45,7 +46,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -58,12 +58,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -169,6 +170,7 @@ import io.github.nodyssey.ui.resources.post_author_scan
 import io.github.nodyssey.ui.resources.post_author_scan_retry
 import io.github.nodyssey.ui.resources.post_auto_paging
 import io.github.nodyssey.ui.resources.post_badge_awarded
+import io.github.nodyssey.ui.resources.post_badge_hot
 import io.github.nodyssey.ui.resources.post_badge_original_poster
 import io.github.nodyssey.ui.resources.post_badge_pinned
 import io.github.nodyssey.ui.resources.post_body_copied
@@ -211,7 +213,6 @@ import io.github.nodyssey.ui.resources.post_reply_to
 import io.github.nodyssey.ui.resources.post_share_image
 import io.github.nodyssey.ui.resources.post_share_image_failed
 import io.github.nodyssey.ui.resources.post_share_image_generating
-import io.github.nodyssey.ui.resources.post_sort_ascending
 import io.github.nodyssey.ui.resources.post_title_copied
 import io.github.nodyssey.ui.resources.post_track_full
 import io.github.nodyssey.ui.resources.post_track_thread
@@ -229,9 +230,14 @@ import io.github.nodyssey.ui.sticker.rememberImageActionsState
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.AdaptiveGlassTopBar
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
+import io.github.plaza.designsys.component.AdaptivePullToRefreshIndicator
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
+import io.github.plaza.designsys.component.BadgeChip
+import io.github.plaza.designsys.component.BadgeTone
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.GroupedListItem
@@ -239,6 +245,7 @@ import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.MetaText
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
@@ -248,9 +255,12 @@ import io.github.plaza.designsys.component.SkeletonBar
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.liquidGlassInteractive
 import io.github.plaza.designsys.component.rememberClipboardCopy
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.richtext.LocalRichTextAppearance
 import io.github.plaza.designsys.richtext.RichTextAppearance
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -263,8 +273,9 @@ import io.github.plaza.designsys.theme.asSignature
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.glassChromeSurface
-import io.github.plaza.designsys.theme.glassFrostedBar
+import io.github.plaza.designsys.theme.glassFloatingTopBarScrim
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
+import io.github.plaza.designsys.theme.nativeControls
 import io.github.plaza.designsys.theme.readableWidth
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
 import kotlinx.coroutines.delay
@@ -356,6 +367,7 @@ fun PostDetailRoute(
         voteContent = voteContent,
         stardustContent = stardustContent,
         replyOpen = replyState.visible,
+        replyPreviewing = replyState.visible && replyState.previewing,
         shareImage = shareImage,
         lotteryContent = {
             state.body?.takeIf { !it.isBlocked || state.showBlockedContent }?.let { lotteryContent(it, state.title, state.isSignedIn) }
@@ -368,7 +380,7 @@ fun PostDetailRoute(
         covered = replyCovered,
         onDismiss = replyViewModel::close,
         bodyState = replyViewModel.bodyState,
-        onClearReplyTo = replyViewModel::clearReplyTo,
+        onRemoveReplyTarget = replyViewModel::removeReplyTarget,
         onPreviewChange = replyViewModel::setPreviewing,
         onPickImages = replyViewModel::addImages,
         onRemoveAttachment = replyViewModel::removeAttachment,
@@ -460,6 +472,8 @@ fun PostDetailScreen(
     stardustContent: (@Composable (RichNode.StardustReceive) -> Unit)? = null,
     /** Hides the bottom toolbar while the editor covers it. */
     replyOpen: Boolean = false,
+    /** Hides the floating glass top bar while full-screen reply preview covers the thread. */
+    replyPreviewing: Boolean = false,
     /** Body/comment links. Separate from [onOpenBrowser] so our own URLs can stay in the app. */
     onLinkClick: (String) -> Unit = onOpenBrowser,
     /** Opens the tapped author's space. */
@@ -605,7 +619,7 @@ fun PostDetailScreen(
     LaunchedEffect(state.firstLoadedPage, state.error) {
         val anchor = prependAnchor ?: return@LaunchedEffect
         if (state.firstLoadedPage < anchor.page) {
-            val index = state.comments.indices.firstOrNull { state.comments[it].lazyKey(it) == anchor.key }
+            val index = state.comments.indices.firstOrNull { state.commentKey(it) == anchor.key }
             if (index != null && state.pendingScroll == null) {
                 listState.requestScrollToItem(state.headerItemCount + index, -anchor.offset)
             }
@@ -672,7 +686,7 @@ fun PostDetailScreen(
         // The floor when the site named one and it is on the page; otherwise the page's own start.
         // A floor can be missing from the page it was computed for — it was deleted, or the thread
         // was renumbered under it — and landing on the right page beats not moving at all.
-        val index = target.floor?.let { state.indexAtOrAfterFloor(it) }
+        val index = target.floor?.let { state.indexAtOrAfterFloor(it, target.page) }
             ?: state.firstIndexOfPage(target.page)
             ?: (state.headerItemCount + state.comments.size - 1).coerceAtLeast(0)
         listState.scrollToItem(index)
@@ -724,11 +738,11 @@ fun PostDetailScreen(
             state.isRefreshing ||
             state.isRefreshingTail
     val lastFloor = state.readerLastFloor()
-    val readingItemKeys = remember(state.comments, state.isAppending, state.showReadingEnd) {
+    val readingItemKeys = remember(state.comments, state.commentPages, state.commentSourcePages, state.firstLoadedPage, state.isAppending, state.showReadingEnd) {
         buildList<Any> {
             add("body")
             add("comments-header")
-            state.comments.forEachIndexed { index, comment -> add(comment.lazyKey(index)) }
+            state.comments.indices.forEach { add(state.commentKey(it)) }
             if (state.isAppending) {
                 add("appending")
             } else if (state.showReadingEnd) {
@@ -772,35 +786,39 @@ fun PostDetailScreen(
                 )
             },
             topBar = {
-                DetailTopBar(
-                    title = state.title,
-                    showTitle = showCollapsedTitle,
-                    onTitleClick = openOriginalPost,
-                    postUrl = postUrl,
-                    onBack = onBack,
-                    onOpenInBrowser = { onOpenBrowser(postUrl) },
-                    onRefresh = { onRefreshPage(visiblePage) },
-                    showBackButton = showBackButton,
-                    tracked = state.tracked,
-                    onToggleTrack = onToggleTrack,
-                    onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
-                    collected = state.collected,
-                    collectPending = state.collectPending,
-                    onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
-                    pageColor = pageColor,
-                )
+                if (!replyPreviewing) {
+                    DetailTopBar(
+                        title = state.title,
+                        showTitle = showCollapsedTitle,
+                        onTitleClick = openOriginalPost,
+                        postUrl = postUrl,
+                        onBack = onBack,
+                        onOpenInBrowser = { onOpenBrowser(postUrl) },
+                        onRefresh = { onRefreshPage(visiblePage) },
+                        showBackButton = showBackButton,
+                        tracked = state.tracked,
+                        onToggleTrack = onToggleTrack,
+                        onOriginal = { jumpToFloor("#0") }.takeIf { state.hasContent },
+                        collected = state.collected,
+                        collectPending = state.collectPending,
+                        onCollect = { if (state.isSignedIn) onCollect() else onSignIn() },
+                        pageColor = pageColor,
+                        contentUnderBar = !atListTop,
+                    )
+                }
             },
         ) { padding ->
-            // UIKit cannot track a Compose list's scroll edge. Keep native chrome over an opaque
-            // header and lay the list below it rather than scrolling text through the title.
-            val frostedTopBar = LocalPlazaLayers.current.backdropGlass
-            val topInset = if (frostedTopBar) padding.calculateTopPadding() else 0.dp
+            // Keep the first row below the bar at rest, while allowing the glass to sample the
+            // list as it scrolls underneath.
+            val layers = LocalPlazaLayers.current
+            val drawsUnderTopBar = nativeControls || layers.backdropGlass
+            val topInset = if (drawsUnderTopBar) padding.calculateTopPadding() else 0.dp
             val bottomInset = padding.calculateBottomPadding()
             val viewportPadding = padding.withoutBottom()
             Box(
                 Modifier
                     // Draw the list through the home-indicator area, not above an empty page strip.
-                    .padding(if (frostedTopBar) viewportPadding.withoutTop() else viewportPadding)
+                    .padding(if (drawsUnderTopBar) viewportPadding.withoutTop() else viewportPadding)
                     .fillMaxSize(),
             ) {
                 // First in the Box, though it is never drawn: see [FloorShareCapture].
@@ -825,6 +843,7 @@ fun PostDetailScreen(
                     )
                 }
                 val error = state.error
+                val pressHaptics = rememberPlatformHaptics()
                 when {
                     /*
                      * Only where nothing told us anything about this thread — a notification, a deep
@@ -837,7 +856,7 @@ fun PostDetailScreen(
                      * the four shared elements mid-landing and flies them again.
                      */
                     !state.hasContent && state.isLoading && state.preview == null ->
-                        Box(Modifier.padding(top = topInset, bottom = bottomInset)) {
+                        Box(Modifier.padding(top = topInset, bottom = bottomInset).readableWidth()) {
                             UnopenedThreadSkeleton()
                         }
 
@@ -861,13 +880,16 @@ fun PostDetailScreen(
                         }
 
                     else ->
-                        PullToRefreshBox(
+                        AdaptivePullToRefreshBox(
                             isRefreshing = state.isRefreshing || state.isPrepending,
-                            onRefresh = { if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh() },
+                            onRefresh = {
+                                pressHaptics.refreshTriggered()
+                                if (state.firstLoadedPage > 1) loadPrevious() else onPullRefresh()
+                            },
                             modifier = Modifier.liquidGlassBackdropSource(threadBackdrop),
                             state = pullToRefreshState,
                             indicator = {
-                                PullToRefreshDefaults.Indicator(
+                                AdaptivePullToRefreshIndicator(
                                     state = pullToRefreshState,
                                     isRefreshing = state.isRefreshing || state.isPrepending,
                                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
@@ -920,6 +942,7 @@ fun PostDetailScreen(
                                         stardustContent = stardustContent,
                                         onTitleBottom = { collapsedTitleThreshold = it },
                                         lotteryContent = lotteryContent,
+                                        modifier = Modifier.readableWidth(),
                                         topInset = topInset,
                                         bottomPadding = bottomInset + readingControlsHeight + 16.dp,
                                     )
@@ -1158,6 +1181,8 @@ private fun DetailTopBar(
     collectPending: Boolean,
     onCollect: () -> Unit,
     pageColor: Color,
+    /** Whether the thread has scrolled under the bar: UIKit's bars stay clear at the scroll edge. */
+    contentUnderBar: Boolean = true,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val shareText = rememberShareText()
@@ -1168,13 +1193,6 @@ private fun DetailTopBar(
     val layers = LocalPlazaLayers.current
     val darkTheme = LocalPlazaDarkTheme.current
     val backdrop = LocalLiquidGlassBackdrop.current
-
-    val buttonTint =
-        if (darkTheme) {
-            layers.raised.copy(alpha = 0.44f)
-        } else {
-            Color.White.copy(alpha = 0.40f)
-        }
 
     val nativeMenu = buildList {
         onOriginal?.let { add(GlassMenuAction(openOriginalPostLabel, it, symbol = "arrow.up.to.line")) }
@@ -1202,7 +1220,10 @@ private fun DetailTopBar(
             )
         }
     }
-    ReadableTopBar { nativeInsets ->
+    ReadableTopBar { barInsets ->
+        // One blur from the top of the screen down: the status bar is part of the bar's background,
+        // not a solid strip above it. The buttons and title stay inside the insets.
+        val statusBarHeight = with(LocalDensity.current) { barInsets.getTop(this).toDp() }
         AdaptiveGlassTopBar(
             title = title.takeIf { showTitle }.orEmpty(),
             titleAction = onTitleClick?.takeIf { showTitle }?.let { GlassAction(openOriginalPostLabel, it) },
@@ -1211,189 +1232,201 @@ private fun DetailTopBar(
                 GlassAction(stringResource(Res.string.action_open_in_browser), onOpenInBrowser, symbol = "safari"),
                 GlassAction(stringResource(Res.string.action_more), {}, symbol = "ellipsis", menu = nativeMenu),
             ),
-            modifier = Modifier.fillMaxWidth().background(pageColor).windowInsetsPadding(nativeInsets).height(TopBarHeight),
+            modifier = Modifier.fillMaxWidth().height(statusBarHeight + TopBarHeight),
+            blurBackground = contentUnderBar,
+            scrollEdgeColor = pageColor,
+            barInsets = barInsets,
         ) {
+            val topScrimAlpha by animateFloatAsState(
+                targetValue = if (showTitle) 1f else 0f,
+                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                label = "detailTopBarScrim",
+            )
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .glassFrostedBar(
+                    .glassFloatingTopBarScrim(
                         layers = layers,
                         darkTheme = darkTheme,
                         backdrop = backdrop,
                         baseColor = pageColor,
+                        scrimAlpha = topScrimAlpha,
                     ),
             ) {
-                ReadableTopBar { barInsets ->
-                    TopAppBar(
-                        windowInsets = barInsets,
-                        title = {
-                            // Clickable only while the bar is actually showing the title: the collapsed bar is where
-                            // a reader deep in someone else's page 7 meets the title at all, and an invisible tap
-                            // target over an empty bar is worse than no affordance.
-                            val jump = onTitleClick?.takeIf { showTitle }
-                            Text(
-                                text = if (showTitle) title else "",
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier =
-                                if (jump != null) {
-                                    Modifier.clickable(onClick = jump).semantics {
-                                        contentDescription = openOriginalPostLabel
-                                    }
-                                } else {
-                                    Modifier
-                                },
-                            )
-                        },
-                        navigationIcon = {
-                            if (showBackButton) {
-                                IconButton(
-                                    onClick = onBack,
-                                    modifier =
-                                    if (layers.backdropGlass) {
-                                        Modifier
-                                            .padding(start = 6.dp)
-                                            .minimumInteractiveComponentSize()
-                                            .size(40.dp)
-                                            .glassChromeSurface(
-                                                layers = layers,
-                                                darkTheme = darkTheme,
-                                                shape = CircleShape,
-                                                elevated = true,
-                                                backdrop = backdrop,
-                                                surfaceTint = buttonTint,
-                                            )
-                                    } else {
-                                        Modifier
-                                    },
-                                ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = stringResource(Res.string.action_back),
-                                        modifier = Modifier.size(TopBarIconSize),
-                                    )
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = {
+                        // Clickable only while the bar is actually showing the title: the collapsed bar is where
+                        // a reader deep in someone else's page 7 meets the title at all, and an invisible tap
+                        // target over an empty bar is worse than no affordance.
+                        val jump = onTitleClick?.takeIf { showTitle }
+                        Text(
+                            text = if (showTitle) title else "",
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier =
+                            if (jump != null) {
+                                Modifier.clickable(onClick = jump).semantics {
+                                    contentDescription = openOriginalPostLabel
                                 }
-                            }
-                        },
-                        actions = {
-                            Box(
+                            } else {
+                                Modifier
+                            },
+                        )
+                    },
+                    navigationIcon = {
+                        if (showBackButton) {
+                            IconButton(
+                                onClick = onBack,
                                 modifier =
                                 if (layers.backdropGlass) {
-                                    Modifier.padding(end = 6.dp)
-                                } else {
                                     Modifier
-                                },
-                            ) {
-                                if (layers.backdropGlass) {
-                                    // Paint a 40dp capsule behind separate 48dp Material buttons. The
-                                    // smaller visual no longer constrains or overlaps their touch slots.
-                                    Box(
-                                        Modifier.matchParentSize().padding(vertical = 4.dp).glassChromeSurface(
+                                        .padding(start = 6.dp)
+                                        .minimumInteractiveComponentSize()
+                                        .size(40.dp)
+                                        .liquidGlassInteractive(CircleShape)
+                                        .glassChromeSurface(
                                             layers = layers,
                                             darkTheme = darkTheme,
                                             shape = CircleShape,
                                             elevated = true,
                                             backdrop = backdrop,
-                                            surfaceTint = buttonTint,
-                                        ),
+                                        )
+                                } else {
+                                    Modifier
+                                },
+                            ) {
+                                PlazaIcon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(Res.string.action_back),
+                                    modifier = Modifier.size(TopBarIconSize),
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        Box(
+                            modifier =
+                            if (layers.backdropGlass) {
+                                Modifier.padding(end = 6.dp).liquidGlassInteractive(FloatingCapsuleShape)
+                            } else {
+                                Modifier
+                            },
+                        ) {
+                            if (layers.backdropGlass) {
+                                // Paint a 40dp capsule behind separate 48dp Material buttons. The
+                                // smaller visual no longer constrains or overlaps their touch slots.
+                                Box(
+                                    Modifier.matchParentSize().padding(vertical = 4.dp).glassChromeSurface(
+                                        layers = layers,
+                                        darkTheme = darkTheme,
+                                        shape = FloatingCapsuleShape,
+                                        elevated = true,
+                                        backdrop = backdrop,
+                                    ),
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val actionIconTint =
+                                    if (layers.backdropGlass) {
+                                        MaterialTheme.colorScheme.onSurface
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                IconButton(
+                                    onClick = onOpenInBrowser,
+                                    modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
+                                ) {
+                                    PlazaIcon(
+                                        PlazaIcons.OpenInNew,
+                                        contentDescription = stringResource(Res.string.action_open_in_browser),
+                                        tint = actionIconTint,
+                                        modifier = Modifier.size(TopBarIconSize),
                                     )
                                 }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box {
                                     IconButton(
-                                        onClick = onOpenInBrowser,
+                                        onClick = { menuOpen = true },
                                         modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
                                     ) {
-                                        Icon(
-                                            PlazaIcons.OpenInNew,
-                                            contentDescription = stringResource(Res.string.action_open_in_browser),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        PlazaIcon(
+                                            Icons.Default.MoreVert,
+                                            contentDescription = stringResource(Res.string.action_more),
+                                            tint = actionIconTint,
                                             modifier = Modifier.size(TopBarIconSize),
                                         )
                                     }
-                                    Box {
-                                        IconButton(
-                                            onClick = { menuOpen = true },
-                                            modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
-                                        ) {
-                                            Icon(
-                                                Icons.Default.MoreVert,
-                                                contentDescription = stringResource(Res.string.action_more),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(TopBarIconSize),
+                                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                        onOriginal?.let { jump ->
+                                            DropdownMenuItem(
+                                                text = { Text(openOriginalPostLabel) },
+                                                onClick = {
+                                                    menuOpen = false
+                                                    jump()
+                                                },
                                             )
                                         }
-                                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                            onOriginal?.let { jump ->
-                                                DropdownMenuItem(
-                                                    text = { Text(openOriginalPostLabel) },
-                                                    onClick = {
-                                                        menuOpen = false
-                                                        jump()
-                                                    },
-                                                )
-                                            }
-                                            collected?.let { saved ->
-                                                DropdownMenuItem(
-                                                    text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
-                                                    enabled = !collectPending,
-                                                    onClick = {
-                                                        menuOpen = false
-                                                        onCollect()
-                                                    },
-                                                )
-                                            }
-                                            // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
-                                            // not about to scroll back up to pull.
+                                        collected?.let { saved ->
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(Res.string.action_refresh)) },
+                                                text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
+                                                enabled = !collectPending,
                                                 onClick = {
                                                     menuOpen = false
-                                                    onRefresh()
+                                                    onCollect()
                                                 },
                                             )
+                                        }
+                                        // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
+                                        // not about to scroll back up to pull.
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(Res.string.action_refresh)) },
+                                            onClick = {
+                                                menuOpen = false
+                                                onRefresh()
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(Res.string.action_copy_link)) },
+                                            onClick = {
+                                                copy("post", postUrl, linkCopied)
+                                                menuOpen = false
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(shareLabel) },
+                                            onClick = {
+                                                menuOpen = false
+                                                shareText("$title\n$postUrl", shareLabel)
+                                            },
+                                        )
+                                        tracked?.let { on ->
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(Res.string.action_copy_link)) },
-                                                onClick = {
-                                                    copy("post", postUrl, linkCopied)
-                                                    menuOpen = false
+                                                text = {
+                                                    Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
                                                 },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(shareLabel) },
                                                 onClick = {
                                                     menuOpen = false
-                                                    shareText("$title\n$postUrl", shareLabel)
+                                                    onToggleTrack()
                                                 },
                                             )
-                                            tracked?.let { on ->
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
-                                                    },
-                                                    onClick = {
-                                                        menuOpen = false
-                                                        onToggleTrack()
-                                                    },
-                                                )
-                                            }
                                         }
                                     }
                                 }
                             }
-                        },
-                        // Under frostedGlass, the outer Box draws a full-width frosted matte backdrop across the
-                        // status bar and toolbar strip, while the left/right circular action buttons float on top.
-                        colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
-                            scrolledContainerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
-                        ),
-                        // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
-                        // has scrolled away, one line of it. The buttons keep their 48dp targets.
-                        expandedHeight = TopBarHeight,
-                    )
-                }
+                        }
+                    },
+                    // Under frostedGlass, the outer Box draws a full-width frosted matte backdrop across the
+                    // status bar and toolbar strip, while the left/right circular action buttons float on top.
+                    colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
+                        scrolledContainerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
+                    ),
+                    // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
+                    // has scrolled away, one line of it. The buttons keep their 48dp targets.
+                    expandedHeight = TopBarHeight,
+                )
             }
         }
     }
@@ -1455,9 +1488,7 @@ private fun ThreadList(
         } else {
             PaddingValues(top = topInset + Spacing.sm, bottom = bottomPadding)
         },
-        modifier = modifier
-            .fillMaxHeight()
-            .readableWidth(),
+        modifier = modifier.fillMaxHeight(),
     ) {
         /*
          * Present whether or not the thread has arrived — which is the whole reason this is one item
@@ -1490,11 +1521,13 @@ private fun ThreadList(
                         )
                     }
                 }
-            // The opening post keeps the site's own set: no 回复 or 引用 of it, 编辑 on your own.
+            val onReply = body?.takeUnless { it.isMine }?.toFloorReference()?.let { target ->
+                { onReplyToFloor(target) }
+            }
             val onMore = body?.let {
                 {
                     onOpenFloorActions(
-                        FloorActions(it, onReply = null, onQuote = null, onEdit = onEdit, postTitle = state.title),
+                        FloorActions(it, onReply = onReply, onQuote = null, onEdit = onEdit, postTitle = state.title),
                     )
                 }
             }
@@ -1516,6 +1549,7 @@ private fun ThreadList(
                     pendingReaction = body?.let { state.pendingReactionFor(it) },
                     onReact = { action -> body?.let { onReact(it, action) } },
                     onAuthorClick = onAuthorClick,
+                    onReply = onReply,
                     onMore = onMore,
                     collected = state.collected,
                     collectionCount = state.collectionCount,
@@ -1545,6 +1579,7 @@ private fun ThreadList(
                     pendingReaction = body?.let { state.pendingReactionFor(it) },
                     onReact = { action -> body?.let { onReact(it, action) } },
                     onAuthorClick = onAuthorClick,
+                    onReply = onReply,
                     onMore = onMore,
                     collected = state.collected,
                     collectionCount = state.collectionCount,
@@ -1579,7 +1614,7 @@ private fun ThreadList(
 
         itemsIndexed(
             items = state.comments,
-            key = { index, comment -> comment.lazyKey(index) },
+            key = { index, _ -> state.commentKey(index) },
         ) { index, comment ->
             // The site page this floor came from, which is the only page whose `__config__` carries
             // its Markdown. Read from the index rather than derived from the floor number: the list
@@ -1695,14 +1730,14 @@ private fun BlockAware(
     } else if (original) {
         Column(Modifier.fillMaxWidth()) {
             Box(Modifier.padding(horizontal = OriginalFloorInset, vertical = Spacing.sm)) {
-                BlockedFloorRow(floor = content.floor, onShow = { openedHere = true })
+                BlockedFloorRow(floor = content.floor, isHot = content.isHot, onShow = { openedHere = true })
             }
             HorizontalDivider(color = LocalPlazaLayers.current.divider.copy(alpha = 0.5f))
         }
     } else {
         // A row like the floor it stands in for, but a slim one: it is a line, not a post.
         FloorRow(verticalPadding = 0.dp) {
-            BlockedFloorRow(floor = content.floor, onShow = { openedHere = true })
+            BlockedFloorRow(floor = content.floor, isHot = content.isHot, onShow = { openedHere = true })
         }
     }
 }
@@ -1711,18 +1746,20 @@ private fun BlockAware(
 private fun BlockedFloorRow(
     floor: String?,
     onShow: () -> Unit,
+    isHot: Boolean = false,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        Icon(
+        PlazaIcon(
             PlazaIcons.VisibilityOff,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp),
         )
+        if (isHot) HotReplyBadge()
         Text(
             text = floor?.let { "$it · " }.orEmpty() + stringResource(Res.string.post_comment_blocked),
             style = MaterialTheme.typography.labelMedium,
@@ -1809,7 +1846,7 @@ private fun ThreadHeader(
             if (onOpenOriginalPost != null) {
                 TextButton(onClick = onOpenOriginalPost, contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)) {
                     Text(stringResource(Res.string.post_open_original), style = MaterialTheme.typography.labelSmall)
-                    Icon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.padding(start = 3.dp).size(13.dp))
+                    PlazaIcon(PlazaIcons.OpenInNew, contentDescription = null, modifier = Modifier.padding(start = 3.dp).size(13.dp))
                 }
             }
         }
@@ -1921,6 +1958,7 @@ private fun ThreadOpeningPost(
     pendingReaction: ReactionAction?,
     onReact: (ReactionAction) -> Unit,
     onAuthorClick: (Long) -> Unit,
+    onReply: (() -> Unit)?,
     /** Opens the post's 1c panel; null until there is a post to act on. */
     onMore: (() -> Unit)?,
     /* Collection is whole-thread, so it belongs on the opening post and nowhere else. */
@@ -2057,6 +2095,7 @@ private fun ThreadOpeningPost(
                 collectionCount = collectionCount,
                 collectPending = collectPending,
                 onCollect = onCollect,
+                onReply = onReply,
                 onMore = onMore,
                 modifier = Modifier.floorLongPress(longPress),
             )
@@ -2088,6 +2127,7 @@ private fun OriginalOpeningPost(
     pendingReaction: ReactionAction?,
     onReact: (ReactionAction) -> Unit,
     onAuthorClick: (Long) -> Unit,
+    onReply: (() -> Unit)?,
     /** Opens the post's 1c panel; null until there is a post to act on. */
     onMore: (() -> Unit)?,
     collected: Boolean?,
@@ -2209,6 +2249,7 @@ private fun OriginalOpeningPost(
             collectionCount = collectionCount,
             collectPending = collectPending,
             onCollect = onCollect,
+            onReply = onReply,
             onMore = onMore,
             modifier = Modifier.floorLongPress(longPress),
         )
@@ -2280,7 +2321,8 @@ private fun CommentsHeader(
         val plus = if (state.onlyAuthor && (state.isScanningAuthor || state.authorScanError != null)) "+" else ""
         val title =
             if (original) {
-                stringResource(Res.string.post_comments_header, state.replyCount ?: state.comments.size) + plus
+                val count = state.replyCount ?: state.comments.indices.count { !state.isCrossPageHotCopy(it) }
+                stringResource(Res.string.post_comments_header, count) + plus
             } else {
                 stringResource(if (state.onlyAuthor) Res.string.post_author_replies else Res.string.post_all_replies) +
                     state.replyCount?.let { " $it" }.orEmpty() + plus
@@ -2294,36 +2336,34 @@ private fun CommentsHeader(
                 MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
             },
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToggleButton(
+                checked = state.onlyAuthor,
+                onCheckedChange = { onToggleOnlyAuthor() },
+                buttonSize = ToggleButtonSize.ExtraSmall,
+                icon = {
+                    if (state.onlyAuthor) PlazaIcon(Icons.Default.Check, contentDescription = null)
+                },
+                colors = ToggleButtonDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    checkedContainerColor = Color.Transparent,
+                    checkedContentColor = MaterialTheme.colorScheme.primary,
+                ),
+                elevation = null,
+                contentPadding = PaddingValues(horizontal = Spacing.xs),
+            ) {
+                Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelMedium)
+            }
             if (original) {
-                // The official header is one compact line: a small 只看楼主 and 自动续页, not the
-                // 1.3.4 row's 48dp TextButton and static sort label.
-                Text(
-                    text = stringResource(Res.string.post_only_author),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                        .clickable(onClick = onToggleOnlyAuthor)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                )
                 Text(
                     text = stringResource(Res.string.post_auto_paging),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 8.dp),
                 )
-            } else {
-                TextButton(
-                    onClick = onToggleOnlyAuthor,
-                    shape = CircleShape,
-                    colors = ButtonDefaults.textButtonColors(containerColor = if (state.onlyAuthor) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, contentColor = if (state.onlyAuthor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
-                    contentPadding = PaddingValues(horizontal = 8.dp),
-                ) {
-                    Text(stringResource(Res.string.post_only_author), style = MaterialTheme.typography.labelSmall)
-                }
-                Text(stringResource(Res.string.post_sort_ascending), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -2759,6 +2799,7 @@ private fun OpeningPostActions(
     collectionCount: Int?,
     collectPending: Boolean,
     onCollect: () -> Unit,
+    onReply: (() -> Unit)?,
     onMore: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -2781,6 +2822,7 @@ private fun OpeningPostActions(
                 onClick = onCollect.takeUnless { collectPending },
             )
         }
+        if (onReply != null) FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply)
         if (onMore != null) FloorMoreButton(onMore)
     }
 }
@@ -2799,6 +2841,7 @@ private fun OriginalOpeningActions(
     collectionCount: Int?,
     collectPending: Boolean,
     onCollect: () -> Unit,
+    onReply: (() -> Unit)?,
     onMore: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -2841,6 +2884,7 @@ private fun OriginalOpeningActions(
                         compact = true,
                     )
                 }
+                if (onReply != null) FloorActionButton(PlazaIcons.Reply, Res.string.post_reply_action, onClick = onReply, compact = true)
                 if (onMore != null) FloorMoreButton(onMore, compact = true)
             }
         }
@@ -2873,7 +2917,7 @@ private fun OriginalReactionButton(
         if (pending) {
             PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = 16.dp)
         } else {
-            Icon(action.icon(filled = spent), contentDescription = stringResource(action.labelRes()), modifier = Modifier.size(16.dp))
+            PlazaIcon(action.icon(filled = spent), contentDescription = stringResource(action.labelRes()), modifier = Modifier.size(16.dp))
         }
         if (text.isNotEmpty()) {
             Text(
@@ -2993,7 +3037,7 @@ private fun FloorActionButton(
                 Res.string.post_reply_action -> (-0.5).dp
                 else -> 0.dp
             }
-            Icon(
+            PlazaIcon(
                 icon,
                 contentDescription = null,
                 modifier = Modifier.size(glyphSize).offset(y = glyphOffset),
@@ -3054,7 +3098,7 @@ private fun ReactionConfirmDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Icon(
+            PlazaIcon(
                 if (isChicken) NodeSeekIcons.ChickenLeg else PlazaIcons.ThumbDown,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
@@ -3100,26 +3144,21 @@ private fun ReactionConfirmDialog(
 
 @Composable
 private fun CommentPinDialog(pinned: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(PlazaIcons.PushPin, contentDescription = null) },
-        title = { Text(stringResource(if (pinned) Res.string.post_pin_action else Res.string.post_unpin_action)) },
-        text = { Text(stringResource(if (pinned) Res.string.post_pin_body else Res.string.post_unpin_body)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(if (pinned) Res.string.post_pin_confirm else Res.string.post_unpin_action))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
+    AdaptiveAlertDialog(
+        onDismiss = onDismiss,
+        icon = PlazaIcons.PushPin,
+        title = stringResource(if (pinned) Res.string.post_pin_action else Res.string.post_unpin_action),
+        message = stringResource(if (pinned) Res.string.post_pin_body else Res.string.post_unpin_body),
+        confirmLabel = stringResource(if (pinned) Res.string.post_pin_confirm else Res.string.post_unpin_action),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(Res.string.action_cancel),
     )
 }
 
 /**
  * What a floor's 1c panel can do besides the three marks, as that floor's own row already wired it.
  *
- * Built where the row is, because that is where the answers are: whether this account wrote the
- * floor (编辑 instead of 回复), which site page carries its Markdown, and whether it is the opening
- * post — which the site offers neither 回复 nor 引用 of.
+ * Built with the row, which knows the floor's author, page and available actions.
  */
 private class FloorActions(
     val content: PostContent,
@@ -3251,7 +3290,7 @@ private fun FloorActionSheet(
                             onDismiss()
                             action()
                         },
-                        leadingContent = { Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                        leadingContent = { PlazaIcon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
                         headlineContent = {
                             Text(label, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium))
                         },
@@ -3309,7 +3348,7 @@ private fun ReactionTile(
         if (pending) {
             PlazaSpinner(modifier = Modifier.describedAsLoading(), strokeWidth = 2.dp, size = ReactionTileIcon)
         } else {
-            Icon(action.icon(), contentDescription = null, modifier = Modifier.size(ReactionTileIcon))
+            PlazaIcon(action.icon(), contentDescription = null, modifier = Modifier.size(ReactionTileIcon))
         }
         // Two lines for the label and the price rather than one: a third of a phone's width holds
         // 点赞 and 扣 2 鸡腿, but not "Send a drumstick" or "Costs 2 drumsticks", and the price is the
@@ -3397,7 +3436,7 @@ private val ACCOUNT_LEVEL_BADGE = Regex("Lv\\.?\\s*\\d+", RegexOption.IGNORE_CAS
 internal fun PostDetailUiState.visibleReplyAuthorUids(keys: Set<Any>): Set<Long> =
     comments.withIndex().mapNotNull { (index, comment) ->
         comment.authorUid?.takeIf {
-            it > 0 && comment.lazyKey(index) in keys && (!comment.isBlocked || showBlockedContent)
+            it > 0 && commentKey(index) in keys && (!comment.isBlocked || showBlockedContent)
         }
     }.toSet()
 
@@ -3510,7 +3549,7 @@ private fun List<InlineNode>.plainText(): String = joinToString("") { inline ->
 }
 
 /**
- * The floor's number, with the pin a 置顶 floor wears ahead of it.
+ * The floor number and any labels NodeSeek placed next to it.
  *
  * The site draws only the glyph — an `svg` with `title="置顶"` — so the word travels as the icon's
  * accessible name here: "2楼" on its own neither reads nor looks pinned.
@@ -3523,13 +3562,14 @@ internal fun FloorLabel(content: PostContent) {
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         if (content.isPinned) {
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.PushPin,
                 contentDescription = stringResource(Res.string.post_badge_pinned),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(12.dp),
             )
         }
+        if (content.isHot) HotReplyBadge()
         Text(
             text = stringResource(Res.string.post_floor_number, floor.removePrefix("#")),
             style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = TABULAR_FIGURES),
@@ -3538,12 +3578,19 @@ internal fun FloorLabel(content: PostContent) {
     }
 }
 
+@Composable
+private fun HotReplyBadge() {
+    val label = stringResource(Res.string.post_badge_hot)
+    BadgeChip(
+        text = "HOT",
+        tone = BadgeTone.Caution,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = label },
+    )
+}
+
 private const val THREAD_HEADER_ITEMS = 2
 
 private data class PrependAnchor(val page: Int, val key: Any, val offset: Int)
-
-/** A floor without a comment id still needs a key that survives insertion of earlier pages. */
-private fun PostContent.lazyKey(index: Int): Any = commentId ?: floor?.let { "floor:$it" } ?: "unlabelled:$index"
 
 /**
  * The title/opening item and the comments header exist even on a page without an opening post.
@@ -3574,12 +3621,14 @@ private val PostDetailUiState.showReadingEnd: Boolean
  */
 private fun PostDetailUiState.startsNewReplies(index: Int): Boolean {
     val first = firstNewFloor ?: return false
+    if (isFeaturedReply(index)) return false
     val number = NodeSeekSite.parseFloorNumber(comments[index].floor) ?: return false
     if (number < first) return false
-    val previous = comments.getOrNull(index - 1)?.let { NodeSeekSite.parseFloorNumber(it.floor) }
+    val previousIndex = (index - 1 downTo 0).firstOrNull { !isFeaturedReply(it) }
+    val previous = previousIndex?.let { NodeSeekSite.parseFloorNumber(comments[it].floor) }
     // The top of a window that starts mid-thread: only where the new floors begin, not wherever a
     // jump happened to land among them.
-    if (previous == null) return index == 0 && NodeSeekSite.pageOfFloor(first) == NodeSeekSite.pageOfFloor(number)
+    if (previous == null) return previousIndex == null && NodeSeekSite.pageOfFloor(first) == NodeSeekSite.pageOfFloor(number)
     return previous < first
 }
 
@@ -3624,20 +3673,28 @@ private fun NewRepliesDivider() {
 }
 
 /** A deleted floor lands on the next surviving reply instead of the start of its server page. */
-private fun PostDetailUiState.indexAtOrAfterFloor(floor: String): Int? {
+private fun PostDetailUiState.indexAtOrAfterFloor(floor: String, page: Int): Int? {
     val number = NodeSeekSite.parseFloorNumber(floor) ?: return null
     if (number == 0) return 0.takeIf { firstLoadedPage == 1 && !onlyAuthor }
-    val exact = indexOfFloor(floor)
+    val exact = indexOfFloor(floor, page)
     if (exact != null) return exact
-    val next = comments.indexOfFirst { (NodeSeekSite.parseFloorNumber(it.floor) ?: -1) >= number }
-    return if (next >= 0) headerItemCount + next else null
+    val next = comments.indices.asSequence()
+        .filter { !isCrossPageHotCopy(it) && (commentPages.getOrNull(it) ?: firstLoadedPage) >= page }
+        .mapNotNull { index ->
+            val nextFloor = NodeSeekSite.parseFloorNumber(comments[index].floor)
+            nextFloor?.takeIf { it >= number }?.let { index to it }
+        }
+        .minByOrNull { it.second }
+    return next?.first?.plus(headerItemCount)
 }
 
 /** Mirrors [ThreadList]'s item order so a quote reference can scroll to the floor it points at. */
-private fun PostDetailUiState.indexOfFloor(floor: String): Int? {
-    val position = comments.indexOfFirst { it.floor == floor }
-    if (position < 0) return null
-    return headerItemCount + position
+private fun PostDetailUiState.indexOfFloor(floor: String, page: Int? = null): Int? {
+    val matching = comments.indices.asSequence().filter { comments[it].floor == floor }
+    val position = page?.let { matching.firstOrNull { index -> (commentPages.getOrNull(index) ?: firstLoadedPage) == it } }
+        ?: matching.firstOrNull { !isCrossPageHotCopy(it) }
+        ?: if (page == null) matching.firstOrNull() else null
+    return position?.plus(headerItemCount)
 }
 
 /**

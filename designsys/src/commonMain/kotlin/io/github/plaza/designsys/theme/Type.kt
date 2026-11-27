@@ -84,6 +84,31 @@ fun plazaTypography(fontScale: Float): Typography {
         // The meta lines under those titles: authors, counts, timestamps.
         labelMedium = PlazaTypography.labelMedium.scaled(),
         labelSmall = PlazaTypography.labelSmall.scaled(),
+    ).withPlatformFontFamily()
+}
+
+/** A platform's own font family for every role, where it names one; see [platformTextFontFamily]. */
+internal expect val platformTextFontFamily: FontFamily?
+
+private fun Typography.withPlatformFontFamily(): Typography {
+    val family = platformTextFontFamily ?: return this
+    fun TextStyle.inFamily() = if (fontFamily == null) copy(fontFamily = family) else this
+    return copy(
+        displayLarge = displayLarge.inFamily(),
+        displayMedium = displayMedium.inFamily(),
+        displaySmall = displaySmall.inFamily(),
+        headlineLarge = headlineLarge.inFamily(),
+        headlineMedium = headlineMedium.inFamily(),
+        headlineSmall = headlineSmall.inFamily(),
+        titleLarge = titleLarge.inFamily(),
+        titleMedium = titleMedium.inFamily(),
+        titleSmall = titleSmall.inFamily(),
+        bodyLarge = bodyLarge.inFamily(),
+        bodyMedium = bodyMedium.inFamily(),
+        bodySmall = bodySmall.inFamily(),
+        labelLarge = labelLarge.inFamily(),
+        labelMedium = labelMedium.inFamily(),
+        labelSmall = labelSmall.inFamily(),
     )
 }
 

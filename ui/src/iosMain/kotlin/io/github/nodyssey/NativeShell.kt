@@ -1,5 +1,8 @@
 package io.github.nodyssey
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -7,9 +10,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -17,18 +21,27 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReusableContent
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.uikit.OnFocusBehavior
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
+import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
@@ -45,25 +58,25 @@ import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.assets.PendingAttendance
 import io.github.nodyssey.ui.common.ClipboardPost
 import io.github.nodyssey.ui.common.IosClipboardPostReader
+import io.github.nodyssey.ui.common.ListFabCentreAboveSafeArea
 import io.github.nodyssey.ui.common.LocalBottomBarSafeAreaOverlap
 import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
-import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.LocalIosPad
-import io.github.nodyssey.ui.common.LocalKeepBottomBarVisibleOnScroll
+import io.github.nodyssey.ui.common.LocalIosPadLandscape
+import io.github.nodyssey.ui.common.LocalIosPadSqueezing
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
-import io.github.nodyssey.ui.common.bottomBarClearance
+import io.github.nodyssey.ui.common.bottomBarInset
 import io.github.nodyssey.ui.common.clipboardPostToOffer
+import io.github.nodyssey.ui.common.iosPadReadableWidthSpec
 import io.github.nodyssey.ui.compare.LocalOpenReportCompare
 import io.github.nodyssey.ui.composer.PendingComposerShare
-import io.github.nodyssey.ui.navigation.BottomNavigationBand
-import io.github.nodyssey.ui.navigation.BottomNavigationTabs
 import io.github.nodyssey.ui.navigation.PaneGroup
 import io.github.nodyssey.ui.navigation.PaneKind
 import io.github.nodyssey.ui.navigation.StackMirror
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.navigation.WindowLayoutDispatcher
 import io.github.nodyssey.ui.navigation.paneGroups
-import io.github.nodyssey.ui.navigation.supportsIosListDetail
+import io.github.nodyssey.ui.navigation.resolvesIosListDetail
 import io.github.nodyssey.ui.notifications.NotificationsViewModel
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
 import io.github.nodyssey.ui.postlist.HomeFeedStates
@@ -79,16 +92,16 @@ import io.github.nodyssey.ui.settings.UpdateReminderViewModel
 import io.github.nodyssey.ui.settings.rememberAppLinkHandlingEnabled
 import io.github.nodyssey.ui.settings.rememberAppLinkSettingsLauncher
 import io.github.plaza.core.runCatchingExceptCancellation
-import io.github.plaza.designsys.component.NativeGlassTab
-import io.github.plaza.designsys.component.NativeGlassTabBar
 import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
 import io.github.plaza.designsys.theme.LocalPlazaLayers
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.LocalReadableWidthSpec
 import io.github.plaza.designsys.theme.nativeGlassAvailable
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCSignatureOverride
+import kotlinx.cinterop.readValue
 import kotlinx.cinterop.useContents
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -99,14 +112,18 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
+import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSSelectorFromString
 import platform.Foundation.NSURL
+import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationDidBecomeActiveNotification
+import platform.UIKit.UIColor
 import platform.UIKit.UIDevice
 import platform.UIKit.UIGestureRecognizer
 import platform.UIKit.UIGestureRecognizerDelegateProtocol
@@ -114,13 +131,16 @@ import platform.UIKit.UIImage
 import platform.UIKit.UIModalPresentationFullScreen
 import platform.UIKit.UINavigationController
 import platform.UIKit.UINavigationControllerDelegateProtocol
+import platform.UIKit.UITabBarAppearance
 import platform.UIKit.UITabBarController
 import platform.UIKit.UITabBarControllerDelegateProtocol
 import platform.UIKit.UITabBarItem
 import platform.UIKit.UIUserInterfaceIdiomPad
-import platform.UIKit.UIUserInterfaceSizeClassCompact
 import platform.UIKit.UIUserInterfaceStyle
+import platform.UIKit.UIView
+import platform.UIKit.UIViewAnimationOptionCurveEaseOut
 import platform.UIKit.UIViewController
+import platform.UIKit.accessibilityElementsHidden
 import platform.UIKit.addChildViewController
 import platform.UIKit.didMoveToParentViewController
 import platform.UIKit.hidesBottomBarWhenPushed
@@ -131,6 +151,7 @@ import platform.UIKit.transitionCoordinator
 import platform.UIKit.willMoveToParentViewController
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
+import kotlin.math.PI
 
 /**
  * The iOS app: one system navigation stack per tab, with one Compose screen in each pushed
@@ -285,16 +306,17 @@ private class NativeShell(
         }
 
     private var listDetailExpanded by mutableStateOf(false)
-    private var compactPadTabs by mutableStateOf(false)
-    private var fixedBottomBarHeight by mutableStateOf(49.dp.takeUnless { nativeGlassAvailable })
+    private var windowLandscape by mutableStateOf<Boolean?>(null)
+    private var windowWidth = 0.0
+    private var windowHeight = 0.0
 
-    private val systemTabs = if (isPad || !nativeGlassAvailable) {
-        ShellTabBarController(onLayout = ::onSystemTabLayout)
-    } else {
-        null
-    }
-    private val bottomTabs = if (systemTabs == null) BottomTabHost() else null
-    val root: UIViewController = systemTabs ?: checkNotNull(bottomTabs)
+    // The system tab bar's height, measured after layout; the reading controls share its band.
+    private var fixedBottomBarHeight by mutableStateOf<Dp?>(49.dp)
+
+    // UIKit's own tab bar on every iOS version, iOS 26's liquid glass included. Its position is the
+    // system's, which is why iOS offers no 底部栏位置 setting (see ThemeSettingsScreen).
+    private val systemTabs = ShellTabBarController(onLayout = ::onSystemTabLayout)
+    val root: UIViewController = systemTabs
     private var selectedTab = TopLevelDestination.HOME
 
     private val navigationControllers: Map<TopLevelDestination, UINavigationController> =
@@ -373,6 +395,9 @@ private class NativeShell(
      */
     private var syncing = false
 
+    /** The root-pane squeeze still playing, if any; see [PaneSqueezeRequest]. */
+    private var activeSqueeze: Pair<Page, PaneSqueezeRequest>? = null
+
     // UIKit holds delegates weakly; these fields are what keeps them alive.
     private val tabBarDelegate = TabBarDelegate()
     private val navigationDelegates = TopLevelDestination.entries.associateWith { NavigationDelegate(it) }
@@ -380,7 +405,7 @@ private class NativeShell(
     private var foregroundObserver: Any? = null
     private var clipboardCheckJob: Job? = null
     private var clipboardOffer by mutableStateOf<ClipboardPost?>(null)
-    private var activePage by mutableStateOf<Page?>(null)
+    private var activePageState by mutableStateOf<PageState?>(null)
     private var closed = false
 
     suspend fun awaitTransitions() {
@@ -397,6 +422,7 @@ private class NativeShell(
     fun close() {
         if (closed) return
         closed = true
+        finishSqueeze()
         scope.cancel()
         foregroundObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
         splits.values.forEach { pairs ->
@@ -430,11 +456,8 @@ private class NativeShell(
                 }
             }
         }
-        systemTabs?.let { tabs ->
-            tabs.delegate = tabBarDelegate
-            tabs.setViewControllers(TopLevelDestination.entries.map { navigationControllers.getValue(it) }, animated = false)
-        }
-        bottomTabs?.show(navigationControllers.getValue(selectedTab))
+        systemTabs.delegate = tabBarDelegate
+        systemTabs.setViewControllers(TopLevelDestination.entries.map { navigationControllers.getValue(it) }, animated = false)
         TopLevelDestination.entries.forEach { destination ->
             val navigationController = navigationControllers.getValue(destination)
             navigationController.delegate = navigationDelegates.getValue(destination)
@@ -468,8 +491,34 @@ private class NativeShell(
         checkClipboardPost()
     }
 
+    /**
+     * Compose-observed state for a [Page], kept separate from [Page.controller] so the controller's
+     * Compose lambda never retains its own `UIViewController` across the ObjC/Kotlin boundary.
+     */
+    private class PageState {
+        /**
+         * Temporary width in UIKit points while a root-pane squeeze animates in Compose's layout
+         * phase so the backing UIView / CAMetalLayer keeps a fixed width. [Double.NaN] at rest.
+         */
+        var squeezeWidthPt by mutableDoubleStateOf(Double.NaN)
+
+        /** Active Compose-clock squeeze hosted on this page, if any. */
+        var squeezeRequest by mutableStateOf<PaneSqueezeRequest?>(null)
+
+        /** Whether this page is currently hosted inside a side-by-side [Split] rather than full-window. */
+        var inSplit by mutableStateOf(false)
+
+        /** Set once the page has left its navigation stack so its Compose tree and UIKitViews tear down. */
+        var released by mutableStateOf(false)
+    }
+
     /** One screen: a Compose controller showing [key]'s entry, and the view models it owns. */
-    private class Page(val key: NavKey, val controller: UIViewController, val owner: PageOwner)
+    private class Page(
+        val key: NavKey,
+        val controller: UIViewController,
+        val owner: PageOwner,
+        val state: PageState,
+    )
 
     private class PageOwner : ViewModelStoreOwner {
         override val viewModelStore = ViewModelStore()
@@ -479,7 +528,7 @@ private class NativeShell(
         val stack = stacks.getValue(destination)
         val entry = providers.getValue(destination)(key)
         val owner = PageOwner()
-        lateinit var page: Page
+        val state = PageState()
         val controller =
             ComposeUIViewController(
                 configure = {
@@ -488,44 +537,74 @@ private class NativeShell(
                     if (key.makesRoomForKeyboard()) onFocusBehavior = OnFocusBehavior.DoNothing
                 },
             ) {
-                NodysseyChrome(container, settings) {
-                    DeviceLocals(fixedBottomBarHeight) {
-                        val showsBottomTabs = (systemTabs == null || compactPadTabs) && key == destination.key
-                        val barClearance = if (showsBottomTabs) bottomBarClearance() else 0.dp
-                        CompositionLocalProvider(
-                            LocalFloatingBottomBarHeight provides barClearance,
-                            LocalKeepBottomBarVisibleOnScroll provides showsBottomTabs,
-                            // The page's own store rather than the controller's default one, so that a
-                            // view model lives exactly as long as its entry is on the stack — see
-                            // [flushReleases] — and not as long as UIKit keeps the controller around.
-                            LocalViewModelStoreOwner provides owner,
-                            // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
-                            LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
-                            // 测评对比 from any report card's 对比 (n), onto this page's tab.
-                            LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
-                        ) {
-                            Box(Modifier.fillMaxSize()) {
-                                entry.Content()
-                                if (showsBottomTabs) {
-                                    BottomTabs(destination, Modifier.align(Alignment.BottomCenter))
-                                }
-                                ClipboardPostSnackbarOverlay(
-                                    modifier = Modifier.padding(bottom = barClearance),
-                                    active = activePage == page,
-                                    offer = clipboardOffer,
-                                    onHandled = ::handleClipboardOffer,
-                                )
-                                val reminder by updateReminderViewModel.launchReminder.collectAsStateWithLifecycle()
-                                if (activePage == page && settings.onboardingSeen && onboarding == null) {
-                                    reminder?.let { release ->
-                                        UpdateReminderDialog(
-                                            release = release,
-                                            onDownload = {
-                                                updateReminderViewModel.acceptReminder()
-                                                SafariUriHandler.openUri(release.htmlUrl)
-                                            },
-                                            onPostpone = updateReminderViewModel::postponeReminder,
-                                        )
+                if (!state.released) {
+                    NodysseyChrome(container, settings) {
+                        DeviceLocals(fixedBottomBarHeight, windowLandscape, inSplit = state.inSplit) {
+                            CompositionLocalProvider(
+                                // The page's own store rather than the controller's default one, so that a
+                                // view model lives exactly as long as its entry is on the stack — see
+                                // [flushReleases] — and not as long as UIKit keeps the controller around.
+                                LocalViewModelStoreOwner provides owner,
+                                // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
+                                LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
+                                // 测评对比 from any report card's 对比 (n), onto this page's tab.
+                                LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
+                                // Read during TabScaffold layout so narrow-gutter interpolation only runs mid-squeeze.
+                                LocalIosPadSqueezing provides { !state.squeezeWidthPt.isNaN() },
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .layout { measurable, constraints ->
+                                            val squeezeWidth = state.squeezeWidthPt
+                                            val targetWidth =
+                                                if (!squeezeWidth.isNaN()) {
+                                                    squeezeWidth.dp.roundToPx().coerceIn(0, constraints.maxWidth)
+                                                } else {
+                                                    constraints.maxWidth
+                                                }
+                                            val placeable =
+                                                measurable.measure(
+                                                    constraints.copy(minWidth = targetWidth, maxWidth = targetWidth),
+                                                )
+                                            layout(constraints.maxWidth, constraints.maxHeight) {
+                                                placeable.placeRelative(0, 0)
+                                            }
+                                        },
+                                ) {
+                                    // The system tab bar's selected item wears the app's accent, which only
+                                    // the composed theme knows (seed colours, dynamic colour).
+                                    val accent = MaterialTheme.colorScheme.primary
+                                    SideEffect {
+                                        if (activePageState === state) {
+                                            systemTabs.tabBar.tintColor = UIColor.colorWithRed(
+                                                accent.red.toDouble(),
+                                                accent.green.toDouble(),
+                                                accent.blue.toDouble(),
+                                                accent.alpha.toDouble(),
+                                            )
+                                        }
+                                    }
+                                    entry.Content()
+                                    PaneSqueezeRunner(state)
+                                    ClipboardPostSnackbarOverlay(
+                                        modifier = Modifier,
+                                        active = activePageState === state,
+                                        offer = clipboardOffer,
+                                        onHandled = ::handleClipboardOffer,
+                                    )
+                                    val reminder by updateReminderViewModel.launchReminder.collectAsStateWithLifecycle()
+                                    if (activePageState === state && settings.onboardingSeen && onboarding == null) {
+                                        reminder?.let { release ->
+                                            UpdateReminderDialog(
+                                                release = release,
+                                                onDownload = {
+                                                    updateReminderViewModel.acceptReminder()
+                                                    SafariUriHandler.openUri(release.htmlUrl)
+                                                },
+                                                onPostpone = updateReminderViewModel::postponeReminder,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -533,32 +612,7 @@ private class NativeShell(
                     }
                 }
             }
-        page = Page(key, controller, owner)
-        return page
-    }
-
-    @Composable
-    private fun BottomTabs(current: TopLevelDestination, modifier: Modifier) {
-        val unread by notificationsViewModel.uiState.collectAsStateWithLifecycle()
-        val onSelect: (TopLevelDestination) -> Unit = { onBottomTabSelected(it, current) }
-        BottomNavigationBand(modifier) {
-            if (LocalPlazaLayers.current.nativeGlass) {
-                NativeGlassTabBar(
-                    tabs = TopLevelDestination.entries.map { tab ->
-                        NativeGlassTab(
-                            label = strings.tabTitles.getValue(tab),
-                            symbol = if (tab == current) "${tab.symbol}.fill" else tab.symbol,
-                            selected = tab == current,
-                            badge = unread.counts.all.takeIf { it > 0 && tab == TopLevelDestination.NOTIFICATIONS },
-                            onClick = { onSelect(tab) },
-                        )
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                BottomNavigationTabs(current, onSelect, unread.counts.all)
-            }
-        }
+        return Page(key, controller, owner, state)
     }
 
     /**
@@ -595,19 +649,122 @@ private class NativeShell(
         deferredSyncs.remove(destination)
         val mirror = mirrors.getValue(destination)
         val keys = stacks.getValue(destination).toList()
-        val pages = mirror.reconcile(keys) ?: if (needsRelayout) mirror.views else return
+        // The regrouped layout is read before reconcile: a collapse defers the UIKit swap until
+        // the squeeze has played out, and reconcile must not run before the pair is swapped for real.
         val layout = paneGroups(keys, listDetailExpanded, ::paneKindOf)
         val onScreen = navigationController.view.window != null
         // The tab's list controller moves between navigation stacks when the first detail opens or
-        // closes. As on resize, UIKit must finish that transfer before drawing the reused page.
+        // closes. As on resize, UIKit must finish that transfer before drawing the reused page, so
+        // the regroup itself stays instant — [PaneSqueeze] plays the motion inside the pair, the
+        // list re-laying out at each intermediate width as the detail pushes it from the right.
         val wasRootSplit = groups.getValue(destination).firstOrNull() is PaneGroup.Split
         val isRootSplit = layout.firstOrNull() is PaneGroup.Split
         val animated = onScreen && !needsRelayout && wasRootSplit == isRootSplit
+        val currentRootSplit =
+            splits.values.firstOrNull { it.controller == navigationController.viewControllers.firstOrNull() }
+        val activeForTab = activeSqueeze?.second?.takeIf { it.destination == destination }
+        // Keep the current in-flight offset when reversing or retargeting an active root squeeze
+        // on this tab so rapid open -> back -> open transitions smoothly reverse in place instead
+        // of snapping off-screen or short-circuiting when mirror.reconcile returns null.
+        val canReverseInPlace =
+            activeForTab != null &&
+                onScreen &&
+                !needsRelayout &&
+                wasRootSplit &&
+                currentRootSplit != null &&
+                !UIAccessibilityIsReduceMotionEnabled()
+        val interruptedOffset =
+            if (canReverseInPlace) {
+                val offset = currentRootSplit.controller.detailsOffset
+                cancelSqueezeInPlace()
+                offset
+            } else {
+                if (activeForTab != null || needsRelayout) finishSqueeze()
+                null
+            }
+        if (
+            onScreen && !needsRelayout && wasRootSplit && !isRootSplit &&
+            !UIAccessibilityIsReduceMotionEnabled()
+        ) {
+            // Closing the pair plays first: the details slide off the right edge while the list
+            // widens back in Compose's layout pass over a fixed full-width Metal surface. The
+            // actual UIKit swap happens on a second pass where the pair is already fully open.
+            val startOffset =
+                when {
+                    interruptedOffset != null -> interruptedOffset
+                    currentRootSplit != null && !currentRootSplit.controller.isSqueezing && currentRootSplit.controller.detailsOffset == 0.0 -> 0.0
+                    else -> null
+                }
+            if (currentRootSplit != null && startOffset != null) {
+                val fullOpenOffset = currentRootSplit.controller.fullyOpenOffset
+                if (fullOpenOffset > startOffset) {
+                    val listPage = currentRootSplit.list
+                    // Constrain Compose before expanding the UIView once behind the opaque
+                    // details pane, avoiding per-frame Metal resizes.
+                    listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + startOffset
+                    currentRootSplit.controller.beginSqueeze(offset = startOffset, layoutNow = !currentRootSplit.controller.isSqueezing)
+                    lateinit var request: PaneSqueezeRequest
+                    request =
+                        PaneSqueezeRequest(
+                            destination = destination,
+                            from = startOffset,
+                            to = fullOpenOffset,
+                            isClosing = true,
+                            onTick = { offset ->
+                                listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                            },
+                            onPresent = { offset ->
+                                currentRootSplit.controller.updateSqueezeOffset(offset.coerceIn(0.0, fullOpenOffset))
+                            },
+                            onEnd = {
+                                if (activeSqueeze?.second === request) activeSqueeze = null
+                                currentRootSplit.controller.updateSqueezeOffset(fullOpenOffset)
+                                listPage.state.squeezeWidthPt = Double.NaN
+                                sync(destination)
+                            },
+                            onCancel = {
+                                currentRootSplit.controller.updateSqueezeOffset(fullOpenOffset)
+                                listPage.state.squeezeWidthPt = Double.NaN
+                            },
+                        )
+                    startSqueeze(listPage, request)
+                    return
+                }
+            }
+        }
+        val reconciled = mirror.reconcile(keys)
+        if (reconciled == null && !needsRelayout) {
+            // Re-opening the same detail during a closing squeeze leaves mirror.keys unchanged, so
+            // reconcile returns null even though the split is still offset toward the right edge.
+            if (isRootSplit && currentRootSplit != null && (currentRootSplit.controller.isSqueezing || currentRootSplit.controller.detailsOffset != 0.0)) {
+                val listPage = currentRootSplit.list
+                val resumeFrom = interruptedOffset ?: currentRootSplit.controller.detailsOffset
+                if (onScreen && resumeFrom > 0.0 && !UIAccessibilityIsReduceMotionEnabled()) {
+                    listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + resumeFrom
+                    currentRootSplit.controller.beginSqueeze(offset = resumeFrom, layoutNow = !currentRootSplit.controller.isSqueezing)
+                    startOpeningSqueeze(destination, listPage, currentRootSplit, resumeFrom)
+                } else {
+                    listPage.state.squeezeWidthPt = Double.NaN
+                    currentRootSplit.controller.endSqueeze()
+                }
+            }
+            return
+        }
+        val pages = reconciled ?: mirror.views
+        val openingRootSplit =
+            onScreen && !needsRelayout && !wasRootSplit && isRootSplit && !UIAccessibilityIsReduceMotionEnabled()
+        val openingOffset =
+            if (openingRootSplit) {
+                navigationController.view.bounds.useContents { (size.width - LIST_PANE_WIDTH).coerceAtLeast(0.0) }
+            } else {
+                0.0
+            }
 
         syncing = true
         try {
             groups[destination] = layout
             drawnExpanded[destination] = listDetailExpanded
+            updatePageSplitStates(pages, layout)
             // A page goes into its new container only once it has left the old one: UIKit will not
             // give a controller two parents. Pairs no longer drawn give their pages back first.
             val lists = layout.filterIsInstance<PaneGroup.Split>().map { pages[it.listIndex] }.toSet()
@@ -619,7 +776,7 @@ private class NativeShell(
                         // page pushed over 首页 is full-screen.
                         is PaneGroup.Single ->
                             pages[group.index].controller.also {
-                                it.hidesBottomBarWhenPushed = !nativeGlassAvailable && group.index > 0
+                                it.hidesBottomBarWhenPushed = group.index > 0
                             }
 
                         // A pair keeps it, since the list it was opened from is still on screen.
@@ -627,16 +784,61 @@ private class NativeShell(
                             splits.getOrPut(pages[group.listIndex]) { Split(destination, pages[group.listIndex]) }.controller
                     }
                 }
-            navigationController.setViewControllers(controllers, animated = animated)
+            if (openingRootSplit && openingOffset > 0.0) {
+                // Enter squeeze mode before UIKit lays out the newly mounted pair so the reused
+                // list controller never shrinks to 360pt and back to full width on frame zero.
+                val rootGroup = layout.first() as PaneGroup.Split
+                val listPage = pages[rootGroup.listIndex]
+                val rootSplit = splits.getValue(listPage)
+                listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + openingOffset
+                rootSplit.controller.beginSqueeze(offset = openingOffset)
+            }
+            if (navigationController.viewControllers != controllers) {
+                navigationController.setViewControllers(controllers, animated = animated)
+            }
             layout.filterIsInstance<PaneGroup.Split>().forEach { group ->
                 val details = pages.subList(group.listIndex + 1, group.listIndex + 1 + group.detailCount)
                 splits.getValue(pages[group.listIndex]).show(
                     details.map { it.controller.also { controller -> controller.hidesBottomBarWhenPushed = false } },
-                    animated = animated,
+                    animated = animated && interruptedOffset == null,
                 )
             }
         } finally {
             syncing = false
+        }
+        (layout.firstOrNull() as? PaneGroup.Split)?.let { group ->
+            val listPage = pages[group.listIndex]
+            val rootSplit = splits.getValue(listPage)
+            when {
+                openingRootSplit && openingOffset > 0.0 -> {
+                    // Lay out the pair once with details shifted off the right edge and list still
+                    // spanning the window, then start the Compose-clock spring from that width.
+                    navigationController.view.layoutIfNeeded()
+                    val from = rootSplit.controller.fullyOpenOffset
+                    if (from > 0.0) {
+                        rootSplit.controller.updateSqueezeOffset(from)
+                        listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + from
+                        startOpeningSqueeze(destination, listPage, rootSplit, from)
+                    } else {
+                        listPage.state.squeezeWidthPt = Double.NaN
+                        rootSplit.controller.endSqueeze()
+                    }
+                }
+
+                interruptedOffset != null && interruptedOffset > 0.0 -> {
+                    // Another thread was selected while the split was mid-squeeze; slide cleanly
+                    // from the current offset back to resting width.
+                    listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + interruptedOffset
+                    rootSplit.controller.beginSqueeze(offset = interruptedOffset, layoutNow = !rootSplit.controller.isSqueezing)
+                    startOpeningSqueeze(destination, listPage, rootSplit, interruptedOffset)
+                }
+
+                rootSplit.controller.isSqueezing || rootSplit.controller.detailsOffset != 0.0 -> {
+                    // A pair that stayed the root through an interrupted collapse returns to rest.
+                    listPage.state.squeezeWidthPt = Double.NaN
+                    rootSplit.controller.endSqueeze()
+                }
+            }
         }
         updateTabBar()
         refreshActivePage()
@@ -647,26 +849,29 @@ private class NativeShell(
      * iPad's tab bar floats at the top, and `hidesBottomBarWhenPushed` does not reach it: an image, a
      * web page or 设置 pushed over a tab would sit under 首页 / 通知 / 我的. So on iPad the shell
      * hides it for the screens the iPhone hides it for — anything full-window above a tab root —
-     * and keeps it over a pair, whose list is still the tab's own screen. In compact iPad windows,
-     * the pages draw their own bottom tabs at the selected height.
+     * and keeps it over a pair, whose list is still the tab's own screen.
      */
     @OptIn(ExperimentalForeignApi::class)
     private fun updateTabBar() {
-        val tabs = systemTabs ?: return
+        val tabs = systemTabs
         if (!isPad || !tabs.respondsToSelector(NSSelectorFromString("setTabBarHidden:animated:"))) return
         val top = groups.getValue(selectedTab).lastOrNull()
-        val hidden = compactPadTabs || (top is PaneGroup.Single && top.index > 0)
+        val hidden = top is PaneGroup.Single && top.index > 0
         if (tabs.tabBarHidden != hidden) tabs.setTabBarHidden(hidden, animated = tabs.view.window != null)
     }
 
-    private fun onSystemTabLayout(width: Double, height: Double, compact: Boolean, bottomBarHeight: Double?) {
-        val floatingTabs = nativeGlassAvailable && compact
-        if (compactPadTabs != floatingTabs) {
-            compactPadTabs = floatingTabs
-            updateTabBar()
+    private fun onSystemTabLayout(width: Double, height: Double, bottomBarHeight: Double?) {
+        if (bottomBarHeight != null) fixedBottomBarHeight = bottomBarHeight.dp
+        if (width > 0.0 && height > 0.0) {
+            windowWidth = width
+            windowHeight = height
+            windowLandscape = width > height
         }
-        if (!nativeGlassAvailable && bottomBarHeight != null) fixedBottomBarHeight = bottomBarHeight.dp
-        val expanded = isPad && supportsIosListDetail(width, height)
+        refreshListDetailExpanded()
+    }
+
+    private fun refreshListDetailExpanded() {
+        val expanded = resolvesIosListDetail(isPad, windowWidth, windowHeight, settings.padLayoutMode)
         if (expanded == listDetailExpanded) return
         listDetailExpanded = expanded
         TopLevelDestination.entries.forEach { sync(it, relayout = true) }
@@ -686,7 +891,9 @@ private class NativeShell(
         val dropped = mirror.platformPopped(remaining, stack)
         if (dropped == 0) return
         // settle reconciles navigation deferred during the pop against these surviving pages.
-        groups[destination] = paneGroups(mirror.views.map { it.key }, drawnExpanded.getValue(destination), ::paneKindOf)
+        val updatedGroups = paneGroups(mirror.views.map { it.key }, drawnExpanded.getValue(destination), ::paneKindOf)
+        groups[destination] = updatedGroups
+        updatePageSplitStates(mirror.views, updatedGroups)
         val splits = splits.getValue(destination)
         val views = mirror.views.toSet()
         splits.keys.filter { it !in views }.forEach { splits.remove(it)?.empty() }
@@ -703,24 +910,29 @@ private class NativeShell(
         deferredSyncs.remove(destination)?.let { relayout -> sync(destination, relayout) }
     }
 
+    /** Built outside [Split] so its Compose lambda does not retain [Split] across ObjC/Kotlin. */
+    private fun emptyDetailPlaceholder(listKey: NavKey): UIViewController {
+        val text = emptyDetailTextOf(listKey)
+        return ComposeUIViewController {
+            NodysseyChrome(container, settings) {
+                DeviceLocals(fixedBottomBarHeight, windowLandscape, inSplit = true) {
+                    // On the page colour, as every screen's `Scaffold` is; Android's pane scaffold
+                    // paints it there, and here nothing else would.
+                    Box(Modifier.fillMaxSize().background(LocalPlazaLayers.current.page)) {
+                        EmptyDetailPane(text)
+                    }
+                }
+            }
+        }
+    }
+
     /** One list and its details, side by side; see [PaneSplitController]. */
     private inner class Split(
         destination: TopLevelDestination,
         val list: Page,
     ) {
         /** The right half before anything has been opened in it, as on Android. */
-        private val placeholder =
-            ComposeUIViewController {
-                NodysseyChrome(container, settings) {
-                    DeviceLocals(fixedBottomBarHeight) {
-                        // On the page colour, as every screen's `Scaffold` is; Android's pane scaffold
-                        // paints it there, and here nothing else would.
-                        Box(Modifier.fillMaxSize().background(LocalPlazaLayers.current.page)) {
-                            EmptyDetailPane(emptyDetailTextOf(list.key))
-                        }
-                    }
-                }
-            }
+        private val placeholder = emptyDetailPlaceholder(list.key)
 
         // The placeholder is already the navigation root before UIKit sees this nested controller.
         val controller = PaneSplitController(placeholder)
@@ -729,6 +941,9 @@ private class NativeShell(
         // UIKit holds delegates weakly; these fields are what keeps them alive.
         private val navigationDelegate = DetailsDelegate(destination, this)
         private val popGestureDelegate = DetailsPopGestureDelegate(details)
+
+        /** The picture of the outgoing detail still fading over its replacement. */
+        private var swapOverlay: UIView? = null
 
         init {
             details.delegate = navigationDelegate
@@ -743,6 +958,7 @@ private class NativeShell(
         /** How many details are on the right, the placeholder not counted. */
         val detailCount: Int get() = details.viewControllers.count { it != placeholder }
 
+        @OptIn(ExperimentalForeignApi::class)
         fun show(
             pages: List<UIViewController>,
             animated: Boolean,
@@ -753,16 +969,247 @@ private class NativeShell(
             if (current == target) return
             // A push or a pop when the two share their first page. Otherwise it is a swap — out of
             // the placeholder, or a row of the list replacing what was open — and a swap does not
-            // slide: there is nothing to go back to, and Mail does not slide either.
+            // slide: there is nothing to go back to, and Mail does not slide either. A swap on
+            // screen cross-fades a snapshot of the outgoing detail instead.
             val sameRoot = current.isNotEmpty() && current.first() == target.first()
+            val fading = animated && !sameRoot && controller.view.window != null
+            val old = if (fading) details.view.snapshotViewAfterScreenUpdates(false) else null
             // Pages released by the outer stack can still have their views in its hierarchy.
             target.filter { it !in current }.forEach { it.view.removeFromSuperview() }
             details.setViewControllers(target, animated = animated && sameRoot)
+            swapOverlay?.removeFromSuperview()
+            swapOverlay = null
+            if (old != null) {
+                old.userInteractionEnabled = false
+                old.setFrame(details.view.frame)
+                controller.view.addSubview(old)
+                swapOverlay = old
+                UIView.animateWithDuration(
+                    duration = 0.2,
+                    delay = 0.0,
+                    options = UIViewAnimationOptionCurveEaseOut,
+                    animations = { old.alpha = 0.0 },
+                    completion = {
+                        old.removeFromSuperview()
+                        if (swapOverlay === old) swapOverlay = null
+                    },
+                )
+            }
         }
 
         /** Gives the pages back, to be drawn full-window or released. */
         fun empty() {
+            list.state.squeezeWidthPt = Double.NaN
+            swapOverlay?.removeFromSuperview()
+            swapOverlay = null
+            details.interactivePopGestureRecognizer?.delegate = null
+            if (details.hasContentPopGesture()) {
+                details.interactiveContentPopGestureRecognizer?.delegate = null
+            }
             controller.releasePages()
+        }
+    }
+
+    private fun startOpeningSqueeze(
+        destination: TopLevelDestination,
+        listPage: Page,
+        rootSplit: Split,
+        from: Double,
+    ) {
+        lateinit var request: PaneSqueezeRequest
+        request =
+            PaneSqueezeRequest(
+                destination = destination,
+                from = from,
+                to = 0.0,
+                isClosing = false,
+                onTick = { offset ->
+                    listPage.state.squeezeWidthPt = LIST_PANE_WIDTH + offset
+                },
+                onPresent = { offset ->
+                    val maxOffset = rootSplit.controller.fullyOpenOffset.coerceAtLeast(from)
+                    rootSplit.controller.updateSqueezeOffset(offset.coerceIn(0.0, maxOffset))
+                },
+                onEnd = {
+                    if (activeSqueeze?.second === request) activeSqueeze = null
+                    listPage.state.squeezeWidthPt = Double.NaN
+                    rootSplit.controller.endSqueeze()
+                },
+                onCancel = {
+                    listPage.state.squeezeWidthPt = Double.NaN
+                    rootSplit.controller.endSqueeze()
+                },
+            )
+        startSqueeze(listPage, request)
+    }
+
+    private fun startSqueeze(
+        page: Page,
+        request: PaneSqueezeRequest,
+    ) {
+        activeSqueeze = page to request
+        page.state.squeezeRequest = request
+    }
+
+    /** Stops the running spring without snapping its visual offset so a reversed squeeze can continue in place. */
+    private fun cancelSqueezeInPlace() {
+        val (page, request) = activeSqueeze ?: return
+        activeSqueeze = null
+        request.finished = true
+        request.pendingFrames.clear()
+        if (page.state.squeezeRequest === request) page.state.squeezeRequest = null
+    }
+
+    private fun finishSqueeze() {
+        val (page, request) = activeSqueeze ?: return
+        activeSqueeze = null
+        if (!request.finished) {
+            request.finished = true
+            request.pendingFrames.clear()
+            if (page.state.squeezeRequest === request) page.state.squeezeRequest = null
+            request.onCancel()
+        }
+    }
+
+    private fun finishSqueezeForTabSwitch(newTab: TopLevelDestination) {
+        val current = activeSqueeze ?: return
+        if (current.second.destination == newTab) return
+        val closingDestination = current.second.destination.takeIf { current.second.isClosing }
+        finishSqueeze()
+        if (closingDestination != null) sync(closingDestination)
+    }
+
+    private class SqueezeFrame(
+        val seq: Int,
+        val offset: Double,
+        val finalCommit: CompletableDeferred<Unit>? = null,
+    )
+
+    /**
+     * Request for a Compose-clock root-pane squeeze hosted on the list [Page].
+     *
+     * Running the spring inside the list page's Compose frame clock (`Animatable`) drives the
+     * list's layout width while a reused 1×1 invisible [UIKitView]'s `onReset` callback runs
+     * directly inside Compose's `InteropSyncTransaction.performTransaction()` — the exact Core
+     * Animation transaction that presents that Metal frame — so both per-frame details translation
+     * and final-frame completion stay locked to the presented Metal drawable without waiting for
+     * `layoutSubviews()` or guessing frame counts.
+     */
+    private class PaneSqueezeRequest(
+        val destination: TopLevelDestination,
+        val from: Double,
+        val to: Double,
+        val isClosing: Boolean,
+        val onTick: (Double) -> Unit,
+        val onPresent: (Double) -> Unit,
+        val onEnd: () -> Unit,
+        val onCancel: () -> Unit,
+    ) {
+        var finished = false
+        val pendingFrames = ArrayDeque<SqueezeFrame>()
+    }
+
+    /**
+     * Isolated host for [PaneSqueezeRequest] so updating squeeze state never recomposes the
+     * screen content beside it.
+     */
+    @OptIn(ExperimentalComposeUiApi::class, ExperimentalForeignApi::class)
+    @Composable
+    private fun PaneSqueezeRunner(state: PageState) {
+        val request = state.squeezeRequest ?: return
+        key(request) {
+            var frame by remember { mutableStateOf(SqueezeFrame(seq = 0, offset = request.from)) }
+            var lastEnqueuedSeq by remember { mutableIntStateOf(0) }
+            val currentFrame = frame
+            ReusableContent(currentFrame.seq) {
+                UIKitView(
+                    factory = {
+                        UIView(frame = CGRectZero.readValue()).apply {
+                            alpha = 0.0
+                            backgroundColor = UIColor.clearColor
+                            userInteractionEnabled = false
+                            accessibilityElementsHidden = true
+                        }
+                    },
+                    modifier = Modifier.size(1.dp),
+                    properties = SqueezeSyncInterop,
+                    onReset = {
+                        request.pendingFrames.removeFirstOrNull()?.let { committed ->
+                            if (!request.finished) {
+                                request.onPresent(committed.offset)
+                                committed.finalCommit?.complete(Unit)
+                            }
+                        }
+                    },
+                    onRelease = { request.pendingFrames.clear() },
+                )
+            }
+            // One FIFO entry per ReusableContent key change matches LayoutNode.onReuse() 1-to-1
+            // (initial mount seq=0 and same-seq recompositions do not invoke onReuse).
+            SideEffect {
+                if (currentFrame.seq != lastEnqueuedSeq) {
+                    lastEnqueuedSeq = currentFrame.seq
+                    request.pendingFrames.addLast(currentFrame)
+                }
+            }
+            LaunchedEffect(request) {
+                if (request.finished) return@LaunchedEffect
+                // Critically damped spring, response 0.36s: ω = 2π / 0.36, stiffness = ω².
+                val omega = (2.0 * PI / 0.36).toFloat()
+                val animatable = Animatable(request.from.toFloat())
+                var seq = 0
+                try {
+                    animatable.animateTo(
+                        targetValue = request.to.toFloat(),
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = omega * omega,
+                            visibilityThreshold = 1.0f,
+                        ),
+                    ) {
+                        if (!request.finished) {
+                            val offset = value.toDouble()
+                            request.onTick(offset)
+                            frame = SqueezeFrame(seq = ++seq, offset = offset)
+                        }
+                    }
+                    if (!request.finished) {
+                        val finalCommit = CompletableDeferred<Unit>()
+                        request.onTick(request.to)
+                        frame = SqueezeFrame(seq = ++seq, offset = request.to, finalCommit = finalCommit)
+                        // Await the exact onDisplay() commit callback for the resting-width Metal
+                        // frame; bounded only so an off-window view can never stall cleanup.
+                        withTimeoutOrNull(FINAL_SQUEEZE_COMMIT_TIMEOUT_MS) { finalCommit.await() }
+                    }
+                    if (!request.finished) {
+                        request.finished = true
+                        request.onEnd()
+                    }
+                } finally {
+                    request.pendingFrames.clear()
+                    if (state.squeezeRequest === request) {
+                        state.squeezeRequest = null
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updatePageSplitStates(
+        pages: List<Page>,
+        layout: List<PaneGroup>,
+    ) {
+        layout.forEach { group ->
+            when (group) {
+                is PaneGroup.Single -> pages.getOrNull(group.index)?.state?.inSplit = false
+
+                is PaneGroup.Split -> {
+                    pages.getOrNull(group.listIndex)?.state?.inSplit = true
+                    for (offset in 1..group.detailCount) {
+                        pages.getOrNull(group.listIndex + offset)?.state?.inSplit = true
+                    }
+                }
+            }
         }
     }
 
@@ -774,7 +1221,12 @@ private class NativeShell(
      * when the transition is over, and [sync] calls it at once for a tab that is not on screen.
      */
     private fun flushReleases() {
-        pendingRelease.forEach { it.owner.viewModelStore.clear() }
+        pendingRelease.forEach {
+            it.state.squeezeRequest = null
+            it.state.squeezeWidthPt = Double.NaN
+            it.state.released = true
+            it.owner.viewModelStore.clear()
+        }
         pendingRelease.clear()
     }
 
@@ -782,6 +1234,7 @@ private class NativeShell(
         scope.launch {
             container.settingsRepository.settings.collect { latest ->
                 settings = latest
+                refreshListDetailExpanded()
                 // The bars UIKit draws follow the app's own light/dark answer, not only the OS's, the
                 // way `NodysseyRoot` makes the status bar follow it on Android.
                 root.overrideUserInterfaceStyle =
@@ -818,7 +1271,7 @@ private class NativeShell(
         val controller =
             ComposeUIViewController {
                 NodysseyChrome(container, settings) {
-                    DeviceLocals(fixedBottomBarHeight) {
+                    DeviceLocals(fixedBottomBarHeight, windowLandscape) {
                         OnboardingScreen(
                             onFinish = { scope.launch { container.settingsRepository.setOnboardingSeen(true) } },
                             appLinksEnabled = rememberAppLinkHandlingEnabled(),
@@ -842,16 +1295,14 @@ private class NativeShell(
     }
 
     private fun observeNotifications() {
-        if (systemTabs != null) {
-            scope.launch {
-                notificationsViewModel.uiState
-                    .map { it.counts.all }
-                    .distinctUntilChanged()
-                    .collect { unread ->
-                        navigationControllers.getValue(TopLevelDestination.NOTIFICATIONS).tabBarItem.badgeValue =
-                            unread.takeIf { it > 0 }?.toString()
-                    }
-            }
+        scope.launch {
+            notificationsViewModel.uiState
+                .map { it.counts.all }
+                .distinctUntilChanged()
+                .collect { unread ->
+                    navigationControllers.getValue(TopLevelDestination.NOTIFICATIONS).tabBarItem.badgeValue =
+                        unread.takeIf { it > 0 }?.toString()
+                }
         }
         // The Android root refreshes the badge on every resume, because a count grown stale overnight
         // is most visibly wrong the moment the app comes back. This is that resume.
@@ -867,20 +1318,11 @@ private class NativeShell(
     }
 
     private fun selectTab(destination: TopLevelDestination) {
+        finishSqueezeForTabSwitch(destination)
         selectedTab = destination
-        systemTabs?.selectedIndex = destination.ordinal.toULong()
-        bottomTabs?.show(navigationControllers.getValue(destination))
+        systemTabs.selectedIndex = destination.ordinal.toULong()
         updateTabBar()
         refreshActivePage()
-    }
-
-    private fun onBottomTabSelected(destination: TopLevelDestination, current: TopLevelDestination) {
-        if (destination == current) {
-            val stack = stacks.getValue(destination)
-            if (stack.size > 1) stack.subList(1, stack.size).clear() else reselectTab(destination)
-        } else {
-            selectTab(destination)
-        }
     }
 
     private fun reselectTab(destination: TopLevelDestination) {
@@ -892,7 +1334,7 @@ private class NativeShell(
     }
 
     private fun refreshActivePage() {
-        activePage = mirrors.getValue(selectedTab).views.lastOrNull()
+        activePageState = mirrors.getValue(selectedTab).views.lastOrNull()?.state
     }
 
     private fun checkClipboardPost() {
@@ -952,7 +1394,9 @@ private class NativeShell(
             tabBarController: UITabBarController,
             didSelectViewController: UIViewController,
         ) {
-            selectedTab = destinationOf(didSelectViewController) ?: return
+            val destination = destinationOf(didSelectViewController) ?: return
+            finishSqueezeForTabSwitch(destination)
+            selectedTab = destination
             updateTabBar()
             refreshActivePage()
         }
@@ -1021,6 +1465,7 @@ private class NativeShell(
         @OptIn(ExperimentalForeignApi::class)
         override fun gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): Boolean {
             val navigationController = navigationControllers.getValue(destination)
+            if (stacks.getValue(destination).lastOrNull() is MailComposeKey) return false
             // Over the right half of a pair, a swipe belongs to its details while they have one to
             // go back to; the pair itself goes only once they do not.
             val split = splits.getValue(destination).values.firstOrNull { it.controller == navigationController.topViewController }
@@ -1045,14 +1490,35 @@ private class NativeShell(
     }
 }
 
+private const val FINAL_SQUEEZE_COMMIT_TIMEOUT_MS = 250L
+
+@OptIn(ExperimentalComposeUiApi::class)
+private val SqueezeSyncInterop = UIKitInteropProperties(
+    interactionMode = UIKitInteropInteractionMode.NonCooperative,
+    isNativeAccessibilityEnabled = false,
+    placedAsOverlay = true,
+)
+
 /**
- * Reports the window size and size class after layout so the shell can choose its panes and keep
- * an adjustable bottom bar in compact iPad windows.
+ * Reports the window size and the visible tab bar height after layout, so the shell can choose its
+ * panes and the reading controls can share the tab bar's band.
  */
 @OptIn(ExperimentalForeignApi::class)
 private class ShellTabBarController(
-    onLayout: (width: Double, height: Double, compact: Boolean, bottomBarHeight: Double?) -> Unit,
+    onLayout: (width: Double, height: Double, bottomBarHeight: Double?) -> Unit,
 ) : UITabBarController(nibName = null, bundle = null) {
+    init {
+        // iOS 26 floats its glass bar over the content and needs nothing from here. Earlier systems
+        // switch to a clear bar whenever they think the content is scrolled to its edge, and they
+        // cannot see a Compose list scroll, so the bar would stay clear over the posts. Keep the
+        // system's blurred bar in both states instead — what those systems show mid-scroll.
+        if (!nativeGlassAvailable) {
+            val appearance = UITabBarAppearance().apply { configureWithDefaultBackground() }
+            tabBar.standardAppearance = appearance
+            tabBar.scrollEdgeAppearance = appearance
+        }
+    }
+
     private val layoutUpdates = WindowLayoutDispatcher(
         post = { update -> NSOperationQueue.mainQueue.addOperationWithBlock { update() } },
         onLayout = {
@@ -1060,8 +1526,7 @@ private class ShellTabBarController(
                 onLayout(
                     size.width,
                     size.height,
-                    traitCollection.horizontalSizeClass == UIUserInterfaceSizeClassCompact,
-                    legacyBottomBarHeight(),
+                    bottomBarHeight(),
                 )
             }
         },
@@ -1080,34 +1545,25 @@ private class ShellTabBarController(
     }
 
     // Ignore the hidden bar's offscreen frame and keep the last visible height while reading.
-    private fun legacyBottomBarHeight(): Double? {
-        if (nativeGlassAvailable || tabBar.hidden) return null
+    // A bar along the bottom is measured from its top edge down to where the reading controls'
+    // band ends, so both share a centre line: iOS 26's capsule fills the bar's frame from the
+    // top but reaches only part of the way into the safe area, which the frame spans to the edge.
+    // An iPad's tabs float at the top (see `updateTabBar`) and this bottom bar stays hidden, so
+    // there is nothing down there to line up with: the band is centred where the list's 发帖
+    // button is instead, and a thread's reading controls share a line with the list beside it.
+    private fun bottomBarHeight(): Double? {
         val bottom = view.bounds.useContents { size.height }
+        val safeBottom = view.safeAreaInsets.useContents { this.bottom }
+        val bandBottom = bottomBarInset(safeBottom.dp, bottomBarSafeAreaOverlap).value.toDouble()
+        if (isPad && respondsToSelector(NSSelectorFromString("setTabBarHidden:animated:"))) {
+            return 2 * (safeBottom + ListFabCentreAboveSafeArea.value - bandBottom)
+        }
+        if (tabBar.hidden) return null
         return tabBar.frame.useContents {
-            val height = size.height - view.safeAreaInsets.useContents { this.bottom }
+            val alongBottom = origin.y + size.height >= bottom - 0.5
+            val height = if (alongBottom) bottom - origin.y - bandBottom else size.height - safeBottom
             height.takeIf { it > 0 && origin.y + size.height <= bottom }
         }
-    }
-}
-
-/** Hosts the selected UIKit stack while leaving its full window safe area available to Compose. */
-@OptIn(ExperimentalForeignApi::class)
-private class BottomTabHost : UIViewController(nibName = null, bundle = null) {
-    private var selected: UIViewController? = null
-
-    fun show(controller: UIViewController) {
-        if (selected == controller) return
-        selected?.let { previous ->
-            previous.willMoveToParentViewController(null)
-            previous.view.removeFromSuperview()
-            previous.removeFromParentViewController()
-        }
-        addChildViewController(controller)
-        controller.view.setFrame(view.bounds)
-        controller.view.autoresizingMask = platform.UIKit.UIViewAutoresizingFlexibleWidth or platform.UIKit.UIViewAutoresizingFlexibleHeight
-        view.addSubview(controller.view)
-        controller.didMoveToParentViewController(this)
-        selected = controller
     }
 }
 
@@ -1117,23 +1573,37 @@ private class BottomTabHost : UIViewController(nibName = null, bundle = null) {
  */
 private val isPad: Boolean = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad
 
-/** Lets the middle preset match UIKit's original floating tab bar above the home indicator. */
-private val FloatingTabSafeAreaOverlap = 21.dp
+/**
+ * How far iOS 26's floating tab bar reaches into the bottom safe area: its capsule ends 21pt above
+ * the edge of a 34pt home-indicator inset. The reading controls end on the same line.
+ */
+private val FloatingTabSafeAreaOverlap = 13.dp
+
+private val bottomBarSafeAreaOverlap: Dp
+    get() = if (nativeGlassAvailable) FloatingTabSafeAreaOverlap else 0.dp
 
 @Composable
 private fun DeviceLocals(
     fixedBottomBarHeight: Dp?,
+    windowLandscape: Boolean? = null,
+    inSplit: Boolean = false,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(
         LocalFixedBottomBarHeight provides fixedBottomBarHeight,
-        LocalBottomBarSafeAreaOverlap provides if (nativeGlassAvailable) FloatingTabSafeAreaOverlap else 0.dp,
+        LocalBottomBarSafeAreaOverlap provides bottomBarSafeAreaOverlap,
     ) {
         Box(modifier) {
             if (isPad) {
                 CompositionLocalProvider(
                     LocalIosPad provides true,
+                    LocalIosPadLandscape provides windowLandscape,
+                    LocalReadableWidthSpec provides iosPadReadableWidthSpec(
+                        isIosPad = true,
+                        inSplit = inSplit,
+                        windowLandscape = windowLandscape,
+                    ),
                     LocalOneHandMode provides false,
                     LocalOneHandModeAvailable provides false,
                     content = content,
@@ -1185,9 +1655,11 @@ private fun NavKey.makesRoomForKeyboard(): Boolean =
         this is AccountSecurityKey ||
         this is SignInKey ||
         this is MessageThreadKey ||
+        this is MailComposeKey ||
         this is DohSettingsKey ||
         this is StickerAddKey ||
-        this is ThemeSettingsKey
+        this is ThemeSettingsKey ||
+        this is VpsCalculatorKey
 
 /**
  * Safari, which is what the platform `UriHandler` is on this side — the same one `BrowserLinks.ios`

@@ -255,6 +255,22 @@ class PostDetailParserTest {
         assertFalse(requireNotNull(parsed.body).isPinned)
     }
 
+    @Test
+    fun `the hot badge identifies featured replies when the config omits the flag`() {
+        val parsed = PostDetailParser.parse(withConfig("""{"postData":{"comments":[]}}"""), postId = 703863L, page = 1)
+
+        assertEquals(listOf("#4"), parsed.comments.filter { it.isHot }.map { it.floor })
+    }
+
+    @Test
+    fun `an explicit hot flag takes precedence over the badge`() {
+        val config =
+            """{"postData":{"comments":[{"commentId":9727591,"hot":false},{"commentId":9727681,"hot":true}]}}"""
+        val parsed = PostDetailParser.parse(withConfig(config), postId = 703863L, page = 1)
+
+        assertEquals(listOf("#8"), parsed.comments.filter { it.isHot }.map { it.floor })
+    }
+
     /**
      * The blob names the moment; the markup marker only ever says that an edit happened. Both halves
      * matter to the reader — "编辑于 5min ago" next to a floor posted three hours back is the whole

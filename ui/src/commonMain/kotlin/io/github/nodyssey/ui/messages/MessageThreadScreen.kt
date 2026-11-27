@@ -56,7 +56,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -177,13 +176,17 @@ import io.github.plaza.core.richtext.InlineNode
 import io.github.plaza.core.richtext.RichNode
 import io.github.plaza.core.richtext.linkifyPlainText
 import io.github.plaza.core.richtext.parseMarkdown
+import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.BadgeChip
 import io.github.plaza.designsys.component.BadgeTone
 import io.github.plaza.designsys.component.EditorTextField
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerCardShape
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.QuotePreview
@@ -207,6 +210,7 @@ import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.paddingWithKeyboard
+import io.github.plaza.designsys.theme.readableWidth
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -336,17 +340,19 @@ fun MessageThreadScreen(
                 ScamReminderBanner(
                     state = state,
                     modifier =
-                    Modifier.padding(
-                        top = topClearance + Spacing.xs,
-                        start = THREAD_GUTTER,
-                        end = THREAD_GUTTER,
-                        bottom = Spacing.xs,
-                    ),
+                    Modifier
+                        .readableWidth()
+                        .padding(
+                            top = topClearance + Spacing.xs,
+                            start = THREAD_GUTTER,
+                            end = THREAD_GUTTER,
+                            bottom = Spacing.xs,
+                        ),
                 )
             }
             // fillMaxWidth, or the box is only as wide as whatever is inside it — which for the
             // empty state is one line of text, and centring inside that put it against the left edge.
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            Box(Modifier.weight(1f).fillMaxWidth().readableWidth()) {
                 when {
                     state.isLoading && state.messages.isEmpty() ->
                         LoadingState(Modifier.padding(top = effectiveTopClearance))
@@ -396,7 +402,8 @@ fun MessageThreadScreen(
             state.syncError?.let { error ->
                 val recovery = siteErrorRecovery(error, onVerify = onVerify, onSignIn = onSignIn, onRetry = onRetryLoad)
                 ListItem(
-                    leadingContent = { Icon(PlazaIcons.ErrorCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    modifier = Modifier.readableWidth(),
+                    leadingContent = { PlazaIcon(PlazaIcons.ErrorCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     trailingContent = { recovery?.let { action -> TextButton(onClick = action.onClick) { Text(action.label) } } },
                     colors = ListItemDefaults.colors(containerColor = LocalPlazaLayers.current.raised),
                 ) {
@@ -408,7 +415,7 @@ fun MessageThreadScreen(
                     stringResource(Res.string.message_draft_save_failed),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = THREAD_GUTTER, vertical = Spacing.xs),
+                    modifier = Modifier.readableWidth().padding(horizontal = THREAD_GUTTER, vertical = Spacing.xs),
                 )
             }
             MessageComposer(
@@ -500,10 +507,10 @@ private fun ScamReminderBanner(
         ListItem(
             onClick = { detailsOpen = true },
             leadingContent = {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
+                PlazaIcon(Icons.Default.Warning, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
             },
             trailingContent = {
-                Icon(
+                PlazaIcon(
                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = stringResource(Res.string.messages_scam_details),
                     tint = contentColor,
@@ -553,6 +560,7 @@ private fun ThreadTopBar(
             // Top and sides, as a TopAppBar's own insets are: in landscape the navigation bar can be
             // at the side, and the card's ⋮ would sit under it.
             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+            .readableWidth()
             .padding(horizontal = THREAD_GUTTER, vertical = 4.dp),
     ) {
         Surface(
@@ -566,11 +574,16 @@ private fun ThreadTopBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = layers.raised),
                 navigationIcon = {
                     if (showBackButton) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(Res.string.action_back),
-                            )
+                        AdaptiveGlassButton(
+                            action = GlassAction(label = stringResource(Res.string.action_back), onClick = onBack, symbol = "chevron.backward"),
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            IconButton(onClick = onBack) {
+                                PlazaIcon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(Res.string.action_back),
+                                )
+                            }
                         }
                     }
                 },
@@ -716,7 +729,7 @@ private fun MessageInfoSheet(
                         onDismiss()
                     }
                 }) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
+                    PlazaIcon(Icons.Default.Close, contentDescription = stringResource(Res.string.action_close))
                 }
             }
             content()
@@ -1035,7 +1048,7 @@ private fun BubbleMenuItem(
 ) {
     DropdownMenuItem(
         text = { Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
+        leadingIcon = { PlazaIcon(icon, contentDescription = null) },
         onClick = onClick,
     )
 }
@@ -1090,11 +1103,11 @@ private fun MessageStatusLine(
                     style = style,
                     color = muted,
                 )
-                Icon(PlazaIcons.Schedule, contentDescription = null, tint = muted, modifier = Modifier.size(13.dp))
+                PlazaIcon(PlazaIcons.Schedule, contentDescription = null, tint = muted, modifier = Modifier.size(13.dp))
             }
 
             SendStatus.FAILED -> {
-                Icon(
+                PlazaIcon(
                     PlazaIcons.ErrorCircle,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
@@ -1180,91 +1193,93 @@ private fun MessageComposer(
         shadowElevation = if (layers.shadows) 1.dp else 0.dp,
     ) {
         Column(Modifier.fillMaxWidth()) {
-            AttachmentTray(
-                attachments = state.attachments,
-                onRemove = onRemoveAttachment,
-                onRetry = onRetryAttachment,
-            )
-            // One quoted message waiting over the bar (3e): whose words, the first line of them, and a
-            // ✕. The excerpt goes through the conversation list's [previewText], so a quoted picture or
-            // sticker reads as [图片] or [表情] rather than as the Markdown that carries it.
-            state.quotes.forEach { quoted ->
-                QuotePreview(
-                    title =
-                    if (quoted.isMine) {
-                        stringResource(Res.string.message_quote_chip_mine)
-                    } else {
-                        stringResource(Res.string.message_quote_chip, state.userName)
-                    },
-                    excerpt = previewText(contentPreview(quoted.content)),
-                    titleColor = MaterialTheme.colorScheme.primary,
-                    leading = {
-                        Box(
-                            Modifier
-                                .width(3.dp)
-                                .height(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary),
-                        )
-                    },
-                    onRemove = { onRemoveQuote(quoted.id) },
-                    removeLabel = stringResource(Res.string.message_quote_remove),
-                    modifier = Modifier.padding(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.xs),
+            Column(Modifier.readableWidth()) {
+                AttachmentTray(
+                    attachments = state.attachments,
+                    onRemove = onRemoveAttachment,
+                    onRetry = onRetryAttachment,
                 )
-            }
-            MessageInputBar(
-                draftState = draftState,
-                stickerPictures = stickerPictures,
-                canSend = state.canSend,
-                panelOpen = panelOpen,
-                emojiOpen = editorState.emojiOpen,
-                onTogglePanel = {
-                    if (panelOpen) {
-                        editorState.closePanels()
-                    } else {
-                        // Focus goes with the keyboard: a field that kept it would bring the keyboard
-                        // straight back up over the grid on the next recomposition, and tapping the field
-                        // is how the grid closes.
-                        focusManager.clearFocus()
-                        keyboard?.hide()
-                        editorState.toggleFormat()
-                    }
-                },
-                onToggleEmoji = {
-                    focusManager.clearFocus()
-                    editorState.dispatch(
-                        action = EditorAction.EMOJI,
-                        bodyState = draftState,
-                        onPickImages = pickImages,
-                        onPickHostedImages = onPickHostedImages,
-                        onFormatted = {},
-                        hideKeyboard = { keyboard?.hide() },
+                // One quoted message waiting over the bar (3e): whose words, the first line of them, and a
+                // ✕. The excerpt goes through the conversation list's [previewText], so a quoted picture or
+                // sticker reads as [图片] or [表情] rather than as the Markdown that carries it.
+                state.quotes.forEach { quoted ->
+                    QuotePreview(
+                        title =
+                        if (quoted.isMine) {
+                            stringResource(Res.string.message_quote_chip_mine)
+                        } else {
+                            stringResource(Res.string.message_quote_chip, state.userName)
+                        },
+                        excerpt = previewText(contentPreview(quoted.content)),
+                        titleColor = MaterialTheme.colorScheme.primary,
+                        leading = {
+                            Box(
+                                Modifier
+                                    .width(3.dp)
+                                    .height(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                        },
+                        onRemove = { onRemoveQuote(quoted.id) },
+                        removeLabel = stringResource(Res.string.message_quote_remove),
+                        modifier = Modifier.padding(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.xs),
                     )
-                },
-                fieldFocus = fieldFocus,
-                onFieldFocused = { editorState.closePanels() },
-                onSend = onSend,
-            )
-            if (editorState.formatOpen) {
-                ToolGrid(
-                    state = state,
-                    onAction = { action ->
+                }
+                MessageInputBar(
+                    draftState = draftState,
+                    stickerPictures = stickerPictures,
+                    canSend = state.canSend,
+                    panelOpen = panelOpen,
+                    emojiOpen = editorState.emojiOpen,
+                    onTogglePanel = {
+                        if (panelOpen) {
+                            editorState.closePanels()
+                        } else {
+                            // Focus goes with the keyboard: a field that kept it would bring the keyboard
+                            // straight back up over the grid on the next recomposition, and tapping the field
+                            // is how the grid closes.
+                            focusManager.clearFocus()
+                            keyboard?.hide()
+                            editorState.toggleFormat()
+                        }
+                    },
+                    onToggleEmoji = {
+                        focusManager.clearFocus()
                         editorState.dispatch(
-                            action = action,
+                            action = EditorAction.EMOJI,
                             bodyState = draftState,
                             onPickImages = pickImages,
                             onPickHostedImages = onPickHostedImages,
-                            // Straight back to the field: the placeholder the key inserted is selected,
-                            // and the next keystroke is meant to replace it.
-                            onFormatted = {
-                                editorState.closePanels()
-                                fieldFocus.requestFocus()
-                            },
+                            onFormatted = {},
                             hideKeyboard = { keyboard?.hide() },
                         )
                     },
-                    onCustomize = onCustomize,
+                    fieldFocus = fieldFocus,
+                    onFieldFocused = { editorState.closePanels() },
+                    onSend = onSend,
                 )
+                if (editorState.formatOpen) {
+                    ToolGrid(
+                        state = state,
+                        onAction = { action ->
+                            editorState.dispatch(
+                                action = action,
+                                bodyState = draftState,
+                                onPickImages = pickImages,
+                                onPickHostedImages = onPickHostedImages,
+                                // Straight back to the field: the placeholder the key inserted is selected,
+                                // and the next keystroke is meant to replace it.
+                                onFormatted = {
+                                    editorState.closePanels()
+                                    fieldFocus.requestFocus()
+                                },
+                                hideKeyboard = { keyboard?.hide() },
+                            )
+                        },
+                        onCustomize = onCustomize,
+                    )
+                }
             }
             if (editorState.emojiOpen) {
                 val panel = editorState.emojiPanelScope(draftState, stickerPictures)
@@ -1323,21 +1338,26 @@ private fun MessageInputBar(
     ) {
         // A toggle, so the key says which way it will go: + while the grid is away, ✕ on a tonal
         // disc while it is up, as 3e draws it.
-        IconToggleButton(
-            checked = panelOpen,
-            onCheckedChange = { onTogglePanel() },
-            colors =
-            IconButtonDefaults.iconToggleButtonColors(
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ),
+        AdaptiveGlassButton(
+            action = GlassAction(label = stringResource(Res.string.message_tools), onClick = onTogglePanel, symbol = if (panelOpen) "xmark" else "plus"),
             modifier = Modifier.size(INPUT_CONTROL_SIZE),
         ) {
-            Icon(
-                if (panelOpen) Icons.Default.Close else Icons.Default.Add,
-                contentDescription = stringResource(Res.string.message_tools),
-            )
+            IconToggleButton(
+                checked = panelOpen,
+                onCheckedChange = { onTogglePanel() },
+                colors =
+                IconButtonDefaults.iconToggleButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+                modifier = Modifier.size(INPUT_CONTROL_SIZE),
+            ) {
+                PlazaIcon(
+                    if (panelOpen) Icons.Default.Close else Icons.Default.Add,
+                    contentDescription = stringResource(Res.string.message_tools),
+                )
+            }
         }
         MessageDraftField(
             draftState = draftState,
@@ -1350,21 +1370,26 @@ private fun MessageInputBar(
                 .focusRequester(fieldFocus)
                 .onFocusChanged { if (it.isFocused) onFieldFocused() },
         )
-        FilledIconButton(
-            onClick = onSend,
-            enabled = canSend,
-            colors =
-            IconButtonDefaults.filledIconButtonColors(
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
+        AdaptiveGlassButton(
+            action = GlassAction(label = stringResource(Res.string.message_send), onClick = onSend, symbol = "arrow.up", enabled = canSend, prominent = true),
             modifier = Modifier.size(INPUT_CONTROL_SIZE),
         ) {
-            Icon(
-                Icons.AutoMirrored.Filled.Send,
-                contentDescription = stringResource(Res.string.message_send),
-                modifier = Modifier.size(20.dp),
-            )
+            FilledIconButton(
+                onClick = onSend,
+                enabled = canSend,
+                colors =
+                IconButtonDefaults.filledIconButtonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+                modifier = Modifier.size(INPUT_CONTROL_SIZE),
+            ) {
+                PlazaIcon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(Res.string.message_send),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
 }
@@ -1415,7 +1440,7 @@ private fun MessageDraftField(
                         onCheckedChange = { onToggleEmoji() },
                         modifier = Modifier.size(40.dp),
                     ) {
-                        Icon(
+                        PlazaIcon(
                             EditorAction.EMOJI.icon,
                             contentDescription = stringResource(EditorAction.EMOJI.label),
                             modifier = Modifier.size(20.dp),
@@ -1527,7 +1552,7 @@ private fun ToolTile(
                 .cardBorder(layers, MaterialTheme.shapes.largeIncreased),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            PlazaIcon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(
             text = label,
@@ -1546,28 +1571,46 @@ private fun ToolTile(
 private fun ThreadMenu(onOpenBrowser: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val layers = LocalPlazaLayers.current
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            shape = MaterialTheme.shapes.largeIncreased,
-            containerColor = layers.raised,
-            shadowElevation = if (layers.shadows) 8.dp else 0.dp,
-            border = layers.cardBorderStroke,
-        ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.action_open_in_browser)) },
-                onClick = {
-                    expanded = false
-                    onOpenBrowser()
-                },
-            )
+    AdaptiveGlassButton(action = threadMenuAction(onOpenBrowser), modifier = Modifier.size(40.dp)) {
+        Box {
+            IconButton(onClick = { expanded = true }) {
+                PlazaIcon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.action_more))
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                shape = MaterialTheme.shapes.largeIncreased,
+                containerColor = layers.raised,
+                shadowElevation = if (layers.shadows) 8.dp else 0.dp,
+                border = layers.cardBorderStroke,
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.action_open_in_browser)) },
+                    onClick = {
+                        expanded = false
+                        onOpenBrowser()
+                    },
+                )
+            }
         }
     }
 }
+
+@Composable
+internal fun threadMenuAction(onOpenBrowser: () -> Unit): GlassAction =
+    GlassAction(
+        label = stringResource(Res.string.action_more),
+        onClick = {},
+        symbol = "ellipsis",
+        menu =
+        listOf(
+            GlassMenuAction(
+                label = stringResource(Res.string.action_open_in_browser),
+                onClick = onOpenBrowser,
+                symbol = "safari",
+            ),
+        ),
+    )
 
 /**
  * A bubble hugs its text; only the 86 % cap comes from the parent.

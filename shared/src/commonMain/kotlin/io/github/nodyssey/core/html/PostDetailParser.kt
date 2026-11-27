@@ -121,6 +121,7 @@ object PostDetailParser {
             isPinned =
             element.selectFirst(Selectors.CONTENT_PINNED_BADGE) != null ||
                 (commentId != null && commentId in config.pinnedCommentIds),
+            isHot = !isBody && (commentId?.let(config.hotByCommentId::get) ?: (element.selectFirst(Selectors.CONTENT_HOT_BADGE) != null)),
         )
     }
 

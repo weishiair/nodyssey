@@ -1,12 +1,16 @@
 package io.github.nodyssey.ui.postlist
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,13 +31,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -44,11 +48,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -64,6 +68,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -73,6 +79,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,6 +98,8 @@ import io.github.nodyssey.data.OfflineFirstPostRepository
 import io.github.nodyssey.model.FeedSort
 import io.github.nodyssey.model.PostSummary
 import io.github.nodyssey.ui.common.BoardTag
+import io.github.nodyssey.ui.common.CollapsedRailAction
+import io.github.nodyssey.ui.common.CollapsedRailActionButton
 import io.github.nodyssey.ui.common.CollapsingHeader
 import io.github.nodyssey.ui.common.EmptyFeedState
 import io.github.nodyssey.ui.common.FeedSortOrder
@@ -114,6 +123,7 @@ import io.github.nodyssey.ui.common.UserNoteTag
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.collectPagesAtRest
 import io.github.nodyssey.ui.common.compactCount
+import io.github.nodyssey.ui.common.labelRes
 import io.github.nodyssey.ui.common.postCardTitleStyle
 import io.github.nodyssey.ui.common.readMarkCardColor
 import io.github.nodyssey.ui.common.readMarkTitleColor
@@ -130,6 +140,7 @@ import io.github.nodyssey.ui.common.webViewUrl
 import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.action_create_post
+import io.github.nodyssey.ui.resources.action_refresh
 import io.github.nodyssey.ui.resources.action_scroll_to_top
 import io.github.nodyssey.ui.resources.action_sort
 import io.github.nodyssey.ui.resources.action_switch_site
@@ -146,19 +157,25 @@ import io.github.nodyssey.ui.resources.tab_profile
 import io.github.nodyssey.ui.settings.rememberSiteSwitch
 import io.github.nodyssey.ui.settings.siteSwitchRestartsApp
 import io.github.plaza.core.TimeFormat
+import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.AdaptivePullToRefreshBox
 import io.github.plaza.designsys.component.AppendSpinner
 import io.github.plaza.designsys.component.AvatarShape
+import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.GlassMenuAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaStat
 import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaFabHeight
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PrefetchAvatars
 import io.github.plaza.designsys.component.SkeletonBar
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
@@ -169,6 +186,7 @@ import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.liquidGlassBackdropSource
 import io.github.plaza.designsys.theme.rememberLiquidGlassBackdrop
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -449,6 +467,75 @@ fun PostListScreen(
     }
 
     val refreshState = posts.loadState.refresh
+    // Only show a spinner on the collapsed refresh pill for a refresh the user explicitly triggered
+    // from this button. Binding directly to `posts.loadState.refresh` turned the button into a
+    // disabled spinner on cold start / TTL background refreshes or Room invalidations before the
+    // user ever tapped it. Keyed on board + sort (not `startPage`) so refreshing from a later page
+    // does not drop the flag when `onGoToPage(FIRST_PAGE)` resets `startPage` back to 1.
+    var manualRefreshPending by remember(state.categorySlug, state.sort) {
+        mutableStateOf(false)
+    }
+    var awaitingFirstPageReset by remember(state.categorySlug, state.sort) {
+        mutableStateOf(false)
+    }
+    var sawManualRefreshLoading by remember(state.categorySlug, state.sort) {
+        mutableStateOf(false)
+    }
+    LaunchedEffect(manualRefreshPending, awaitingFirstPageReset, state.startPage, refreshState) {
+        if (!manualRefreshPending) {
+            awaitingFirstPageReset = false
+            sawManualRefreshLoading = false
+            return@LaunchedEffect
+        }
+        if (awaitingFirstPageReset) {
+            if (state.startPage == FIRST_PAGE) {
+                awaitingFirstPageReset = false
+            } else {
+                delay(MANUAL_REFRESH_LOADING_GRACE_MILLIS)
+                if (state.startPage != FIRST_PAGE) {
+                    manualRefreshPending = false
+                    awaitingFirstPageReset = false
+                }
+            }
+            return@LaunchedEffect
+        }
+        if (refreshState is LoadState.Loading) {
+            sawManualRefreshLoading = true
+        } else if (sawManualRefreshLoading) {
+            manualRefreshPending = false
+            sawManualRefreshLoading = false
+        } else {
+            delay(MANUAL_REFRESH_LOADING_GRACE_MILLIS)
+            if (posts.loadState.refresh !is LoadState.Loading) {
+                manualRefreshPending = false
+            }
+        }
+    }
+    val pressHaptics = rememberPlatformHaptics()
+    val refreshFeed: () -> Unit = {
+        pressHaptics.refreshTriggered()
+        val resetToFirstPage = state.startPage > FIRST_PAGE
+        manualRefreshPending = true
+        awaitingFirstPageReset = resetToFirstPage
+        sawManualRefreshLoading = !resetToFirstPage && refreshState is LoadState.Loading
+        // A window opened at a later page has no page-one rows to scroll to; resetting to page one
+        // swaps in a fresh page-one pager instead of refreshing the offset window.
+        if (resetToFirstPage) {
+            onGoToPage(FIRST_PAGE)
+        } else {
+            posts.refresh()
+        }
+        scope.launch { scrollToTop() }
+    }
+    val collapsedRefreshAction =
+        CollapsedRailAction(
+            label = Res.string.action_refresh,
+            icon = Icons.Default.Refresh,
+            nativeSymbol = "arrow.clockwise",
+            onClick = refreshFeed,
+            loading = manualRefreshPending && !awaitingFirstPageReset && refreshState is LoadState.Loading,
+            emphasized = true,
+        )
 
     /*
      * A refresh that failed onto rows already on screen.
@@ -567,6 +654,9 @@ fun PostListScreen(
                     return@launch
                 }
             }
+            manualRefreshPending = false
+            awaitingFirstPageReset = false
+            sawManualRefreshLoading = false
             onGoToPage(target)
         }
     }
@@ -584,6 +674,13 @@ fun PostListScreen(
     // Expressive spatial springs overshoot past 0.dp on retraction; clamp before passing to padding.
     val safeBottomBarClearance = animatedBottomBarClearance.coerceAtLeast(0.dp)
 
+    // The top bar reads state published after each composition instead of capturing it. On iOS (Compose
+    // 1.13.0-alpha01) an invalidation raised mid-recomposition — a changed slot lambda, or a state written
+    // while composing — can be dropped for a Scaffold slot, leaving it on its first frame: the board strip
+    // with only 综合. Drop once that is fixed upstream.
+    val slotState = remember { mutableStateOf(state) }
+    SideEffect { slotState.value = state }
+    val currentState by slotState
     TabScaffold(
         modifier = modifier,
         snackbarHost = {
@@ -599,18 +696,18 @@ fun PostListScreen(
         topBar = { wide ->
             Column {
                 HomeHeader(
-                    sort = state.sort,
+                    sort = currentState.sort,
                     onSortChange = onSortChange,
                     onSearch = onSearch,
-                    account = state.account,
+                    account = currentState.account,
                     onAccountClick = onAccountClick,
                     scrollBehavior = topBarScrollBehavior,
                     wide = wide,
                 )
                 BoardStrip(
-                    boards = state.boards,
-                    parkedBoards = state.parkedBoards,
-                    selectedSlug = state.categorySlug,
+                    boards = currentState.boards,
+                    parkedBoards = currentState.parkedBoards,
+                    selectedSlug = currentState.categorySlug,
                     // The pill follows the finger: the page the pager is heading for, which moves on
                     // once a drag has gone a short way towards it (the pager's positional threshold,
                     // not halfway) and is the destination at once for a tap. The selection itself
@@ -618,10 +715,10 @@ fun PostListScreen(
                     // lit the new pill a beat after the page had arrived. 综合 is a page whose slug
                     // is null, so only a page that does not exist falls back to the selection.
                     highlightedSlug =
-                    if (pagerState.targetPage in boards.indices) {
-                        boards[pagerState.targetPage].slug
+                    if (pagerState.targetPage in currentState.boards.indices) {
+                        currentState.boards[pagerState.targetPage].slug
                     } else {
-                        state.categorySlug
+                        currentState.categorySlug
                     },
                     onBoardClick = onBoardClick,
                     onArrangementChange = onArrangementChange,
@@ -633,10 +730,26 @@ fun PostListScreen(
             // it — two floating things in the same corner is what Material's slot exists to prevent,
             // and it is the arrangement the thread already ships with its 回复 button.
             if (!showPageBar) {
+                val layers = LocalPlazaLayers.current
+                val motionScheme = MaterialTheme.motionScheme
+                val gap = if (layers.frostedGlass) Spacing.sm else Spacing.xs
                 CompositionLocalProvider(LocalLiquidGlassBackdrop provides feedBackdrop) {
                     // Wrap spacing outside PlazaExtendedFab (whose modifier reaches both the glass
                     // button and inner ExtendedFloatingActionButton), following the animated bar clearance.
-                    Box(modifier = Modifier.padding(bottom = safeBottomBarClearance)) {
+                    Column(
+                        modifier = Modifier.padding(bottom = safeBottomBarClearance),
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(gap),
+                    ) {
+                        AnimatedVisibility(
+                            visible = navigationBarHidden && scrolledFromTop && posts.itemCount > 0,
+                            enter = expandVertically(motionScheme.fastSpatialSpec(), Alignment.Bottom) +
+                                fadeIn(motionScheme.defaultEffectsSpec()),
+                            exit = shrinkVertically(motionScheme.fastSpatialSpec(), Alignment.Bottom) +
+                                fadeOut(motionScheme.fastEffectsSpec()),
+                        ) {
+                            CollapsedRailActionButton(action = collapsedRefreshAction)
+                        }
                         // Follow the same sticky direction state as the navigation bar. Stopping cannot
                         // briefly flip this value, so the built-in extended-FAB animation gets one stable
                         // target.
@@ -708,6 +821,7 @@ fun PostListScreen(
                         },
                         onNext = { goToPage((visiblePage + 1).coerceAtMost(state.totalPages)) },
                         onPageClick = { showPageSheet = true },
+                        collapsedAction = collapsedRefreshAction,
                         onCreatePost = onCreatePost,
                         preferHorizontal = wide || LocalIosPad.current,
                         modifier = Modifier
@@ -820,9 +934,13 @@ private fun BoardFeed(
                 size = CardAvatarSize,
                 urlAt = { index -> posts.peek(index)?.summary?.avatarUrl },
             )
-            PullToRefreshBox(
+            val pressHaptics = rememberPlatformHaptics()
+            AdaptivePullToRefreshBox(
                 isRefreshing = refreshState is LoadState.Loading,
-                onRefresh = posts::refresh,
+                onRefresh = {
+                    pressHaptics.refreshTriggered()
+                    posts.refresh()
+                },
             ) {
                 LazyColumn(
                     // No bounce: a list under pull-to-refresh has the indicator for that. On
@@ -895,47 +1013,91 @@ private fun FeedPageBar(
     onScrollToTop: () -> Unit,
     onNext: () -> Unit,
     onPageClick: () -> Unit,
+    collapsedAction: CollapsedRailAction,
     onCreatePost: () -> Unit,
     preferHorizontal: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val layers = LocalPlazaLayers.current
     val gap = if (layers.frostedGlass) Spacing.sm else Spacing.xs
-    BoxWithConstraints(modifier.padding(Spacing.lg), contentAlignment = Alignment.BottomEnd) {
+    // SubcomposeLayout instead of BoxWithConstraints so squeezing the list pane does not recompose
+    // the floating native glass controls on every intermediate width when orientation is unchanged.
+    SubcomposeLayout(modifier.padding(Spacing.lg)) { constraints ->
         // Base the fit on all three keys, so collapsing the shortcuts while scrolling keeps the
         // controls in the same place. A short viewport can otherwise compress the FAB.
-        val short = maxHeight < Sizes.minTouchTarget * 3 + PlazaFabHeight + gap + Spacing.sm
-        val horizontal = (preferHorizontal || short) && maxWidth >= 280.dp
-        val controls: @Composable () -> Unit = {
-            PageJumpRail(
-                expanded = expanded,
-                page = page,
-                totalPages = totalPages,
-                onPrevious = onScrollToTop,
-                onNext = onNext,
-                onPageClick = onPageClick,
-                previousEnabled = canScrollToTop,
-                previousLabel = Res.string.action_scroll_to_top,
-                previousIcon = PlazaIcons.VerticalAlignTop,
-                previousNativeSymbol = "arrow.up.to.line",
-                vertical = !horizontal,
-            )
-            PlazaExtendedFab(
-                text = stringResource(Res.string.action_create_post),
-                icon = Icons.Default.Edit,
-                nativeSymbol = "square.and.pencil",
-                onClick = onCreatePost,
-                expanded = expanded,
-            )
+        val short = constraints.maxHeight.toDp() < Sizes.minTouchTarget * 3 + PlazaFabHeight + gap + Spacing.sm
+        val horizontal = (preferHorizontal || short) && constraints.maxWidth.toDp() >= 280.dp
+        val childConstraints = constraints.copy(minWidth = 0, minHeight = 0)
+        val placeables =
+            subcompose(Unit) {
+                FeedPageBarControls(
+                    horizontal = horizontal,
+                    gap = gap,
+                    expanded = expanded,
+                    page = page,
+                    totalPages = totalPages,
+                    canScrollToTop = canScrollToTop,
+                    onScrollToTop = onScrollToTop,
+                    onNext = onNext,
+                    onPageClick = onPageClick,
+                    collapsedAction = collapsedAction,
+                    onCreatePost = onCreatePost,
+                )
+            }.map { it.measure(childConstraints) }
+        val contentWidth = placeables.maxOfOrNull { it.width } ?: 0
+        val contentHeight = placeables.maxOfOrNull { it.height } ?: 0
+        val layoutWidth = contentWidth.coerceIn(constraints.minWidth, constraints.maxWidth)
+        val layoutHeight = contentHeight.coerceIn(constraints.minHeight, constraints.maxHeight)
+        layout(layoutWidth, layoutHeight) {
+            placeables.forEach { it.placeRelative(layoutWidth - it.width, layoutHeight - it.height) }
         }
-        if (horizontal) {
-            Row(horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically) {
-                controls()
-            }
-        } else {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
-                controls()
-            }
+    }
+}
+
+@Composable
+private fun FeedPageBarControls(
+    horizontal: Boolean,
+    gap: Dp,
+    expanded: Boolean,
+    page: Int,
+    totalPages: Int,
+    canScrollToTop: Boolean,
+    onScrollToTop: () -> Unit,
+    onNext: () -> Unit,
+    onPageClick: () -> Unit,
+    collapsedAction: CollapsedRailAction,
+    onCreatePost: () -> Unit,
+) {
+    val controls: @Composable () -> Unit = {
+        PageJumpRail(
+            expanded = expanded,
+            page = page,
+            totalPages = totalPages,
+            onPrevious = onScrollToTop,
+            onNext = onNext,
+            onPageClick = onPageClick,
+            previousEnabled = canScrollToTop,
+            previousLabel = Res.string.action_scroll_to_top,
+            previousIcon = PlazaIcons.VerticalAlignTop,
+            previousNativeSymbol = "arrow.up.to.line",
+            vertical = !horizontal,
+            collapsedAction = collapsedAction,
+        )
+        PlazaExtendedFab(
+            text = stringResource(Res.string.action_create_post),
+            icon = Icons.Default.Edit,
+            nativeSymbol = "square.and.pencil",
+            onClick = onCreatePost,
+            expanded = expanded,
+        )
+    }
+    if (horizontal) {
+        Row(horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically) {
+            controls()
+        }
+    } else {
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
+            controls()
         }
     }
 }
@@ -958,6 +1120,9 @@ private const val FIRST_PAGE = 1
  * meanwhile, so nothing about the wait is invisible.
  */
 private const val APPEND_WAIT_MILLIS = 15_000L
+
+/** Grace window for an explicit refresh tap to transition Paging into `LoadState.Loading`. */
+private const val MANUAL_REFRESH_LOADING_GRACE_MILLIS = 3_000L
 
 /**
  * The home header uses two rows on a narrow window and one on a wide window.
@@ -987,43 +1152,70 @@ private fun HomeHeader(
     scrollBehavior: TopAppBarScrollBehavior,
     wide: Boolean,
 ) {
+    val oneRow = wide && LocalDensity.current.fontScale <= 1.3f
     CollapsingHeader(
         scrollBehavior = scrollBehavior,
         modifier = Modifier.windowInsetsPadding(TopAppBarDefaults.windowInsets),
     ) {
-        if (wide && LocalDensity.current.fontScale <= 1.3f) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(end = LayerPageGutter),
-                horizontalArrangement = Arrangement.spacedBy(HeaderControlGap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+        // One shared Layout for both arrangements so crossing the wide breakpoint during an iPad
+        // split-pane squeeze repositions SiteSwitcher and SortButton without tearing down and
+        // recreating their native UIKit glass views mid-animation.
+        Layout(
+            modifier = Modifier.fillMaxWidth(),
+            content = {
                 SiteSwitcher(account = account)
-                SearchPill(onClick = onSearch, modifier = Modifier.weight(1f))
+                SearchPill(onClick = onSearch)
                 SortButton(sort = sort, onSortChange = onSortChange)
                 AccountButton(account = account, onClick = onAccountClick)
-            }
-            return@CollapsingHeader
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
+            },
+        ) { measurables, constraints ->
+            val maxWidth = constraints.maxWidth
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val gapPx = HeaderControlGap.roundToPx()
+            if (oneRow) {
+                val trailingPx = LayerPageGutter.roundToPx()
+                val site = measurables[0].measure(loose)
+                val sort = measurables[2].measure(loose)
+                val account = measurables[3].measure(loose)
+                val searchWidth =
+                    (maxWidth - trailingPx - site.width - sort.width - account.width - gapPx * 3)
+                        .coerceAtLeast(0)
+                val search = measurables[1].measure(Constraints(minWidth = searchWidth, maxWidth = searchWidth))
+                val height = maxOf(site.height, search.height, sort.height, account.height)
+                layout(maxWidth, height) {
+                    var x = 0
+                    site.placeRelative(x, (height - site.height) / 2)
+                    x += site.width + gapPx
+                    search.placeRelative(x, (height - search.height) / 2)
+                    x += search.width + gapPx
+                    sort.placeRelative(x, (height - sort.height) / 2)
+                    x += sort.width + gapPx
+                    account.placeRelative(x, (height - account.height) / 2)
+                }
+            } else {
                 // The site button's own 8dp inset puts the wordmark on the 16dp margin; the account's
                 // 48dp target is drawn 6dp off the edge, which lands its 28dp face on the same 16dp.
-                .padding(start = Spacing.sm, end = AccountEndInset),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SiteSwitcher(account = account, modifier = Modifier.weight(1f))
-            AccountButton(account = account, onClick = onAccountClick)
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(HeaderControlGap),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SearchPill(onClick = onSearch, modifier = Modifier.weight(1f))
-            SortButton(sort = sort, onSortChange = onSortChange)
+                val startSmPx = Spacing.sm.roundToPx()
+                val endAccountPx = AccountEndInset.roundToPx()
+                val horizontalMdPx = Spacing.md.roundToPx()
+                val account = measurables[3].measure(loose)
+                val siteMax = (maxWidth - startSmPx - endAccountPx - account.width).coerceAtLeast(0)
+                val site = measurables[0].measure(Constraints(minWidth = 0, maxWidth = siteMax))
+                val row1Height = maxOf(site.height, account.height)
+
+                val sort = measurables[2].measure(loose)
+                val searchWidth =
+                    (maxWidth - horizontalMdPx * 2 - sort.width - gapPx)
+                        .coerceAtLeast(0)
+                val search = measurables[1].measure(Constraints(minWidth = searchWidth, maxWidth = searchWidth))
+                val row2Height = maxOf(search.height, sort.height)
+                layout(maxWidth, row1Height + row2Height) {
+                    site.placeRelative(startSmPx, (row1Height - site.height) / 2)
+                    account.placeRelative(maxWidth - endAccountPx - account.width, (row1Height - account.height) / 2)
+                    search.placeRelative(horizontalMdPx, row1Height + (row2Height - search.height) / 2)
+                    sort.placeRelative(horizontalMdPx + search.width + gapPx, row1Height + (row2Height - sort.height) / 2)
+                }
+            }
         }
     }
 }
@@ -1056,7 +1248,7 @@ private fun AccountButton(
                     .cardBorder(LocalPlazaLayers.current, AccountAvatarShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(HeaderIconSize))
+                PlazaIcon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(HeaderIconSize))
             }
         }
     }
@@ -1101,7 +1293,7 @@ private fun SearchPill(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Icon(
+            PlazaIcon(
                 Icons.Default.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1119,6 +1311,19 @@ private fun SearchPill(
     }
 }
 
+internal fun sortMenuActions(
+    current: FeedSort,
+    labelFor: (FeedSort) -> String,
+    onSortChange: (FeedSort) -> Unit,
+): List<GlassMenuAction> =
+    FeedSortOrder.map { order ->
+        GlassMenuAction(
+            label = labelFor(order),
+            onClick = { onSortChange(order) },
+            selected = order == current,
+        )
+    }
+
 /** 排序, as a square-cornered button beside the search pill with its menu anchored under it. */
 @Composable
 private fun SortButton(
@@ -1128,37 +1333,71 @@ private fun SortButton(
     var menuOpen by remember { mutableStateOf(false) }
     val layers = LocalPlazaLayers.current
     val shape = MaterialTheme.shapes.medium
-    Box {
-        FilledIconButton(
-            onClick = { menuOpen = true },
-            shape = shape,
-            modifier = Modifier
-                .size(HeaderControlHeight)
-                .cardShadow(shape, layers.shadows)
-                // As the search pill beside it: on 墨水屏 the raised tone is the page's paper.
-                .cardBorder(layers, shape),
-            colors =
-            IconButtonDefaults.filledIconButtonColors(
-                containerColor = layers.raised,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-        ) {
-            Icon(
-                imageVector = PlazaIcons.SwapVert,
-                contentDescription = stringResource(Res.string.action_sort),
-                modifier = Modifier.size(HeaderIconSize),
-            )
-        }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            FeedSortOrder.forEach { order ->
-                SortMenuItem(order, sort) {
-                    onSortChange(it)
-                    menuOpen = false
+    val sortLabel = stringResource(Res.string.action_sort)
+    val sortLabels = FeedSortOrder.associateWith { stringResource(it.labelRes()) }
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = sortLabel,
+            onClick = {},
+            symbol = "arrow.up.arrow.down",
+            menu = sortMenuActions(sort, sortLabels::getValue, onSortChange),
+        ),
+        modifier = Modifier.size(HeaderControlHeight),
+    ) {
+        Box {
+            FilledIconButton(
+                onClick = { menuOpen = true },
+                shape = shape,
+                modifier = Modifier
+                    .size(HeaderControlHeight)
+                    .cardShadow(shape, layers.shadows)
+                    // As the search pill beside it: on 墨水屏 the raised tone is the page's paper.
+                    .cardBorder(layers, shape),
+                colors =
+                IconButtonDefaults.filledIconButtonColors(
+                    containerColor = layers.raised,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            ) {
+                PlazaIcon(
+                    imageVector = PlazaIcons.SwapVert,
+                    contentDescription = sortLabel,
+                    modifier = Modifier.size(HeaderIconSize),
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                FeedSortOrder.forEach { order ->
+                    SortMenuItem(order, sort) {
+                        onSortChange(it)
+                        menuOpen = false
+                    }
                 }
             }
         }
     }
 }
+
+internal fun siteMenuActions(
+    active: Site,
+    signedInLabel: String?,
+    nextLaunchLabel: String,
+    restartsApp: Boolean,
+    onSelect: (Site) -> Unit,
+): List<GlassMenuAction> =
+    Site.entries.map { site ->
+        val isCurrent = site == active
+        val subtitle = buildList {
+            add(site.domain)
+            if (isCurrent && signedInLabel != null) add(signedInLabel)
+            if (!isCurrent && !restartsApp) add(nextLaunchLabel)
+        }.joinToString(" · ")
+        GlassMenuAction(
+            label = site.displayName,
+            onClick = { onSelect(site) },
+            subtitle = subtitle,
+            selected = isCurrent,
+        )
+    }
 
 /**
  * 站点: which forum the feed below came from, and the way to the other one.
@@ -1182,94 +1421,115 @@ private fun SiteSwitcher(
     var menuOpen by remember { mutableStateOf(false) }
     val active = ActiveSite.current
     val switchSite = rememberSiteSwitch()
+    val switchLabel = stringResource(Res.string.action_switch_site)
+    val signedInLabel = account?.let { stringResource(Res.string.site_switch_signed_in_as, it.name) }
+    val nextLaunchLabel = stringResource(Res.string.site_switch_next_launch)
 
     Box(modifier) {
-        TextButton(onClick = { menuOpen = true }, contentPadding = PaddingValues(horizontal = Spacing.sm)) {
-            Text(
-                text = active.displayName,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+        AdaptiveGlassButton(
+            action = GlassAction(
+                label = "${active.displayName}, $switchLabel",
+                onClick = {},
+                symbol = "chevron.down",
+                title = active.displayName,
+                menuTitle = stringResource(Res.string.site_switch_separate_sessions),
+                menu = siteMenuActions(
+                    active = active,
+                    signedInLabel = signedInLabel,
+                    nextLaunchLabel = nextLaunchLabel,
+                    restartsApp = siteSwitchRestartsApp,
+                    onSelect = switchSite,
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-            )
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                // The button already reads out the site's name; the arrow only says it opens.
-                contentDescription = stringResource(Res.string.action_switch_site),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 2.dp).size(HeaderIconSize),
-            )
-        }
-        DropdownMenu(
-            expanded = menuOpen,
-            onDismissRequest = { menuOpen = false },
-            shape = MaterialTheme.shapes.largeIncreased,
-            containerColor = LocalPlazaLayers.current.card,
-            modifier = Modifier.widthIn(min = 280.dp),
+            ),
+            modifier = Modifier.heightIn(min = 44.dp),
         ) {
-            Site.entries.forEachIndexed { index, site ->
-                val isCurrent = site == active
-                SelectableMenuItem(
-                    selected = isCurrent,
-                    index = index,
-                    count = Site.entries.size,
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    site.displayName,
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                )
-                                Text(
-                                    site.domain,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            // Who is signed in, for the site that can say: the other one's cookies are
-                            // not read until it is switched to, so its line stays silent rather than
-                            // guessing.
-                            if (isCurrent && account != null) {
-                                Text(
-                                    text = stringResource(Res.string.site_switch_signed_in_as, account.name),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            // 下次启动生效 under the name it applies to rather than as a note
-                            // elsewhere on the screen: the sentence is only true of this entry, and
-                            // only on a platform that cannot restart itself.
-                            if (!isCurrent && !siteSwitchRestartsApp) {
-                                Text(
-                                    text = stringResource(Res.string.site_switch_next_launch),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    },
-                    onClick = {
-                        menuOpen = false
-                        switchSite(site)
-                    },
-                    leadingIcon = { SiteMonogram(site, index) },
-                    modifier = Modifier.heightIn(min = 64.dp),
+            TextButton(onClick = { menuOpen = true }, contentPadding = PaddingValues(horizontal = Spacing.sm)) {
+                Text(
+                    text = active.displayName,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+                PlazaIcon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    // The button already reads out the site's name; the arrow only says it opens.
+                    contentDescription = switchLabel,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 2.dp).size(HeaderIconSize),
                 )
             }
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = Spacing.xs),
-            )
-            Text(
-                text = stringResource(Res.string.site_switch_separate_sessions),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .padding(start = 18.dp, end = 18.dp, top = Spacing.xs, bottom = Spacing.sm),
-            )
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                shape = MaterialTheme.shapes.largeIncreased,
+                containerColor = LocalPlazaLayers.current.card,
+                modifier = Modifier.widthIn(min = 280.dp),
+            ) {
+                Site.entries.forEachIndexed { index, site ->
+                    val isCurrent = site == active
+                    SelectableMenuItem(
+                        selected = isCurrent,
+                        index = index,
+                        count = Site.entries.size,
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        site.displayName,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    )
+                                    Text(
+                                        site.domain,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                // Who is signed in, for the site that can say: the other one's cookies are
+                                // not read until it is switched to, so its line stays silent rather than
+                                // guessing.
+                                if (isCurrent && signedInLabel != null) {
+                                    Text(
+                                        text = signedInLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                // 下次启动生效 under the name it applies to rather than as a note
+                                // elsewhere on the screen: the sentence is only true of this entry, and
+                                // only on a platform that cannot restart itself.
+                                if (!isCurrent && !siteSwitchRestartsApp) {
+                                    Text(
+                                        text = nextLaunchLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            menuOpen = false
+                            switchSite(site)
+                        },
+                        leadingIcon = { SiteMonogram(site, index) },
+                        modifier = Modifier.heightIn(min = 64.dp),
+                    )
+                }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = Spacing.xs),
+                )
+                Text(
+                    text = stringResource(Res.string.site_switch_separate_sessions),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .widthIn(max = 280.dp)
+                        .padding(start = 18.dp, end = 18.dp, top = Spacing.xs, bottom = Spacing.sm),
+                )
+            }
         }
     }
 }
@@ -1490,7 +1750,7 @@ private fun PinnedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Icon(
+            PlazaIcon(
                 imageVector = PlazaIcons.PushPin,
                 contentDescription = stringResource(Res.string.post_badge_pinned),
                 tint = MaterialTheme.colorScheme.primary,
@@ -1503,7 +1763,7 @@ private fun PinnedRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Icon(
+            PlazaIcon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),

@@ -17,16 +17,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.settings.BottomBarPosition
+import io.github.nodyssey.data.settings.BottomBarStyle
 import io.github.nodyssey.data.settings.ColorSource
 import io.github.nodyssey.data.settings.PaletteStyle
 import io.github.nodyssey.data.settings.SavedTheme
@@ -58,7 +55,6 @@ import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.longPressToEdit
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.action_cancel
 import io.github.nodyssey.ui.resources.action_delete
 import io.github.nodyssey.ui.resources.action_done
@@ -68,6 +64,9 @@ import io.github.nodyssey.ui.resources.settings_bottom_bar_position
 import io.github.nodyssey.ui.resources.settings_bottom_bar_position_high
 import io.github.nodyssey.ui.resources.settings_bottom_bar_position_low
 import io.github.nodyssey.ui.resources.settings_bottom_bar_position_medium
+import io.github.nodyssey.ui.resources.settings_bottom_bar_style
+import io.github.nodyssey.ui.resources.settings_bottom_bar_style_floating
+import io.github.nodyssey.ui.resources.settings_bottom_bar_style_standard
 import io.github.nodyssey.ui.resources.settings_color_source
 import io.github.nodyssey.ui.resources.settings_color_source_custom
 import io.github.nodyssey.ui.resources.settings_color_source_preset
@@ -85,10 +84,10 @@ import io.github.nodyssey.ui.settings.SettingsGroup
 import io.github.nodyssey.ui.settings.SettingsItemGap
 import io.github.nodyssey.ui.settings.SettingsMenuRow
 import io.github.nodyssey.ui.settings.SettingsPagePadding
+import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.ChoiceSegments
 import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.groupedRowTitleStyle
@@ -96,6 +95,7 @@ import io.github.plaza.designsys.component.rememberOneHandAppBarState
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
 import io.github.plaza.designsys.theme.Spacing
+import io.github.plaza.designsys.theme.frostedGlassConfigurable
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -119,6 +119,7 @@ fun ThemeSettingsRoute(
         onWallpaperSystemPaletteChange = viewModel::setWallpaperSystemPalette,
         onWallpaperAutoUpdateChange = viewModel::setWallpaperAutoUpdate,
         onFrostedGlassChange = viewModel::setFrostedGlass,
+        onBottomBarStyleChange = viewModel::setBottomBarStyle,
         onBottomBarPositionChange = viewModel::setBottomBarPosition,
         modifier = modifier,
     )
@@ -153,6 +154,7 @@ fun ThemeSettingsScreen(
     onWallpaperSystemPaletteChange: (Boolean) -> Unit = {},
     onWallpaperAutoUpdateChange: (Boolean) -> Unit = {},
     onFrostedGlassChange: (Boolean) -> Unit = {},
+    onBottomBarStyleChange: (BottomBarStyle) -> Unit = {},
     onBottomBarPositionChange: (BottomBarPosition) -> Unit = {},
 ) {
     // Which way into the colour sheet: 新建 starts a theme from nothing, so it opens with no name —
@@ -165,17 +167,10 @@ fun ThemeSettingsScreen(
     Scaffold(
         modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
         topBar = {
-            OneHandTopAppBar(
+            AdaptiveTopBar(
                 title = stringResource(Res.string.settings_theme),
                 state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -233,13 +228,28 @@ fun ThemeSettingsScreen(
                     enabled = activePreset(settings)?.hasFixedColors != true,
                 )
                 val adjustableBottomBar = LocalFixedBottomBarHeight.current == null
-                FrostedGlassRow(
-                    checked = settings.frostedGlass,
-                    enabled = !settings.einkMode,
-                    onCheckedChange = onFrostedGlassChange,
-                    last = !adjustableBottomBar,
-                )
+                val floatingBottomBar = !adjustableBottomBar || settings.bottomBarStyle == BottomBarStyle.FLOATING
+                val showBottomBarPosition = adjustableBottomBar && floatingBottomBar
                 if (adjustableBottomBar) {
+                    SettingsMenuRow(
+                        icon = PlazaIcons.DashboardCustomize,
+                        title = stringResource(Res.string.settings_bottom_bar_style),
+                        subtitle = stringResource(settings.bottomBarStyle.label),
+                        choices = BottomBarStyle.entries.map { it to stringResource(it.label) },
+                        selected = settings.bottomBarStyle,
+                        onSelect = onBottomBarStyleChange,
+                        last = !frostedGlassConfigurable && !showBottomBarPosition,
+                    )
+                }
+                if (frostedGlassConfigurable) {
+                    FrostedGlassRow(
+                        checked = settings.frostedGlass,
+                        enabled = !settings.einkMode && floatingBottomBar,
+                        onCheckedChange = onFrostedGlassChange,
+                        last = !showBottomBarPosition,
+                    )
+                }
+                if (showBottomBarPosition) {
                     SettingsMenuRow(
                         icon = PlazaIcons.VerticalAlignBottom,
                         title = stringResource(Res.string.settings_bottom_bar_position),
@@ -552,6 +562,12 @@ private fun PaletteStyleRow(
         enabled = enabled,
     )
 }
+
+private val BottomBarStyle.label
+    get() = when (this) {
+        BottomBarStyle.FLOATING -> Res.string.settings_bottom_bar_style_floating
+        BottomBarStyle.STANDARD -> Res.string.settings_bottom_bar_style_standard
+    }
 
 private val BottomBarPosition.label
     get() = when (this) {

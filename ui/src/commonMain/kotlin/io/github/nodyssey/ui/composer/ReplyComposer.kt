@@ -6,9 +6,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,10 +33,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,14 +45,20 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -63,6 +71,7 @@ import androidx.compose.ui.window.DialogProperties
 import io.github.nodyssey.data.composer.ImageAttachment
 import io.github.nodyssey.data.composer.PickedImage
 import io.github.nodyssey.data.composer.UploadFailure
+import io.github.nodyssey.ui.common.PlazaSheet
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteErrorRecovery
 import io.github.nodyssey.ui.resources.Res
@@ -79,6 +88,7 @@ import io.github.nodyssey.ui.resources.composer_publish_network_failed
 import io.github.nodyssey.ui.resources.composer_publishing
 import io.github.nodyssey.ui.resources.post_quote_prefix
 import io.github.nodyssey.ui.resources.post_quote_reply
+import io.github.nodyssey.ui.resources.post_reply_add_target
 import io.github.nodyssey.ui.resources.post_reply_draft_saved
 import io.github.nodyssey.ui.resources.post_reply_editor_hint
 import io.github.nodyssey.ui.resources.post_reply_editor_title
@@ -93,14 +103,17 @@ import io.github.nodyssey.ui.vote.VoteComposeDialog
 import io.github.plaza.core.TimeFormat
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.AdaptiveGlassTopBar
 import io.github.plaza.designsys.component.EditorTextField
 import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.PlazaBackHandler
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.QuotePreview
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.StatusAction
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.editor.ComposerEditorBar
@@ -109,6 +122,8 @@ import io.github.plaza.designsys.editor.MarkdownEditorState
 import io.github.plaza.designsys.editor.ToolbarCustomizeSheet
 import io.github.plaza.designsys.editor.rememberMarkdownEditorState
 import io.github.plaza.designsys.theme.CommentBody
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
+import io.github.plaza.designsys.theme.GlassRimWidth
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Sizes
@@ -116,7 +131,9 @@ import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassRimBorderStroke
 import io.github.plaza.designsys.theme.glassSheetBrush
-import io.github.plaza.designsys.theme.nativeGlass
+import io.github.plaza.designsys.theme.glassSheetRimBorderStroke
+import io.github.plaza.designsys.theme.glassSheetRimBrush
+import io.github.plaza.designsys.theme.nativeControls
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
@@ -146,7 +163,7 @@ fun ReplyComposerHost(
     covered: Boolean,
     onDismiss: () -> Unit,
     bodyState: TextFieldState,
-    onClearReplyTo: () -> Unit,
+    onRemoveReplyTarget: (Int) -> Unit,
     onPreviewChange: (Boolean) -> Unit,
     onPickImages: (List<PickedImage>) -> Unit,
     onRemoveAttachment: (ImageAttachment) -> Unit,
@@ -224,7 +241,7 @@ fun ReplyComposerHost(
             state = state,
             onDismiss = onDismiss,
             bodyState = bodyState,
-            onClearReplyTo = onClearReplyTo,
+            onRemoveReplyTarget = onRemoveReplyTarget,
             onPreview = { onPreviewChange(true) },
             onPickImages = launchPicker,
             onPickHostedImages = { pickingHosted = true },
@@ -286,7 +303,7 @@ private fun ReplyEditorSheet(
     state: ReplyComposerUiState,
     onDismiss: () -> Unit,
     bodyState: TextFieldState,
-    onClearReplyTo: () -> Unit,
+    onRemoveReplyTarget: (Int) -> Unit,
     onPreview: () -> Unit,
     onPickImages: () -> Unit,
     onPickHostedImages: () -> Unit,
@@ -313,87 +330,165 @@ private fun ReplyEditorSheet(
     // than a phone's sheet rising from the bottom edge of one column under a scrim that greys out the
     // whole window. Height counts as well as width: a phone on its side is wide, but a centred card
     // over its keyboard would leave the editor a sliver.
+    // iOS keeps UIKit's sheet everywhere: on an iPad it is the centred page sheet Mail replies in,
+    // and UIKit, not an IME inset, keeps it clear of the keyboard — a floating keyboard included,
+    // which the card's inset mistook for a docked one and shoved the card under the tab bar.
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
+    val nativeChrome = nativeControls
     val asCard =
-        with(density) {
-            windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
-        }
+        !nativeChrome &&
+            with(density) {
+                windowSize.width.toDp() >= REPLY_CARD_MIN_WINDOW && windowSize.height.toDp() >= REPLY_CARD_MIN_WINDOW
+            }
     val dismiss = { if (!state.isPublishing) onDismiss() }
-    val nativeGlass = LocalPlazaLayers.current.nativeGlass
+    val fillNativeSheet = nativeChrome && !asCard
+    // The native sheet opens with nothing focused in it: ask for the body once the field is
+    // attached, so the keyboard rises with the sheet, the way Messages opens a reply.
+    LaunchedEffect(fillNativeSheet, state.visible) {
+        if (fillNativeSheet && state.visible) {
+            withFrameNanos { }
+            try {
+                bodyFocus.requestFocus()
+            } catch (_: IllegalStateException) {
+                // The requester is not attached yet; the keyboard stays down this once.
+            }
+        }
+    }
+    val layers = LocalPlazaLayers.current
+    val darkTheme = LocalPlazaDarkTheme.current
+    val glassIconCircle: @Composable (@Composable () -> Unit) -> Unit = { icon ->
+        if (layers.backdropGlass) {
+            val fill = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (darkTheme) 0.56f else 0.82f)
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(fill, CircleShape)
+                    .border(GlassRimWidth, layers.glassSheetRimBrush(darkTheme), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                icon()
+            }
+        } else {
+            icon()
+        }
+    }
     val editor: @Composable (Modifier) -> Unit = { editorModifier ->
         Column(modifier = editorModifier.fillMaxWidth()) {
-            // The post editor's top bar in miniature: ✕ · where the reply goes · 预览 · 发布. 发布
-            // moved up here from the end of the formatting strip, which is what let the strip go —
-            // it was the reason that strip had to squeeze its keys to 42dp.
-            Row(
-                modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget)
-                    .padding(start = Spacing.xs, end = if (nativeGlass) Spacing.lg else Spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                IconButton(onClick = onDismiss, enabled = !state.isPublishing) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.action_close),
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Text(
-                    // The author is in the target chip right under this, so the header names the
-                    // floor only — and falls back to plain 回复 the moment that chip is dismissed.
-                    text = state.replyTo?.let {
-                        stringResource(Res.string.post_reply_editor_title_to_floor, it.floor)
-                    } ?: stringResource(Res.string.post_reply_editor_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(
-                    onClick = {
-                        // The preview covers the sheet, so the IME has to be gone before it rises —
-                        // otherwise it comes back to a keyboard over a screen that has no field.
-                        keyboard?.hide()
-                        onPreview()
-                    },
-                    enabled = !state.isPublishing,
+            val headerTitle =
+                state.replyTargets.singleOrNull()?.let {
+                    stringResource(Res.string.post_reply_editor_title_to_floor, it.floor)
+                } ?: stringResource(Res.string.post_reply_editor_title)
+            val headerRow: @Composable () -> Unit = {
+                // The post editor's top bar in miniature: ✕ · where the reply goes · 预览 · 发布. 发布
+                // moved up here from the end of the formatting strip, which is what let the strip go —
+                // it was the reason that strip had to squeeze its keys to 42dp.
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget)
+                        .padding(start = Spacing.xs, end = if (nativeChrome) Spacing.lg else Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Icon(
-                        imageVector = PlazaIcons.Visibility,
-                        contentDescription = stringResource(Res.string.action_preview),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
+                    IconButton(onClick = onDismiss, enabled = !state.isPublishing) {
+                        glassIconCircle {
+                            PlazaIcon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(Res.string.action_close),
+                                modifier = Modifier.size(if (layers.backdropGlass) 18.dp else 20.dp),
+                            )
+                        }
+                    }
+                    Text(
+                        text = headerTitle,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(
+                        onClick = {
+                            // The preview covers the sheet, so the IME has to be gone before it rises —
+                            // otherwise it comes back to a keyboard over a screen that has no field.
+                            keyboard?.hide()
+                            onPreview()
+                        },
+                        enabled = !state.isPublishing,
+                    ) {
+                        glassIconCircle {
+                            PlazaIcon(
+                                imageVector = PlazaIcons.Visibility,
+                                contentDescription = stringResource(Res.string.action_preview),
+                                tint = if (layers.backdropGlass) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    PublishReplyButton(
+                        isPublishing = state.isPublishing,
+                        enabled = state.canPublish,
+                        onClick = onPublish,
                     )
                 }
-                PublishReplyButton(
-                    isPublishing = state.isPublishing,
-                    enabled = state.canPublish,
-                    onClick = onPublish,
-                )
             }
-            // The dismissible 回复 target (6d), recessed into the sheet (2c): it is a reference to
-            // something outside the reply, not part of it. Only 回复 gets one, because only 回复 is a
-            // property of the comment as a whole; a 引用 is text in the body, visible and editable
-            // there, and a chip would imply it could be dismissed the same way.
-            state.replyTo?.let { replyTo ->
-                QuotePreview(
-                    title = stringResource(Res.string.post_quote_reply, replyTo.author, "#${replyTo.floor}"),
-                    excerpt = replyTo.excerpt,
-                    leading = {
-                        Icon(
-                            PlazaIcons.FormatQuote,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp),
-                        )
+            if (fillNativeSheet) {
+                // The native sheet's bar is a system navigation bar: the same ✕, title, 预览 and a
+                // prominent 发布, with the Compose row kept as the non-native fallback.
+                val publishLabel =
+                    stringResource(if (state.isPublishing) Res.string.composer_publishing else Res.string.action_publish)
+                AdaptiveGlassTopBar(
+                    title = headerTitle,
+                    titleAction = null,
+                    back =
+                    GlassAction(
+                        label = stringResource(Res.string.action_close),
+                        onClick = onDismiss,
+                        symbol = "xmark",
+                        enabled = !state.isPublishing,
+                    ),
+                    actions =
+                    listOf(
+                        GlassAction(
+                            label = stringResource(Res.string.action_preview),
+                            onClick = {
+                                // The preview covers the sheet, so the IME has to be gone before
+                                // it rises — same reason as the row's button.
+                                keyboard?.hide()
+                                onPreview()
+                            },
+                            symbol = "eye",
+                            enabled = !state.isPublishing,
+                        ),
+                        GlassAction(
+                            label = publishLabel,
+                            title = publishLabel,
+                            onClick = onPublish,
+                            symbol = "arrow.up",
+                            enabled = state.canPublish,
+                            loading = state.isPublishing,
+                            prominent = true,
+                            compact = true,
+                        ),
+                    ),
+                    // The native bar measures nothing in Compose; give it the row's height.
+                    modifier = Modifier.fillMaxWidth().height(Sizes.minTouchTarget),
+                ) {
+                    headerRow()
+                }
+            } else {
+                headerRow()
+            }
+            if (state.replyTargets.isNotEmpty()) {
+                ReplyTargets(
+                    targets = state.replyTargets,
+                    enabled = !state.isPublishing,
+                    onRemove = onRemoveReplyTarget,
+                    onAdd = {
+                        keyboard?.hide()
+                        onDismiss()
                     },
-                    inset = true,
-                    onRemove = onClearReplyTo,
-                    removeLabel = stringResource(Res.string.post_reply_quote_remove),
-                    modifier = Modifier.padding(horizontal = Spacing.md),
                 )
             }
             // The default container fills the width it was given, which is what this field needs:
@@ -407,8 +502,15 @@ private fun ReplyEditorSheet(
                 inlinePictures = stickerPictures,
                 modifier = Modifier
                     .readableWidth()
-                    .heightIn(min = MIN_EDITOR_HEIGHT, max = MAX_EDITOR_HEIGHT)
+                    .then(
+                        if (fillNativeSheet) {
+                            Modifier.weight(1f)
+                        } else {
+                            Modifier.heightIn(min = MIN_EDITOR_HEIGHT, max = MAX_EDITOR_HEIGHT)
+                        },
+                    )
                     .focusRequester(bodyFocus)
+                    .onFocusChanged { if (it.isFocused) editorState.closePanels() }
                     .padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.sm),
             )
             AttachmentTray(
@@ -444,7 +546,7 @@ private fun ReplyEditorSheet(
                 bodyState = bodyState,
                 editorState = editorState,
                 // The strip already has an 8dp gutter; align it with the reply's 16dp text inset.
-                barModifier = if (nativeGlass) Modifier.padding(start = Spacing.sm, end = Spacing.sm, top = Spacing.sm) else Modifier,
+                barModifier = if (nativeChrome) Modifier.padding(start = Spacing.sm, end = Spacing.sm, top = Spacing.sm) else Modifier,
                 onPickImages = onPickImages,
                 onPickHostedImages = onPickHostedImages,
                 onFormatted = { bodyFocus.requestFocus() },
@@ -464,8 +566,6 @@ private fun ReplyEditorSheet(
             )
         }
     }
-    val layers = LocalPlazaLayers.current
-    val darkTheme = LocalPlazaDarkTheme.current
     if (asCard) {
         Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             // The keyboard pushes the card up rather than covering its bottom, where 发布's strip is.
@@ -476,7 +576,7 @@ private fun ReplyEditorSheet(
                 Surface(
                     shape = MaterialTheme.shapes.extraLarge,
                     color = layers.card,
-                    border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
+                    border = if (layers.backdropGlass) layers.glassSheetRimBorderStroke(darkTheme) else null,
                     modifier = Modifier.widthIn(max = REPLY_CARD_MAX_WIDTH).fillMaxWidth(),
                 ) {
                     editor(
@@ -494,29 +594,93 @@ private fun ReplyEditorSheet(
             }
         }
     } else {
-        ModalBottomSheet(
+        val sheetContainerColor =
+            if (layers.backdropGlass) {
+                if (darkTheme) {
+                    lerp(layers.card, layers.raised, 0.35f).copy(alpha = 0.90f)
+                } else {
+                    Color.White.copy(alpha = 0.90f)
+                }
+            } else {
+                layers.card
+            }
+        val sheetShape =
+            if (layers.backdropGlass) {
+                RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+            } else {
+                PlazaSheetDefaults.shape
+            }
+        PlazaSheet(
             // Guarded like the close button and the BackHandler: while a publish is in flight, a swipe
             // or scrim tap must not be the one dismiss path that still works.
-            onDismissRequest = dismiss,
+            onDismiss = dismiss,
             sheetState = rememberBottomSheetState(
                 initialValue = SheetValue.Hidden,
                 enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
             ),
             // A sheet of paper, like the post editor's page (2c): the editor is one card lifted over the
             // thread, and only its bar and the emoji panel under it recede.
-            containerColor = layers.card,
-            shape = PlazaSheetDefaults.shape,
-            dragHandle = { PlazaSheetDefaults.DragHandle() },
+            containerColor = sheetContainerColor,
+            shape = sheetShape,
         ) {
             // Material clips the whole sheet, including its handle, to one outer shape. Painting
             // another full-width background below the handle creates a second, square-edged panel.
-            editor(Modifier.imePadding())
+            // UIKit's detent fixes the sheet height. Let the body take the remaining space so
+            // the formatting strip stays against the keyboard instead of above unused sheet space.
+            editor(if (fillNativeSheet) Modifier.fillMaxSize().imePadding() else Modifier.imePadding())
         }
     }
 }
 
 /** C4: the sheet's content, full screen, rendered exactly the way the thread will render it. */
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReplyTargets(
+    targets: List<FloorReference>,
+    enabled: Boolean,
+    onRemove: (Int) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).heightIn(max = 104.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            for (target in targets) {
+                key(target.floor) {
+                    val title = stringResource(Res.string.post_quote_reply, target.author, "#${target.floor}")
+                    QuotePreview(
+                        title = title,
+                        excerpt = target.excerpt,
+                        leading = {
+                            PlazaIcon(
+                                PlazaIcons.FormatQuote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                        inset = true,
+                        onRemove = if (enabled) ({ onRemove(target.floor) }) else null,
+                        removeLabel = stringResource(Res.string.post_reply_quote_remove, title),
+                    )
+                }
+            }
+        }
+        TextButton(
+            onClick = onAdd,
+            enabled = enabled,
+            modifier = Modifier.widthIn(max = 140.dp),
+        ) {
+            Text(stringResource(Res.string.post_reply_add_target))
+        }
+    }
+}
+
 @Composable
 private fun ReplyPreviewScreen(
     state: ReplyComposerUiState,
@@ -529,34 +693,37 @@ private fun ReplyPreviewScreen(
     PlazaBackHandler(enabled = !state.isPublishing, onBack = onBack)
     Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
         Column {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = state.replyTo?.let {
-                            stringResource(Res.string.post_reply_preview_title_floor, it.floor)
-                        } ?: stringResource(Res.string.post_reply_preview_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontSize = 16.sp,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack, enabled = !state.isPublishing) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = {
+                        Text(
+                            text = state.replyTargets.singleOrNull()?.let {
+                                stringResource(Res.string.post_reply_preview_title_floor, it.floor)
+                            } ?: stringResource(Res.string.post_reply_preview_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 16.sp,
                         )
-                    }
-                },
-                actions = {
-                    PublishReplyButton(
-                        isPublishing = state.isPublishing,
-                        enabled = state.canPublish,
-                        onClick = onPublish,
-                        modifier = Modifier.padding(end = Spacing.sm),
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack, enabled = !state.isPublishing) {
+                            PlazaIcon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(Res.string.action_back),
+                            )
+                        }
+                    },
+                    actions = {
+                        PublishReplyButton(
+                            isPublishing = state.isPublishing,
+                            enabled = state.canPublish,
+                            onClick = onPublish,
+                            modifier = Modifier.padding(end = Spacing.sm),
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+            }
             ComposerErrorStrip(
                 error = state.publishError,
                 detail = state.publishErrorDetail,
@@ -578,15 +745,19 @@ private fun ReplyPreviewScreen(
                     .padding(horizontal = Spacing.xl, vertical = Spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm + 2.dp),
             ) {
-                // Only the 回复 reference: any 引用 is part of the body below, and the Markdown
-                // preview already renders it as the blockquote it will become.
-                state.replyTo?.let { replyTo ->
-                    // How the 回复 reads once published: the addressed floor, ahead of the body.
-                    TonalTag(
-                        text = "@${replyTo.author} ${stringResource(Res.string.post_quote_prefix, replyTo.floor)}",
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
+                if (state.replyTargets.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        for (target in state.replyTargets) {
+                            TonalTag(
+                                text = "@${target.author} ${stringResource(Res.string.post_quote_prefix, target.floor)}",
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
                 }
                 MarkdownPreviewBody(markdown = state.body)
             }
@@ -689,14 +860,22 @@ private fun PublishReplyButton(
         Button(
             onClick = onClick,
             enabled = enabled && !isPublishing,
-            shape = ButtonDefaults.squareShape,
-            border = if (layers.backdropGlass) layers.glassRimBorderStroke(darkTheme) else null,
+            shape = if (layers.backdropGlass) FloatingCapsuleShape else ButtonDefaults.squareShape,
+            border = if (layers.backdropGlass) {
+                if (enabled && !isPublishing) {
+                    layers.glassRimBorderStroke(darkTheme)
+                } else {
+                    layers.glassSheetRimBorderStroke(darkTheme)
+                }
+            } else {
+                null
+            },
             colors =
             if (layers.backdropGlass) {
                 ButtonDefaults.buttonColors(
-                    containerColor = scheme.primary.copy(alpha = 0.88f),
+                    containerColor = scheme.primary.copy(alpha = 0.90f),
                     contentColor = scheme.onPrimary,
-                    disabledContainerColor = layers.raised.copy(alpha = if (darkTheme) 0.56f else 0.72f),
+                    disabledContainerColor = scheme.surfaceContainerHigh.copy(alpha = if (darkTheme) 0.56f else 0.80f),
                     disabledContentColor = scheme.onSurfaceVariant,
                 )
             } else {
@@ -713,7 +892,7 @@ private fun PublishReplyButton(
                     size = 14.dp,
                 )
             } else {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                PlazaIcon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
             }
             Text(
                 text = stringResource(if (isPublishing) Res.string.composer_publishing else Res.string.action_publish),

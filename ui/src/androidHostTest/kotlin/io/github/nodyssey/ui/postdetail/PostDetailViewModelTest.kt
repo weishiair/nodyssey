@@ -146,7 +146,7 @@ class PostDetailViewModelTest {
     }
 
     @Test
-    fun `cached HTML replies are read in numeric floor order without a refetch`() = runTest(dispatcher) {
+    fun `cached HTML keeps the featured floor before ordinary replies without fetching again`() = runTest(dispatcher) {
         val html = javaClass.classLoader!!.getResourceAsStream("fixtures/post-703863-1.html")!!.bufferedReader().use { it.readText() }
         val detail = PostDetailParser.parse(html, postId = 42, page = 1)
         assertEquals("#4", detail.comments.first().floor)
@@ -157,7 +157,8 @@ class PostDetailViewModelTest {
         val vm = viewModel()
         advanceUntilIdle()
 
-        assertEquals((1..10).map { "#$it" }, vm.uiState.value.comments.map { it.floor })
+        assertEquals(listOf(4, 1, 2, 3, 5, 6, 7, 8, 9, 10).map { "#$it" }, vm.uiState.value.comments.map { it.floor })
+        assertTrue(vm.uiState.value.comments.first().isHot)
         assertEquals(requests, remote.detailRequests.size)
         assertEquals(detail.comments.map { it.commentId }.toSet(), vm.uiState.value.comments.map { it.commentId }.toSet())
     }
@@ -194,6 +195,34 @@ class PostDetailViewModelTest {
         advanceUntilIdle()
         assertEquals((1..17).map { "#$it" }, vm.uiState.value.comments.map { it.floor })
         assertEquals(expectedPages, vm.uiState.value.commentPages)
+    }
+
+    @Test
+    fun `hot floors keep site order and later pages retain their original rows`() = runTest(dispatcher) {
+        val laterReply = FakePostRemoteDataSource.content("original reply").copy(commentId = 12, floor = "#12")
+        val thirdReply = FakePostRemoteDataSource.content("third reply").copy(commentId = 3, floor = "#3", isHot = true)
+        val firstReply = FakePostRemoteDataSource.content("first reply").copy(commentId = 1, floor = "#1", isHot = true)
+        val regularReply = FakePostRemoteDataSource.content("ordinary reply").copy(commentId = 2, floor = "#2")
+        val featured = laterReply.copy(isHot = true)
+        remote.detailResult = { postId, page ->
+            FakePostRemoteDataSource.detail(postId, page, totalPages = 2).copy(
+                comments = if (page == 1) listOf(regularReply, featured, thirdReply, firstReply) else listOf(laterReply),
+            )
+        }
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(listOf(1), remote.detailRequests.map { it.second })
+        assertEquals(listOf(featured, thirdReply, firstReply, regularReply), vm.uiState.value.comments)
+
+        vm.loadNextPage()
+        advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(listOf(1, 2), remote.detailRequests.map { it.second })
+        assertEquals(listOf(featured, thirdReply, firstReply, regularReply, laterReply), state.comments)
+        assertEquals(listOf(1, 1, 1, 1, 2), state.commentPages)
+        assertEquals(state.comments.size, state.comments.indices.map(state::commentKey).toSet().size)
     }
 
     /**

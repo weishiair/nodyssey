@@ -1,29 +1,111 @@
 package io.github.nodyssey.ui.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.ReadableWidthSpec
 import io.github.plaza.designsys.theme.Spacing
 
 internal val LocalIosPad = staticCompositionLocalOf { false }
 
+/**
+ * Window-level orientation on iPad (`null` when derived from the pane's own aspect ratio).
+ * Keeping this anchored to the window stops a landscape split-pane squeeze from snapping
+ * [IosPadTabContentMaxWidth] down to [TabContentMaxWidth] when the pane narrows past its height.
+ */
+internal val LocalIosPadLandscape = compositionLocalOf<Boolean?> { null }
+
+/**
+ * Whether the hosting iPad tab root is mid-squeeze between full-width and split-pane layout.
+ * Stored as a lambda read during [TabScaffold]'s layout pass so toggling squeeze mode never
+ * recomposes the screen body, while keeping static narrow layouts (e.g. 560dp on Android or
+ * resting iPad split views) completely unchanged.
+ */
+internal val LocalIosPadSqueezing = staticCompositionLocalOf<() -> Boolean> { { false } }
+
 internal val TabContentMaxWidth = 720.dp
+internal val IosPadTabContentMaxWidth = 960.dp
 internal val WideTabMinWidth = 600.dp
+internal val TabSqueezePaddingMinWidth = 520.dp
+
+internal fun tabContentMaxWidth(isIosPad: Boolean, landscape: Boolean): Dp =
+    if (isIosPad && landscape) IosPadTabContentMaxWidth else TabContentMaxWidth
+
+/**
+ * The readable-column spec for a screen hosted on iPad.
+ *
+ * Full-window pages (every screen in 整页 mode, plus non-split pages and portrait pages in 双栏
+ * mode) reuse the tab column's width and outer gutter so pushed screens match 首页 / 通知 / 我的.
+ * Pages inside a side-by-side split keep [ReadableWidthSpec.Default] so the 360pt list fills its
+ * pane and the detail column keeps comfortable margins beside the divider.
+ */
+internal fun iosPadReadableWidthSpec(
+    isIosPad: Boolean,
+    inSplit: Boolean,
+    windowLandscape: Boolean?,
+): ReadableWidthSpec =
+    if (isIosPad && !inSplit) {
+        ReadableWidthSpec(
+            maxWidth = TabContentMaxWidth,
+            landscapeMaxWidth = IosPadTabContentMaxWidth,
+            horizontalGutter = Spacing.lg,
+            gutterMinWidth = WideTabMinWidth,
+            windowLandscape = windowLandscape,
+        )
+    } else {
+        ReadableWidthSpec.Default
+    }
+
+/**
+ * Horizontal outer gutter for [TabScaffold]. Full [Spacing.lg] at [WideTabMinWidth] and above,
+ * and zero below it at rest. During an iPad split-pane squeeze ([squeezing] = true), ramps
+ * linearly across [TabSqueezePaddingMinWidth]..[WideTabMinWidth] so the content column shrinks
+ * monotonically without an outward pop.
+ */
+internal fun tabHorizontalPadding(
+    availableWidth: Dp,
+    squeezing: Boolean = false,
+): Dp =
+    when {
+        availableWidth >= WideTabMinWidth -> Spacing.lg
+
+        !squeezing || availableWidth <= TabSqueezePaddingMinWidth -> 0.dp
+
+        else -> {
+            val fraction =
+                (availableWidth - TabSqueezePaddingMinWidth) /
+                    (WideTabMinWidth - TabSqueezePaddingMinWidth)
+            Spacing.lg * fraction
+        }
+    }
+
+internal fun tabContentWidth(
+    availableWidth: Dp,
+    availableHeight: Dp,
+    isIosPad: Boolean,
+    windowLandscape: Boolean? = null,
+    squeezing: Boolean = false,
+): Dp {
+    val padding = tabHorizontalPadding(availableWidth, squeezing = squeezing)
+    val inner = (availableWidth - padding * 2).coerceAtLeast(0.dp)
+    if (availableWidth < WideTabMinWidth && padding <= 0.dp) return inner
+    val maxContentWidth = tabContentMaxWidth(isIosPad, landscape = windowLandscape ?: (availableWidth > availableHeight))
+    return inner.coerceAtMost(maxContentWidth)
+}
 
 /** Keeps the header, body and floating actions in the same column within the safe area. */
 @Composable
@@ -35,27 +117,72 @@ internal fun TabScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     content: @Composable (PaddingValues, wide: Boolean) -> Unit,
 ) {
-    val scaffold: @Composable (Modifier, Boolean) -> Unit = { frame, wide ->
-        Scaffold(
-            modifier = frame,
-            topBar = { topBar(wide) },
+    if (!enabled) {
+        TabScaffoldBody(
+            modifier = modifier,
+            wide = false,
+            topBar = topBar,
             snackbarHost = snackbarHost,
             floatingActionButton = floatingActionButton,
-        ) { padding -> content(padding, wide) }
-    }
-    if (!enabled) {
-        scaffold(modifier, false)
+            content = content,
+        )
         return
     }
-    BoxWithConstraints(
+    val isIosPad = LocalIosPad.current
+    val windowLandscape = LocalIosPadLandscape.current
+    val isSqueezing = LocalIosPadSqueezing.current
+    // SubcomposeLayout instead of BoxWithConstraints so intermediate widths during a split-pane
+    // squeeze re-measure in the layout phase without recomposing Scaffold, headers or native glass
+    // controls unless the `wide` breakpoint actually changes.
+    SubcomposeLayout(
         modifier = modifier
             .fillMaxSize()
             .background(LocalPlazaLayers.current.page)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        val wide = maxWidth >= WideTabMinWidth
-        val frame = if (wide) Modifier.padding(horizontal = Spacing.lg).widthIn(max = TabContentMaxWidth) else Modifier
-        scaffold(frame.fillMaxSize(), wide)
+    ) { constraints ->
+        val availableWidth = constraints.maxWidth.toDp()
+        val availableHeight = constraints.maxHeight.toDp()
+        val wide = availableWidth >= WideTabMinWidth
+        val contentWidthPx =
+            tabContentWidth(
+                availableWidth = availableWidth,
+                availableHeight = availableHeight,
+                isIosPad = isIosPad,
+                windowLandscape = windowLandscape,
+                squeezing = isIosPad && isSqueezing(),
+            ).roundToPx().coerceIn(0, constraints.maxWidth)
+        val childConstraints = constraints.copy(minWidth = contentWidthPx, maxWidth = contentWidthPx)
+        val placeables =
+            subcompose(Unit) {
+                TabScaffoldBody(
+                    modifier = Modifier.fillMaxSize(),
+                    wide = wide,
+                    topBar = topBar,
+                    snackbarHost = snackbarHost,
+                    floatingActionButton = floatingActionButton,
+                    content = content,
+                )
+            }.map { it.measure(childConstraints) }
+        val x = ((constraints.maxWidth - contentWidthPx) / 2).coerceAtLeast(0)
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            placeables.forEach { it.placeRelative(x, 0) }
+        }
     }
+}
+
+@Composable
+private fun TabScaffoldBody(
+    modifier: Modifier,
+    wide: Boolean,
+    topBar: @Composable (wide: Boolean) -> Unit,
+    snackbarHost: @Composable () -> Unit,
+    floatingActionButton: @Composable () -> Unit,
+    content: @Composable (PaddingValues, wide: Boolean) -> Unit,
+) {
+    Scaffold(
+        modifier = modifier,
+        topBar = { topBar(wide) },
+        snackbarHost = snackbarHost,
+        floatingActionButton = floatingActionButton,
+    ) { padding -> content(padding, wide) }
 }

@@ -19,7 +19,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
@@ -36,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -61,7 +61,11 @@ import io.github.nodyssey.ui.resources.post_reading_original_position
 import io.github.nodyssey.ui.resources.post_reply_action
 import io.github.plaza.designsys.component.AdaptiveGlassButton
 import io.github.plaza.designsys.component.GlassAction
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
+import io.github.plaza.designsys.component.liquidGlassInteractive
+import io.github.plaza.designsys.theme.FloatingCapsuleShape
+import io.github.plaza.designsys.theme.GlassSurfaceStyle
 import io.github.plaza.designsys.theme.LocalEinkMode
 import io.github.plaza.designsys.theme.LocalLiquidGlassBackdrop
 import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
@@ -69,6 +73,8 @@ import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.TABULAR_FIGURES
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.nativeControls
+import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 
 /** Keep the original reading row; glass enters as a whole, like the bottom navigation. */
@@ -83,7 +89,7 @@ internal fun ThreadReadingControls(
     bottomInset: Dp = 0.dp,
 ) {
     val inset = bottomBarInset(bottomInset)
-    if (LocalPlazaLayers.current.frostedGlass) {
+    if (nativeControls || LocalPlazaLayers.current.frostedGlass) {
         val visibility = remember { MutableTransitionState(false) }
         visibility.targetState = visible
         FloatingBottomBarVisibility(visibleState = visibility, modifier = modifier) {
@@ -113,7 +119,7 @@ private fun ThreadReadingControlsRow(
     } else {
         stringResource(Res.string.post_floor_position, currentFloor)
     }
-    BottomBarBand(modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+    BottomBarBand(modifier.readableWidth().padding(horizontal = 12.dp)) {
         Box(
             Modifier.fillMaxWidth().padding(horizontal = 60.dp).align(Alignment.Center),
             contentAlignment = Alignment.Center,
@@ -130,19 +136,22 @@ private fun ThreadReadingControlsRow(
                         .heightIn(min = 48.dp)
                         .then(
                             if (layers.backdropGlass) {
-                                Modifier.glassChromeSurface(
-                                    layers = layers,
-                                    darkTheme = darkTheme,
-                                    shape = CircleShape,
-                                    elevated = true,
-                                    backdrop = backdrop,
-                                )
+                                Modifier
+                                    .liquidGlassInteractive(FloatingCapsuleShape)
+                                    .glassChromeSurface(
+                                        layers = layers,
+                                        darkTheme = darkTheme,
+                                        shape = FloatingCapsuleShape,
+                                        elevated = true,
+                                        backdrop = backdrop,
+                                        style = GlassSurfaceStyle.Navigation,
+                                    )
                             } else {
                                 Modifier
                             },
                         )
                         .semantics { contentDescription = positionLabel },
-                    shape = CircleShape,
+                    shape = FloatingCapsuleShape,
                     color = if (layers.backdropGlass) Color.Transparent else layers.raised,
                     shadowElevation = if (einkMode || layers.backdropGlass) 0.dp else 2.dp,
                 ) {
@@ -156,7 +165,8 @@ private fun ThreadReadingControlsRow(
                 }
             }
         }
-        val fabShape = RoundedCornerShape(16.dp)
+        // A circle, like the back button: a floating square button has no long edge for a capsule.
+        val fabShape = CircleShape
         AdaptiveGlassButton(
             action = GlassAction(
                 label = stringResource(Res.string.post_reply_action),
@@ -173,17 +183,22 @@ private fun ThreadReadingControlsRow(
                     .size(48.dp)
                     .then(
                         if (layers.backdropGlass) {
-                            Modifier.glassChromeSurface(
-                                layers = layers,
-                                darkTheme = darkTheme,
-                                shape = fabShape,
-                                elevated = true,
-                                backdrop = backdrop,
-                                surfaceTint =
-                                MaterialTheme.colorScheme.primaryContainer.copy(
-                                    alpha = if (darkTheme) 0.44f else 0.42f,
-                                ),
-                            )
+                            val scheme = MaterialTheme.colorScheme
+                            Modifier
+                                .liquidGlassInteractive(fabShape)
+                                .glassChromeSurface(
+                                    layers = layers,
+                                    darkTheme = darkTheme,
+                                    shape = fabShape,
+                                    elevated = true,
+                                    backdrop = backdrop,
+                                    hueTint = scheme.primary,
+                                    surfaceTint = lerp(
+                                        scheme.primaryContainer,
+                                        scheme.primary,
+                                        if (darkTheme) 0.16f else 0.10f,
+                                    ).copy(alpha = if (darkTheme) 0.46f else 0.48f),
+                                )
                         } else {
                             Modifier
                         },
@@ -203,7 +218,7 @@ private fun ThreadReadingControlsRow(
                     FloatingActionButtonDefaults.elevation(defaultElevation = if (einkMode) 0.dp else 2.dp)
                 },
             ) {
-                Icon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
+                PlazaIcon(PlazaIcons.Reply, stringResource(Res.string.post_reply_action), Modifier.size(24.dp))
             }
         }
     }
@@ -227,6 +242,7 @@ internal fun ThreadFloorJumpSheet(
     val title = stringResource(Res.string.post_floor_jump)
     PlazaSheet(
         onDismiss = onDismiss,
+        fitNativeSheetContent = true,
         sheetState = rememberBottomSheetState(
             initialValue = SheetValue.Hidden,
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.snackbar_dismiss
 import io.github.plaza.designsys.theme.GlassSurfaceStyle
@@ -36,6 +36,7 @@ import io.github.plaza.designsys.theme.LocalPlazaDarkTheme
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.backdropGlass
 import io.github.plaza.designsys.theme.glassChromeSurface
+import io.github.plaza.designsys.theme.nativeControls
 import org.jetbrains.compose.resources.stringResource
 
 /** Material owns the queue, accessibility announcements, timeout and entrance/exit motion. */
@@ -52,7 +53,7 @@ fun PlazaSnackbar(
     snackbarData: SnackbarData,
     modifier: Modifier = Modifier,
 ) {
-    if (!LocalPlazaLayers.current.frostedGlass) {
+    if (!nativeControls && !LocalPlazaLayers.current.frostedGlass) {
         Snackbar(snackbarData, modifier)
         return
     }
@@ -68,7 +69,7 @@ fun PlazaSnackbar(
             modifier = modifier.padding(12.dp),
             action = actionLabel?.let { label -> { FilledTonalButton(onClick = snackbarData::performAction) { Text(label) } } },
             dismissAction = if (snackbarData.visuals.withDismissAction) {
-                { IconButton(onClick = snackbarData::dismiss) { Icon(Icons.Default.Close, contentDescription = dismissLabel) } }
+                { IconButton(onClick = snackbarData::dismiss) { PlazaIcon(Icons.Default.Close, contentDescription = dismissLabel) } }
             } else {
                 null
             },
@@ -96,7 +97,7 @@ fun PlazaSnackbar(
             modifier = modifier,
             action = actionLabel?.let { label -> onAction?.let { { TextButton(onClick = it) { Text(label) } } } },
             dismissAction = onDismiss?.let { dismiss ->
-                { IconButton(onClick = dismiss) { Icon(Icons.Default.Close, contentDescription = dismissLabel) } }
+                { IconButton(onClick = dismiss) { PlazaIcon(Icons.Default.Close, contentDescription = dismissLabel) } }
             },
         ) { Text(message) }
     }

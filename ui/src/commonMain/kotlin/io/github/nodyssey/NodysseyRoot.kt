@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,10 +25,13 @@ import io.github.nodyssey.di.AppContainer
 import io.github.nodyssey.ui.common.ApplyDisplayRefreshRate
 import io.github.nodyssey.ui.common.LocalAppName
 import io.github.nodyssey.ui.common.LocalBottomBarPosition
+import io.github.nodyssey.ui.common.LocalBottomBarStyle
 import io.github.nodyssey.ui.common.LocalReadMarkPaint
 import io.github.nodyssey.ui.common.ProvideUserNotes
 import io.github.nodyssey.ui.common.ReadMarkPaint
 import io.github.nodyssey.ui.common.SystemBarsMatchTheme
+import io.github.nodyssey.ui.common.clearFocusOnBlankTap
+import io.github.nodyssey.ui.common.dismissesKeyboardOnBlankTap
 import io.github.nodyssey.ui.common.rememberBrowserLinks
 import io.github.nodyssey.ui.common.rememberReducedMotionEnabled
 import io.github.nodyssey.ui.compare.LocalReportCompareBasket
@@ -35,6 +39,8 @@ import io.github.nodyssey.ui.compare.rememberReportCompareBasket
 import io.github.nodyssey.ui.composer.LocalImageHostRepository
 import io.github.nodyssey.ui.navigation.TopLevelDestination
 import io.github.nodyssey.ui.onboarding.OnboardingScreen
+import io.github.nodyssey.ui.postdetail.LocalAccountBadgeStyle
+import io.github.nodyssey.ui.postdetail.accountBadgeStyleInForce
 import io.github.nodyssey.ui.richtext.LocalReportFormat
 import io.github.nodyssey.ui.settings.ApplyAppLanguage
 import io.github.nodyssey.ui.settings.ProvideAppLanguage
@@ -97,6 +103,7 @@ fun NodysseyRoot(
             AccountBoundary(container, initialSettings) {
                 MainNavigation(
                     container = container,
+                    initialSettings = storedSettings ?: initialSettings,
                     initialTab = initialTab,
                     launchRequest = launchRequest,
                     onLaunchRequestHandled = onLaunchRequestHandled,
@@ -225,7 +232,7 @@ internal fun NodysseyChrome(
             // both want the same snapped motion scheme.
             reducedMotion = rememberReducedMotionEnabled() || settings.einkMode,
             einkMode = settings.einkMode,
-            frostedGlass = settings.frostedGlass,
+            frostedGlass = settings.effectiveFrostedGlass,
         ) {
             // Inside the theme on purpose: the system bar icons follow the answer PlazaTheme was just
             // given, not the OS's night mode — the same rule the Custom Tab colours already follow.
@@ -251,6 +258,7 @@ internal fun NodysseyChrome(
             val reportCompareBasket = rememberReportCompareBasket(container.reportCompareStore)
             CompositionLocalProvider(
                 LocalUriHandler provides browserLinks.uriHandler,
+                LocalBottomBarStyle provides settings.bottomBarStyle,
                 LocalBottomBarPosition provides settings.bottomBarPosition,
                 LocalLinkPrefetcher provides browserLinks.prefetcher,
                 LocalReportFormat provides settings.reportFormat,
@@ -263,6 +271,8 @@ internal fun NodysseyChrome(
                     style = settings.readMarkStyle,
                     color = settings.readMarkColor?.let { Color(it) },
                 ),
+                // 等级徽章颜色: a badge is drawn on every floor of a thread, by four row layouts.
+                LocalAccountBadgeStyle provides settings.accountBadgeStyleInForce(),
                 // 我的表情 rides here for the reason the basket does: three editors draw the panel and
                 // every post body's long press can add to it. See `LocalStickerLibrary`.
                 LocalStickerLibrary provides container.stickerLibrary,
@@ -275,8 +285,12 @@ internal fun NodysseyChrome(
             ) {
                 // 备注 rides here for the reason 测评报告 does: a name is drawn on five screens.
                 ProvideUserNotes(container.userNoteStore) {
+                    val focusManager = LocalFocusManager.current
                     Surface(
-                        modifier = modifier.fillMaxSize(),
+                        modifier =
+                        modifier
+                            .fillMaxSize()
+                            .then(if (dismissesKeyboardOnBlankTap) Modifier.clearFocusOnBlankTap(focusManager) else Modifier),
                         color = MaterialTheme.colorScheme.background,
                     ) {
                         // A post body turns up on six screens, and a selection in any of them should go

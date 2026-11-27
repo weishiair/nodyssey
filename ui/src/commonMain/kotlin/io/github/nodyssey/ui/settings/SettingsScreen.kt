@@ -1,61 +1,41 @@
 package io.github.nodyssey.ui.settings
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.AttendanceMode
-import io.github.nodyssey.data.FeedPost
 import io.github.nodyssey.data.attendance.AutoAttendanceConfig
 import io.github.nodyssey.data.attendance.AutoAttendanceState
 import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.proxy.ProxyType
+import io.github.nodyssey.data.settings.AccountBadgeStyle
 import io.github.nodyssey.data.settings.AppLanguage
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.SettingsRepository
 import io.github.nodyssey.data.settings.ThemeMode
 import io.github.nodyssey.data.settings.UserSettings
-import io.github.nodyssey.model.PostSummary
 import io.github.nodyssey.ui.account.shortNameRes
-import io.github.nodyssey.ui.common.UpdateDot
 import io.github.nodyssey.ui.common.clipboardPostPromptSupported
-import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.rememberDisplayRefreshRates
 import io.github.nodyssey.ui.common.rememberFileSizeLabel
+import io.github.nodyssey.ui.postdetail.accountBadgeStyleInForce
 import io.github.nodyssey.ui.resources.Res
-import io.github.nodyssey.ui.resources.action_back
 import io.github.nodyssey.ui.resources.doh_paused_for_proxy
 import io.github.nodyssey.ui.resources.imagehost_connected
 import io.github.nodyssey.ui.resources.imagehost_not_connected
@@ -71,6 +51,10 @@ import io.github.nodyssey.ui.resources.proxy_type_socks
 import io.github.nodyssey.ui.resources.settings_about
 import io.github.nodyssey.ui.resources.settings_about_app
 import io.github.nodyssey.ui.resources.settings_about_app_update
+import io.github.nodyssey.ui.resources.settings_account_badge_style
+import io.github.nodyssey.ui.resources.settings_account_badge_style_hint
+import io.github.nodyssey.ui.resources.settings_account_badge_style_natural
+import io.github.nodyssey.ui.resources.settings_account_badge_style_vivid
 import io.github.nodyssey.ui.resources.settings_app_links
 import io.github.nodyssey.ui.resources.settings_app_links_summary_off
 import io.github.nodyssey.ui.resources.settings_app_links_summary_on
@@ -80,7 +64,6 @@ import io.github.nodyssey.ui.resources.settings_clear_cache
 import io.github.nodyssey.ui.resources.settings_clear_cache_size
 import io.github.nodyssey.ui.resources.settings_clipboard_post
 import io.github.nodyssey.ui.resources.settings_clipboard_post_hint
-import io.github.nodyssey.ui.resources.settings_content
 import io.github.nodyssey.ui.resources.settings_doh_entry
 import io.github.nodyssey.ui.resources.settings_doh_summary_chain
 import io.github.nodyssey.ui.resources.settings_eink
@@ -102,6 +85,10 @@ import io.github.nodyssey.ui.resources.settings_notify_summary_quiet
 import io.github.nodyssey.ui.resources.settings_notify_summary_unavailable
 import io.github.nodyssey.ui.resources.settings_one_hand
 import io.github.nodyssey.ui.resources.settings_one_hand_hint
+import io.github.nodyssey.ui.resources.settings_pad_layout_mode
+import io.github.nodyssey.ui.resources.settings_pad_layout_mode_hint
+import io.github.nodyssey.ui.resources.settings_pad_layout_mode_single
+import io.github.nodyssey.ui.resources.settings_pad_layout_mode_split
 import io.github.nodyssey.ui.resources.settings_post_reply_style
 import io.github.nodyssey.ui.resources.settings_post_reply_style_cards
 import io.github.nodyssey.ui.resources.settings_post_reply_style_flat
@@ -124,23 +111,24 @@ import io.github.nodyssey.ui.resources.settings_report_format_adapted
 import io.github.nodyssey.ui.resources.settings_report_format_source
 import io.github.nodyssey.ui.resources.settings_search_avatar
 import io.github.nodyssey.ui.resources.settings_search_avatar_hint
-import io.github.nodyssey.ui.resources.settings_search_avatar_preview
 import io.github.nodyssey.ui.resources.settings_search_avatar_size
 import io.github.nodyssey.ui.resources.settings_search_history_limit
 import io.github.nodyssey.ui.resources.settings_search_history_limit_count
 import io.github.nodyssey.ui.resources.settings_search_history_limit_hint
+import io.github.nodyssey.ui.resources.settings_section_compose
+import io.github.nodyssey.ui.resources.settings_section_interaction
+import io.github.nodyssey.ui.resources.settings_section_lists
+import io.github.nodyssey.ui.resources.settings_section_storage
+import io.github.nodyssey.ui.resources.settings_section_thread
 import io.github.nodyssey.ui.resources.settings_show_author_account_info
 import io.github.nodyssey.ui.resources.settings_show_author_account_info_hint
 import io.github.nodyssey.ui.resources.settings_show_home_pinned_posts
 import io.github.nodyssey.ui.resources.settings_show_home_pinned_posts_hint
-import io.github.nodyssey.ui.resources.settings_sticker_preview_caption
 import io.github.nodyssey.ui.resources.settings_sticker_size
 import io.github.nodyssey.ui.resources.settings_sticker_uniform
 import io.github.nodyssey.ui.resources.settings_sticker_uniform_hint
 import io.github.nodyssey.ui.resources.settings_text_preview
-import io.github.nodyssey.ui.resources.settings_theme
 import io.github.nodyssey.ui.resources.settings_theme_dark
-import io.github.nodyssey.ui.resources.settings_theme_eink_hint
 import io.github.nodyssey.ui.resources.settings_theme_light
 import io.github.nodyssey.ui.resources.settings_theme_mode
 import io.github.nodyssey.ui.resources.settings_theme_system
@@ -154,29 +142,15 @@ import io.github.nodyssey.ui.resources.settings_wifi_images_hint
 import io.github.nodyssey.ui.resources.sticker_manage_tab_mine
 import io.github.nodyssey.ui.resources.sticker_manage_tab_subs
 import io.github.nodyssey.ui.resources.sticker_manage_title
-import io.github.nodyssey.ui.richtext.PostRichContent
-import io.github.nodyssey.ui.search.SearchPostCard
-import io.github.nodyssey.ui.settings.theme.ThemeSummaryDot
-import io.github.nodyssey.ui.settings.theme.themeSummary
 import io.github.nodyssey.ui.sticker.LocalStickerLibrary
-import io.github.plaza.core.richtext.InlineNode
-import io.github.plaza.core.richtext.RichNode
-import io.github.plaza.designsys.component.ChoiceSegments
-import io.github.plaza.designsys.component.GroupedListItemSwitch
-import io.github.plaza.designsys.component.GroupedRow
-import io.github.plaza.designsys.component.OneHandTopAppBar
 import io.github.plaza.designsys.component.PlazaIcons
-import io.github.plaza.designsys.component.PlazaSpinner
-import io.github.plaza.designsys.component.SectionLabel
-import io.github.plaza.designsys.component.rememberOneHandAppBarState
-import io.github.plaza.designsys.richtext.LocalStickerSizing
-import io.github.plaza.designsys.richtext.StickerSizing
+import io.github.plaza.designsys.settings.SettingsChoicePresentation
+import io.github.plaza.designsys.settings.SettingsItem
+import io.github.plaza.designsys.settings.SettingsPage
+import io.github.plaza.designsys.settings.SettingsSample
+import io.github.plaza.designsys.settings.SettingsSection
 import io.github.plaza.designsys.theme.LocalOneHandModeAvailable
-import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.PlazaTheme
-import io.github.plaza.designsys.theme.PostBody
-import io.github.plaza.designsys.theme.Spacing
-import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
@@ -221,10 +195,12 @@ fun SettingsRoute(
         onPredictiveBackChange = viewModel::setPredictiveBack,
         onPostReplyStyleChange = viewModel::setPostReplyStyle,
         onShowAuthorAccountInfoChange = viewModel::setShowAuthorAccountInfo,
+        onAccountBadgeStyleChange = viewModel::setAccountBadgeStyle,
         onSearchHistoryLimitChange = viewModel::setSearchHistoryLimit,
         onEinkModeChange = viewModel::setEinkMode,
         supportedRefreshRates = rememberDisplayRefreshRates(),
         onDisplayRefreshRateChange = viewModel::setDisplayRefreshRate,
+        onPadLayoutModeChange = viewModel::setPadLayoutMode,
         onFontScaleChange = viewModel::setFontScale,
         onStickerUniformSizeChange = viewModel::setStickerUniformSize,
         onStickerSizeChange = viewModel::setStickerSize,
@@ -287,9 +263,12 @@ fun SettingsScreen(
     onEinkModeChange: (Boolean) -> Unit = {},
     supportedRefreshRates: Set<Int>? = null,
     onDisplayRefreshRateChange: (Int) -> Unit = {},
+    padLayoutSupported: Boolean = rememberPadLayoutOptionAvailable(),
+    onPadLayoutModeChange: (PadLayoutMode) -> Unit = {},
     onPredictiveBackChange: (Boolean) -> Unit = {},
     onPostReplyStyleChange: (PostReplyStyle) -> Unit = {},
     onShowAuthorAccountInfoChange: (Boolean) -> Unit = {},
+    onAccountBadgeStyleChange: (AccountBadgeStyle) -> Unit = {},
     onSearchHistoryLimitChange: (Int) -> Unit = {},
     /** Null hides 识别剪贴板中的帖子: a platform where reading the clipboard costs a prompt each time. */
     onClipboardPostPromptChange: ((Boolean) -> Unit)? = null,
@@ -302,473 +281,438 @@ fun SettingsScreen(
     backgroundPollingSupported: Boolean = platformHasBackgroundNotificationPolling,
     updateChecksSupported: Boolean = platformHasUpdateChecks,
 ) {
-    var bodyFontSize by remember(state.settings.fontScale) {
-        mutableFloatStateOf(fontScaleToBodySize(state.settings.fontScale))
+    val settings = state.settings
+    var bodyFontSize by remember(settings.fontScale) {
+        mutableFloatStateOf(fontScaleToBodySize(settings.fontScale))
     }
-    // Dragging is local and only the released value is stored, the same deal the font slider has:
-    // a write per frame would push a settings emission through every open post body.
-    var stickerSize by remember(state.settings.stickerSize) {
-        mutableFloatStateOf(state.settings.stickerSize.toFloat())
+    // Keep the drag local and store the released size once. A write per frame would update every open post body.
+    var stickerSize by remember(settings.stickerSize) {
+        mutableFloatStateOf(settings.stickerSize.toFloat())
     }
-    // Same deal as the two above: the preview follows the thumb, and only the release is stored.
-    var searchAvatarSize by remember(state.settings.searchAvatarSize) {
-        mutableFloatStateOf(state.settings.searchAvatarSize.toFloat())
+    var searchAvatarSize by remember(settings.searchAvatarSize) {
+        mutableFloatStateOf(settings.searchAvatarSize.toFloat())
     }
-    val appBarState = rememberOneHandAppBarState()
-    Scaffold(
-        modifier = modifier.nestedScroll(appBarState.nestedScrollConnection),
-        topBar = {
-            OneHandTopAppBar(
-                title = stringResource(Res.string.settings_title),
-                state = appBarState,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
+    var pickingReadMarkColor by remember { mutableStateOf(false) }
+
+    val appearance = buildList<SettingsItem> {
+        // 明暗 stays one tap from 设置 because it is reached far more often than the other theme controls.
+        // 墨水屏模式 forces light and disables both this control and 主题.
+        add(themeModeChoice(settings.themeMode, enabled = !settings.einkMode, onSelect = onThemeModeChange))
+        // The link summarizes the colour and style on the separate 主题 page. Keep it visible when e-ink
+        // takes over so the stored settings are still easy to find when e-ink is turned off.
+        add(themeSettingsLink(settings, onClick = onOpenTheme))
+
+        // Keep the override below the controls it disables so readers see their stored settings first.
+        add(
+            SettingsItem.Toggle(
+                key = "eink",
+                title = stringResource(Res.string.settings_eink),
+                description = stringResource(Res.string.settings_eink_hint),
+                icon = PlazaIcons.Contrast,
+                checked = settings.einkMode,
+                onCheckedChange = onEinkModeChange,
+            ),
+        )
+        supportedRefreshRates?.let { supported ->
+            add(displayRefreshRateChoice(settings.displayRefreshRate, supported, !settings.einkMode, onDisplayRefreshRateChange))
+        }
+        // Only exposed on tablets/iPads where wide-screen navigation can split into two panes.
+        if (padLayoutSupported) {
+            add(padLayoutModeChoice(settings.padLayoutMode, onPadLayoutModeChange))
+        }
+        // Language belongs with the rest of the app's appearance and closes the group.
+        add(appLanguageChoice(settings.appLanguage, onAppLanguageChange))
+    }
+    // What a list of threads shows and how a read one is told apart.
+    val lists = buildList<SettingsItem> {
+        // The four read-mark styles fit in a menu. A colour row is useful only for styles that paint a block.
+        add(
+            settingsChoice(
+                key = "read-mark-style",
+                title = stringResource(Res.string.settings_read_mark),
+                choices = ReadMarkStyle.entries.map { it to readMarkStyleLabel(it) },
+                selected = settings.readMarkStyle,
+                onSelect = onReadMarkStyleChange,
+                presentation = SettingsChoicePresentation.Menu,
+                description = stringResource(Res.string.settings_read_mark_hint),
+                icon = PlazaIcons.DoneAll,
+            ),
+        )
+        if (settings.readMarkStyle == ReadMarkStyle.BLOCK || settings.readMarkStyle == ReadMarkStyle.UNREAD_BLOCK) {
+            add(
+                readMarkColorItem(
+                    color = settings.readMarkColor,
+                    onPick = onReadMarkColorChange,
+                    onPickCustom = { pickingReadMarkColor = true },
+                ),
+            )
+        }
+        add(
+            SettingsItem.Toggle(
+                key = "home-page-bar",
+                title = stringResource(Res.string.settings_home_page_bar),
+                description = stringResource(Res.string.settings_home_page_bar_hint),
+                icon = PlazaIcons.LastPage,
+                checked = settings.homePageBar,
+                onCheckedChange = onHomePageBarChange,
+            ),
+        )
+        add(
+            SettingsItem.Toggle(
+                key = "home-pinned-posts",
+                title = stringResource(Res.string.settings_show_home_pinned_posts),
+                description = stringResource(Res.string.settings_show_home_pinned_posts_hint),
+                icon = PlazaIcons.PushPin,
+                checked = settings.showHomePinnedPosts,
+                onCheckedChange = onShowHomePinnedPostsChange,
+            ),
+        )
+        add(
+            SettingsItem.Link(
+                key = "block-keywords",
+                title = stringResource(Res.string.keywords_block_title),
+                value = if (state.blockKeywordCount == 0) {
+                    stringResource(Res.string.keywords_summary_none)
+                } else {
+                    stringResource(Res.string.keywords_summary_count, state.blockKeywordCount)
                 },
+                onClick = onOpenBlockKeywords,
+                icon = PlazaIcons.VisibilityOff,
+            ),
+        )
+        // A face helps a reader scan a result list and uses space the title could take.
+        add(
+            SettingsItem.Toggle(
+                key = "search-avatar",
+                title = stringResource(Res.string.settings_search_avatar),
+                description = stringResource(Res.string.settings_search_avatar_hint),
+                icon = PlazaIcons.PersonSearch,
+                checked = settings.showSearchAvatar,
+                onCheckedChange = onSearchAvatarChange,
+            ),
+        )
+        if (settings.showSearchAvatar) {
+            add(
+                SettingsItem.Slider(
+                    key = "search-avatar-size",
+                    title = stringResource(Res.string.settings_search_avatar_size),
+                    value = searchAvatarSize,
+                    valueLabel = searchAvatarSize.roundToInt().toString(),
+                    range = SEARCH_AVATAR_SIZE_RANGE,
+                    // The narrow 20..44dp range uses 1dp stops so the preview can be adjusted precisely.
+                    steps = SEARCH_AVATAR_SIZE_STEPS,
+                    onValueChange = { searchAvatarSize = it },
+                    onValueChangeFinished = { onSearchAvatarSizeChange(searchAvatarSize.roundToInt()) },
+                    testTag = SEARCH_AVATAR_SLIDER_TAG,
+                ).withPreview { SearchAvatarPreview(searchAvatarSize.roundToInt()) },
             )
-        },
-    ) { padding ->
-        Column(
-            modifier =
-            Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .readableWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(SettingsPagePadding),
-            verticalArrangement = Arrangement.spacedBy(SettingsItemGap),
-        ) {
-            SectionLabel(stringResource(Res.string.settings_appearance))
-            SettingsGroup {
-                // 明暗 stays here, one tap from 设置, while everything else about colour moved onto
-                // 主题's own screen. It is not that it fits the group better — it is that it is
-                // reached far more often than the rest of the theme put together, and a control
-                // people use daily does not belong two screens deep behind one they set once.
-                SettingsBlock(
-                    title = stringResource(Res.string.settings_theme_mode),
-                    top = true,
-                    // 墨水屏模式 forces light; see the row below it.
-                    enabled = !state.settings.einkMode,
-                ) {
-                    ConnectedThemeButtons(
-                        selected = state.settings.themeMode,
-                        onSelected = onThemeModeChange,
-                        enabled = !state.settings.einkMode,
-                    )
-                }
-                // 配色来源, the preset grid, 我的主题 and 色彩风格 are behind this row: four controls
-                // and a live preview card is more than a group of eight can carry, and every one of
-                // them changes the screen it is read on. The row says what they add up to — the
-                // colour and the style in force — so the answer is readable without going in.
-                GroupedRow(
-                    icon = PlazaIcons.Palette,
-                    title = stringResource(Res.string.settings_theme),
-                    // Greyed rather than hidden, the same call 色彩风格 makes on 主题's own screen: a
-                    // section that vanished would read as one the app had lost, and every control
-                    // behind this row is still the answer the moment 墨水屏模式 goes off again.
-                    subtitle =
-                    if (state.settings.einkMode) {
-                        stringResource(Res.string.settings_theme_eink_hint)
-                    } else {
-                        themeSummary(state.settings)
-                    },
-                    enabled = !state.settings.einkMode,
-                    onClick = onOpenTheme,
-                    trailing = { ThemeSummaryDot(settings = state.settings, enabled = !state.settings.einkMode) },
-                )
-                // 已读标记 — how a thread that has been opened is drawn in the three lists that carry
-                // read state. A menu rather than rows of their own: four answers, no live preview
-                // needed to tell them apart, and the list itself is one tap away.
-                SettingsMenuRow(
-                    icon = PlazaIcons.DoneAll,
-                    title = stringResource(Res.string.settings_read_mark),
-                    subtitle = stringResource(Res.string.settings_read_mark_hint),
-                    choices = ReadMarkStyle.entries.map { it to readMarkStyleLabel(it) },
-                    selected = state.settings.readMarkStyle,
-                    onSelect = onReadMarkStyleChange,
-                )
-                // 标记颜色 exists only while something is painted: 仅标题变灰 adds no colour at all and
-                // 不标记 less, so a colour row under either of them would set something that cannot
-                // be seen.
-                if (state.settings.readMarkStyle == ReadMarkStyle.BLOCK || state.settings.readMarkStyle == ReadMarkStyle.UNREAD_BLOCK) {
-                    ReadMarkColorRow(
-                        color = state.settings.readMarkColor,
-                        onPick = onReadMarkColorChange,
-                    )
-                }
-                // Under 主题 rather than above it: it overrides 明暗 and replaces 主题, and the two
-                // it greys out read first, the way a master switch reads after what it governs.
-                GroupedRow(
-                    icon = PlazaIcons.Contrast,
-                    title = stringResource(Res.string.settings_eink),
-                    subtitle = stringResource(Res.string.settings_eink_hint),
-                    checked = state.settings.einkMode,
-                    onCheckedChange = onEinkModeChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.einkMode) },
-                )
-                supportedRefreshRates?.let { supported ->
-                    DisplayRefreshRateSetting(
-                        selected = state.settings.displayRefreshRate,
-                        supported = supported,
-                        enabled = !state.settings.einkMode,
-                        onChange = onDisplayRefreshRateChange,
-                    )
-                }
-                // One switch for every screen that carries the bar rather than one per screen:
-                // whether the title should come down to the thumb is a fact about the hand holding
-                // the phone, and it does not change between 收藏 and 设置.
-                if (LocalOneHandModeAvailable.current) {
-                    GroupedRow(
-                        icon = PlazaIcons.PanTool,
-                        title = stringResource(Res.string.settings_one_hand),
-                        subtitle = stringResource(Res.string.settings_one_hand_hint),
-                        checked = state.settings.oneHandMode,
-                        onCheckedChange = onOneHandModeChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.oneHandMode) },
-                    )
-                }
-                SettingsBlock(
-                    title = stringResource(Res.string.settings_body_size),
-                    value = bodyFontSize.roundToInt().toString(),
-                ) {
-                    SettingsSlider(
-                        value = bodyFontSize,
-                        onValueChange = { bodyFontSize = it },
-                        onValueChangeFinished = {
-                            onFontScaleChange(bodySizeToFontScale(bodyFontSize))
-                        },
-                        valueRange = BODY_FONT_SIZE_RANGE,
-                        // Slider `steps` counts only the interior stops. 14..24sp therefore has
-                        // nine interior stops and ten 1sp intervals.
-                        steps = BODY_FONT_SIZE_STEPS,
-                        modifier = Modifier.testTag(BODY_FONT_SIZE_SLIDER_TAG),
-                    )
-                    // Set at the size being dragged rather than the size stored, and at the body's
-                    // own line height for that size, so the sample answers "how will a post read"
-                    // while the thumb is still moving.
-                    Text(
-                        stringResource(Res.string.settings_text_preview),
-                        style = PostBody.copy(
-                            fontSize = bodyFontSize.sp,
-                            lineHeight = (bodyFontSize * PostBody.lineHeight.value / PostBody.fontSize.value).sp,
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                GroupedRow(
-                    icon = PlazaIcons.Mood,
-                    title = stringResource(Res.string.settings_sticker_uniform),
-                    subtitle = stringResource(Res.string.settings_sticker_uniform_hint),
-                    checked = state.settings.stickerUniformSize,
-                    onCheckedChange = onStickerUniformSizeChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.stickerUniformSize) },
-                )
-                if (state.settings.stickerUniformSize) {
-                    SettingsBlock(
-                        title = stringResource(Res.string.settings_sticker_size),
-                        value = stickerSize.roundToInt().toString(),
-                    ) {
-                        SettingsSlider(
-                            value = stickerSize,
-                            onValueChange = { stickerSize = it },
-                            onValueChangeFinished = { onStickerSizeChange(stickerSize.roundToInt()) },
-                            valueRange = STICKER_SIZE_RANGE,
-                            // 20..90sp in 5sp stops: fourteen intervals, so thirteen interior
-                            // stops. Finer than that is a difference nobody can see on a
-                            // picture this small.
-                            steps = STICKER_SIZE_STEPS,
-                            modifier = Modifier.testTag(STICKER_SIZE_SLIDER_TAG),
-                        )
-                        StickerSizePreview(sizeSp = stickerSize.roundToInt())
-                    }
-                }
-                // A result list is read by scanning, and a face is found before a name is — but every
-                // dp of face is a dp the title does not get, so the trade is the reader's to make.
-                GroupedRow(
-                    icon = PlazaIcons.PersonSearch,
-                    title = stringResource(Res.string.settings_search_avatar),
-                    subtitle = stringResource(Res.string.settings_search_avatar_hint),
-                    checked = state.settings.showSearchAvatar,
-                    onCheckedChange = onSearchAvatarChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.showSearchAvatar) },
-                )
-                if (state.settings.showSearchAvatar) {
-                    SettingsBlock(
-                        title = stringResource(Res.string.settings_search_avatar_size),
-                        value = searchAvatarSize.roundToInt().toString(),
-                    ) {
-                        SettingsSlider(
-                            value = searchAvatarSize,
-                            onValueChange = { searchAvatarSize = it },
-                            onValueChangeFinished = { onSearchAvatarSizeChange(searchAvatarSize.roundToInt()) },
-                            valueRange = SEARCH_AVATAR_SIZE_RANGE,
-                            // 20..44dp in 1dp stops: the whole range is two and a half lines of
-                            // type wide, so a coarser step would make the slider a switch.
-                            steps = SEARCH_AVATAR_SIZE_STEPS,
-                            modifier = Modifier.testTag(SEARCH_AVATAR_SLIDER_TAG),
-                        )
-                        SearchAvatarPreview(sizeDp = searchAvatarSize.roundToInt())
-                    }
-                }
-                // 语言 is one more thing about how the interface looks, so it rides in this group
-                // rather than opening a section of its own — and it is the group's last row, which
-                // is why none of the blocks above can claim the rounded bottom edge.
-                AppLanguageRow(
-                    selected = state.settings.appLanguage,
-                    onSelect = onAppLanguageChange,
-                )
-            }
-
-            SectionLabel(stringResource(Res.string.settings_content))
-            SettingsGroup {
-                appLinkHandlingEnabled?.let { enabled ->
-                    GroupedRow(
-                        first = true,
-                        icon = PlazaIcons.Link,
-                        title = stringResource(Res.string.settings_app_links),
-                        subtitle =
-                        stringResource(
-                            if (enabled) {
-                                Res.string.settings_app_links_summary_on
-                            } else {
-                                Res.string.settings_app_links_summary_off
-                            },
-                        ),
-                        onClick = onOpenAppLinkSettings,
-                    )
-                }
-                SettingsBlock(
-                    // The group's first card when the platform has no App Links notion to show —
-                    // 站外链接 used to hold that place and no longer exists; see `ExternalLinks`.
-                    top = appLinkHandlingEnabled == null,
-                    title = stringResource(Res.string.settings_report_format),
-                ) {
-                    ConnectedReportFormatButtons(
-                        selected = state.settings.reportFormat,
-                        onSelected = onReportFormatChange,
-                    )
-                }
-                GroupedRow(
-                    icon = PlazaIcons.LastPage,
-                    title = stringResource(Res.string.settings_home_page_bar),
-                    subtitle = stringResource(Res.string.settings_home_page_bar_hint),
-                    checked = state.settings.homePageBar,
-                    onCheckedChange = onHomePageBarChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.homePageBar) },
-                )
-                GroupedRow(
-                    icon = PlazaIcons.PushPin,
-                    title = stringResource(Res.string.settings_show_home_pinned_posts),
-                    subtitle = stringResource(Res.string.settings_show_home_pinned_posts_hint),
-                    checked = state.settings.showHomePinnedPosts,
-                    onCheckedChange = onShowHomePinnedPostsChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.showHomePinnedPosts) },
-                )
-                SettingsBlock(
-                    title = stringResource(Res.string.settings_post_reply_style),
-                    subtitle = stringResource(Res.string.settings_post_reply_style_hint),
-                ) {
-                    ConnectedPostReplyStyleButtons(
-                        selected = state.settings.postReplyStyle,
-                        onSelected = onPostReplyStyleChange,
-                    )
-                }
-                GroupedRow(
-                    icon = PlazaIcons.EventAvailable,
-                    title = stringResource(Res.string.settings_show_author_account_info),
-                    subtitle = stringResource(Res.string.settings_show_author_account_info_hint),
-                    checked = state.settings.showAuthorAccountInfo,
-                    onCheckedChange = onShowAuthorAccountInfoChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.showAuthorAccountInfo) },
-                )
-                GroupedRow(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+        }
+    }
+    // How a thread itself reads.
+    val thread = buildList<SettingsItem> {
+        add(
+            SettingsItem.Slider(
+                key = "font-size",
+                title = stringResource(Res.string.settings_body_size),
+                value = bodyFontSize,
+                valueLabel = bodyFontSize.roundToInt().toString(),
+                range = BODY_FONT_SIZE_RANGE,
+                // The 14..24sp slider has nine stops between its ends.
+                steps = BODY_FONT_SIZE_STEPS,
+                onValueChange = { bodyFontSize = it },
+                onValueChangeFinished = { onFontScaleChange(bodySizeToFontScale(bodyFontSize)) },
+                sample = SettingsSample(stringResource(Res.string.settings_text_preview), bodyFontSize),
+                testTag = BODY_FONT_SIZE_SLIDER_TAG,
+            ),
+        )
+        add(postReplyStyleChoice(settings.postReplyStyle, onPostReplyStyleChange))
+        add(
+            SettingsItem.Toggle(
+                key = "author-account-info",
+                title = stringResource(Res.string.settings_show_author_account_info),
+                description = stringResource(Res.string.settings_show_author_account_info_hint),
+                icon = PlazaIcons.EventAvailable,
+                checked = settings.showAuthorAccountInfo,
+                onCheckedChange = onShowAuthorAccountInfoChange,
+            ),
+        )
+        // Only the badge's colour; it has nothing to colour while the badge is hidden.
+        if (settings.showAuthorAccountInfo) {
+            add(
+                accountBadgeStyleChoice(
+                    selected = settings.accountBadgeStyleInForce(),
+                    onSelect = onAccountBadgeStyleChange,
+                ),
+            )
+        }
+        add(reportFormatChoice(settings.reportFormat, onReportFormatChange))
+        add(
+            SettingsItem.Toggle(
+                key = "sticker-uniform",
+                title = stringResource(Res.string.settings_sticker_uniform),
+                description = stringResource(Res.string.settings_sticker_uniform_hint),
+                icon = PlazaIcons.Mood,
+                checked = settings.stickerUniformSize,
+                onCheckedChange = onStickerUniformSizeChange,
+            ),
+        )
+        if (settings.stickerUniformSize) {
+            add(
+                SettingsItem.Slider(
+                    key = "sticker-size",
+                    title = stringResource(Res.string.settings_sticker_size),
+                    value = stickerSize,
+                    valueLabel = stickerSize.roundToInt().toString(),
+                    range = STICKER_SIZE_RANGE,
+                    // 20..90sp in 5sp stops gives fourteen intervals and thirteen interior stops.
+                    steps = STICKER_SIZE_STEPS,
+                    onValueChange = { stickerSize = it },
+                    onValueChangeFinished = { onStickerSizeChange(stickerSize.roundToInt()) },
+                    testTag = STICKER_SIZE_SLIDER_TAG,
+                ).withPreview { StickerSizePreview(stickerSize.roundToInt()) },
+            )
+        }
+    }
+    val interaction = buildList<SettingsItem> {
+        // One switch controls the position of the title on every screen that uses the app bar.
+        if (LocalOneHandModeAvailable.current) {
+            add(
+                SettingsItem.Toggle(
+                    key = "one-hand",
+                    title = stringResource(Res.string.settings_one_hand),
+                    description = stringResource(Res.string.settings_one_hand_hint),
+                    icon = PlazaIcons.PanTool,
+                    checked = settings.oneHandMode,
+                    onCheckedChange = onOneHandModeChange,
+                ),
+            )
+        }
+        // Only where Compose runs the back stack; UIKit owns the iOS gesture and its animation.
+        if (platformHasPredictiveBack) {
+            add(
+                SettingsItem.Toggle(
+                    key = "predictive-back",
                     title = stringResource(Res.string.settings_predictive_back),
-                    subtitle = stringResource(Res.string.settings_predictive_back_hint),
-                    checked = state.settings.predictiveBack,
+                    description = stringResource(Res.string.settings_predictive_back_hint),
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    checked = settings.predictiveBack,
                     onCheckedChange = onPredictiveBackChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.predictiveBack) },
-                )
-                SearchHistoryLimitSetting(state.settings.searchHistoryLimit, onSearchHistoryLimitChange)
-                onClipboardPostPromptChange?.let { onChange ->
-                    GroupedRow(
-                        icon = PlazaIcons.ContentPaste,
-                        title = stringResource(Res.string.settings_clipboard_post),
-                        subtitle = stringResource(Res.string.settings_clipboard_post_hint),
-                        checked = state.settings.clipboardPostPrompt,
-                        onCheckedChange = onChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.clipboardPostPrompt) },
-                    )
-                }
-                GroupedRow(
-                    icon = PlazaIcons.VisibilityOff,
-                    title = stringResource(Res.string.keywords_block_title),
-                    subtitle =
-                    if (state.blockKeywordCount == 0) {
-                        stringResource(Res.string.keywords_summary_none)
-                    } else {
-                        stringResource(Res.string.keywords_summary_count, state.blockKeywordCount)
-                    },
-                    onClick = onOpenBlockKeywords,
-                )
-                GroupedRow(
-                    icon = PlazaIcons.Wifi,
-                    title = stringResource(Res.string.settings_wifi_images),
-                    subtitle = stringResource(Res.string.settings_wifi_images_hint),
-                    checked = state.settings.imagesOnWifiOnly,
-                    onCheckedChange = onImagesOnWifiOnlyChange,
-                    trailing = { GroupedListItemSwitch(checked = state.settings.imagesOnWifiOnly) },
-                )
-                GroupedRow(
-                    title = stringResource(Res.string.imagehost_title),
-                    // The host, then whether inserting a picture will work at all — the question the
-                    // row is asked on the way to writing a post.
-                    subtitle =
-                    stringResource(state.imageHostProvider.shortNameRes()) + SUBTITLE_SEPARATOR +
-                        stringResource(
-                            if (state.imageHostConnected) {
-                                Res.string.imagehost_connected
-                            } else {
-                                Res.string.imagehost_not_connected
-                            },
-                        ),
-                    onClick = onOpenImageHost,
-                    icon = PlazaIcons.CloudUpload,
-                )
-                StickersRow(onClick = onOpenStickers)
-                GroupedRow(
-                    title = stringResource(Res.string.settings_clear_cache),
-                    // The figure is the one system settings shows under 缓存, in the units it uses.
-                    // Absent until the walk finishes, rather than a 0 that would read as an answer.
-                    subtitle = state.cacheSizeBytes?.let { bytes ->
-                        stringResource(
-                            Res.string.settings_clear_cache_size,
-                            rememberFileSizeLabel(bytes),
-                        )
-                    },
-                    last = true,
-                    onClick = onClearCache,
-                    icon = Icons.Default.Delete,
-                    trailing = {
-                        if (state.isClearingCache) {
-                            PlazaSpinner(Modifier.describedAsLoading(), size = 22.dp)
-                        }
-                    },
-                    showChevron = false,
-                )
-            }
-
-            AutoAttendanceSettings(
-                attendanceConfig,
-                attendanceState,
-                onAutoAttendanceEnabledChange,
-                onAutoAttendanceModeChange,
+                ),
             )
-
-            SectionLabel(stringResource(Res.string.notify_settings_title))
-            SettingsGroup {
-                GroupedRow(
-                    title = stringResource(if (backgroundPollingSupported) Res.string.notify_master_title else Res.string.profile_tile_notifications),
-                    subtitle = notificationSummary(state.settings, backgroundPollingSupported),
-                    first = true,
-                    last = true,
-                    onClick = onOpenNotifications,
-                    icon = Icons.Default.Notifications,
-                )
-            }
-
-            SectionLabel(stringResource(Res.string.settings_network))
-            SettingsGroup {
-                GroupedRow(
+        }
+        appLinkHandlingEnabled?.let { enabled ->
+            add(
+                SettingsItem.Link(
+                    key = "app-links",
+                    title = stringResource(Res.string.settings_app_links),
+                    description = stringResource(
+                        if (enabled) Res.string.settings_app_links_summary_on else Res.string.settings_app_links_summary_off,
+                    ),
+                    onClick = onOpenAppLinkSettings,
+                    icon = PlazaIcons.Link,
+                ),
+            )
+        }
+        onClipboardPostPromptChange?.let { onChange ->
+            add(
+                SettingsItem.Toggle(
+                    key = "clipboard-post",
+                    title = stringResource(Res.string.settings_clipboard_post),
+                    description = stringResource(Res.string.settings_clipboard_post_hint),
+                    icon = PlazaIcons.ContentPaste,
+                    checked = settings.clipboardPostPrompt,
+                    onCheckedChange = onChange,
+                ),
+            )
+        }
+        add(searchHistoryLimitChoice(settings.searchHistoryLimit, onSearchHistoryLimitChange))
+    }
+    val compose = buildList<SettingsItem> {
+        add(
+            SettingsItem.Link(
+                key = "image-host",
+                title = stringResource(Res.string.imagehost_title),
+                // Report the host and whether it can insert pictures into a post.
+                value = stringResource(state.imageHostProvider.shortNameRes()) + SUBTITLE_SEPARATOR +
+                    stringResource(if (state.imageHostConnected) Res.string.imagehost_connected else Res.string.imagehost_not_connected),
+                onClick = onOpenImageHost,
+                icon = PlazaIcons.CloudUpload,
+            ),
+        )
+        stickersLink(onOpenStickers)?.let { add(it) }
+    }
+    val storage = buildList<SettingsItem> {
+        add(
+            SettingsItem.Toggle(
+                key = "wifi-images",
+                title = stringResource(Res.string.settings_wifi_images),
+                description = stringResource(Res.string.settings_wifi_images_hint),
+                icon = PlazaIcons.Wifi,
+                checked = settings.imagesOnWifiOnly,
+                onCheckedChange = onImagesOnWifiOnlyChange,
+            ),
+        )
+        add(
+            SettingsItem.Action(
+                key = "clear-cache",
+                title = stringResource(Res.string.settings_clear_cache),
+                // Keep the size absent until the scan finishes so a pending scan doesn't read as zero.
+                description = state.cacheSizeBytes?.let { bytes ->
+                    stringResource(Res.string.settings_clear_cache_size, rememberFileSizeLabel(bytes))
+                },
+                icon = Icons.Default.Delete,
+                onClick = onClearCache,
+                loading = state.isClearingCache,
+            ),
+        )
+    }
+    val notifications = SettingsSection(
+        key = "notifications",
+        header = stringResource(Res.string.notify_settings_title),
+        items = listOf(
+            SettingsItem.Link(
+                key = "notification-settings",
+                title = stringResource(if (backgroundPollingSupported) Res.string.notify_master_title else Res.string.profile_tile_notifications),
+                value = notificationSummary(settings, backgroundPollingSupported),
+                onClick = onOpenNotifications,
+                icon = Icons.Default.Notifications,
+            ),
+        ),
+    )
+    val network = SettingsSection(
+        key = "network",
+        header = stringResource(Res.string.settings_network),
+        items = buildList {
+            add(
+                SettingsItem.Link(
+                    key = "proxy",
                     title = stringResource(Res.string.settings_proxy_entry),
-                    subtitle = proxySummary(state.proxy),
-                    first = true,
-                    last = state.dohChain == null && !state.hasNetworkCheck,
+                    value = proxySummary(state.proxy),
                     onClick = onOpenProxy,
                     icon = PlazaIcons.VpnLock,
-                )
-                // Absent rather than disabled where the platform cannot apply a DoH server at all —
-                // see [SettingsUiState.dohChain], and 默认打开方式 above for the same treatment.
-                state.dohChain?.let { chain ->
-                    GroupedRow(
+                ),
+            )
+            // Only platforms with a DoH implementation supply a chain. Default app links are handled the same way.
+            state.dohChain?.let { chain ->
+                add(
+                    SettingsItem.Link(
+                        key = "doh",
                         title = stringResource(Res.string.settings_doh_entry),
-                        subtitle = if (state.dohPausedForProxy) stringResource(Res.string.doh_paused_for_proxy) else dohSummary(chain),
-                        last = !state.hasNetworkCheck,
+                        value = if (state.dohPausedForProxy) stringResource(Res.string.doh_paused_for_proxy) else dohSummary(chain),
                         onClick = onOpenDoh,
                         icon = PlazaIcons.Dns,
-                    )
-                }
-                // Last in the group on purpose: the two above are settings that change how the app
-                // behaves, and this one only reports on them. Absent where the platform has no
-                // implementation — see [SettingsUiState.hasNetworkCheck].
-                if (state.hasNetworkCheck) {
-                    GroupedRow(
+                    ),
+                )
+            }
+            // Diagnostics follow the settings that change network behavior and require platform support.
+            if (state.hasNetworkCheck) {
+                add(
+                    SettingsItem.Link(
+                        key = "network-check",
                         title = stringResource(Res.string.settings_network_check_entry),
-                        last = true,
                         onClick = onOpenNetworkCheck,
                         icon = PlazaIcons.NetworkCheck,
-                    )
-                }
+                    ),
+                )
             }
-
-            SectionLabel(stringResource(Res.string.settings_about))
-            SettingsGroup {
-                GroupedRow(
+        },
+    )
+    val about = SettingsSection(
+        key = "about",
+        header = stringResource(Res.string.settings_about),
+        items = buildList {
+            add(
+                SettingsItem.Link(
+                    key = "about-app",
                     title = stringResource(Res.string.settings_about_app),
-                    subtitle = state.updateVersionName
+                    description = state.updateVersionName
                         ?.let { stringResource(Res.string.settings_about_app_update, it) }
                         ?: stringResource(Res.string.settings_version, state.versionName),
-                    first = true,
                     onClick = onOpenAbout,
                     icon = Icons.Default.Info,
-                    trailing = { if (state.updateVersionName != null) UpdateDot() },
-                )
-                if (updateChecksSupported) {
-                    GroupedRow(
-                        icon = PlazaIcons.Update,
+                    badge = state.updateVersionName != null,
+                ),
+            )
+            if (updateChecksSupported) {
+                add(
+                    SettingsItem.Toggle(
+                        key = "update-on-launch",
                         title = stringResource(Res.string.settings_update_on_launch),
-                        checked = state.settings.updateCheckOnLaunch,
+                        icon = PlazaIcons.Update,
+                        checked = settings.updateCheckOnLaunch,
                         onCheckedChange = onUpdateCheckOnLaunchChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.updateCheckOnLaunch) },
-                    )
-                    GroupedRow(
-                        icon = PlazaIcons.Science,
+                    ),
+                )
+                add(
+                    SettingsItem.Toggle(
+                        key = "update-dev-channel",
                         title = stringResource(Res.string.settings_update_dev_channel),
-                        subtitle = stringResource(Res.string.settings_update_dev_channel_hint),
-                        checked = state.settings.updateDevChannel,
+                        description = stringResource(Res.string.settings_update_dev_channel_hint),
+                        icon = PlazaIcons.Science,
+                        checked = settings.updateDevChannel,
                         onCheckedChange = onUpdateDevChannelChange,
-                        trailing = { GroupedListItemSwitch(checked = state.settings.updateDevChannel) },
-                    )
-                }
-                GroupedRow(
-                    icon = PlazaIcons.Gavel,
-                    title = stringResource(Res.string.settings_licenses),
-                    last = true,
-                    onClick = onOpenLicenses,
+                    ),
                 )
             }
-        }
+            add(
+                SettingsItem.Link(
+                    key = "licenses",
+                    title = stringResource(Res.string.settings_licenses),
+                    onClick = onOpenLicenses,
+                    icon = PlazaIcons.Gavel,
+                ),
+            )
+        },
+    )
+    val page = SettingsPage(
+        title = stringResource(Res.string.settings_title),
+        sections = listOf(
+            SettingsSection(key = "appearance", header = stringResource(Res.string.settings_appearance), items = appearance),
+            SettingsSection(key = "lists", header = stringResource(Res.string.settings_section_lists), items = lists),
+            SettingsSection(key = "thread", header = stringResource(Res.string.settings_section_thread), items = thread),
+            SettingsSection(key = "interaction", header = stringResource(Res.string.settings_section_interaction), items = interaction),
+            SettingsSection(key = "compose", header = stringResource(Res.string.settings_section_compose), items = compose),
+            SettingsSection(key = "storage", header = stringResource(Res.string.settings_section_storage), items = storage),
+            autoAttendanceSection(attendanceConfig, attendanceState, onAutoAttendanceEnabledChange, onAutoAttendanceModeChange),
+            notifications,
+            network,
+            about,
+        ),
+        showRowIconsOnIos = true,
+    )
+    SettingsPageScreen(page = page, onBack = onBack, modifier = modifier)
+    if (pickingReadMarkColor) {
+        ReadMarkColorPicker(
+            color = settings.readMarkColor,
+            onDismiss = { pickingReadMarkColor = false },
+            onPick = {
+                pickingReadMarkColor = false
+                onReadMarkColorChange(it)
+            },
+        )
     }
 }
 
 @Composable
-private fun DisplayRefreshRateSetting(selected: Int, supported: Set<Int>, enabled: Boolean, onChange: (Int) -> Unit) {
-    SettingsMenuRow(
-        icon = PlazaIcons.Contrast,
+private fun displayRefreshRateChoice(
+    selected: Int,
+    supported: Set<Int>,
+    enabled: Boolean,
+    onChange: (Int) -> Unit,
+): SettingsItem {
+    val choices = SettingsRepository.DISPLAY_REFRESH_RATE_CHOICES.map { it to refreshRateLabel(it) }
+    return settingsChoice(
+        key = "refresh-rate",
         title = stringResource(Res.string.settings_refresh_rate),
-        subtitle = stringResource(Res.string.settings_refresh_rate_hint),
-        choices = SettingsRepository.DISPLAY_REFRESH_RATE_CHOICES.map { it to refreshRateLabel(it) },
+        choices = choices,
         selected = selected,
         onSelect = onChange,
+        presentation = SettingsChoicePresentation.Menu,
+        description = stringResource(Res.string.settings_refresh_rate_hint),
+        icon = PlazaIcons.Contrast,
         enabled = enabled,
-        menuIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-        value = refreshRateLabel(selected),
         isChoiceEnabled = { it == 0 || it in supported },
-    )
+    ).withChevronMenu(value = refreshRateLabel(selected))
 }
 
 @Composable
@@ -776,85 +720,38 @@ private fun refreshRateLabel(hertz: Int): String =
     if (hertz == 0) stringResource(Res.string.settings_theme_system) else stringResource(Res.string.settings_refresh_rate_value, hertz)
 
 @Composable
-private fun SearchHistoryLimitSetting(limit: Int, onChange: (Int) -> Unit) {
-    SettingsMenuRow(
-        icon = PlazaIcons.History,
+private fun searchHistoryLimitChoice(limit: Int, onChange: (Int) -> Unit): SettingsItem =
+    settingsChoice(
+        key = "search-history-limit",
         title = stringResource(Res.string.settings_search_history_limit),
-        subtitle = stringResource(Res.string.settings_search_history_limit_hint),
         choices = SettingsRepository.SEARCH_HISTORY_LIMIT_CHOICES.map { it to stringResource(Res.string.settings_search_history_limit_count, it) },
         selected = limit,
         onSelect = onChange,
-        menuIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-        value = stringResource(Res.string.settings_search_history_limit_count, limit),
-    )
-}
+        presentation = SettingsChoicePresentation.Menu,
+        description = stringResource(Res.string.settings_search_history_limit_hint),
+        icon = PlazaIcons.History,
+    ).withChevronMenu(value = stringResource(Res.string.settings_search_history_limit_count, limit))
 
 /**
- * The slider every size control on this screen uses: Material's [Slider] with its default track.
- *
- * It used to hand [Slider] a `track` of its own — 16dp, with neither the stop indicator nor the
- * ticks, since at nine or thirteen stops the dots crowd the track into a dotted line and say nothing
- * the number beside the title does not. No overload can do that on both sides today: androidx
- * material3 1.5.0-alpha28 removed the value-based `Slider(value, …, track)` outright — no hidden
- * copy left for binary compatibility — while Compose Multiplatform's material3 1.13.0-alpha01 is
- * alpha27 underneath and lacks the `Slider(state, onValueChange, …, track)` that replaced it. This
- * module compiles against the second and `:app` ships the first, so a `track` here was a
- * `NoSuchMethodError` on Android. Put the custom track back through the state-based overload once
- * `composeMultiplatformMaterial3` is at least alpha28 underneath.
+ * A menu keeps all four locale names available in the language each one selects.
  */
 @Composable
-private fun SettingsSlider(
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    onValueChangeFinished: () -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int,
-    modifier: Modifier = Modifier,
-) {
-    Slider(
-        value = value,
-        onValueChange = onValueChange,
-        onValueChangeFinished = onValueChangeFinished,
-        valueRange = valueRange,
-        steps = steps,
-        modifier = modifier,
-    )
-}
-
-/**
- * 语言, behind a dropdown.
- *
- * Four choices spelled out as four rows cost a section of their own for a decision that is made
- * once and then rarely revisited, and the entries are written in the language each one selects,
- * which makes them the longest labels on the screen. Collapsed this reads as one more row of 外观
- * with its answer on the right; opened it still puts all four side by side, which is the one thing
- * that helps make the choice.
- */
-@Composable
-private fun AppLanguageRow(
-    selected: AppLanguage,
-    onSelect: (AppLanguage) -> Unit,
-) {
+private fun appLanguageChoice(selected: AppLanguage, onSelect: (AppLanguage) -> Unit): SettingsItem {
     val choices = appLanguageChoices()
     val current = choices.first { it.first == selected }.second
-    SettingsMenuRow(
-        icon = PlazaIcons.Translate,
+    // The system menu already shows the selected answer. Use the subtitle for the restart note
+    // where applying the choice takes another launch.
+    val restartHint = if (appLanguageAppliesOnRestart) stringResource(Res.string.settings_language_restart_hint) else null
+    return settingsChoice(
+        key = "app-language",
         title = stringResource(Res.string.settings_language),
-        // The answer on the second line, where every other row of 外观 keeps its own. The restart
-        // note rides after it only where a change waits for the next launch: Android redraws the
-        // screen in the new language as this row is tapped, so there is nothing to warn about there.
-        subtitle =
-        if (appLanguageAppliesOnRestart) {
-            current + SUBTITLE_SEPARATOR + stringResource(Res.string.settings_language_restart_hint)
-        } else {
-            current
-        },
         choices = choices,
         selected = selected,
         onSelect = onSelect,
-        last = true,
-        menuIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-    )
+        presentation = SettingsChoicePresentation.Menu,
+        description = restartHint,
+        icon = PlazaIcons.Translate,
+    ).withChevronMenu(subtitle = if (restartHint == null) current else current + SUBTITLE_SEPARATOR + restartHint)
 }
 
 private const val SUBTITLE_SEPARATOR = " · "
@@ -934,122 +831,83 @@ private fun readMarkStyleLabel(style: ReadMarkStyle): String =
         },
     )
 
-/**
- * 跟随系统 / 浅色 / 深色.
- *
- * The one part of 主题 that did not move onto 主题's own screen — see the group above for why.
- */
+/** 明暗 remains directly on the settings home screen because it is used frequently. */
 @Composable
-private fun ConnectedThemeButtons(
-    selected: ThemeMode,
-    onSelected: (ThemeMode) -> Unit,
-    enabled: Boolean = true,
-) {
-    val choices =
-        listOf(
+private fun themeModeChoice(selected: ThemeMode, enabled: Boolean, onSelect: (ThemeMode) -> Unit): SettingsItem.Choice =
+    settingsChoice(
+        key = "theme-mode",
+        title = stringResource(Res.string.settings_theme_mode),
+        choices = listOf(
             ThemeMode.SYSTEM to stringResource(Res.string.settings_theme_system),
             ThemeMode.LIGHT to stringResource(Res.string.settings_theme_light),
             ThemeMode.DARK to stringResource(Res.string.settings_theme_dark),
-        )
-    ChoiceSegments(
-        labels = choices.map { it.second },
-        selectedIndex = choices.indexOfFirst { it.first == selected },
-        onSelect = { onSelected(choices[it].first) },
+        ),
+        selected = selected,
+        onSelect = onSelect,
+        presentation = SettingsChoicePresentation.Segmented,
         enabled = enabled,
     )
-}
 
 @Composable
-private fun ConnectedReportFormatButtons(
-    selected: ReportFormat,
-    onSelected: (ReportFormat) -> Unit,
-) {
-    val choices =
-        listOf(
+private fun padLayoutModeChoice(selected: PadLayoutMode, onSelect: (PadLayoutMode) -> Unit): SettingsItem.Choice =
+    settingsChoice(
+        key = "pad-layout-mode",
+        title = stringResource(Res.string.settings_pad_layout_mode),
+        choices = listOf(
+            PadLayoutMode.SPLIT to stringResource(Res.string.settings_pad_layout_mode_split),
+            PadLayoutMode.SINGLE to stringResource(Res.string.settings_pad_layout_mode_single),
+        ),
+        selected = selected,
+        onSelect = onSelect,
+        presentation = SettingsChoicePresentation.Segmented,
+        description = stringResource(Res.string.settings_pad_layout_mode_hint),
+    )
+
+@Composable
+private fun reportFormatChoice(selected: ReportFormat, onSelect: (ReportFormat) -> Unit): SettingsItem.Choice =
+    settingsChoice(
+        key = "report-format",
+        title = stringResource(Res.string.settings_report_format),
+        choices = listOf(
             ReportFormat.SOURCE to stringResource(Res.string.settings_report_format_source),
             ReportFormat.ADAPTED to stringResource(Res.string.settings_report_format_adapted),
-        )
-    ChoiceSegments(
-        labels = choices.map { it.second },
-        selectedIndex = choices.indexOfFirst { it.first == selected },
-        onSelect = { onSelected(choices[it].first) },
+        ),
+        selected = selected,
+        onSelect = onSelect,
+        presentation = SettingsChoicePresentation.Segmented,
     )
-}
 
-/**
- * 通栏 / 轻卡片 / 原版, in the order the app has offered them: the two layouts added in 1.3.4 first,
- * then the upstream thread layout. [PostReplyStyle.CARDS] is still the default.
- */
 @Composable
-private fun ConnectedPostReplyStyleButtons(
-    selected: PostReplyStyle,
-    onSelected: (PostReplyStyle) -> Unit,
-) {
-    val choices =
-        listOf(
+private fun accountBadgeStyleChoice(selected: AccountBadgeStyle, onSelect: (AccountBadgeStyle) -> Unit): SettingsItem.Choice =
+    settingsChoice(
+        key = "account-badge-style",
+        title = stringResource(Res.string.settings_account_badge_style),
+        choices = listOf(
+            AccountBadgeStyle.VIVID to stringResource(Res.string.settings_account_badge_style_vivid),
+            AccountBadgeStyle.NATURAL to stringResource(Res.string.settings_account_badge_style_natural),
+        ),
+        selected = selected,
+        onSelect = onSelect,
+        presentation = SettingsChoicePresentation.Segmented,
+        description = stringResource(Res.string.settings_account_badge_style_hint),
+    )
+
+/** The app offers 通栏, 轻卡片 and 原版 in that order. */
+@Composable
+private fun postReplyStyleChoice(selected: PostReplyStyle, onSelect: (PostReplyStyle) -> Unit): SettingsItem.Choice =
+    settingsChoice(
+        key = "post-reply-style",
+        title = stringResource(Res.string.settings_post_reply_style),
+        choices = listOf(
             PostReplyStyle.FLAT to stringResource(Res.string.settings_post_reply_style_flat),
             PostReplyStyle.CARDS to stringResource(Res.string.settings_post_reply_style_cards),
             PostReplyStyle.ORIGINAL to stringResource(Res.string.settings_post_reply_style_original),
-        )
-    ChoiceSegments(
-        labels = choices.map { it.second },
-        selectedIndex = choices.indexOfFirst { it.first == selected },
-        onSelect = { onSelected(choices[it].first) },
+        ),
+        selected = selected,
+        onSelect = onSelect,
+        presentation = SettingsChoicePresentation.Segmented,
+        description = stringResource(Res.string.settings_post_reply_style_hint),
     )
-}
-
-/**
- * What 表情大小 buys, drawn by the renderer it changes.
- *
- * The same [PostRichContent] the thread uses, handed a line with two of the site's stickers in it,
- * under the size being dragged rather than the size stored — so the sample answers "how big next to
- * my body text" while the thumb is still moving. The stickers are fetched like any other: already in
- * Coil's cache for anyone who has opened a thread, a pair of fallback squares at the right size for
- * anyone who has not, which still shows the sizing this control is about.
- */
-@Composable
-private fun StickerSizePreview(sizeSp: Int) {
-    Surface(
-        color = LocalPlazaLayers.current.inset,
-        shape = MaterialTheme.shapes.medium,
-    ) {
-        CompositionLocalProvider(
-            LocalStickerSizing provides StickerSizing(uniform = true, uniformSize = sizeSp.sp),
-        ) {
-            PostRichContent(
-                nodes = stickerPreviewNodes(),
-                onLinkClick = {},
-                onImageClick = {},
-                // Nothing here is worth copying, and a selection handle inside a settings row is a
-                // way to lose the drag that was aimed at the slider.
-                selectable = false,
-                modifier = Modifier.padding(Spacing.md),
-            )
-        }
-    }
-}
-
-@Composable
-private fun stickerPreviewNodes(): List<RichNode> {
-    val caption = stringResource(Res.string.settings_sticker_preview_caption)
-    return remember(caption) {
-        listOf(
-            RichNode.Paragraph(
-                listOf(
-                    InlineNode.Text(caption),
-                    InlineNode.Sticker(
-                        url = NodeSeekSite.stickerUrl(group = "ac", code = "01", extension = "png"),
-                        alt = "ac01",
-                    ),
-                    InlineNode.Sticker(
-                        url = NodeSeekSite.stickerUrl(group = "yct", code = "001", extension = "gif"),
-                        alt = "yct001",
-                    ),
-                ),
-            ),
-        )
-    }
-}
 
 private val STICKER_SIZE_RANGE =
     SettingsRepository.MIN_STICKER_SIZE_SP.toFloat()..SettingsRepository.MAX_STICKER_SIZE_SP.toFloat()
@@ -1060,54 +918,6 @@ private val SEARCH_AVATAR_SIZE_RANGE =
     SettingsRepository.MIN_SEARCH_AVATAR_DP.toFloat()..SettingsRepository.MAX_SEARCH_AVATAR_DP.toFloat()
 private const val SEARCH_AVATAR_SIZE_STEPS = 23
 internal const val SEARCH_AVATAR_SLIDER_TAG = "search-avatar-slider"
-
-/**
- * A result card at the size being dragged, rather than a number beside a label.
- *
- * It is the screen's own [SearchPostCard], so the preview cannot drift from the thing it is
- * previewing — and the title beside the face answers the question the slider actually asks: how much
- * of a result the face costs.
- */
-@Composable
-private fun SearchAvatarPreview(sizeDp: Int) {
-    val title = stringResource(Res.string.settings_search_avatar_preview)
-    Surface(
-        color = LocalPlazaLayers.current.inset,
-        shape = MaterialTheme.shapes.medium,
-    ) {
-        SearchPostCard(
-            post = remember(title) { searchAvatarPreviewPost(title) },
-            highlight = null,
-            onClick = {},
-            avatarSize = sizeDp.dp,
-            modifier = Modifier.padding(Spacing.md),
-        )
-    }
-}
-
-private fun searchAvatarPreviewPost(title: String) =
-    FeedPost(
-        summary =
-        PostSummary(
-            postId = 0,
-            title = title,
-            authorName = "nodyssey",
-            authorUid = 0,
-            avatarUrl = null,
-            // No board on purpose: the question is the face against the title, and a tag would
-            // take width away from the thing being judged.
-            categoryTitle = null,
-            categorySlug = null,
-            viewCount = null,
-            commentCount = 3,
-            lastActiveText = "1d",
-            lastActiveTitle = null,
-            isPinned = false,
-            isLocked = false,
-        ),
-        isRead = false,
-        newCommentCount = 0,
-    )
 
 private val BODY_FONT_SIZE_RANGE = 14f..24f
 private const val BODY_FONT_SIZE_STEPS = 9
@@ -1184,13 +994,14 @@ private fun SettingsWidePreview() {
  * sticker library rather than through this screen's ViewModel, which has nothing else to do with it.
  */
 @Composable
-private fun StickersRow(onClick: () -> Unit) {
-    val library = LocalStickerLibrary.current ?: return
+private fun stickersLink(onClick: () -> Unit): SettingsItem.Link? {
+    val library = LocalStickerLibrary.current ?: return null
     val mine by remember(library) { library.mine }.collectAsStateWithLifecycle(emptyList())
     val subscriptions by remember(library) { library.subscriptions }.collectAsStateWithLifecycle(emptyList())
-    GroupedRow(
+    return SettingsItem.Link(
+        key = "stickers",
         title = stringResource(Res.string.sticker_manage_title),
-        subtitle = stringResource(Res.string.sticker_manage_tab_mine, mine.size) + SUBTITLE_SEPARATOR +
+        value = stringResource(Res.string.sticker_manage_tab_mine, mine.size) + SUBTITLE_SEPARATOR +
             stringResource(Res.string.sticker_manage_tab_subs, subscriptions.sumOf { it.folders.size }),
         onClick = onClick,
         icon = PlazaIcons.Mood,

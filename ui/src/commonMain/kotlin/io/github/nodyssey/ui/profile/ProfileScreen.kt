@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -41,7 +40,6 @@ import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -84,15 +82,16 @@ import io.github.nodyssey.ui.common.AttendanceModeDialog
 import io.github.nodyssey.ui.common.LevelProgressLine
 import io.github.nodyssey.ui.common.LocalFloatingBottomBarHeight
 import io.github.nodyssey.ui.common.LocalIosPad
+import io.github.nodyssey.ui.common.LocalIosPadLandscape
 import io.github.nodyssey.ui.common.MediumButton
 import io.github.nodyssey.ui.common.SiteErrorSnackbar
 import io.github.nodyssey.ui.common.SiteErrorState
-import io.github.nodyssey.ui.common.TabContentMaxWidth
 import io.github.nodyssey.ui.common.UpdateDot
 import io.github.nodyssey.ui.common.WideTabMinWidth
 import io.github.nodyssey.ui.common.bottomWithFloatingBar
 import io.github.nodyssey.ui.common.describedAsLoading
 import io.github.nodyssey.ui.common.siteName
+import io.github.nodyssey.ui.common.tabContentMaxWidth
 import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.resources.Res
 import io.github.nodyssey.ui.resources.accounts_switch
@@ -115,7 +114,6 @@ import io.github.nodyssey.ui.resources.profile_guest_benefit_messages
 import io.github.nodyssey.ui.resources.profile_guest_benefit_messages_hint
 import io.github.nodyssey.ui.resources.profile_guest_benefit_post
 import io.github.nodyssey.ui.resources.profile_guest_benefit_post_hint
-import io.github.nodyssey.ui.resources.profile_guest_section
 import io.github.nodyssey.ui.resources.profile_level
 import io.github.nodyssey.ui.resources.profile_level_unknown
 import io.github.nodyssey.ui.resources.profile_member_since
@@ -148,18 +146,21 @@ import io.github.nodyssey.ui.resources.profile_tile_providers
 import io.github.nodyssey.ui.resources.profile_tile_ruling
 import io.github.nodyssey.ui.resources.profile_tile_theme
 import io.github.nodyssey.ui.resources.profile_tile_topics
+import io.github.nodyssey.ui.resources.profile_tile_vps_calculator
 import io.github.nodyssey.ui.resources.profile_tools
 import io.github.nodyssey.ui.resources.settings_title
 import io.github.nodyssey.ui.resources.tab_profile
+import io.github.plaza.designsys.component.AdaptiveGlassButton
+import io.github.plaza.designsys.component.GlassAction
 import io.github.plaza.designsys.component.LayerCard
 import io.github.plaza.designsys.component.LayerCardGap
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.LoadingState
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.ReadableTopBar
-import io.github.plaza.designsys.component.SectionLabel
 import io.github.plaza.designsys.component.TonalTile
 import io.github.plaza.designsys.component.UserAvatar
 import io.github.plaza.designsys.theme.ControlShape
@@ -282,7 +283,8 @@ fun ProfileScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val isIosPad = LocalIosPad.current
-    val allowTwoColumns = !isIosPad || LocalWindowInfo.current.containerSize.let { it.width > it.height }
+    val allowTwoColumns =
+        !isIosPad || (LocalIosPadLandscape.current ?: LocalWindowInfo.current.containerSize.let { it.width > it.height })
     // The sign-in request now runs on this screen, so its refusals have to land here too — and
     // through [SiteErrorSnackbar], because a bare sentence is the wrong answer to a wall: 领鸡腿
     // refused with 需要确认一下你不是机器人 and nothing to press left the reader knowing what was
@@ -456,20 +458,31 @@ private fun SettingsAction(
     hasAppUpdate: Boolean,
     onClick: () -> Unit,
 ) {
-    Box {
-        IconButton(onClick = onClick) {
-            Icon(
-                Icons.Default.Settings,
-                contentDescription = stringResource(Res.string.settings_title),
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        if (hasAppUpdate) {
-            UpdateDot(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 10.dp, end = 8.dp),
-            )
+    val label = stringResource(Res.string.settings_title)
+    AdaptiveGlassButton(
+        action = GlassAction(
+            label = label,
+            onClick = onClick,
+            symbol = "gearshape",
+            badge = hasAppUpdate,
+        ),
+        modifier = Modifier.size(Sizes.minTouchTarget),
+    ) {
+        Box {
+            IconButton(onClick = onClick) {
+                PlazaIcon(
+                    Icons.Default.Settings,
+                    contentDescription = label,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            if (hasAppUpdate) {
+                UpdateDot(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 10.dp, end = 8.dp),
+                )
+            }
         }
     }
 }
@@ -625,7 +638,7 @@ private fun IdentityRow(
             )
         }
         if (onSwitchAccount == null) {
-            Icon(
+            PlazaIcon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -651,7 +664,7 @@ private fun AccountSwitchButton(onClick: () -> Unit) {
         contentPadding = ButtonDefaults.contentPaddingFor(height, hasStartIcon = true),
         modifier = Modifier.heightIn(min = height).semantics { contentDescription = description },
     ) {
-        Icon(PlazaIcons.SwapHoriz, contentDescription = null, modifier = Modifier.size(ButtonDefaults.iconSizeFor(height)))
+        PlazaIcon(PlazaIcons.SwapHoriz, contentDescription = null, modifier = Modifier.size(ButtonDefaults.iconSizeFor(height)))
         Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(height)))
         Text(stringResource(Res.string.accounts_switch), style = MaterialTheme.typography.labelMedium)
     }
@@ -699,8 +712,8 @@ private fun AttendanceBanner(
             Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
                 when {
                     busy -> PlazaSpinner(Modifier.describedAsLoading(), size = 18.dp, color = content)
-                    done -> Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(22.dp))
-                    else -> Icon(PlazaIcons.EventAvailable, contentDescription = null, modifier = Modifier.size(22.dp))
+                    done -> PlazaIcon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(22.dp))
+                    else -> PlazaIcon(PlazaIcons.EventAvailable, contentDescription = null, modifier = Modifier.size(22.dp))
                 }
             }
             Column(Modifier.weight(1f).padding(vertical = Spacing.sm)) {
@@ -788,7 +801,7 @@ private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryR
         ProfileSection(
             title = Res.string.profile_section_community,
             tiles =
-            listOf(
+            listOfNotNull(
                 ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
                 ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant, hasUnreadLotteryResults),
                 ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
@@ -799,6 +812,7 @@ private fun profileSections(destinations: ProfileDestinations, hasUnreadLotteryR
                 ProfileTile(Res.string.profile_tile_invite, PlazaIcons.ConfirmationNumber, destinations.invite),
                 ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail, hasUnreadMail, Res.string.mail_unread),
                 ProfileTile(Res.string.profile_tile_about_community, PlazaIcons.Forum, destinations.aboutCommunity),
+                destinations.vpsCalculator?.let { ProfileTile(Res.string.profile_tile_vps_calculator, PlazaIcons.Calculate, it) },
             ),
         ),
         ProfileSection(
@@ -827,7 +841,7 @@ private val PROFILE_TWO_COLUMN_MAX_WIDTH = 1040.dp
 
 private fun profileContentWidth(availableWidth: Dp, isIosPad: Boolean, allowTwoColumns: Boolean): Dp =
     when {
-        isIosPad && availableWidth >= WideTabMinWidth -> minOf(TabContentMaxWidth, availableWidth - Spacing.lg * 2)
+        isIosPad && availableWidth >= WideTabMinWidth -> minOf(tabContentMaxWidth(isIosPad, landscape = allowTwoColumns), availableWidth - Spacing.lg * 2)
         allowTwoColumns && availableWidth >= PROFILE_TWO_COLUMN_MIN_WIDTH -> PROFILE_TWO_COLUMN_MAX_WIDTH
         else -> Sizes.readableContentWidth
     }
@@ -888,13 +902,19 @@ private fun ProfileGridTile(
                 }
             },
         ) {
-            Icon(tile.icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            PlazaIcon(tile.icon, contentDescription = null, modifier = Modifier.size(20.dp))
         }
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, lineBreak = LineBreak.Heading),
             textAlign = TextAlign.Center,
-            // Every caption reserves the same two lines, including the longer mail label.
+            // A translated calculator caption has an explicit line break. Fit both lines
+            // inside their quarter of the grid, including at larger system text sizes.
+            autoSize = if (tile.label == Res.string.profile_tile_vps_calculator) {
+                TextAutoSize.StepBased(minFontSize = 1.sp, maxFontSize = MaterialTheme.typography.labelSmall.fontSize)
+            } else {
+                null
+            },
             minLines = 2,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -978,27 +998,23 @@ private fun SignedOutProfile(
         }
     }
     val guestTools: @Composable () -> Unit = {
-        Column {
-            SectionLabel(stringResource(Res.string.profile_guest_section))
-            Spacer(Modifier.height(8.dp))
-            // The four tools 9f draws, then 社区工具 itself: that page also holds 友站, 关于社区 and
-            // 邀请好友, which a guest used to reach through it and still should.
-            ProfileGridCard(
-                listOf(
-                    ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
-                    ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
-                    ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant, hasUnreadLotteryResults),
-                    ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
-                    ProfileTile(
-                        Res.string.profile_tile_providers,
-                        Icons.Default.ShoppingCart,
-                        destinations.providers,
-                    ),
-                    ProfileTile(Res.string.profile_tools, PlazaIcons.DashboardCustomize, destinations.tools),
-                    ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail, hasUnreadMail, Res.string.mail_unread),
+        // The four tools 9f draws, then 社区工具 itself: that page also holds 友站, 关于社区 and
+        // 邀请好友, which a guest used to reach through it and still should.
+        ProfileGridCard(
+            listOf(
+                ProfileTile(Res.string.profile_tile_award, PlazaIcons.MenuBook, destinations.award),
+                ProfileTile(Res.string.profile_tile_ruling, PlazaIcons.Gavel, destinations.ruling),
+                ProfileTile(Res.string.lottery_title, PlazaIcons.Alarm, destinations.lotteryAssistant, hasUnreadLotteryResults),
+                ProfileTile(Res.string.profile_tile_lucky, PlazaIcons.Casino, destinations.lucky),
+                ProfileTile(
+                    Res.string.profile_tile_providers,
+                    Icons.Default.ShoppingCart,
+                    destinations.providers,
                 ),
-            )
-        }
+                ProfileTile(Res.string.profile_tools, PlazaIcons.DashboardCustomize, destinations.tools),
+                ProfileTile(Res.string.mail_title, Icons.Default.Email, destinations.mail, hasUnreadMail, Res.string.mail_unread),
+            ),
+        )
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val contentWidth = profileContentWidth(maxWidth, LocalIosPad.current, allowTwoColumns)
@@ -1061,7 +1077,7 @@ private fun WelcomeMark() {
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(40.dp))
+            PlazaIcon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(40.dp))
         }
     }
 }
@@ -1084,7 +1100,7 @@ private fun SignedOutBenefit(
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
+                PlazaIcon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

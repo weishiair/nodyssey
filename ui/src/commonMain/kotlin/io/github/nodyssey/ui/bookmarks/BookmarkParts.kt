@@ -24,7 +24,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
@@ -86,6 +85,7 @@ import io.github.plaza.designsys.component.InlineBanner
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.MetaText
 import io.github.plaza.designsys.component.PlazaChipDefaults
+import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.ThreadRowTitle
 import io.github.plaza.designsys.component.groupedListItemColors
@@ -222,7 +222,7 @@ private fun FailureLine(reason: OfflineFailure) {
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
+        PlazaIcon(
             imageVector = PlazaIcons.ErrorCircle,
             contentDescription = null,
             tint = color,
@@ -267,7 +267,7 @@ private fun OfflineStateAction(
             if (progress != null) {
                 DownloadProgressRing(progress)
             } else {
-                Icon(
+                PlazaIcon(
                     imageVector =
                     when (state) {
                         is OfflineState.Downloaded -> PlazaIcons.OfflinePin
@@ -514,7 +514,7 @@ internal fun SelectionToolbar(
                     enabled = selectedCount > 0,
                     contentPadding = PaddingValues(horizontal = Spacing.lg),
                 ) {
-                    Icon(
+                    PlazaIcon(
                         imageVector = PlazaIcons.Download,
                         contentDescription = null,
                         modifier = Modifier.size(19.dp),
@@ -527,7 +527,7 @@ internal fun SelectionToolbar(
                 }
             }
             IconButton(onClick = onRemove, enabled = selectedCount > 0) {
-                Icon(
+                PlazaIcon(
                     imageVector = PlazaIcons.BookmarkRemove,
                     contentDescription = stringResource(Res.string.bookmarks_remove),
                     tint = MaterialTheme.colorScheme.error,

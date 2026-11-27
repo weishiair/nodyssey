@@ -59,7 +59,7 @@ data class BrowserIdentities(
  * are already open: a probe that reused one would report no DNS, no handshake and a first byte in
  * twelve milliseconds, describing a connection the reader's next cold request will not get.
  */
-class OkHttpNetworkDiagnostics(
+internal class OkHttpNetworkDiagnostics(
     private val forumClient: () -> OkHttpClient,
     private val updatesClient: () -> OkHttpClient,
     private val updatesUrl: String,
@@ -72,7 +72,12 @@ class OkHttpNetworkDiagnostics(
     /** Read at report time, not held: the jar changes under this screen while it is open. */
     private val session: () -> SessionSummary,
     private val dispatchers: AppDispatchers,
+    private val postResponses: PostResponseDiagnosticStore? = null,
 ) : NetworkDiagnostics {
+    override suspend fun recentPostFailure(): PostResponseDiagnostic? = withContext(dispatchers.io) { postResponses?.read() }
+
+    override suspend fun clearPostFailure() = withContext(dispatchers.io) { postResponses?.clear() ?: Unit }
+
     override suspend fun environment(): NetworkEnvironment {
         val proxy = proxyConfig.first()
         val doh = dohConfig.first()

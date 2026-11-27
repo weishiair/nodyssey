@@ -79,6 +79,58 @@ class ChallengeDetectorTest {
         assertEquals(SiteError.Http(503), detector.detect(html, 503, emptyMap(), URL))
     }
 
+    /**
+     * Cloudflare's WAF block page, as its template ships (trimmed): a 403 with no `cf-mitigated`
+     * header and nothing of the site's in it. It used to fall through to `HTTP 403` with 重试 as the
+     * main action, which only asks the same refused question again; the web view is what the reader
+     * needed, and it is what 在网页中打开 already proved could open the thread.
+     */
+    @Test
+    fun `a cloudflare block page sends the reader to the web view`() {
+        val html =
+            """
+            <html class="no-js" lang="en-US"><head><title>Attention Required! | Cloudflare</title>
+            <link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/cf.errors.css" /></head>
+            <body><div id="cf-wrapper"><div id="cf-error-details" class="cf-error-details-wrapper">
+            <div class="cf-wrapper cf-header cf-error-overview">
+            <h1 data-translate="block_headline">Sorry, you have been blocked</h1>
+            <h2 class="cf-subheadline"><span data-translate="unable_to_access">You are unable to access</span> nodeseek.com</h2>
+            </div><h2 data-translate="blocked_why_headline">Why have I been blocked?</h2>
+            <span data-translate="cf_ray">Cloudflare Ray ID:</span> <strong>a5e76d00cb405846</strong>
+            </div></div></body></html>
+            """.trimIndent()
+        assertEquals(SiteError.Cloudflare(URL), detector.detect(html, 403, mapOf("Server" to "cloudflare"), URL))
+    }
+
+    /**
+     * Cloudflare's 1015 page shares the 1xxx 「used Cloudflare to restrict access」 title with the
+     * block pages, but arrives as a 429. Waiting is what clears it; a web view would only spend
+     * another request against the same limit.
+     */
+    @Test
+    fun `cloudflare's rate-limit page stays a throttle rather than a block`() {
+        val html =
+            """
+            <html><head><title>Access denied | www.nodeseek.com used Cloudflare to restrict access</title></head>
+            <body><div id="cf-error-details"><h1><span data-translate="error">Error</span><span>1015</span></h1>
+            <h2 data-translate="error_desc">You are being rate limited</h2></div></body></html>
+            """.trimIndent()
+        assertEquals(SiteError.RateLimited, detector.detect(html, 429, emptyMap(), URL))
+    }
+
+    /** The same error-page wrapper frames the origin failing, which no web view can clear. */
+    @Test
+    fun `a cloudflare origin error is not a block`() {
+        val html =
+            """
+            <html><head><title>www.nodeseek.com | 522: Connection timed out</title></head>
+            <body><div id="cf-error-details" class="cf-error-details-wrapper">
+            <h1><span class="cf-error-type" data-translate="error">Error</span><span class="cf-error-code">522</span></h1>
+            </div></body></html>
+            """.trimIndent()
+        assertEquals(SiteError.Http(522), detector.detect(html, 522, emptyMap(), URL))
+    }
+
     @Test
     fun `the cf-mitigated header alone is enough`() {
         assertEquals(
