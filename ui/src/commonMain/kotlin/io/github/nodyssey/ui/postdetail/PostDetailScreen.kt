@@ -96,6 +96,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -125,6 +126,8 @@ import io.github.nodyssey.model.countOf
 import io.github.nodyssey.model.hasSpent
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.common.BottomPullToRefreshBox
+import io.github.nodyssey.ui.common.LocalIosPadFullPage
+import io.github.nodyssey.ui.common.LocalIosPadLandscape
 import io.github.nodyssey.ui.common.LocalUserNotes
 import io.github.nodyssey.ui.common.NodeSeekIcons
 import io.github.nodyssey.ui.common.PlazaSheet
@@ -140,6 +143,7 @@ import io.github.nodyssey.ui.common.sharedThreadAuthor
 import io.github.nodyssey.ui.common.sharedThreadAvatar
 import io.github.nodyssey.ui.common.sharedThreadBoard
 import io.github.nodyssey.ui.common.sharedThreadTitle
+import io.github.nodyssey.ui.common.tabContentWidth
 import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.common.withoutTop
 import io.github.nodyssey.ui.compare.LocalReportOrigin
@@ -774,6 +778,23 @@ fun PostDetailScreen(
 
     val pageColor = threadPageColor(state.postReplyStyle)
     val threadBackdrop = rememberLiquidGlassBackdrop(pageColor)
+    val fullPageColumn = if (LocalIosPadFullPage.current) {
+        val windowLandscape = LocalIosPadLandscape.current
+        Modifier.layout { measurable, constraints ->
+            val width = tabContentWidth(
+                availableWidth = constraints.maxWidth.toDp(),
+                availableHeight = constraints.maxHeight.toDp(),
+                isIosPad = true,
+                windowLandscape = windowLandscape,
+            ).roundToPx().coerceIn(0, constraints.maxWidth)
+            val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+            layout(constraints.maxWidth, placeable.height) {
+                placeable.placeRelative((constraints.maxWidth - width) / 2, 0)
+            }
+        }
+    } else {
+        null
+    }
 
     CompositionLocalProvider(LocalLiquidGlassBackdrop provides threadBackdrop) {
         Scaffold(
@@ -856,7 +877,7 @@ fun PostDetailScreen(
                      * the four shared elements mid-landing and flies them again.
                      */
                     !state.hasContent && state.isLoading && state.preview == null ->
-                        Box(Modifier.padding(top = topInset, bottom = bottomInset)) {
+                        Box(Modifier.padding(top = topInset, bottom = bottomInset).then(fullPageColumn ?: Modifier)) {
                             UnopenedThreadSkeleton()
                         }
 
@@ -942,6 +963,7 @@ fun PostDetailScreen(
                                         stardustContent = stardustContent,
                                         onTitleBottom = { collapsedTitleThreshold = it },
                                         lotteryContent = lotteryContent,
+                                        modifier = fullPageColumn ?: Modifier.readableWidth(),
                                         topInset = topInset,
                                         bottomPadding = bottomInset + readingControlsHeight + 16.dp,
                                     )
@@ -1489,9 +1511,7 @@ private fun ThreadList(
         } else {
             PaddingValues(top = topInset + Spacing.sm, bottom = bottomPadding)
         },
-        modifier = modifier
-            .fillMaxHeight()
-            .readableWidth(),
+        modifier = modifier.fillMaxHeight(),
     ) {
         /*
          * Present whether or not the thread has arrived — which is the whole reason this is one item

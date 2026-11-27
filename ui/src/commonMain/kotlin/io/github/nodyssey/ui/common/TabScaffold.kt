@@ -21,6 +21,8 @@ import io.github.plaza.designsys.theme.Spacing
 
 internal val LocalIosPad = staticCompositionLocalOf { false }
 
+internal val LocalIosPadFullPage = compositionLocalOf { false }
+
 /**
  * Window-level orientation on iPad (`null` when derived from the pane's own aspect ratio).
  * Keeping this anchored to the window stops a landscape split-pane squeeze from snapping

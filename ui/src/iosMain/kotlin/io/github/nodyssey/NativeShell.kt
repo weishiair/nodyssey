@@ -52,6 +52,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import io.github.nodyssey.core.NodeSeekSite
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.data.settings.ThemeMode
 import io.github.nodyssey.data.settings.UserSettings
 import io.github.nodyssey.di.AppContainer
@@ -62,6 +63,7 @@ import io.github.nodyssey.ui.common.ListFabCentreAboveSafeArea
 import io.github.nodyssey.ui.common.LocalBottomBarSafeAreaOverlap
 import io.github.nodyssey.ui.common.LocalFixedBottomBarHeight
 import io.github.nodyssey.ui.common.LocalIosPad
+import io.github.nodyssey.ui.common.LocalIosPadFullPage
 import io.github.nodyssey.ui.common.LocalIosPadLandscape
 import io.github.nodyssey.ui.common.LocalIosPadSqueezing
 import io.github.nodyssey.ui.common.LocalOpenNetworkCheck
@@ -533,7 +535,7 @@ private class NativeShell(
                 },
             ) {
                 if (!state.released) {
-                    NodysseyChrome(container, settings) {
+                    NodysseyChrome(container, settings) { storedSettings ->
                         DeviceLocals(fixedBottomBarHeight, windowLandscape) {
                             CompositionLocalProvider(
                                 // The page's own store rather than the controller's default one, so that a
@@ -544,6 +546,7 @@ private class NativeShell(
                                 LocalOpenNetworkCheck provides { stack.add(NetworkCheckKey) },
                                 // 测评对比 from any report card's 对比 (n), onto this page's tab.
                                 LocalOpenReportCompare provides { stack.add(ReportCompareKey) },
+                                LocalIosPadFullPage provides (isPad && (storedSettings ?: settings).padLayoutMode == PadLayoutMode.SINGLE),
                                 // Read during TabScaffold layout so narrow-gutter interpolation only runs mid-squeeze.
                                 LocalIosPadSqueezing provides { !state.squeezeWidthPt.isNaN() },
                             ) {
