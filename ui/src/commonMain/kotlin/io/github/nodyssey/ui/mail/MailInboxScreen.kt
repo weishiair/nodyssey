@@ -447,7 +447,7 @@ fun MailInboxScreen(
                             },
                         )
                         if (state.connected) {
-                            Box(Modifier.align(Alignment.BottomCenter).readableWidth()) {
+                            Box(Modifier.align(Alignment.BottomCenter).readableWidth().fillMaxWidth()) {
                                 Box(Modifier.align(Alignment.BottomEnd)) {
                                     MailInboxOptions(
                                         menu = menu,
