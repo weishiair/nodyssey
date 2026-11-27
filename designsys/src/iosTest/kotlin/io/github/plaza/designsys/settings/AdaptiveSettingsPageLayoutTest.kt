@@ -68,18 +68,29 @@ class AdaptiveSettingsPageLayoutTest {
         assertTrue(wideMargins.first > 0.0 && wideMargins.second > 0.0)
         assertEquals(wideMargins.first, wideMargins.second, 0.5)
 
-        // 2. Rotate the same host to portrait: column narrows dynamically and stays centred.
-        val portraitWidth = 820.0
+        // 2. Flip orientation in the spec at the same container width: the window itself is still
+        //    wider than the landscape cap, so narrowing here proves the portrait cap took effect
+        //    and that update() triggered relayout without needing a frame change.
         host.update(samplePage, onBack = {}, palette = samplePalette, readableSpec = wideSpec.copy(windowLandscape = false))
+        host.view.layoutIfNeeded()
+
+        val portraitAtSameWidth = host.measureHorizontal()
+        assertCenteredColumn(portraitAtSameWidth, containerWidth = landscapeWidth)
+        assertTrue(portraitAtSameWidth.tableWidth < landscape.tableWidth)
+        assertFalse(host.table.cellLayoutMarginsFollowReadableWidth)
+
+        // 3. Apply the rotated portrait frame: the backdrop tracks the new width while the column
+        //    stays centred at the same portrait cap.
+        val portraitWidth = 820.0
         host.view.setFrame(CGRectMake(0.0, 0.0, portraitWidth, 1100.0))
         host.view.layoutIfNeeded()
 
-        val portrait = host.measureHorizontal()
-        assertCenteredColumn(portrait, containerWidth = portraitWidth)
-        assertTrue(portrait.tableWidth < landscape.tableWidth)
+        val portraitRotated = host.measureHorizontal()
+        assertCenteredColumn(portraitRotated, containerWidth = portraitWidth)
+        assertEquals(portraitAtSameWidth.tableWidth, portraitRotated.tableWidth, 0.5)
         assertFalse(host.table.cellLayoutMarginsFollowReadableWidth)
 
-        // 3. Resize the same host to a compact window: bar and table return to full width and
+        // 4. Resize the same host to a compact window: bar and table return to full width and
         //    hand layout margins back to UIKit's default readable-width handling.
         val compactWidth = 420.0
         host.update(samplePage, onBack = {}, palette = samplePalette, readableSpec = ReadableWidthSpec.Default)
@@ -94,7 +105,7 @@ class AdaptiveSettingsPageLayoutTest {
         assertEquals(initialMargins.first, restoredMargins.first, 0.5)
         assertEquals(initialMargins.second, restoredMargins.second, 0.5)
 
-        // 4. Widen the same host again: centred layout and rounded-card margins re-engage cleanly.
+        // 5. Widen the same host again: centred layout and rounded-card margins re-engage cleanly.
         host.update(samplePage, onBack = {}, palette = samplePalette, readableSpec = wideSpec)
         host.view.setFrame(CGRectMake(0.0, 0.0, landscapeWidth, 800.0))
         host.view.layoutIfNeeded()
