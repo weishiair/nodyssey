@@ -1146,12 +1146,21 @@ private fun DataTable(
         content.flatten().flatten().filterIsInstance<InlineNode.QuoteRef>().associateWith { ref ->
             stringResource(Res.string.richtext_quote_reply, ref.name, ref.floor)
         }
+    val stickerFallback = stringResource(Res.string.richtext_sticker_fallback)
     val cells =
-        remember(content, linkStyles, codeBackground, linkListener, quoteLabels, appearance.strongFontWeight) {
+        remember(content, linkStyles, codeBackground, linkListener, quoteLabels, appearance.strongFontWeight, stickerFallback) {
             content.map { row ->
                 row.map { inlines ->
                     WrapCell(
-                        text = cellText(inlines, linkStyles, codeBackground, linkListener, quoteLabels, appearance.strongFontWeight),
+                        text = cellText(
+                            inlines,
+                            linkStyles,
+                            codeBackground,
+                            linkListener,
+                            quoteLabels,
+                            appearance.strongFontWeight,
+                            stickerFallback,
+                        ),
                         images =
                         inlines.filterIsInstance<InlineNode.Image>().map {
                             WrapCellImage(url = it.url, alt = it.alt)
@@ -1189,6 +1198,7 @@ private fun cellText(
     linkListener: LinkInteractionListener,
     quoteLabels: Map<InlineNode.QuoteRef, String>,
     strongFontWeight: FontWeight,
+    stickerFallback: String,
 ): AnnotatedString = buildAnnotatedString {
     inlines.forEach { inline ->
         when (inline) {
@@ -1205,7 +1215,7 @@ private fun cellText(
                     withSpan(inline.style, codeBackground, strongFontWeight) { append(inline.text) }
                 }
 
-            is InlineNode.Sticker -> append(inline.alt.orEmpty())
+            is InlineNode.Sticker -> append(inline.alt ?: stickerFallback)
 
             // Not flattened to text: the cell's images are lifted out beside this string and drawn
             // as thumbnails by [WrapTable] — see [DataTable], which routes any table holding one
@@ -1368,10 +1378,12 @@ private fun InlineText(
                                 }
 
                             is InlineNode.Sticker -> {
-                                appendInlineContent(
-                                    STICKER_PREFIX + inline.url,
-                                    inline.alt ?: stickerFallback,
-                                )
+                                val label = inline.alt ?: stickerFallback
+                                if (inline.url.isEmpty()) {
+                                    append(label)
+                                } else {
+                                    appendInlineContent(STICKER_PREFIX + inline.url, label)
+                                }
                                 prevChar = '\u0000'
                                 prevIsCode = false
                             }
@@ -1427,11 +1439,12 @@ private fun InlineText(
 
     val stickerSizing = LocalStickerSizing.current
     val density = LocalDensity.current
+    val imageStickers = inlines.filterIsInstance<InlineNode.Sticker>().filter { it.url.isNotEmpty() }
     // Reads the size cache, so the first decode of a sticker this process has not seen relays out
     // the paragraph around its real size. In 统一缩限 mode the cache is not consulted and there is
     // nothing to relay out.
     val stickerBoxes =
-        inlines.filterIsInstance<InlineNode.Sticker>().associate { sticker ->
+        imageStickers.associate { sticker ->
             sticker.url to stickerSizing.boxSize(StickerSizeCache.naturalSize(sticker.url), density)
         }
     /*
@@ -1454,7 +1467,7 @@ private fun InlineText(
             if (tallest <= line) 0.dp else STICKER_LINE_GAP.toDp()
         }
     val stickerContent =
-        inlines.filterIsInstance<InlineNode.Sticker>().associate { sticker ->
+        imageStickers.associate { sticker ->
             val box = stickerBoxes.getValue(sticker.url)
             STICKER_PREFIX + sticker.url to
                 InlineTextContent(

@@ -237,20 +237,26 @@ object RichContentParser {
      * Keep the source rather than the executable markup. A video may put its URL on a child source.
      */
     private fun embeddedMedia(element: Element): RichNode.EmbeddedMedia? {
-        val url = mediaSources(element).firstNotNullOfOrNull(::mediaUrl) ?: return null
+        val url = mediaSourceUrl(element) ?: return null
         return RichNode.EmbeddedMedia(url, element.attr("title").trim().ifBlank { null })
     }
 
     private fun videoSticker(element: Element): InlineNode.Sticker? {
-        if (element.tagName() != "video" || !element.hasClass(STICKER_CLASS)) return null
-        val url = mediaSources(element).firstNotNullOfOrNull(NodeSeekSite::fluentStickerPreviewUrl) ?: return null
-        return InlineNode.Sticker(url, alt = element.attr("title").trim().ifBlank { null })
+        if (element.tagName() != "video") return null
+        val source = mediaSourceUrl(element) ?: return null
+        val path = NodeSeekSite.ownSitePath(source) ?: return null
+        if (!element.hasClass(STICKER_CLASS) && !path.startsWith(NodeSeekSite.STICKER_PATH)) return null
+
+        val poster = mediaUrl(element.attr("poster"))?.takeIf { NodeSeekSite.ownSitePath(it) != null }
+        val preview = poster ?: NodeSeekSite.fluentStickerPreviewUrl(path)
+        return InlineNode.Sticker(url = preview.orEmpty(), alt = element.attr("title").trim().ifBlank { null })
     }
 
-    private fun mediaSources(element: Element): List<String> = buildList {
-        add(element.attr("src"))
-        if (element.tagName() == "video") {
-            element.select(Selectors.CONTENT_MEDIA_SOURCE).mapTo(this) { it.attr("src") }
+    private fun mediaSourceUrl(element: Element): String? {
+        mediaUrl(element.attr("src"))?.let { return it }
+        if (element.tagName() != "video") return null
+        return element.select(Selectors.CONTENT_MEDIA_SOURCE).firstNotNullOfOrNull {
+            mediaUrl(it.attr("src"))
         }
     }
 

@@ -322,9 +322,11 @@ object NodeSeekSite {
 
     private val FLUENT_STICKER_VIDEO = Regex("""${STICKER_PATH}emoji/([0-9]+)\.(?:webm|mov)""")
 
+    /** The path of an absolute URL on the active site. */
+    internal fun ownSitePath(url: String): String? = parseOwnSiteUrl(url)?.path
+
     /** The Fluent picker uses the PNG with the same numeric ID as the post's video sticker. */
-    internal fun fluentStickerPreviewUrl(source: String): String? {
-        val path = absoluteUrl(source)?.let(::parseOwnSiteUrl)?.path ?: return null
+    internal fun fluentStickerPreviewUrl(path: String): String? {
         val code = FLUENT_STICKER_VIDEO.matchEntire(path)?.groupValues?.get(1) ?: return null
         return stickerUrl(group = "emoji", code = code, extension = "png")
     }
