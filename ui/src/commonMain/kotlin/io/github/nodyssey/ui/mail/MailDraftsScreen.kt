@@ -47,6 +47,7 @@ import io.github.plaza.designsys.component.GroupedListItem
 import io.github.plaza.designsys.component.LayerPageGutter
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSpinner
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -136,14 +137,17 @@ internal fun MailDraftsRoute(viewModel: MailDraftsViewModel, onBack: () -> Unit,
     Scaffold(
         containerColor = LocalPlazaLayers.current.page,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.mail_folder_drafts)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        PlazaIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
-                    }
-                },
-            )
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = { Text(stringResource(Res.string.mail_folder_drafts)) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            PlazaIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
+                        }
+                    },
+                )
+            }
         },
     ) { padding ->
         LazyColumn(

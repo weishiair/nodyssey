@@ -246,7 +246,6 @@ fun UserSpaceScreen(
                 title = "",
                 onBack = onBack,
                 containerColor = MaterialTheme.colorScheme.background,
-                maxContentWidth = Sizes.readableContentWidth,
                 actions = spaceTopBarActions(
                     isSelf = state.isSelf,
                     hasProfile = state.hasProfile,

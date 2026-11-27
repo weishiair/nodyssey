@@ -113,6 +113,7 @@ import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSheetDefaults
 import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.QuotePreview
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.StatusAction
 import io.github.plaza.designsys.component.TonalTag
 import io.github.plaza.designsys.editor.ComposerEditorBar
@@ -692,34 +693,37 @@ private fun ReplyPreviewScreen(
     PlazaBackHandler(enabled = !state.isPublishing, onBack = onBack)
     Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
         Column {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = state.replyTargets.singleOrNull()?.let {
-                            stringResource(Res.string.post_reply_preview_title_floor, it.floor)
-                        } ?: stringResource(Res.string.post_reply_preview_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontSize = 16.sp,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack, enabled = !state.isPublishing) {
-                        PlazaIcon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
+            ReadableTopBar { barInsets ->
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = {
+                        Text(
+                            text = state.replyTargets.singleOrNull()?.let {
+                                stringResource(Res.string.post_reply_preview_title_floor, it.floor)
+                            } ?: stringResource(Res.string.post_reply_preview_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 16.sp,
                         )
-                    }
-                },
-                actions = {
-                    PublishReplyButton(
-                        isPublishing = state.isPublishing,
-                        enabled = state.canPublish,
-                        onClick = onPublish,
-                        modifier = Modifier.padding(end = Spacing.sm),
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack, enabled = !state.isPublishing) {
+                            PlazaIcon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(Res.string.action_back),
+                            )
+                        }
+                    },
+                    actions = {
+                        PublishReplyButton(
+                            isPublishing = state.isPublishing,
+                            enabled = state.canPublish,
+                            onClick = onPublish,
+                            modifier = Modifier.padding(end = Spacing.sm),
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+            }
             ComposerErrorStrip(
                 error = state.publishError,
                 detail = state.publishErrorDetail,

@@ -210,6 +210,7 @@ import io.github.plaza.designsys.theme.cardBorder
 import io.github.plaza.designsys.theme.cardBorderStroke
 import io.github.plaza.designsys.theme.cardShadow
 import io.github.plaza.designsys.theme.paddingWithKeyboard
+import io.github.plaza.designsys.theme.readableWidth
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -339,17 +340,19 @@ fun MessageThreadScreen(
                 ScamReminderBanner(
                     state = state,
                     modifier =
-                    Modifier.padding(
-                        top = topClearance + Spacing.xs,
-                        start = THREAD_GUTTER,
-                        end = THREAD_GUTTER,
-                        bottom = Spacing.xs,
-                    ),
+                    Modifier
+                        .readableWidth()
+                        .padding(
+                            top = topClearance + Spacing.xs,
+                            start = THREAD_GUTTER,
+                            end = THREAD_GUTTER,
+                            bottom = Spacing.xs,
+                        ),
                 )
             }
             // fillMaxWidth, or the box is only as wide as whatever is inside it — which for the
             // empty state is one line of text, and centring inside that put it against the left edge.
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            Box(Modifier.weight(1f).fillMaxWidth().readableWidth()) {
                 when {
                     state.isLoading && state.messages.isEmpty() ->
                         LoadingState(Modifier.padding(top = effectiveTopClearance))
@@ -399,6 +402,7 @@ fun MessageThreadScreen(
             state.syncError?.let { error ->
                 val recovery = siteErrorRecovery(error, onVerify = onVerify, onSignIn = onSignIn, onRetry = onRetryLoad)
                 ListItem(
+                    modifier = Modifier.readableWidth(),
                     leadingContent = { PlazaIcon(PlazaIcons.ErrorCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     trailingContent = { recovery?.let { action -> TextButton(onClick = action.onClick) { Text(action.label) } } },
                     colors = ListItemDefaults.colors(containerColor = LocalPlazaLayers.current.raised),
@@ -411,7 +415,7 @@ fun MessageThreadScreen(
                     stringResource(Res.string.message_draft_save_failed),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = THREAD_GUTTER, vertical = Spacing.xs),
+                    modifier = Modifier.readableWidth().padding(horizontal = THREAD_GUTTER, vertical = Spacing.xs),
                 )
             }
             MessageComposer(
@@ -556,6 +560,7 @@ private fun ThreadTopBar(
             // Top and sides, as a TopAppBar's own insets are: in landscape the navigation bar can be
             // at the side, and the card's ⋮ would sit under it.
             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+            .readableWidth()
             .padding(horizontal = THREAD_GUTTER, vertical = 4.dp),
     ) {
         Surface(
@@ -1188,91 +1193,93 @@ private fun MessageComposer(
         shadowElevation = if (layers.shadows) 1.dp else 0.dp,
     ) {
         Column(Modifier.fillMaxWidth()) {
-            AttachmentTray(
-                attachments = state.attachments,
-                onRemove = onRemoveAttachment,
-                onRetry = onRetryAttachment,
-            )
-            // One quoted message waiting over the bar (3e): whose words, the first line of them, and a
-            // ✕. The excerpt goes through the conversation list's [previewText], so a quoted picture or
-            // sticker reads as [图片] or [表情] rather than as the Markdown that carries it.
-            state.quotes.forEach { quoted ->
-                QuotePreview(
-                    title =
-                    if (quoted.isMine) {
-                        stringResource(Res.string.message_quote_chip_mine)
-                    } else {
-                        stringResource(Res.string.message_quote_chip, state.userName)
-                    },
-                    excerpt = previewText(contentPreview(quoted.content)),
-                    titleColor = MaterialTheme.colorScheme.primary,
-                    leading = {
-                        Box(
-                            Modifier
-                                .width(3.dp)
-                                .height(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary),
-                        )
-                    },
-                    onRemove = { onRemoveQuote(quoted.id) },
-                    removeLabel = stringResource(Res.string.message_quote_remove),
-                    modifier = Modifier.padding(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.xs),
+            Column(Modifier.readableWidth()) {
+                AttachmentTray(
+                    attachments = state.attachments,
+                    onRemove = onRemoveAttachment,
+                    onRetry = onRetryAttachment,
                 )
-            }
-            MessageInputBar(
-                draftState = draftState,
-                stickerPictures = stickerPictures,
-                canSend = state.canSend,
-                panelOpen = panelOpen,
-                emojiOpen = editorState.emojiOpen,
-                onTogglePanel = {
-                    if (panelOpen) {
-                        editorState.closePanels()
-                    } else {
-                        // Focus goes with the keyboard: a field that kept it would bring the keyboard
-                        // straight back up over the grid on the next recomposition, and tapping the field
-                        // is how the grid closes.
-                        focusManager.clearFocus()
-                        keyboard?.hide()
-                        editorState.toggleFormat()
-                    }
-                },
-                onToggleEmoji = {
-                    focusManager.clearFocus()
-                    editorState.dispatch(
-                        action = EditorAction.EMOJI,
-                        bodyState = draftState,
-                        onPickImages = pickImages,
-                        onPickHostedImages = onPickHostedImages,
-                        onFormatted = {},
-                        hideKeyboard = { keyboard?.hide() },
+                // One quoted message waiting over the bar (3e): whose words, the first line of them, and a
+                // ✕. The excerpt goes through the conversation list's [previewText], so a quoted picture or
+                // sticker reads as [图片] or [表情] rather than as the Markdown that carries it.
+                state.quotes.forEach { quoted ->
+                    QuotePreview(
+                        title =
+                        if (quoted.isMine) {
+                            stringResource(Res.string.message_quote_chip_mine)
+                        } else {
+                            stringResource(Res.string.message_quote_chip, state.userName)
+                        },
+                        excerpt = previewText(contentPreview(quoted.content)),
+                        titleColor = MaterialTheme.colorScheme.primary,
+                        leading = {
+                            Box(
+                                Modifier
+                                    .width(3.dp)
+                                    .height(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                        },
+                        onRemove = { onRemoveQuote(quoted.id) },
+                        removeLabel = stringResource(Res.string.message_quote_remove),
+                        modifier = Modifier.padding(start = LayerPageGutter, end = LayerPageGutter, top = Spacing.xs),
                     )
-                },
-                fieldFocus = fieldFocus,
-                onFieldFocused = { editorState.closePanels() },
-                onSend = onSend,
-            )
-            if (editorState.formatOpen) {
-                ToolGrid(
-                    state = state,
-                    onAction = { action ->
+                }
+                MessageInputBar(
+                    draftState = draftState,
+                    stickerPictures = stickerPictures,
+                    canSend = state.canSend,
+                    panelOpen = panelOpen,
+                    emojiOpen = editorState.emojiOpen,
+                    onTogglePanel = {
+                        if (panelOpen) {
+                            editorState.closePanels()
+                        } else {
+                            // Focus goes with the keyboard: a field that kept it would bring the keyboard
+                            // straight back up over the grid on the next recomposition, and tapping the field
+                            // is how the grid closes.
+                            focusManager.clearFocus()
+                            keyboard?.hide()
+                            editorState.toggleFormat()
+                        }
+                    },
+                    onToggleEmoji = {
+                        focusManager.clearFocus()
                         editorState.dispatch(
-                            action = action,
+                            action = EditorAction.EMOJI,
                             bodyState = draftState,
                             onPickImages = pickImages,
                             onPickHostedImages = onPickHostedImages,
-                            // Straight back to the field: the placeholder the key inserted is selected,
-                            // and the next keystroke is meant to replace it.
-                            onFormatted = {
-                                editorState.closePanels()
-                                fieldFocus.requestFocus()
-                            },
+                            onFormatted = {},
                             hideKeyboard = { keyboard?.hide() },
                         )
                     },
-                    onCustomize = onCustomize,
+                    fieldFocus = fieldFocus,
+                    onFieldFocused = { editorState.closePanels() },
+                    onSend = onSend,
                 )
+                if (editorState.formatOpen) {
+                    ToolGrid(
+                        state = state,
+                        onAction = { action ->
+                            editorState.dispatch(
+                                action = action,
+                                bodyState = draftState,
+                                onPickImages = pickImages,
+                                onPickHostedImages = onPickHostedImages,
+                                // Straight back to the field: the placeholder the key inserted is selected,
+                                // and the next keystroke is meant to replace it.
+                                onFormatted = {
+                                    editorState.closePanels()
+                                    fieldFocus.requestFocus()
+                                },
+                                hideKeyboard = { keyboard?.hide() },
+                            )
+                        },
+                        onCustomize = onCustomize,
+                    )
+                }
             }
             if (editorState.emojiOpen) {
                 val panel = editorState.emojiPanelScope(draftState, stickerPictures)

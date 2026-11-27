@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -17,14 +16,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.resources.Res
 import io.github.plaza.designsys.resources.top_bar_back
 import io.github.plaza.designsys.resources.top_bar_close
 import io.github.plaza.designsys.theme.LocalOneHandMode
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.nativeControls
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -79,23 +79,26 @@ fun AdaptiveTopBar(
             actions = { TopBarActions(actions) },
         )
     }
-    if (LocalOneHandMode.current) {
+    if (LocalOneHandMode.current || !nativeControls) {
         composeBar()
         return
     }
-    AdaptiveGlassTopBar(
-        title = title,
-        titleAction = null,
-        back = onBack?.let { backGlassAction(it, closeInsteadOfBack, backLabel) },
-        actions = actions.map { it.glass },
-        subtitle = subtitle,
-        modifier = modifier
-            .fillMaxWidth()
-            .background(LocalPlazaLayers.current.page)
-            .windowInsetsPadding(TopAppBarDefaults.windowInsets)
-            .height(NativeBarHeight),
-        fallback = composeBar,
-    )
+    ReadableTopBar { barInsets ->
+        val statusBarHeight = with(LocalDensity.current) { barInsets.getTop(this).toDp() }
+        AdaptiveGlassTopBar(
+            title = title,
+            titleAction = null,
+            back = onBack?.let { backGlassAction(it, closeInsteadOfBack, backLabel) },
+            actions = actions.map { it.glass },
+            subtitle = subtitle,
+            modifier = modifier
+                .fillMaxWidth()
+                .background(LocalPlazaLayers.current.page)
+                .height(statusBarHeight + NativeBarHeight),
+            barInsets = barInsets,
+            fallback = composeBar,
+        )
+    }
 }
 
 /**
@@ -103,10 +106,11 @@ fun AdaptiveTopBar(
  * was a plain `TopAppBar`, often inside [ReadableTopBar] so its contents kept to the page's column.
  *
  * Android and the desktop draw that same bar — pass [containerColor] what the old `colors` used and
- * [maxContentWidth] what the [ReadableTopBar] wrapped it at, and the render is pixel for pixel as
- * before. On iOS it is the system navigation bar, always: there is no blank for one-hand mode to
- * protect, so this overload is not gated on [LocalOneHandMode]. An empty [title] leaves Android's
- * title slot empty, and an action whose Android icon was drawn at a non-default size goes through
+ * [maxContentWidth] what the [ReadableTopBar] wrapped it at (or leave it [Dp.Unspecified] to follow
+ * [io.github.plaza.designsys.theme.LocalReadableWidthSpec], or `null` to span full width). On iOS
+ * it is the system navigation bar, always: there is no blank for one-hand mode to protect, so this
+ * overload is not gated on [LocalOneHandMode]. An empty [title] leaves Android's title slot empty,
+ * and an action whose Android icon was drawn at a non-default size goes through
  * [TopBarAction.compose] like any other custom form.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,7 +123,7 @@ fun AdaptiveTopBar(
     closeInsteadOfBack: Boolean = false,
     actions: List<TopBarAction> = emptyList(),
     containerColor: Color? = null,
-    maxContentWidth: Dp? = null,
+    maxContentWidth: Dp? = Dp.Unspecified,
 ) {
     val backLabel = stringResource(if (closeInsteadOfBack) Res.string.top_bar_close else Res.string.top_bar_back)
     val composeBar: @Composable () -> Unit = {
@@ -149,18 +153,30 @@ fun AdaptiveTopBar(
             bar(TopAppBarDefaults.windowInsets)
         }
     }
-    AdaptiveGlassTopBar(
-        title = title,
-        titleAction = null,
-        back = onBack?.let { backGlassAction(it, closeInsteadOfBack, backLabel) },
-        actions = actions.map { it.glass },
-        modifier = modifier
-            .fillMaxWidth()
-            .background(containerColor ?: LocalPlazaLayers.current.page)
-            .windowInsetsPadding(TopAppBarDefaults.windowInsets)
-            .height(NativeBarHeight),
-        fallback = composeBar,
-    )
+    if (!nativeControls) {
+        composeBar()
+        return
+    }
+    val nativeBar: @Composable (WindowInsets) -> Unit = { barInsets ->
+        val statusBarHeight = with(LocalDensity.current) { barInsets.getTop(this).toDp() }
+        AdaptiveGlassTopBar(
+            title = title,
+            titleAction = null,
+            back = onBack?.let { backGlassAction(it, closeInsteadOfBack, backLabel) },
+            actions = actions.map { it.glass },
+            modifier = modifier
+                .fillMaxWidth()
+                .background(containerColor ?: LocalPlazaLayers.current.page)
+                .height(statusBarHeight + NativeBarHeight),
+            barInsets = barInsets,
+            fallback = composeBar,
+        )
+    }
+    if (maxContentWidth != null) {
+        ReadableTopBar(maxContentWidth, bar = nativeBar)
+    } else {
+        nativeBar(TopAppBarDefaults.windowInsets)
+    }
 }
 
 @Composable

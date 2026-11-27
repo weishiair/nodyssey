@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -16,8 +15,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -99,11 +96,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
@@ -130,8 +125,6 @@ import io.github.nodyssey.model.countOf
 import io.github.nodyssey.model.hasSpent
 import io.github.nodyssey.ui.common.BoardTag
 import io.github.nodyssey.ui.common.BottomPullToRefreshBox
-import io.github.nodyssey.ui.common.LocalIosPadFullPage
-import io.github.nodyssey.ui.common.LocalIosPadLandscape
 import io.github.nodyssey.ui.common.LocalUserNotes
 import io.github.nodyssey.ui.common.NodeSeekIcons
 import io.github.nodyssey.ui.common.PlazaSheet
@@ -147,7 +140,6 @@ import io.github.nodyssey.ui.common.sharedThreadAuthor
 import io.github.nodyssey.ui.common.sharedThreadAvatar
 import io.github.nodyssey.ui.common.sharedThreadBoard
 import io.github.nodyssey.ui.common.sharedThreadTitle
-import io.github.nodyssey.ui.common.tabContentWidth
 import io.github.nodyssey.ui.common.withoutBottom
 import io.github.nodyssey.ui.common.withoutTop
 import io.github.nodyssey.ui.compare.LocalReportOrigin
@@ -782,23 +774,6 @@ fun PostDetailScreen(
 
     val pageColor = threadPageColor(state.postReplyStyle)
     val threadBackdrop = rememberLiquidGlassBackdrop(pageColor)
-    val fullPageColumn = if (LocalIosPadFullPage.current) {
-        val windowLandscape = LocalIosPadLandscape.current
-        Modifier.layout { measurable, constraints ->
-            val width = tabContentWidth(
-                availableWidth = constraints.maxWidth.toDp(),
-                availableHeight = constraints.maxHeight.toDp(),
-                isIosPad = true,
-                windowLandscape = windowLandscape,
-            ).roundToPx().coerceIn(0, constraints.maxWidth)
-            val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
-            layout(constraints.maxWidth, placeable.height) {
-                placeable.placeRelative((constraints.maxWidth - width) / 2, 0)
-            }
-        }
-    } else {
-        null
-    }
 
     CompositionLocalProvider(LocalLiquidGlassBackdrop provides threadBackdrop) {
         Scaffold(
@@ -881,7 +856,7 @@ fun PostDetailScreen(
                      * the four shared elements mid-landing and flies them again.
                      */
                     !state.hasContent && state.isLoading && state.preview == null ->
-                        Box(Modifier.padding(top = topInset, bottom = bottomInset).then(fullPageColumn ?: Modifier)) {
+                        Box(Modifier.padding(top = topInset, bottom = bottomInset).readableWidth()) {
                             UnopenedThreadSkeleton()
                         }
 
@@ -967,7 +942,7 @@ fun PostDetailScreen(
                                         stardustContent = stardustContent,
                                         onTitleBottom = { collapsedTitleThreshold = it },
                                         lotteryContent = lotteryContent,
-                                        modifier = fullPageColumn ?: Modifier.readableWidth(),
+                                        modifier = Modifier.readableWidth(),
                                         topInset = topInset,
                                         bottomPadding = bottomInset + readingControlsHeight + 16.dp,
                                     )
@@ -1245,10 +1220,10 @@ private fun DetailTopBar(
             )
         }
     }
-    DetailTopBarInsets { nativeInsets ->
+    ReadableTopBar { barInsets ->
         // One blur from the top of the screen down: the status bar is part of the bar's background,
         // not a solid strip above it. The buttons and title stay inside the insets.
-        val statusBarHeight = with(LocalDensity.current) { nativeInsets.getTop(this).toDp() }
+        val statusBarHeight = with(LocalDensity.current) { barInsets.getTop(this).toDp() }
         AdaptiveGlassTopBar(
             title = title.takeIf { showTitle }.orEmpty(),
             titleAction = onTitleClick?.takeIf { showTitle }?.let { GlassAction(openOriginalPostLabel, it) },
@@ -1260,7 +1235,7 @@ private fun DetailTopBar(
             modifier = Modifier.fillMaxWidth().height(statusBarHeight + TopBarHeight),
             blurBackground = contentUnderBar,
             scrollEdgeColor = pageColor,
-            barInsets = nativeInsets,
+            barInsets = barInsets,
         ) {
             val topScrimAlpha by animateFloatAsState(
                 targetValue = if (showTitle) 1f else 0f,
@@ -1278,211 +1253,182 @@ private fun DetailTopBar(
                         scrimAlpha = topScrimAlpha,
                     ),
             ) {
-                DetailTopBarInsets { barInsets ->
-                    TopAppBar(
-                        windowInsets = barInsets,
-                        title = {
-                            // Clickable only while the bar is actually showing the title: the collapsed bar is where
-                            // a reader deep in someone else's page 7 meets the title at all, and an invisible tap
-                            // target over an empty bar is worse than no affordance.
-                            val jump = onTitleClick?.takeIf { showTitle }
-                            Text(
-                                text = if (showTitle) title else "",
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier =
-                                if (jump != null) {
-                                    Modifier.clickable(onClick = jump).semantics {
-                                        contentDescription = openOriginalPostLabel
-                                    }
-                                } else {
-                                    Modifier
-                                },
-                            )
-                        },
-                        navigationIcon = {
-                            if (showBackButton) {
-                                IconButton(
-                                    onClick = onBack,
-                                    modifier =
-                                    if (layers.backdropGlass) {
-                                        Modifier
-                                            .padding(start = 6.dp)
-                                            .minimumInteractiveComponentSize()
-                                            .size(40.dp)
-                                            .liquidGlassInteractive(CircleShape)
-                                            .glassChromeSurface(
-                                                layers = layers,
-                                                darkTheme = darkTheme,
-                                                shape = CircleShape,
-                                                elevated = true,
-                                                backdrop = backdrop,
-                                            )
-                                    } else {
-                                        Modifier
-                                    },
-                                ) {
-                                    PlazaIcon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = stringResource(Res.string.action_back),
-                                        modifier = Modifier.size(TopBarIconSize),
-                                    )
+                TopAppBar(
+                    windowInsets = barInsets,
+                    title = {
+                        // Clickable only while the bar is actually showing the title: the collapsed bar is where
+                        // a reader deep in someone else's page 7 meets the title at all, and an invisible tap
+                        // target over an empty bar is worse than no affordance.
+                        val jump = onTitleClick?.takeIf { showTitle }
+                        Text(
+                            text = if (showTitle) title else "",
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier =
+                            if (jump != null) {
+                                Modifier.clickable(onClick = jump).semantics {
+                                    contentDescription = openOriginalPostLabel
                                 }
-                            }
-                        },
-                        actions = {
-                            Box(
+                            } else {
+                                Modifier
+                            },
+                        )
+                    },
+                    navigationIcon = {
+                        if (showBackButton) {
+                            IconButton(
+                                onClick = onBack,
                                 modifier =
                                 if (layers.backdropGlass) {
-                                    Modifier.padding(end = 6.dp).liquidGlassInteractive(FloatingCapsuleShape)
+                                    Modifier
+                                        .padding(start = 6.dp)
+                                        .minimumInteractiveComponentSize()
+                                        .size(40.dp)
+                                        .liquidGlassInteractive(CircleShape)
+                                        .glassChromeSurface(
+                                            layers = layers,
+                                            darkTheme = darkTheme,
+                                            shape = CircleShape,
+                                            elevated = true,
+                                            backdrop = backdrop,
+                                        )
                                 } else {
                                     Modifier
                                 },
                             ) {
-                                if (layers.backdropGlass) {
-                                    // Paint a 40dp capsule behind separate 48dp Material buttons. The
-                                    // smaller visual no longer constrains or overlaps their touch slots.
-                                    Box(
-                                        Modifier.matchParentSize().padding(vertical = 4.dp).glassChromeSurface(
-                                            layers = layers,
-                                            darkTheme = darkTheme,
-                                            shape = FloatingCapsuleShape,
-                                            elevated = true,
-                                            backdrop = backdrop,
-                                        ),
+                                PlazaIcon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(Res.string.action_back),
+                                    modifier = Modifier.size(TopBarIconSize),
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        Box(
+                            modifier =
+                            if (layers.backdropGlass) {
+                                Modifier.padding(end = 6.dp).liquidGlassInteractive(FloatingCapsuleShape)
+                            } else {
+                                Modifier
+                            },
+                        ) {
+                            if (layers.backdropGlass) {
+                                // Paint a 40dp capsule behind separate 48dp Material buttons. The
+                                // smaller visual no longer constrains or overlaps their touch slots.
+                                Box(
+                                    Modifier.matchParentSize().padding(vertical = 4.dp).glassChromeSurface(
+                                        layers = layers,
+                                        darkTheme = darkTheme,
+                                        shape = FloatingCapsuleShape,
+                                        elevated = true,
+                                        backdrop = backdrop,
+                                    ),
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val actionIconTint =
+                                    if (layers.backdropGlass) {
+                                        MaterialTheme.colorScheme.onSurface
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                IconButton(
+                                    onClick = onOpenInBrowser,
+                                    modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
+                                ) {
+                                    PlazaIcon(
+                                        PlazaIcons.OpenInNew,
+                                        contentDescription = stringResource(Res.string.action_open_in_browser),
+                                        tint = actionIconTint,
+                                        modifier = Modifier.size(TopBarIconSize),
                                     )
                                 }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    val actionIconTint =
-                                        if (layers.backdropGlass) {
-                                            MaterialTheme.colorScheme.onSurface
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
+                                Box {
                                     IconButton(
-                                        onClick = onOpenInBrowser,
+                                        onClick = { menuOpen = true },
                                         modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
                                     ) {
                                         PlazaIcon(
-                                            PlazaIcons.OpenInNew,
-                                            contentDescription = stringResource(Res.string.action_open_in_browser),
+                                            Icons.Default.MoreVert,
+                                            contentDescription = stringResource(Res.string.action_more),
                                             tint = actionIconTint,
                                             modifier = Modifier.size(TopBarIconSize),
                                         )
                                     }
-                                    Box {
-                                        IconButton(
-                                            onClick = { menuOpen = true },
-                                            modifier = if (layers.backdropGlass) Modifier.size(48.dp) else Modifier,
-                                        ) {
-                                            PlazaIcon(
-                                                Icons.Default.MoreVert,
-                                                contentDescription = stringResource(Res.string.action_more),
-                                                tint = actionIconTint,
-                                                modifier = Modifier.size(TopBarIconSize),
+                                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                        onOriginal?.let { jump ->
+                                            DropdownMenuItem(
+                                                text = { Text(openOriginalPostLabel) },
+                                                onClick = {
+                                                    menuOpen = false
+                                                    jump()
+                                                },
                                             )
                                         }
-                                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                            onOriginal?.let { jump ->
-                                                DropdownMenuItem(
-                                                    text = { Text(openOriginalPostLabel) },
-                                                    onClick = {
-                                                        menuOpen = false
-                                                        jump()
-                                                    },
-                                                )
-                                            }
-                                            collected?.let { saved ->
-                                                DropdownMenuItem(
-                                                    text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
-                                                    enabled = !collectPending,
-                                                    onClick = {
-                                                        menuOpen = false
-                                                        onCollect()
-                                                    },
-                                                )
-                                            }
-                                            // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
-                                            // not about to scroll back up to pull.
+                                        collected?.let { saved ->
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(Res.string.action_refresh)) },
+                                                text = { Text(stringResource(if (saved) Res.string.post_collected_action else Res.string.post_collect_action)) },
+                                                enabled = !collectPending,
                                                 onClick = {
                                                     menuOpen = false
-                                                    onRefresh()
+                                                    onCollect()
                                                 },
                                             )
+                                        }
+                                        // The menu twin of pull-to-refresh, for the reader who is thirty floors down and
+                                        // not about to scroll back up to pull.
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(Res.string.action_refresh)) },
+                                            onClick = {
+                                                menuOpen = false
+                                                onRefresh()
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(Res.string.action_copy_link)) },
+                                            onClick = {
+                                                copy("post", postUrl, linkCopied)
+                                                menuOpen = false
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(shareLabel) },
+                                            onClick = {
+                                                menuOpen = false
+                                                shareText("$title\n$postUrl", shareLabel)
+                                            },
+                                        )
+                                        tracked?.let { on ->
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(Res.string.action_copy_link)) },
-                                                onClick = {
-                                                    copy("post", postUrl, linkCopied)
-                                                    menuOpen = false
+                                                text = {
+                                                    Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
                                                 },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(shareLabel) },
                                                 onClick = {
                                                     menuOpen = false
-                                                    shareText("$title\n$postUrl", shareLabel)
+                                                    onToggleTrack()
                                                 },
                                             )
-                                            tracked?.let { on ->
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(stringResource(if (on) Res.string.post_untrack_thread else Res.string.post_track_thread))
-                                                    },
-                                                    onClick = {
-                                                        menuOpen = false
-                                                        onToggleTrack()
-                                                    },
-                                                )
-                                            }
                                         }
                                     }
                                 }
                             }
-                        },
-                        // Under frostedGlass, the outer Box draws a full-width frosted matte backdrop across the
-                        // status bar and toolbar strip, while the left/right circular action buttons float on top.
-                        colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
-                            scrolledContainerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
-                        ),
-                        // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
-                        // has scrolled away, one line of it. The buttons keep their 48dp targets.
-                        expandedHeight = TopBarHeight,
-                    )
-                }
+                        }
+                    },
+                    // Under frostedGlass, the outer Box draws a full-width frosted matte backdrop across the
+                    // status bar and toolbar strip, while the left/right circular action buttons float on top.
+                    colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
+                        scrolledContainerColor = if (layers.backdropGlass) Color.Transparent else pageColor,
+                    ),
+                    // A step under Material's 64dp, as 2b draws it: the bar holds three icons and, once the title
+                    // has scrolled away, one line of it. The buttons keep their 48dp targets.
+                    expandedHeight = TopBarHeight,
+                )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DetailTopBarInsets(bar: @Composable (WindowInsets) -> Unit) {
-    if (!LocalIosPadFullPage.current) {
-        ReadableTopBar(bar = bar)
-        return
-    }
-    val windowLandscape = LocalIosPadLandscape.current
-    val insets = TopAppBarDefaults.windowInsets
-    val density = LocalDensity.current
-    val direction = LocalLayoutDirection.current
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val safeWidth = with(density) {
-            val horizontalInsets = insets.getLeft(this, direction) + insets.getRight(this, direction)
-            (maxWidth - horizontalInsets.toDp()).coerceAtLeast(0.dp)
-        }
-        val width = tabContentWidth(
-            availableWidth = safeWidth,
-            availableHeight = maxHeight,
-            isIosPad = true,
-            windowLandscape = windowLandscape,
-        )
-        val side = (safeWidth - width) / 2
-        bar(insets.add(WindowInsets(left = side, right = side)))
     }
 }
 

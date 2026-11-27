@@ -17,11 +17,10 @@ import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.plaza.designsys.theme.LocalPlazaLayers
+import io.github.plaza.designsys.theme.ReadableWidthSpec
 import io.github.plaza.designsys.theme.Spacing
 
 internal val LocalIosPad = staticCompositionLocalOf { false }
-
-internal val LocalIosPadFullPage = compositionLocalOf { false }
 
 /**
  * Window-level orientation on iPad (`null` when derived from the pane's own aspect ratio).
@@ -45,6 +44,31 @@ internal val TabSqueezePaddingMinWidth = 520.dp
 
 internal fun tabContentMaxWidth(isIosPad: Boolean, landscape: Boolean): Dp =
     if (isIosPad && landscape) IosPadTabContentMaxWidth else TabContentMaxWidth
+
+/**
+ * The readable-column spec for a screen hosted on iPad.
+ *
+ * Full-window pages (every screen in 整页 mode, plus non-split pages and portrait pages in 双栏
+ * mode) reuse the tab column's width and outer gutter so pushed screens match 首页 / 通知 / 我的.
+ * Pages inside a side-by-side split keep [ReadableWidthSpec.Default] so the 360pt list fills its
+ * pane and the detail column keeps comfortable margins beside the divider.
+ */
+internal fun iosPadReadableWidthSpec(
+    isIosPad: Boolean,
+    inSplit: Boolean,
+    windowLandscape: Boolean?,
+): ReadableWidthSpec =
+    if (isIosPad && !inSplit) {
+        ReadableWidthSpec(
+            maxWidth = TabContentMaxWidth,
+            landscapeMaxWidth = IosPadTabContentMaxWidth,
+            horizontalGutter = Spacing.lg,
+            gutterMinWidth = WideTabMinWidth,
+            windowLandscape = windowLandscape,
+        )
+    } else {
+        ReadableWidthSpec.Default
+    }
 
 /**
  * Horizontal outer gutter for [TabScaffold]. Full [Spacing.lg] at [WideTabMinWidth] and above,

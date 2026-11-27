@@ -18,6 +18,7 @@ import io.github.nodyssey.ui.resources.accounts_save_failed
 import io.github.nodyssey.ui.resources.accounts_title
 import io.github.nodyssey.ui.resources.action_close
 import io.github.nodyssey.ui.resources.sign_in_submitting
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
 import org.jetbrains.compose.resources.stringResource
@@ -26,12 +27,15 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 internal fun AccountSaveFailureScreen(saving: Boolean, onRetry: () -> Unit, onClose: () -> Unit) {
     Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(Res.string.accounts_title)) },
-            navigationIcon = {
-                TextButton(onClick = onClose, enabled = !saving) { Text(stringResource(Res.string.action_close)) }
-            },
-        )
+        ReadableTopBar { barInsets ->
+            TopAppBar(
+                windowInsets = barInsets,
+                title = { Text(stringResource(Res.string.accounts_title)) },
+                navigationIcon = {
+                    TextButton(onClick = onClose, enabled = !saving) { Text(stringResource(Res.string.action_close)) }
+                },
+            )
+        }
     }) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().readableWidth().padding(Spacing.xl),

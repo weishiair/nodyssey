@@ -107,6 +107,7 @@ import io.github.plaza.designsys.component.PlazaExtendedFab
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaIcons
 import io.github.plaza.designsys.component.PlazaSnackbarHost
+import io.github.plaza.designsys.component.ReadableTopBar
 import io.github.plaza.designsys.component.StatusView
 import io.github.plaza.designsys.component.TopBarAction
 import io.github.plaza.designsys.component.rememberOneHandAppBarState
@@ -388,7 +389,7 @@ fun BookmarksScreen(
                     offlineAvailable = state.offlineAvailable,
                     onDownload = onDownloadSelected,
                     onRemove = removeSelected,
-                    modifier = Modifier.align(Alignment.BottomCenter),
+                    modifier = Modifier.align(Alignment.BottomCenter).readableWidth(),
                 )
             }
         }
@@ -596,18 +597,21 @@ private fun BookmarksTopBar(
     if (state.isSearching) {
         // A plain bar for as long as the box is open: [OneHandTopAppBar] takes a title string rather
         // than a slot, and a search field belongs in a bar that is not also a pull target.
-        TopAppBar(
-            title = { BookmarkSearchField(query = state.query.orEmpty(), onQuery = onQuery) },
-            navigationIcon = {
-                IconButton(onClick = { onSearching(false) }) {
-                    PlazaIcon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.action_close),
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
-        )
+        ReadableTopBar { barInsets ->
+            TopAppBar(
+                windowInsets = barInsets,
+                title = { BookmarkSearchField(query = state.query.orEmpty(), onQuery = onQuery) },
+                navigationIcon = {
+                    IconButton(onClick = { onSearching(false) }) {
+                        PlazaIcon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(Res.string.action_close),
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = LocalPlazaLayers.current.page),
+            )
+        }
         return
     }
     AdaptiveTopBar(
@@ -721,46 +725,49 @@ private fun SelectionTopBar(
     onClose: () -> Unit,
     onSelectAll: () -> Unit,
 ) {
-    TopAppBar(
-        title = {
-            Text(
-                text = stringResource(Res.string.bookmarks_selected, count),
-                style =
-                MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    fontFeatureSettings = TABULAR_FIGURES,
-                ),
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = onClose) {
-                PlazaIcon(
-                    Icons.Default.Close,
-                    contentDescription = stringResource(Res.string.bookmarks_exit_selection),
-                )
-            }
-        },
-        actions = {
-            TextButton(onClick = onSelectAll) {
+    ReadableTopBar { barInsets ->
+        TopAppBar(
+            windowInsets = barInsets,
+            title = {
                 Text(
-                    // The control is one button doing two things, so it says which one it is about
-                    // to do — 全选 on a bar that already says 已选 6 项 out of 6 is a button with no
-                    // visible effect.
-                    text =
-                    stringResource(
-                        if (allSelected) Res.string.bookmarks_select_none else Res.string.bookmarks_select_all,
+                    text = stringResource(Res.string.bookmarks_selected, count),
+                    style =
+                    MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFeatureSettings = TABULAR_FIGURES,
                     ),
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                 )
-            }
-        },
-        // Tinted rather than the page the plain bar sits flush with: the mode has to be visible from
-        // the top of the screen, not only from the checkboxes halfway down it.
-        colors =
-        TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
-    )
+            },
+            navigationIcon = {
+                IconButton(onClick = onClose) {
+                    PlazaIcon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(Res.string.bookmarks_exit_selection),
+                    )
+                }
+            },
+            actions = {
+                TextButton(onClick = onSelectAll) {
+                    Text(
+                        // The control is one button doing two things, so it says which one it is about
+                        // to do — 全选 on a bar that already says 已选 6 项 out of 6 is a button with no
+                        // visible effect.
+                        text =
+                        stringResource(
+                            if (allSelected) Res.string.bookmarks_select_none else Res.string.bookmarks_select_all,
+                        ),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    )
+                }
+            },
+            // Tinted rather than the page the plain bar sits flush with: the mode has to be visible from
+            // the top of the screen, not only from the checkboxes halfway down it.
+            colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
+        )
+    }
 }
 
 private const val SUBTITLE_SEPARATOR = " · "
