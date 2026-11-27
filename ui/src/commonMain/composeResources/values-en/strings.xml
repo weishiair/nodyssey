@@ -315,6 +315,10 @@
     <string name="settings_refresh_rate">Display refresh rate</string>
     <string name="settings_refresh_rate_hint">Unsupported rates are disabled. The system controls the actual rate; higher rates may use more battery.</string>
     <string name="settings_refresh_rate_value">%1$d Hz</string>
+    <string name="settings_pad_layout_mode">Tablet layout</string>
+    <string name="settings_pad_layout_mode_hint">How posts, notifications and messages open in wide landscape</string>
+    <string name="settings_pad_layout_mode_split">Split view</string>
+    <string name="settings_pad_layout_mode_single">Full page</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_mode">Light or dark</string>

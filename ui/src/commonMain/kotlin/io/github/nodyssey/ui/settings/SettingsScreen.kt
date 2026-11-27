@@ -23,6 +23,7 @@ import io.github.nodyssey.data.dns.DohServer
 import io.github.nodyssey.data.proxy.ProxyType
 import io.github.nodyssey.data.settings.AccountBadgeStyle
 import io.github.nodyssey.data.settings.AppLanguage
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.data.settings.PostReplyStyle
 import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.ReportFormat
@@ -84,6 +85,10 @@ import io.github.nodyssey.ui.resources.settings_notify_summary_quiet
 import io.github.nodyssey.ui.resources.settings_notify_summary_unavailable
 import io.github.nodyssey.ui.resources.settings_one_hand
 import io.github.nodyssey.ui.resources.settings_one_hand_hint
+import io.github.nodyssey.ui.resources.settings_pad_layout_mode
+import io.github.nodyssey.ui.resources.settings_pad_layout_mode_hint
+import io.github.nodyssey.ui.resources.settings_pad_layout_mode_single
+import io.github.nodyssey.ui.resources.settings_pad_layout_mode_split
 import io.github.nodyssey.ui.resources.settings_post_reply_style
 import io.github.nodyssey.ui.resources.settings_post_reply_style_cards
 import io.github.nodyssey.ui.resources.settings_post_reply_style_flat
@@ -195,6 +200,7 @@ fun SettingsRoute(
         onEinkModeChange = viewModel::setEinkMode,
         supportedRefreshRates = rememberDisplayRefreshRates(),
         onDisplayRefreshRateChange = viewModel::setDisplayRefreshRate,
+        onPadLayoutModeChange = viewModel::setPadLayoutMode,
         onFontScaleChange = viewModel::setFontScale,
         onStickerUniformSizeChange = viewModel::setStickerUniformSize,
         onStickerSizeChange = viewModel::setStickerSize,
@@ -257,6 +263,8 @@ fun SettingsScreen(
     onEinkModeChange: (Boolean) -> Unit = {},
     supportedRefreshRates: Set<Int>? = null,
     onDisplayRefreshRateChange: (Int) -> Unit = {},
+    padLayoutSupported: Boolean = rememberPadLayoutOptionAvailable(),
+    onPadLayoutModeChange: (PadLayoutMode) -> Unit = {},
     onPredictiveBackChange: (Boolean) -> Unit = {},
     onPostReplyStyleChange: (PostReplyStyle) -> Unit = {},
     onShowAuthorAccountInfoChange: (Boolean) -> Unit = {},
@@ -307,6 +315,10 @@ fun SettingsScreen(
         )
         supportedRefreshRates?.let { supported ->
             add(displayRefreshRateChoice(settings.displayRefreshRate, supported, !settings.einkMode, onDisplayRefreshRateChange))
+        }
+        // Only exposed on tablets/iPads where wide-screen navigation can split into two panes.
+        if (padLayoutSupported) {
+            add(padLayoutModeChoice(settings.padLayoutMode, onPadLayoutModeChange))
         }
         // Language belongs with the rest of the app's appearance and closes the group.
         add(appLanguageChoice(settings.appLanguage, onAppLanguageChange))
@@ -834,6 +846,21 @@ private fun themeModeChoice(selected: ThemeMode, enabled: Boolean, onSelect: (Th
         onSelect = onSelect,
         presentation = SettingsChoicePresentation.Segmented,
         enabled = enabled,
+    )
+
+@Composable
+private fun padLayoutModeChoice(selected: PadLayoutMode, onSelect: (PadLayoutMode) -> Unit): SettingsItem.Choice =
+    settingsChoice(
+        key = "pad-layout-mode",
+        title = stringResource(Res.string.settings_pad_layout_mode),
+        choices = listOf(
+            PadLayoutMode.SPLIT to stringResource(Res.string.settings_pad_layout_mode_split),
+            PadLayoutMode.SINGLE to stringResource(Res.string.settings_pad_layout_mode_single),
+        ),
+        selected = selected,
+        onSelect = onSelect,
+        presentation = SettingsChoicePresentation.Segmented,
+        description = stringResource(Res.string.settings_pad_layout_mode_hint),
     )
 
 @Composable

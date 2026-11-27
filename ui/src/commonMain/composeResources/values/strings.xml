@@ -387,6 +387,11 @@
     <string name="settings_refresh_rate">屏幕刷新率</string>
     <string name="settings_refresh_rate_hint">不支持的档位置灰；实际刷新率由系统调度，较高档位可能增加耗电</string>
     <string name="settings_refresh_rate_value">%1$d Hz</string>
+    <!-- 仅平板/iPad 显示：宽屏横屏下点击列表项时采用双栏并排还是单开整页。 -->
+    <string name="settings_pad_layout_mode">平板布局</string>
+    <string name="settings_pad_layout_mode_hint">横屏宽屏下打开帖子、通知和私信的呈现方式</string>
+    <string name="settings_pad_layout_mode_split">双栏</string>
+    <string name="settings_pad_layout_mode_single">整页</string>
     <string name="settings_theme_light">浅色</string>
     <string name="settings_theme_dark">深色</string>
     <string name="settings_theme_mode">明暗</string>

@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import io.github.nodyssey.data.attendance.AutoAttendanceConfig
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.data.settings.ReadMarkStyle
 import io.github.nodyssey.data.settings.ReportFormat
 import io.github.nodyssey.data.settings.UserSettings
@@ -181,6 +182,27 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `pad layout choice is hidden on phone screens`() {
+        showSettings(state = { SettingsUiState() })
+
+        composeRule.onNodeWithText("平板布局").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w840dp-h1200dp")
+    fun `pad layout choice appears on tablets and sends the selected layout mode`() {
+        var selected: PadLayoutMode? = null
+        showSettings(
+            state = { SettingsUiState(UserSettings(padLayoutMode = PadLayoutMode.SPLIT)) },
+            onPadLayoutModeChange = { selected = it },
+        )
+
+        composeRule.onNodeWithText("整页").performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertEquals(PadLayoutMode.SINGLE, selected) }
+    }
+
+    @Test
     fun `attendance status is readable without becoming a clickable action`() {
         showSettings(
             state = { SettingsUiState() },
@@ -195,6 +217,7 @@ class SettingsScreenTest {
         attendanceConfig: AutoAttendanceConfig = AutoAttendanceConfig(),
         onReadMarkStyleChange: (ReadMarkStyle) -> Unit = {},
         onReportFormatChange: (ReportFormat) -> Unit = {},
+        onPadLayoutModeChange: (PadLayoutMode) -> Unit = {},
         onClearCache: () -> Unit = {},
     ) {
         composeRule.setContent {
@@ -218,6 +241,7 @@ class SettingsScreenTest {
                     onHomePageBarChange = {},
                     onUpdateCheckOnLaunchChange = {},
                     onUpdateDevChannelChange = {},
+                    onPadLayoutModeChange = onPadLayoutModeChange,
                     onClearCache = onClearCache,
                 )
             }

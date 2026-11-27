@@ -309,6 +309,10 @@
     <string name="settings_refresh_rate">螢幕更新率</string>
     <string name="settings_refresh_rate_hint">不支援的檔位停用；實際更新率由系統調度，較高檔位可能增加耗電</string>
     <string name="settings_refresh_rate_value">%1$d Hz</string>
+    <string name="settings_pad_layout_mode">平板版面</string>
+    <string name="settings_pad_layout_mode_hint">橫向寬螢幕下開啟貼文、通知與私訊的呈現方式</string>
+    <string name="settings_pad_layout_mode_split">雙欄</string>
+    <string name="settings_pad_layout_mode_single">整頁</string>
     <string name="settings_theme_light">淺色</string>
     <string name="settings_theme_dark">深色</string>
     <string name="settings_theme_mode">明暗</string>
