@@ -1,21 +1,13 @@
 package io.github.nodyssey
 
-import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldDefaults
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
-import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
-import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.ui.geometry.Rect
-import androidx.navigation3.runtime.NavEntry
+import androidx.compose.ui.unit.IntRect
 import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.scene.SceneStrategyScope
 import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.ui.login.WebViewGoal
-import io.github.nodyssey.ui.navigation.TopLevelDestination
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -193,61 +185,31 @@ class PaneRoleTest {
         assertEquals(1, resolvePaneDirective(wide, isLandscape = true, PadLayoutMode.SINGLE).maxHorizontalPartitions)
     }
 
-    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
     @Test
-    fun `single-page mode keeps physical hinge avoidance active without skipping nested details on back`() {
+    fun `single-page mode preserves hinge exclusion bounds and avoids the physical gap`() {
         val hinge = listOf(Rect(left = 540f, top = 0f, right = 560f, bottom = 1000f))
         val hingedWide = PaneScaffoldDirective.Default.copy(maxHorizontalPartitions = 2, excludedBounds = hinge)
+
+        assertEquals(2, resolvePaneDirective(hingedWide, isLandscape = false, PadLayoutMode.SPLIT).maxHorizontalPartitions)
         val hingedSingle = resolvePaneDirective(hingedWide, isLandscape = true, PadLayoutMode.SINGLE)
         assertEquals(1, hingedSingle.maxHorizontalPartitions)
         assertEquals(hinge, hingedSingle.excludedBounds)
-        assertTrue(shouldHandleSinglePaneInListDetail(hingedSingle))
-        assertEquals(BackNavigationBehavior.PopLatest, listDetailBackNavigationBehavior(hingedSingle))
 
-        val entries = listOf(
-            NavEntry<NavKey>(
-                key = PostListKey,
-                metadata = ListDetailSceneStrategy.listPane(TopLevelDestination.HOME),
-            ) {},
-            NavEntry<NavKey>(
-                key = PostDetailKey(1),
-                metadata = ListDetailSceneStrategy.detailPane(TopLevelDestination.HOME),
-            ) {},
-            NavEntry<NavKey>(
-                key = PostDetailKey(2),
-                metadata = ListDetailSceneStrategy.detailPane(TopLevelDestination.HOME),
-            ) {},
+        // Centered vertical hinge splits 1100px into [0..540) and [560..1100); single pane takes [0..540).
+        assertEquals(
+            IntRect(0, 0, 540, 1000),
+            singlePanePartitionBounds(1100, 1000, listOf(IntRect(540, 0, 560, 1000))),
         )
-        val hingedStrategy =
-            ListDetailSceneStrategy<NavKey>(
-                shouldHandleSinglePaneLayout = shouldHandleSinglePaneInListDetail(hingedSingle),
-                backNavigationBehavior = listDetailBackNavigationBehavior(hingedSingle),
-                directive = hingedSingle,
-                adaptStrategies = ListDetailPaneScaffoldDefaults.adaptStrategies(),
-                paneExpansionDragHandle = null,
-                paneExpansionState = null,
-            )
-        val hingedScene = with(hingedStrategy) { SceneStrategyScope<NavKey>().calculateScene(entries) }
-        assertNotNull(hingedScene)
-        assertEquals(entries.take(2), hingedScene!!.previousEntries)
-
-        val plainSingle = resolvePaneDirective(
-            PaneScaffoldDirective.Default.copy(maxHorizontalPartitions = 2),
-            isLandscape = true,
-            PadLayoutMode.SINGLE,
+        // Hinge flush with the leading edge shifts the single pane to the trailing screen.
+        assertEquals(
+            IntRect(20, 0, 560, 1000),
+            singlePanePartitionBounds(560, 1000, listOf(IntRect(0, 0, 20, 1000))),
         )
-        assertFalse(shouldHandleSinglePaneInListDetail(plainSingle))
-        val plainStrategy =
-            ListDetailSceneStrategy<NavKey>(
-                shouldHandleSinglePaneLayout = shouldHandleSinglePaneInListDetail(plainSingle),
-                backNavigationBehavior = listDetailBackNavigationBehavior(plainSingle),
-                directive = plainSingle,
-                adaptStrategies = ListDetailPaneScaffoldDefaults.adaptStrategies(),
-                paneExpansionDragHandle = null,
-                paneExpansionState = null,
-            )
-        val plainScene = with(plainStrategy) { SceneStrategyScope<NavKey>().calculateScene(entries) }
-        assertNull(plainScene)
+        // A hinge outside the container leaves the container untouched.
+        assertEquals(
+            IntRect(0, 0, 540, 1000),
+            singlePanePartitionBounds(540, 1000, listOf(IntRect(540, 0, 560, 1000))),
+        )
     }
 
     @Test

@@ -22,7 +22,6 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
-import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
@@ -44,10 +43,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.roundToIntRect
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -282,8 +287,6 @@ fun MainNavigation(
         )
     }
     val isListDetailExpanded = paneDirective.maxHorizontalPartitions > 1
-    val shouldHandleSinglePaneLayout = shouldHandleSinglePaneInListDetail(paneDirective)
-    val listDetailBackBehavior = listDetailBackNavigationBehavior(paneDirective)
     val currentListDetailExpanded by rememberUpdatedState(isListDetailExpanded)
     val currentPredictiveBack by rememberUpdatedState(navigationSettings.predictiveBack)
     val layers = LocalPlazaLayers.current
@@ -297,11 +300,7 @@ fun MainNavigation(
     val bottomBarClearance = LocalBottomBarPosition.current.bottomBarClearance
     val currentBottomBarClearance by rememberUpdatedState(if (useFloatingBottomBar) bottomBarClearance else 0.dp)
     val listDetailSceneStrategy =
-        rememberListDetailSceneStrategy<NavKey>(
-            shouldHandleSinglePaneLayout = shouldHandleSinglePaneLayout,
-            backNavigationBehavior = listDetailBackBehavior,
-            directive = paneDirective,
-        )
+        rememberListDetailSceneStrategy<NavKey>(directive = paneDirective)
 
     // The bar belongs to the top-level destinations only. A thread, the image viewer and the web
     // view are full-screen by design — showing a tab bar under them would invite leaving mid-read.
@@ -683,67 +682,72 @@ fun MainNavigation(
                 ),
         )
         Box(Modifier.fillMaxSize()) {
-            SharedTransitionLayout(
-                Modifier
-                    .fillMaxSize()
-                    .liquidGlassBackdropSource(navBackdrop)
-                    // iOS 26's swipe-anywhere back, within a tab's own stack only: a tab's root has no
-                    // content swipe on iOS, and here it would mean "jump to 首页" — which stays on the
-                    // edge swipe, as it always was.
-                    .contentSwipeBack(enabled = contentSwipeBackSupported && backStack.size > 1),
+            SinglePaneHingeAvoidance(
+                excludedBounds = if (isListDetailExpanded) emptyList() else paneDirective.excludedBounds,
+                modifier = Modifier.fillMaxSize(),
             ) {
-            /*
-             * Withheld on a two-pane window, where a row and the thread it opens are on screen at
-             * once and a single shared-element key would have two live claims on it. Provided as a
-             * composition local rather than threaded through every screen: the two ends of the
-             * flight are a feed row and a thread header, twelve composables apart, and the only
-             * thing they need to agree on is that the flight is happening at all.
-             *
-             * Withheld on electronic paper for a different reason: a title flying from a row into a
-             * header is a per-frame redraw of two moving areas, which is the most expensive shape a
-             * transition can have on a panel and the one that ghosts worst.
-             */
-                val eink = LocalEinkMode.current
-                val openNetworkCheck = remember(backStack) { { backStack.add(NetworkCheckKey) } }
-                val openReportCompare = remember(backStack) { { backStack.add(ReportCompareKey) } }
-                val stickerNavigation = remember(backStack) {
-                    val notices = StickerNotices()
-                    StickerNavigation(
-                        openManager = { backStack.add(StickerManageKey) },
-                        openSources = { backStack.add(StickerSourcesKey) },
-                        openImageHost = { backStack.add(ImageHostKey) },
-                        openAdd = { tab, source ->
-                            notices.clear()
-                            backStack.add(StickerAddKey(tab, source))
-                        },
-                        notices = notices,
-                    )
-                }
-                CompositionLocalProvider(
-                    // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
-                    LocalOpenNetworkCheck provides { openNetworkCheck() },
-                    LocalKeepBottomBarVisibleOnScroll provides (touchExploration || isListDetailExpanded),
-                    // 测评对比 from any report card's 对比 (n), onto whichever tab the card is in.
-                    LocalOpenReportCompare provides { openReportCompare() },
-                    // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
-                    LocalStickerNavigation provides stickerNavigation,
+                SharedTransitionLayout(
+                    Modifier
+                        .fillMaxSize()
+                        .liquidGlassBackdropSource(navBackdrop)
+                        // iOS 26's swipe-anywhere back, within a tab's own stack only: a tab's root has no
+                        // content swipe on iOS, and here it would mean "jump to 首页" — which stays on the
+                        // edge swipe, as it always was.
+                        .contentSwipeBack(enabled = contentSwipeBackSupported && backStack.size > 1),
                 ) {
-                    val navigateBack: () -> Unit = {
-                        if (backStack.size > 1) {
-                            backStack.removeLastOrNull()
-                        } else {
-                            currentTab = TopLevelDestination.HOME
-                        }
+                    /*
+                     * Withheld on a two-pane window, where a row and the thread it opens are on screen at
+                     * once and a single shared-element key would have two live claims on it. Provided as a
+                     * composition local rather than threaded through every screen: the two ends of the
+                     * flight are a feed row and a thread header, twelve composables apart, and the only
+                     * thing they need to agree on is that the flight is happening at all.
+                     *
+                     * Withheld on electronic paper for a different reason: a title flying from a row into a
+                     * header is a per-frame redraw of two moving areas, which is the most expensive shape a
+                     * transition can have on a panel and the one that ghosts worst.
+                     */
+                    val eink = LocalEinkMode.current
+                    val openNetworkCheck = remember(backStack) { { backStack.add(NetworkCheckKey) } }
+                    val openReportCompare = remember(backStack) { { backStack.add(ReportCompareKey) } }
+                    val stickerNavigation = remember(backStack) {
+                        val notices = StickerNotices()
+                        StickerNavigation(
+                            openManager = { backStack.add(StickerManageKey) },
+                            openSources = { backStack.add(StickerSourcesKey) },
+                            openImageHost = { backStack.add(ImageHostKey) },
+                            openAdd = { tab, source ->
+                                notices.clear()
+                                backStack.add(StickerAddKey(tab, source))
+                            },
+                            notices = notices,
+                        )
                     }
-                    NodysseyNavDisplay(
-                        entries = entries,
-                        predictiveBack = navigationSettings.predictiveBack,
-                        eink = eink,
-                        sceneStrategies = listOf(listDetailSceneStrategy),
-                        sharedTransitionScope = this@SharedTransitionLayout,
-                        sharedThreadTransitions = !isListDetailExpanded && !shouldHandleSinglePaneLayout,
-                        onBack = navigateBack,
-                    )
+                    CompositionLocalProvider(
+                        // 网络自检 from any screen's network-error state — see [LocalOpenNetworkCheck].
+                        LocalOpenNetworkCheck provides { openNetworkCheck() },
+                        LocalKeepBottomBarVisibleOnScroll provides (touchExploration || isListDetailExpanded),
+                        // 测评对比 from any report card's 对比 (n), onto whichever tab the card is in.
+                        LocalOpenReportCompare provides { openReportCompare() },
+                        // 表情管理, 添加表情 and 图床 from an editor's emoji panel, onto whichever tab the editor is in.
+                        LocalStickerNavigation provides stickerNavigation,
+                    ) {
+                        val navigateBack: () -> Unit = {
+                            if (backStack.size > 1) {
+                                backStack.removeLastOrNull()
+                            } else {
+                                currentTab = TopLevelDestination.HOME
+                            }
+                        }
+                        NodysseyNavDisplay(
+                            entries = entries,
+                            predictiveBack = navigationSettings.predictiveBack,
+                            eink = eink,
+                            sceneStrategies = listOf(listDetailSceneStrategy),
+                            sharedTransitionScope = this@SharedTransitionLayout,
+                            sharedThreadTransitions = !isListDetailExpanded,
+                            onBack = navigateBack,
+                        )
+                    }
                 }
             }
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides navBackdrop) {
@@ -968,25 +972,85 @@ internal fun resolvePaneDirective(
     }
 
 /**
- * Keeps single-pane scenes inside `ListDetailSceneStrategy` when [directive] carries physical
- * hinge exclusion bounds so the single pane avoids the gap, while leaving ordinary single-screen
- * devices on `SinglePaneSceneStrategy` to keep slide transitions and shared-element thread flights.
+ * Places single-pane navigation content clear of physical separating vertical hinges in
+ * [excludedBounds] (window coordinates), mirroring `ThreePaneContentMeasurePolicy`'s hinge split.
+ *
+ * `rememberListDetailSceneStrategy(shouldHandleSinglePaneLayout = true)` was tried first, but
+ * `ThreePaneScaffoldScene` installs its own unconditional `NavigationBackHandler` that seeks
+ * `MutableThreePaneScaffoldState` during back swipes and ignores the app's `predictiveBack`
+ * switch (while still leaving non-pane destinations outside the scaffold). Keeping a single
+ * `Layout` here preserves subtree state across posture changes while letting `NodysseyNavDisplay`
+ * own back previews and transitions. Remove this wrapper once Material 3 Adaptive allows callers
+ * to opt out of `ListDetailSceneStrategy`'s internal predictive-back seeking.
  */
-internal fun shouldHandleSinglePaneInListDetail(directive: PaneScaffoldDirective): Boolean =
-    directive.excludedBounds.isNotEmpty()
+@Composable
+internal fun SinglePaneHingeAvoidance(
+    excludedBounds: List<Rect>,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        if (excludedBounds.isEmpty()) {
+            val placeables = measurables.map { it.measure(constraints) }
+            val width = placeables.maxOfOrNull { it.width } ?: constraints.minWidth
+            val height = placeables.maxOfOrNull { it.height } ?: constraints.minHeight
+            layout(width, height) {
+                placeables.forEach { it.place(0, 0) }
+            }
+        } else {
+            val maxWidth = constraints.maxWidth
+            val maxHeight = constraints.maxHeight
+            layout(maxWidth, maxHeight) {
+                val windowToLocal = coordinates?.windowToLocal(Offset.Zero) ?: Offset.Zero
+                val localExcluded = excludedBounds.map { it.translate(windowToLocal).roundToIntRect() }
+                val partition = singlePanePartitionBounds(maxWidth, maxHeight, localExcluded)
+                val childConstraints = Constraints.fixed(partition.width, partition.height)
+                measurables.forEach { measurable ->
+                    // Physical coordinates match window-space excludedBounds in both LTR and RTL.
+                    measurable.measure(childConstraints).place(partition.left, partition.top)
+                }
+            }
+        }
+    }
+}
 
 /**
- * Single-pane scenes handled by `ListDetailSceneStrategy` (for hinge avoidance) pop one entry at a
- * time so nested detail pushes (e.g. thread -> linked thread) do not skip straight back to the list
- * under `PopUntilScaffoldValueChange`.
+ * Picks the first unobstructed vertical partition inside a `[0, containerWidth) × [0, containerHeight)`
+ * container after cutting out [localExcludedBounds], matching `ThreePaneContentMeasurePolicy`.
  */
-@OptIn(ExperimentalMaterial3AdaptiveApi::class)
-internal fun listDetailBackNavigationBehavior(directive: PaneScaffoldDirective): BackNavigationBehavior =
-    if (directive.maxHorizontalPartitions <= 1) {
-        BackNavigationBehavior.PopLatest
-    } else {
-        BackNavigationBehavior.PopUntilScaffoldValueChange
+internal fun singlePanePartitionBounds(
+    containerWidth: Int,
+    containerHeight: Int,
+    localExcludedBounds: List<IntRect>,
+): IntRect {
+    val full = IntRect(0, 0, containerWidth, containerHeight)
+    if (containerWidth <= 0 || containerHeight <= 0 || localExcludedBounds.isEmpty()) return full
+    val partitions = mutableListOf<IntRect>()
+    var left = 0
+    var right = containerWidth
+    val overlapping =
+        localExcludedBounds
+            .filter { it.bottom > 0 && it.top < containerHeight && it.right > 0 && it.left < containerWidth }
+            .sortedBy { it.left }
+    for (excluded in overlapping) {
+        when {
+            excluded.left <= left -> left = maxOf(left, excluded.right)
+
+            excluded.right >= right -> right = minOf(right, excluded.left)
+
+            else -> {
+                if (excluded.left > left) {
+                    partitions += IntRect(left, 0, excluded.left, containerHeight)
+                }
+                left = maxOf(left, excluded.right)
+            }
+        }
     }
+    if (left < right) {
+        partitions += IntRect(left, 0, right, containerHeight)
+    }
+    return partitions.firstOrNull { it.width > 0 } ?: full
+}
 
 /**
  * Which half of a list-detail layout a destination is drawn in, or null if it takes the whole window.

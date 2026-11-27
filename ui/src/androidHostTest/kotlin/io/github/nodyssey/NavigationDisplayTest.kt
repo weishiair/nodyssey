@@ -15,16 +15,24 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
+import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
@@ -38,6 +46,7 @@ import androidx.navigationevent.NavigationEventDispatcher
 import androidx.navigationevent.NavigationEventDispatcherOwner
 import androidx.navigationevent.NavigationEventInput
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import io.github.nodyssey.data.settings.PadLayoutMode
 import io.github.nodyssey.ui.common.THREAD_ORIGIN_FEED
 import io.github.nodyssey.ui.common.sharedThreadAvatar
 import io.github.nodyssey.ui.common.sharedThreadSurface
@@ -281,6 +290,107 @@ class NavigationDisplayTest {
             assertEquals(2, stack.size)
             assertEquals("Cancelling after the row disappears must restore the thread's input", 1, detailClicks)
         }
+    }
+
+    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
+    @Test
+    fun `hinged single-page mode avoids the hinge and suppresses back preview when predictive back is off`() {
+        val hinge = Rect(left = 180f, top = 0f, right = 200f, bottom = 1000f)
+        val directive = resolvePaneDirective(
+            base = PaneScaffoldDirective.Default.copy(maxHorizontalPartitions = 2, excludedBounds = listOf(hinge)),
+            isLandscape = true,
+            layoutMode = PadLayoutMode.SINGLE,
+        )
+        val dispatcher = NavigationEventDispatcher().apply { addInput(input) }
+        val owner = object : NavigationEventDispatcherOwner {
+            override val navigationEventDispatcher = dispatcher
+        }
+        var threadBounds = Rect.Zero
+        predictive.value = false
+        val provider = stackScopedEntryProvider(
+            destination = TopLevelDestination.HOME,
+            backStack = stack,
+            predictiveBack = { predictive.value },
+            provider = { key ->
+                NavEntry(key = key) {
+                    if (key == PostListKey) {
+                        Box(Modifier.fillMaxSize()) { Text("Home Feed") }
+                    } else {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .onGloballyPositioned { threadBounds = it.boundsInWindow() },
+                        ) {
+                            Text("Thread ${(key as PostDetailKey).postId}")
+                        }
+                    }
+                }
+            },
+        )
+        compose.setContent {
+            CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides owner) {
+                MaterialTheme {
+                    val strategy = rememberListDetailSceneStrategy<NavKey>(directive = directive)
+                    SinglePaneHingeAvoidance(
+                        excludedBounds = directive.excludedBounds,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        val entries = rememberDecoratedNavEntries(
+                            backStack = stack,
+                            entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
+                            entryProvider = provider,
+                        )
+                        NodysseyNavDisplay(
+                            entries = entries,
+                            predictiveBack = predictive.value,
+                            eink = false,
+                            sceneStrategies = listOf(strategy),
+                            onBack = { stack.removeLastOrNull() },
+                        )
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { stack.add(PostDetailKey(1L)) }
+        compose.waitForIdle()
+
+        // The single-pane thread stays strictly to the left of the physical hinge [180..200].
+        assertTrue("Expected non-empty thread bounds, got $threadBounds", threadBounds.width > 0f)
+        assertTrue("Thread bounds $threadBounds must stay clear of hinge $hinge", threadBounds.right <= hinge.left)
+        val restingBounds = threadBounds
+
+        // With predictive back disabled, swiping from the edge must not preview the previous screen or move the thread.
+        compose.runOnIdle { input.startAndProgress(NavigationEvent.EDGE_LEFT) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Home Feed").assertDoesNotExist()
+        compose.onNodeWithText("Thread 1").assertIsDisplayed()
+        assertEquals(restingBounds, threadBounds)
+        assertEquals(listOf<NavKey>(PostListKey, PostDetailKey(1L)), stack.toList())
+
+        // Cancelling the swipe keeps the thread; completing pops cleanly back to the list.
+        compose.runOnIdle { input.cancel() }
+        compose.waitForIdle()
+        assertEquals(listOf<NavKey>(PostListKey, PostDetailKey(1L)), stack.toList())
+
+        // Enabling predictive back reveals the previous screen mid-swipe while still staying clear of the hinge.
+        compose.runOnIdle { predictive.value = true }
+        compose.waitForIdle()
+        compose.runOnIdle { input.startAndProgress(NavigationEvent.EDGE_LEFT) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Home Feed").assertIsDisplayed()
+        compose.runOnIdle { input.cancel() }
+        compose.waitForIdle()
+
+        // Nested detail pops one entry at a time on completion.
+        compose.runOnIdle {
+            predictive.value = false
+            stack.add(PostDetailKey(2L))
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { input.completeGesture() }
+        compose.waitForIdle()
+        assertEquals(listOf<NavKey>(PostListKey, PostDetailKey(1L)), stack.toList())
     }
 
     private class BackInput : NavigationEventInput() {
