@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -100,6 +103,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
@@ -1241,7 +1245,7 @@ private fun DetailTopBar(
             )
         }
     }
-    ReadableTopBar { nativeInsets ->
+    DetailTopBarInsets { nativeInsets ->
         // One blur from the top of the screen down: the status bar is part of the bar's background,
         // not a solid strip above it. The buttons and title stay inside the insets.
         val statusBarHeight = with(LocalDensity.current) { nativeInsets.getTop(this).toDp() }
@@ -1274,7 +1278,7 @@ private fun DetailTopBar(
                         scrimAlpha = topScrimAlpha,
                     ),
             ) {
-                ReadableTopBar { barInsets ->
+                DetailTopBarInsets { barInsets ->
                     TopAppBar(
                         windowInsets = barInsets,
                         title = {
@@ -1452,6 +1456,33 @@ private fun DetailTopBar(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DetailTopBarInsets(bar: @Composable (WindowInsets) -> Unit) {
+    if (!LocalIosPadFullPage.current) {
+        ReadableTopBar(bar = bar)
+        return
+    }
+    val windowLandscape = LocalIosPadLandscape.current
+    val insets = TopAppBarDefaults.windowInsets
+    val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val safeWidth = with(density) {
+            val horizontalInsets = insets.getLeft(this, direction) + insets.getRight(this, direction)
+            (maxWidth - horizontalInsets.toDp()).coerceAtLeast(0.dp)
+        }
+        val width = tabContentWidth(
+            availableWidth = safeWidth,
+            availableHeight = maxHeight,
+            isIosPad = true,
+            windowLandscape = windowLandscape,
+        )
+        val side = (safeWidth - width) / 2
+        bar(insets.add(WindowInsets(left = side, right = side)))
     }
 }
 
