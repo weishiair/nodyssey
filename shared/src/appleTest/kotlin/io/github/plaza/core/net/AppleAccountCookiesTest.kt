@@ -1,7 +1,14 @@
 package io.github.plaza.core.net
 
+import io.github.nodyssey.core.NodeSeekSite
 import io.github.nodyssey.data.session.AccountNativeFailure
 import io.github.nodyssey.data.session.InvalidAccountCookieSnapshot
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieDomain
 import platform.Foundation.NSHTTPCookieMaximumAge
@@ -11,6 +18,7 @@ import platform.Foundation.NSHTTPCookiePath
 import platform.Foundation.NSHTTPCookieValue
 import platform.Foundation.NSHTTPCookieVersion
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.timeIntervalSince1970
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,6 +27,41 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 
 class AppleAccountCookiesTest {
+    // Bug: replacement clears the old login before validating every cookie, or leaves old cookies behind.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `replacement validates the whole snapshot before changing Foundation cookies without WebKit`() = runTest {
+        val storage = checkNotNull(NSURLSessionConfiguration.ephemeralSessionConfiguration.HTTPCookieStorage)
+        val cookies = AppleAccountCookies(NodeSeekSite.CONFIG, storage, webKit = null)
+        val host = checkNotNull(NSURL.URLWithString(NodeSeekSite.CONFIG.baseUrl)?.host).removePrefix("www.")
+        fun cookie(name: String, value: String, domain: String = host): NSHTTPCookie = checkNotNull(
+            NSHTTPCookie.cookieWithProperties(
+                mapOf<Any?, Any?>(
+                    NSHTTPCookieName to name,
+                    NSHTTPCookieValue to value,
+                    NSHTTPCookieDomain to domain,
+                    NSHTTPCookiePath to "/",
+                ),
+            ),
+        )
+        val previous = listOf(cookie("session", "old"), cookie("old-only", "old"))
+        val incoming = listOf(cookie("session", "new"), cookie("new-only", "new"))
+        val mixed = incoming + cookie("foreign", "foreign", "example.test")
+
+        // The command-line Native runner does not pump the system main queue.
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            cookies.replace(encodeAccountCookies(previous))
+            assertFailsWith<InvalidAccountCookieSnapshot> { cookies.replace(encodeAccountCookies(mixed)) }
+            assertEquals(previous.associate { it.name to it.value }, decodeAccountCookies(cookies.capture()).associate { it.name to it.value })
+
+            cookies.replace(encodeAccountCookies(incoming))
+            assertEquals(incoming.associate { it.name to it.value }, decodeAccountCookies(cookies.capture()).associate { it.name to it.value })
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     // Bug: a legacy self-referencing binary plist is mistaken for an inaccessible account vault.
     @Test
     fun `corrupt binary cookies are classified without losing the native diagnostic cause`() {

@@ -234,7 +234,7 @@ fun MainNavigation(
     val pendingAttendance = remember { PendingAttendance() }
 
     var currentTab by rememberSaveable {
-        mutableStateOf(if (accountState?.adding == true || (accountState?.revision ?: 0) > 0) TopLevelDestination.PROFILE else initialTab)
+        mutableStateOf(if (shouldOpenProfileTabOnAccountChange(accountState)) TopLevelDestination.PROFILE else initialTab)
     }
 
     /*
@@ -791,11 +791,7 @@ internal fun rememberAccountProfileStack(accounts: AccountRepository?): NavBackS
     val state = accounts?.state?.collectAsStateWithLifecycle()?.value
     val stack = rememberNavBackStack(
         NavKeySavedStateConfiguration,
-        *buildList<NavKey> {
-            add(ProfileKey)
-            if (state?.adding == true || (state?.revision ?: 0) > 0) add(AccountsKey)
-            if (state?.adding == true) add(SignInKey)
-        }.toTypedArray(),
+        *accountProfileInitialKeys(state).toTypedArray(),
     )
     LaunchedEffect(stack.lastOrNull()) {
         if (stack.lastOrNull() == AccountsKey) accounts?.cancelIfAbandoned()

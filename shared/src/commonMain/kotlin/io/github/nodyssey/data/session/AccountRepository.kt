@@ -4,12 +4,14 @@ import io.github.nodyssey.data.UserProfile
 import io.github.nodyssey.data.attendance.AutoAttendanceConfig
 import io.github.plaza.core.net.SiteError
 import io.github.plaza.core.net.SiteException
+import io.github.plaza.core.runCatchingExceptCancellation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -48,6 +50,8 @@ class AccountRepository(
     val state = mutableState.asStateFlow()
     private val ready = CompletableDeferred<Unit>()
     private val mutex = Mutex()
+    private val userAction = Mutex()
+    private var refreshJob: Job? = null
     private var vault = AccountVault()
     private var vaultLoaded = false
     internal val storageAvailable: Boolean get() = vaultLoaded
@@ -225,10 +229,27 @@ class AccountRepository(
         mutableState.value = mutableState.value.copy(failure = null)
     }
 
-    fun refresh() = launchAction {
-        if (session.peek().isSignedIn) {
-            val fingerprint = session.state.value.fingerprint
-            rememberLocked(currentProfile(false), fingerprint)
+    fun refresh() {
+        scope.launch {
+            awaitReady()
+            if (userAction.isLocked || refreshJob != null) return@launch
+            val snapshot = session.peek()
+            if (!vaultLoaded || !snapshot.isSignedIn) return@launch
+            val revision = session.accountRevision
+            val job = coroutineContext[Job]
+            refreshJob = job
+            try {
+                val profile = runCatchingExceptCancellation { currentProfile(false) }
+                mutex.withLock {
+                    ensureActive()
+                    if (session.accountRevision != revision || session.peek() != snapshot) return@withLock
+                    // Once saving starts, let it finish under the lock before any user action.
+                    refreshJob = null
+                    runAccountAction { rememberLocked(profile.getOrThrow(), snapshot.fingerprint, preserveFailure = true) }
+                }
+            } finally {
+                if (refreshJob === job) refreshJob = null
+            }
         }
     }
 
@@ -264,7 +285,7 @@ class AccountRepository(
         if (!vaultLoaded) return
         if (!mutex.tryLock()) return
         try {
-            rememberLocked(profile, fingerprint)
+            rememberLocked(profile, fingerprint, preserveFailure = true)
         } catch (failure: Exception) {
             if (failure is CancellationException) throw failure
             publish(failure = classify(failure))
@@ -273,7 +294,7 @@ class AccountRepository(
         }
     }
 
-    private suspend fun rememberLocked(profile: UserProfile, fingerprint: Int) {
+    private suspend fun rememberLocked(profile: UserProfile, fingerprint: Int, preserveFailure: Boolean = false) {
         if (profile.uid <= 0 || !session.state.value.isSignedIn || session.state.value.fingerprint != fingerprint) return
         if (vault.activeUid != null && vault.activeUid != profile.uid && vault.pending == null) {
             adoptBrowserAccount(profile, fingerprint)
@@ -296,8 +317,9 @@ class AccountRepository(
             navigationKey = if (vault.pending != null) Uuid.random().toString() else vault.navigationKey,
         )
         store.write(next)
+        val failure = state.value.failure.takeIf { preserveFailure && vault.pending == null && vault.activeUid == profile.uid }
         vault = next
-        publish()
+        publish(failure = failure)
     }
 
     private suspend fun adoptBrowserAccount(profile: UserProfile, fingerprint: Int) {
@@ -386,13 +408,13 @@ class AccountRepository(
     /** Runs in the repository's lifetime, since signing out disposes the calling ViewModel. */
     suspend fun signOut() {
         val operation = scope.async {
-            awaitReady()
-            check(vaultLoaded) { "Saved accounts are unavailable" }
-            mutex.lock()
-            try {
-                logout()
-            } finally {
-                mutex.unlock()
+            userAction.withLock {
+                refreshJob?.cancel()
+                awaitReady()
+                mutex.withLock {
+                    check(vaultLoaded) { "Saved accounts are unavailable" }
+                    logout()
+                }
             }
         }
         operation.await()
@@ -429,32 +451,39 @@ class AccountRepository(
 
     private fun launchAction(block: suspend () -> Unit) {
         scope.launch {
-            awaitReady()
-            if (!mutex.tryLock()) return@launch
+            if (!userAction.tryLock()) return@launch
             try {
-                check(vaultLoaded) { "Saved accounts are unavailable" }
-                block()
-            } catch (failure: Exception) {
-                if (failure is CancellationException) throw failure
-                var result = classify(failure)
-                if (classify(failure) == AccountFailure.EXPIRED && vault.activeUid != null) {
-                    val next = vault.copy(
-                        accounts = vault.accounts.map { entry ->
-                            if (entry.account.uid == vault.activeUid) entry.copy(account = entry.account.copy(needsSignIn = true)) else entry
-                        },
-                    )
-                    try {
-                        store.write(next)
-                        vault = next
-                    } catch (storage: Exception) {
-                        if (storage is CancellationException) throw storage
-                        result = AccountFailure.STORAGE
-                    }
-                }
-                publish(failure = result)
+                refreshJob?.cancel()
+                awaitReady()
+                mutex.withLock { runAccountAction(block) }
             } finally {
-                mutex.unlock()
+                userAction.unlock()
             }
+        }
+    }
+
+    private suspend fun runAccountAction(block: suspend () -> Unit) {
+        try {
+            check(vaultLoaded) { "Saved accounts are unavailable" }
+            block()
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            var result = classify(failure)
+            if (result == AccountFailure.EXPIRED && vault.activeUid != null) {
+                val next = vault.copy(
+                    accounts = vault.accounts.map { entry ->
+                        if (entry.account.uid == vault.activeUid) entry.copy(account = entry.account.copy(needsSignIn = true)) else entry
+                    },
+                )
+                try {
+                    store.write(next)
+                    vault = next
+                } catch (storage: Exception) {
+                    if (storage is CancellationException) throw storage
+                    result = AccountFailure.STORAGE
+                }
+            }
+            publish(failure = result)
         }
     }
 

@@ -3,6 +3,7 @@ package io.github.nodyssey
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -33,10 +35,13 @@ import io.github.nodyssey.data.ProfileRepository
 import io.github.nodyssey.data.UserProfile
 import io.github.nodyssey.data.security.SecretCipher
 import io.github.nodyssey.data.session.AccountCookieStore
+import io.github.nodyssey.data.session.AccountFailure
 import io.github.nodyssey.data.session.AccountLocalData
 import io.github.nodyssey.data.session.AccountRepository
 import io.github.nodyssey.data.session.AccountRequestGate
+import io.github.nodyssey.data.session.AccountsState
 import io.github.nodyssey.data.session.FakeSessionCookieStore
+import io.github.nodyssey.data.session.SavedAccount
 import io.github.nodyssey.data.session.SavedAccountStore
 import io.github.nodyssey.data.session.SessionRepository
 import io.github.nodyssey.data.settings.SettingsRepository
@@ -105,6 +110,48 @@ class AccountSignInNavigationTest {
     )
 
     @After fun close() = scope.cancel()
+
+    @Test fun `account changes select the profile tab and restore the appropriate destination`() {
+        fun checkLanding(state: AccountsState?, profileTab: Boolean, vararg keys: NavKey) {
+            assertEquals(keys.toList(), accountProfileInitialKeys(state))
+            assertEquals(profileTab, shouldOpenProfileTabOnAccountChange(state))
+        }
+        val saved = AccountsState(ready = true, accounts = listOf(SavedAccount(1, "first", "")))
+        checkLanding(null, false, ProfileKey)
+        checkLanding(saved, false, ProfileKey)
+        checkLanding(saved.copy(revision = 1, activeUid = 1), true, ProfileKey)
+        checkLanding(saved.copy(failure = AccountFailure.NETWORK, activeUid = 1), true, ProfileKey, AccountsKey)
+        checkLanding(saved.copy(revision = 1), true, ProfileKey, AccountsKey)
+        checkLanding(saved.copy(revision = 1, accounts = emptyList()), true, ProfileKey)
+        checkLanding(saved.copy(adding = true), true, ProfileKey, AccountsKey, SignInKey)
+    }
+
+    @Test fun `first busy frame disposes the page and releases its models before the overlay finishes entering`() {
+        runBlocking { accounts.awaitReady() }
+        var disposed = false
+        var cleared = false
+        compose.setContent {
+            MaterialTheme {
+                AccountBoundary(accounts, placeholder = { Text("Loading") }) {
+                    viewModel { PageModel { cleared = true } }
+                    DisposableEffect(Unit) { onDispose { disposed = true } }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle {
+            accounts.add()
+            assertTrue(accounts.state.value.busy)
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.runOnIdle {
+            assertTrue(disposed)
+            assertTrue(cleared)
+            assertTrue(accounts.state.value.adding)
+            assertFalse(accounts.state.value.busy)
+        }
+    }
 
     // Bug: rebuilding account navigation or a cookie-only verification update abandons an untouched login.
     @Test fun `adding from the picker stays on sign in while verification loads without a back gesture`() {
@@ -215,6 +262,10 @@ class AccountSignInNavigationTest {
             assertEquals(1L, accounts.state.value.activeUid)
             assertTrue(session.peek().isSignedIn)
         }
+    }
+
+    private class PageModel(val release: () -> Unit) : ViewModel() {
+        override fun onCleared() = release()
     }
 
     private class BackInput : NavigationEventInput() {

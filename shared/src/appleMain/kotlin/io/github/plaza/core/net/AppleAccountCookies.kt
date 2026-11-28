@@ -11,6 +11,11 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
@@ -42,23 +47,39 @@ class AppleAccountCookies(
         encodeAccountCookies(mine())
     }
 
-    override suspend fun replace(snapshot: String) = withContext(Dispatchers.Main) {
+    override suspend fun replace(snapshot: String): Unit = withContext(Dispatchers.Main) {
         val incoming = if (snapshot.isEmpty()) emptyList() else decodeAccountCookies(snapshot)
         if (incoming.any { !owns(it) }) throw InvalidAccountCookieSnapshot()
-        val browser = suspendCancellableCoroutine<List<NSHTTPCookie>> { continuation ->
-            if (webKit == null) continuation.resume(emptyList()) else webKit.getAllCookies { continuation.resume(it.orEmpty().filterIsInstance<NSHTTPCookie>()) }
-        }
-        browser.filter(::owns).forEach { cookie ->
-            if (webKit != null) suspendCancellableCoroutine { continuation -> webKit.deleteCookie(cookie) { continuation.resume(Unit) } }
-        }
-        mine().forEach(storage::deleteCookie)
-        incoming.forEach { cookie ->
-            val expiry = cookie.expiresDate
-            if (expiry == null || expiry.timeIntervalSince1970 > NSDate().timeIntervalSince1970) {
-                storage.setCookie(cookie)
-                if (webKit != null) suspendCancellableCoroutine { continuation -> webKit.setCookie(cookie) { continuation.resume(Unit) } }
+        val browser = if (webKit == null) {
+            emptyList()
+        } else {
+            suspendCancellableCoroutine<List<NSHTTPCookie>> { continuation ->
+                webKit.getAllCookies { continuation.resume(it.orEmpty().filterIsInstance<NSHTTPCookie>()) }
             }
         }
+        // WebKit's issued mutations cannot be cancelled. Drain them before a rollback can start.
+        withContext(NonCancellable) {
+            coroutineScope<Unit> {
+                if (webKit != null) {
+                    browser.filter(::owns).map { cookie ->
+                        async { suspendCancellableCoroutine<Unit> { continuation -> webKit.deleteCookie(cookie) { continuation.resume(Unit) } } }
+                    }.awaitAll()
+                }
+                mine().forEach(storage::deleteCookie)
+                val now = NSDate().timeIntervalSince1970
+                val valid = incoming.filter { cookie ->
+                    val expiry = cookie.expiresDate
+                    expiry == null || expiry.timeIntervalSince1970 > now
+                }
+                valid.forEach(storage::setCookie)
+                if (webKit != null) {
+                    valid.map { cookie ->
+                        async { suspendCancellableCoroutine<Unit> { continuation -> webKit.setCookie(cookie) { continuation.resume(Unit) } } }
+                    }.awaitAll()
+                }
+            }
+        }
+        ensureActive()
     }
 
     private fun mine(): List<NSHTTPCookie> = storage.cookies.orEmpty().filterIsInstance<NSHTTPCookie>().filter(::owns)

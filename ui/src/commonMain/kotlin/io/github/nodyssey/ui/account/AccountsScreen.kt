@@ -1,17 +1,18 @@
 package io.github.nodyssey.ui.account
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nodyssey.data.OfflineUsage
@@ -67,6 +69,7 @@ import io.github.nodyssey.ui.resources.auto_attendance_title
 import io.github.nodyssey.ui.resources.auto_attendance_verify
 import io.github.nodyssey.ui.settings.SettingsItemGap
 import io.github.nodyssey.ui.settings.SettingsPagePadding
+import io.github.plaza.designsys.component.AdaptiveAlertDialog
 import io.github.plaza.designsys.component.AdaptiveTopBar
 import io.github.plaza.designsys.component.GroupCard
 import io.github.plaza.designsys.component.GroupedListItem
@@ -74,7 +77,10 @@ import io.github.plaza.designsys.component.GroupedListItemSwitch
 import io.github.plaza.designsys.component.GroupedRow
 import io.github.plaza.designsys.component.PlazaIcon
 import io.github.plaza.designsys.component.PlazaSnackbarHost
+import io.github.plaza.designsys.component.PlazaSpinner
 import io.github.plaza.designsys.component.UserAvatar
+import io.github.plaza.designsys.component.groupedListItemColors
+import io.github.plaza.designsys.component.rememberPlatformHaptics
 import io.github.plaza.designsys.theme.LocalPlazaLayers
 import io.github.plaza.designsys.theme.Spacing
 import io.github.plaza.designsys.theme.readableWidth
@@ -87,7 +93,9 @@ fun AccountsRoute(viewModel: AccountsViewModel, onBack: () -> Unit) {
     val attendanceStates by viewModel.attendanceStates.collectAsStateWithLifecycle()
     // NavDisplay also composes this entry behind sign-in for predictive back. Only the
     // owning back stack may decide that an add was abandoned (see MainNavigation).
-    LaunchedEffect(Unit) { viewModel.refresh() }
+    LaunchedEffect(Unit) {
+        if (state.failure == null) viewModel.refresh()
+    }
     AccountsScreen(state, usage.posts > 0, onBack, viewModel::add, viewModel::switch, viewModel::remove, viewModel::cancelAdd, viewModel::dismissFailure, viewModel::setAttendanceEnabled, attendanceStates, viewModel::refresh)
 }
 
@@ -110,6 +118,12 @@ fun AccountsScreen(
 ) {
     val snackbar = remember { SnackbarHostState() }
     var confirmation by remember { mutableStateOf<AccountAction?>(null) }
+    val pressHaptics = rememberPlatformHaptics()
+    var switchingUid by remember { mutableStateOf<Long?>(null) }
+    val actionsEnabled = !state.busy && switchingUid == null
+    LaunchedEffect(state.busy, state.activeUid, state.failure) {
+        if (!state.busy && (state.activeUid == switchingUid || state.failure != null)) switchingUid = null
+    }
     val failure = state.failure?.let {
         stringResource(
             when (it) {
@@ -132,12 +146,20 @@ fun AccountsScreen(
         val account = action.account
         when {
             action.remove && account != null -> onRemove(account.uid)
+
             account == null || account.needsSignIn -> onAdd()
-            else -> onSwitch(account.uid)
+
+            else -> {
+                switchingUid = account.uid
+                pressHaptics.toggle()
+                onSwitch(account.uid)
+            }
         }
     }
     val request: (AccountAction) -> Unit = { action ->
-        if (action.remove || hasOfflineDownloads) confirmation = action else perform(action)
+        if (!state.busy && switchingUid == null) {
+            if (action.remove || hasOfflineDownloads) confirmation = action else perform(action)
+        }
     }
     Scaffold(
         containerColor = LocalPlazaLayers.current.page,
@@ -165,11 +187,12 @@ fun AccountsScreen(
             if (state.accounts.isEmpty()) item { Text(stringResource(Res.string.accounts_empty)) }
             if (state.adding) {
                 item {
-                    TextButton(onClick = onRetrySave, enabled = !state.busy) { Text(stringResource(Res.string.accounts_retry_save)) }
+                    TextButton(onClick = onRetrySave, enabled = actionsEnabled) { Text(stringResource(Res.string.accounts_retry_save)) }
                 }
             }
             items(state.accounts, key = { it.uid }) { account ->
                 val current = account.uid == state.activeUid
+                val switching = switchingUid == account.uid
                 val attendance = attendanceStates[account.uid]
                 val status = if (account.attendance.enabled && attendance != null) {
                     when {
@@ -188,7 +211,11 @@ fun AccountsScreen(
                         first = true,
                         last = false,
                         selected = current,
-                        onClick = { if (!current || account.needsSignIn) request(AccountAction(account)) },
+                        enabled = actionsEnabled,
+                        onClick = if (current && !account.needsSignIn) null else ({ request(AccountAction(account)) }),
+                        colors = groupedListItemColors(
+                            containerColor = if (switching) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else Color.Transparent,
+                        ),
                         headlineContent = {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                                 Text(account.name, Modifier.weight(1f))
@@ -203,8 +230,14 @@ fun AccountsScreen(
                         },
                         leadingContent = { UserAvatar(account.avatarUrl, account.name, size = 40.dp) },
                         trailingContent = {
-                            IconButton(onClick = { request(AccountAction(account, remove = true)) }) {
-                                PlazaIcon(Icons.Default.Delete, stringResource(Res.string.accounts_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (switching) {
+                                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                    PlazaSpinner(size = 18.dp, strokeWidth = 2.dp)
+                                }
+                            } else {
+                                IconButton(onClick = { request(AccountAction(account, remove = true)) }, enabled = actionsEnabled) {
+                                    PlazaIcon(Icons.Default.Delete, stringResource(Res.string.accounts_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         },
                     )
@@ -212,46 +245,40 @@ fun AccountsScreen(
                         title = stringResource(Res.string.auto_attendance_title),
                         subtitle = status?.let { stringResource(it) },
                         last = true,
+                        enabled = actionsEnabled,
                         checked = account.attendance.enabled,
                         onCheckedChange = { onAttendanceEnabled(account.uid, it) },
-                        trailing = { GroupedListItemSwitch(account.attendance.enabled) },
+                        trailing = { GroupedListItemSwitch(account.attendance.enabled, enabled = actionsEnabled) },
                     )
                 }
             }
             item {
-                MediumButton(onClick = { request(AccountAction()) }, style = MediumButtonStyle.Tonal, icon = Icons.Default.Add, modifier = Modifier.fillMaxWidth()) {
+                MediumButton(onClick = { request(AccountAction()) }, style = MediumButtonStyle.Tonal, enabled = actionsEnabled, icon = Icons.Default.Add, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(Res.string.accounts_add))
                 }
             }
-            if (state.adding) item { TextButton(onClick = onCancelAdd) { Text(stringResource(Res.string.accounts_cancel_add)) } }
+            if (state.adding) item { TextButton(onClick = onCancelAdd, enabled = actionsEnabled) { Text(stringResource(Res.string.accounts_cancel_add)) } }
         }
     }
     confirmation?.let { action ->
         val removesCurrent = action.remove && action.account?.uid == state.activeUid
-        AlertDialog(
-            onDismissRequest = { confirmation = null },
-            title = { Text(stringResource(if (action.remove) Res.string.accounts_remove else Res.string.accounts_switch)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (action.remove) Text(stringResource(Res.string.accounts_remove_body, action.account?.name.orEmpty()))
-                    if (hasOfflineDownloads && (!action.remove || removesCurrent)) {
-                        Text(
-                            stringResource(
-                                if (action.remove) Res.string.accounts_remove_offline_warning else Res.string.accounts_offline_warning,
-                            ),
-                        )
-                    }
-                }
+        val title = stringResource(if (action.remove) Res.string.accounts_remove else Res.string.accounts_switch)
+        val removal = if (action.remove) stringResource(Res.string.accounts_remove_body, action.account?.name.orEmpty()) else null
+        val warning = if (hasOfflineDownloads && (!action.remove || removesCurrent)) {
+            stringResource(if (action.remove) Res.string.accounts_remove_offline_warning else Res.string.accounts_offline_warning)
+        } else {
+            null
+        }
+        AdaptiveAlertDialog(
+            title = title,
+            message = listOfNotNull(removal, warning).joinToString("\n\n").ifEmpty { null },
+            confirmLabel = title,
+            onConfirm = {
+                confirmation = null
+                if (!state.busy && switchingUid == null) perform(action)
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmation = null
-                    perform(action)
-                }) {
-                    Text(stringResource(if (action.remove) Res.string.accounts_remove else Res.string.accounts_switch))
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmation = null }) { Text(stringResource(Res.string.action_cancel)) } },
+            onDismiss = { confirmation = null },
+            dismissLabel = stringResource(Res.string.action_cancel),
         )
     }
 }

@@ -139,6 +139,7 @@ import platform.UIKit.UIUserInterfaceIdiomPad
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
 import platform.UIKit.UIViewAnimationOptionCurveEaseOut
+import platform.UIKit.UIViewAnimationOptionTransitionCrossDissolve
 import platform.UIKit.UIViewController
 import platform.UIKit.accessibilityElementsHidden
 import platform.UIKit.addChildViewController
@@ -196,11 +197,12 @@ suspend fun nativeShellViewController(container: AppContainer): UIViewController
 @OptIn(ExperimentalForeignApi::class)
 private class AccountNativeHost(
     private val container: AppContainer,
-    private val settings: UserSettings,
+    initialSettings: UserSettings,
     private val strings: ShellStrings,
 ) {
     val root = UIViewController()
     private val scope = MainScope()
+    private var currentSettings = initialSettings
     private var shell: NativeShell? = null
     private var child: UIViewController? = null
     private var identity: Any? = null
@@ -209,15 +211,22 @@ private class AccountNativeHost(
     init {
         val accounts = container.accountRepository
         if (accounts == null) {
-            val next = NativeShell(container, settings, strings)
+            val next = NativeShell(container, currentSettings, strings)
             shell = next
             replace(next.root)
         } else {
             scope.launch {
+                container.settingsRepository.settings.collect { currentSettings = it }
+            }
+            scope.launch {
                 accounts.state.collect { state ->
                     if (!state.ready || state.busy) {
                         if (shell != null || child == null) {
-                            replace(ComposeUIViewController { NodysseySiteSwitchPlaceholder(container, settings) })
+                            val placeholderContainer = container
+                            val settings = currentSettings
+                            val placeholder = ComposeUIViewController { NodysseySiteSwitchPlaceholder(placeholderContainer, settings) }
+                            placeholder.overrideUserInterfaceStyle = settings.nativeInterfaceStyle()
+                            replace(placeholder)
                             shell?.awaitTransitions()
                             shell?.close()
                             shell = null
@@ -233,7 +242,7 @@ private class AccountNativeHost(
                             if (latest.busy || Triple(latest.navigationKey, latest.adding, latest.revision) != nextIdentity) return@collect
                             shell?.close()
                             detach?.invoke()
-                            val next = NativeShell(container, settings, strings)
+                            val next = NativeShell(container, currentSettings, strings)
                             shell = next
                             identity = nextIdentity
                             replace(next.root)
@@ -246,18 +255,39 @@ private class AccountNativeHost(
     }
 
     private fun replace(next: UIViewController) {
-        child?.let { previous ->
-            previous.willMoveToParentViewController(null)
-            previous.view.removeFromSuperview()
-            previous.removeFromParentViewController()
+        val parent = root
+        val previous = child
+        val mount = {
+            previous?.let {
+                it.willMoveToParentViewController(null)
+                it.view.removeFromSuperview()
+                it.removeFromParentViewController()
+            }
+            parent.addChildViewController(next)
+            next.view.setFrame(parent.view.bounds)
+            next.view.autoresizingMask = platform.UIKit.UIViewAutoresizingFlexibleWidth or platform.UIKit.UIViewAutoresizingFlexibleHeight
+            parent.view.addSubview(next.view)
+            next.didMoveToParentViewController(parent)
         }
-        root.addChildViewController(next)
-        next.view.setFrame(root.view.bounds)
-        next.view.autoresizingMask = platform.UIKit.UIViewAutoresizingFlexibleWidth or platform.UIKit.UIViewAutoresizingFlexibleHeight
-        root.view.addSubview(next.view)
-        next.didMoveToParentViewController(root)
+        if (previous != null && !UIAccessibilityIsReduceMotionEnabled()) {
+            UIView.transitionWithView(
+                parent.view,
+                duration = 0.2,
+                options = UIViewAnimationOptionTransitionCrossDissolve,
+                animations = mount,
+                completion = null,
+            )
+        } else {
+            mount()
+        }
         child = next
     }
+}
+
+private fun UserSettings.nativeInterfaceStyle(): UIUserInterfaceStyle = when {
+    einkMode || themeMode == ThemeMode.LIGHT -> UIUserInterfaceStyle.UIUserInterfaceStyleLight
+    themeMode == ThemeMode.DARK -> UIUserInterfaceStyle.UIUserInterfaceStyleDark
+    else -> UIUserInterfaceStyle.UIUserInterfaceStyleUnspecified
 }
 
 private class ShellStrings(
@@ -296,12 +326,10 @@ private class NativeShell(
 
     private val stacks: Map<TopLevelDestination, NavBackStack<NavKey>> =
         TopLevelDestination.entries.associateWith { destination ->
-            NavBackStack<NavKey>(destination.key).apply {
-                val accounts = container.accountRepository?.state?.value
-                if (destination == TopLevelDestination.PROFILE) {
-                    if (accounts?.adding == true || (accounts?.revision ?: 0) > 0) add(AccountsKey)
-                    if (accounts?.adding == true) add(SignInKey)
-                }
+            if (destination == TopLevelDestination.PROFILE) {
+                NavBackStack(*accountProfileInitialKeys(container.accountRepository?.state?.value).toTypedArray())
+            } else {
+                NavBackStack<NavKey>(destination.key)
             }
         }
 
@@ -436,6 +464,7 @@ private class NativeShell(
     }
 
     init {
+        root.overrideUserInterfaceStyle = initialSettings.nativeInterfaceStyle()
         scope.launch {
             container.sessionRepository.state.collectLatest { session ->
                 container.postRepository.reconcileSession(session.isSignedIn, session.fingerprint)
@@ -484,8 +513,8 @@ private class NativeShell(
         }
         observeSettings()
         observeNotifications()
-        container.accountRepository?.state?.value?.let { accounts ->
-            if (accounts.adding || accounts.revision > 0) selectTab(TopLevelDestination.PROFILE)
+        if (shouldOpenProfileTabOnAccountChange(container.accountRepository?.state?.value)) {
+            selectTab(TopLevelDestination.PROFILE)
         }
         refreshActivePage()
         checkClipboardPost()
@@ -1237,13 +1266,7 @@ private class NativeShell(
                 refreshListDetailExpanded()
                 // The bars UIKit draws follow the app's own light/dark answer, not only the OS's, the
                 // way `NodysseyRoot` makes the status bar follow it on Android.
-                root.overrideUserInterfaceStyle =
-                    when {
-                        latest.einkMode -> UIUserInterfaceStyle.UIUserInterfaceStyleLight
-                        latest.themeMode == ThemeMode.LIGHT -> UIUserInterfaceStyle.UIUserInterfaceStyleLight
-                        latest.themeMode == ThemeMode.DARK -> UIUserInterfaceStyle.UIUserInterfaceStyleDark
-                        else -> UIUserInterfaceStyle.UIUserInterfaceStyleUnspecified
-                    }
+                root.overrideUserInterfaceStyle = latest.nativeInterfaceStyle()
             }
         }
         scope.launch {
