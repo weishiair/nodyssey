@@ -151,78 +151,84 @@ fun GroupedListItem(
     // when ListItem takes a supporting text style of its own.
     val supporting: (@Composable () -> Unit)? =
         supportingContent?.let { content -> { ProvideTextStyle(MaterialTheme.typography.labelSmall, content) } }
-    when {
-        checked != null && onCheckedChange != null ->
-            SegmentedListItem(
-                onClick = {
-                    pressHaptics.toggle()
-                    onCheckedChange(!checked)
-                },
-                shapes = shapes,
-                modifier =
-                decorated.semantics {
-                    role = Role.Switch
-                    toggleableState = ToggleableState(checked)
-                },
-                enabled = enabled,
-                leadingContent = leadingContent,
-                trailingContent = trailingContent,
-                supportingContent = supporting,
-                verticalAlignment = verticalAlignment,
-                colors = colors,
-                contentPadding = contentPadding,
-                content = headline,
-            )
+    val interactive = onClick != null || onLongClick != null || (checked != null && onCheckedChange != null)
+    PressHighlight(shape, enabled = enabled && interactive) { source, highlight ->
+        when {
+            checked != null && onCheckedChange != null ->
+                SegmentedListItem(
+                    onClick = {
+                        pressHaptics.toggle()
+                        onCheckedChange(!checked)
+                    },
+                    interactionSource = source,
+                    shapes = shapes,
+                    modifier =
+                    decorated.then(highlight).semantics {
+                        role = Role.Switch
+                        toggleableState = ToggleableState(checked)
+                    },
+                    enabled = enabled,
+                    leadingContent = leadingContent,
+                    trailingContent = trailingContent,
+                    supportingContent = supporting,
+                    verticalAlignment = verticalAlignment,
+                    colors = colors,
+                    contentPadding = contentPadding,
+                    content = headline,
+                )
 
-        selected != null && onClick != null ->
-            SegmentedListItem(
-                selected = selected,
-                onClick = onClick,
-                shapes = shapes,
-                modifier = decorated,
-                enabled = enabled,
-                leadingContent = leadingContent,
-                trailingContent = trailingContent,
-                supportingContent = supporting,
-                verticalAlignment = verticalAlignment,
-                colors = colors,
-                contentPadding = contentPadding,
-                content = headline,
-            )
+            selected != null && onClick != null ->
+                SegmentedListItem(
+                    selected = selected,
+                    onClick = onClick,
+                    interactionSource = source,
+                    shapes = shapes,
+                    modifier = decorated.then(highlight),
+                    enabled = enabled,
+                    leadingContent = leadingContent,
+                    trailingContent = trailingContent,
+                    supportingContent = supporting,
+                    verticalAlignment = verticalAlignment,
+                    colors = colors,
+                    contentPadding = contentPadding,
+                    content = headline,
+                )
 
-        onClick != null || onLongClick != null ->
-            SegmentedListItem(
-                onClick = onClick ?: {},
-                shapes = shapes,
-                modifier = decorated,
-                enabled = enabled,
-                leadingContent = leadingContent,
-                trailingContent = trailingContent,
-                supportingContent = supporting,
-                verticalAlignment = verticalAlignment,
-                onLongClick = onLongClick,
-                onLongClickLabel = onLongClickLabel,
-                colors = colors,
-                contentPadding = contentPadding,
-                content = headline,
-            )
+            onClick != null || onLongClick != null ->
+                SegmentedListItem(
+                    onClick = onClick ?: {},
+                    interactionSource = source,
+                    shapes = shapes,
+                    modifier = decorated.then(highlight),
+                    enabled = enabled,
+                    leadingContent = leadingContent,
+                    trailingContent = trailingContent,
+                    supportingContent = supporting,
+                    verticalAlignment = verticalAlignment,
+                    onLongClick = onLongClick,
+                    onLongClickLabel = onLongClickLabel,
+                    colors = colors,
+                    contentPadding = contentPadding,
+                    content = headline,
+                )
 
-        // Material keeps its non-interactive segmented overload out of the common API. The
-        // content-slot `ListItem` takes the same parameters, so a row with nothing to click is laid
-        // out by the same rules as its clickable neighbours.
-        else ->
-            ListItem(
-                shapes = shapes,
-                modifier = decorated,
-                enabled = enabled,
-                leadingContent = leadingContent,
-                trailingContent = trailingContent,
-                supportingContent = supporting,
-                verticalAlignment = verticalAlignment,
-                colors = colors,
-                contentPadding = contentPadding,
-                content = headline,
-            )
+            // Material keeps its non-interactive segmented overload out of the common API. The
+            // content-slot `ListItem` takes the same parameters, so a row with nothing to click is laid
+            // out by the same rules as its clickable neighbours.
+            else ->
+                ListItem(
+                    shapes = shapes,
+                    modifier = decorated,
+                    enabled = enabled,
+                    leadingContent = leadingContent,
+                    trailingContent = trailingContent,
+                    supportingContent = supporting,
+                    verticalAlignment = verticalAlignment,
+                    colors = colors,
+                    contentPadding = contentPadding,
+                    content = headline,
+                )
+        }
     }
 }
 

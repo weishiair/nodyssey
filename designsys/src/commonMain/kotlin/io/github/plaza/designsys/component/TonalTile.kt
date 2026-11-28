@@ -56,28 +56,32 @@ fun TonalTile(
             content = content,
         )
     }
-    if (selected != null) {
-        Surface(
-            selected = selected,
-            onClick = onClick,
-            modifier = modifier,
-            enabled = enabled,
-            shape = shape,
-            color = containerColor,
-            contentColor = contentColor,
-            border = border,
-            content = body,
-        )
-    } else {
-        Surface(
-            onClick = onClick,
-            modifier = modifier.semantics { role = Role.Button },
-            enabled = enabled,
-            shape = shape,
-            color = containerColor,
-            contentColor = contentColor,
-            border = border,
-            content = body,
-        )
+    PressHighlight(shape, enabled) { source, highlight ->
+        if (selected != null) {
+            Surface(
+                selected = selected,
+                onClick = onClick,
+                interactionSource = source,
+                modifier = modifier.then(highlight),
+                enabled = enabled,
+                shape = shape,
+                color = containerColor,
+                contentColor = contentColor,
+                border = border,
+                content = body,
+            )
+        } else {
+            Surface(
+                onClick = onClick,
+                interactionSource = source,
+                modifier = modifier.then(highlight).semantics { role = Role.Button },
+                enabled = enabled,
+                shape = shape,
+                color = containerColor,
+                contentColor = contentColor,
+                border = border,
+                content = body,
+            )
+        }
     }
 }

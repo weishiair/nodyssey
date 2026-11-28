@@ -84,7 +84,9 @@ fun LayerCard(
         )
     }
     if (onClick != null) {
-        Card(onClick = onClick, modifier = shadowed, shape = shape, colors = colors, border = border, content = body)
+        PressHighlight(shape) { source, highlight ->
+            Card(onClick = onClick, interactionSource = source, modifier = shadowed.then(highlight), shape = shape, colors = colors, border = border, content = body)
+        }
     } else {
         Card(modifier = shadowed, shape = shape, colors = colors, border = border, content = body)
     }
