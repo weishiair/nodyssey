@@ -3,6 +3,10 @@ package io.github.nodyssey.platform
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import io.github.nodyssey.core.NodeSeekSite
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import okhttp3.Cookie
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -121,6 +125,83 @@ class AndroidAccountCookiesTest {
         assertNull(cookie.expiresAtMillis)
         assertFalse(replayed.persistent)
         assertTrue(replayed.hostOnly)
+    }
+
+    @Test
+    fun `replacement drains each batch and checks the old session before installing cookies`() = runTest {
+        val browser = PendingWritesBrowser()
+        val store = AndroidAccountCookies(NodeSeekSite.CONFIG, browser, System::currentTimeMillis)
+        val replacement = async { store.replace(incoming) }
+        testScheduler.runCurrent()
+        assertEquals(2, browser.pending.size)
+        assertTrue(browser.pending.keys.all { "Max-Age=0" in it })
+        val deletes = browser.pending.values.toList()
+        deletes.last().complete(true)
+        testScheduler.runCurrent()
+        assertEquals(0, browser.checks)
+        assertEquals(2, browser.pending.size)
+        deletes.first().complete(true)
+        testScheduler.runCurrent()
+        assertTrue(browser.checks > 0)
+        assertEquals(4, browser.pending.size)
+        browser.pending.getValue("session=new; Path=/").complete(true)
+        testScheduler.runCurrent()
+        assertFalse(browser.flushed)
+        browser.pending.getValue("token=new; Path=/").complete(true)
+        replacement.await()
+        assertTrue(browser.flushed)
+    }
+
+    @Test
+    fun `refused incoming write waits for outstanding callbacks before reporting failure`() = runTest {
+        val browser = PendingWritesBrowser(old = emptyList())
+        val store = AndroidAccountCookies(NodeSeekSite.CONFIG, browser, System::currentTimeMillis)
+        val result = async { runCatching { store.replace(incoming) } }
+        testScheduler.runCurrent()
+        browser.pending.getValue("session=new; Path=/").complete(false)
+        testScheduler.runCurrent()
+        assertFalse(result.isCompleted)
+        browser.pending.getValue("token=new; Path=/").complete(true)
+        val error = result.await().exceptionOrNull()
+        assertTrue(error is IllegalStateException)
+        assertEquals("WebView refused a saved cookie", error?.message)
+    }
+
+    @Test
+    fun `a surviving login prevents every incoming write`() = runTest {
+        val browser = PendingWritesBrowser(old = emptyList(), remaining = "session=old")
+        val store = AndroidAccountCookies(NodeSeekSite.CONFIG, browser, System::currentTimeMillis)
+        val error = runCatching { store.replace(incoming) }.exceptionOrNull()
+        assertEquals("WebView could not clear the active login", error?.message)
+        assertTrue(browser.pending.isEmpty())
+    }
+
+    private val incoming = Json.encodeToString(
+        listOf(
+            SavedCookie(URL, "session=new; Path=/", null),
+            SavedCookie(URL, "token=new; Path=/", null),
+        ),
+    )
+
+    private class PendingWritesBrowser(
+        val old: List<String> = listOf("session=old; Path=/", "token=old; Path=/"),
+        val remaining: String? = null,
+    ) : AccountCookieBrowser {
+        val pending = mutableMapOf<String, CompletableDeferred<Boolean>>()
+        var checks = 0
+        var flushed = false
+        override fun supportsCookieInfo() = true
+        override fun headers(url: String) = if (url == URL) old else emptyList()
+        override fun cookie(url: String): String? {
+            checks++
+            return remaining
+        }
+        override suspend fun write(url: String, header: String): Boolean = withTimeout(1_000) {
+            CompletableDeferred<Boolean>().also { pending[header] = it }.await()
+        }
+        override fun flush() {
+            flushed = true
+        }
     }
 
     private companion object {

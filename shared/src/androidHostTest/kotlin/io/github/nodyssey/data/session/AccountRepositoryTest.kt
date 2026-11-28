@@ -40,6 +40,7 @@ import io.github.plaza.core.net.UploadProgress
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -57,6 +58,131 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AccountRepositoryTest {
+    // Bug: the page's profile lookup holds the account lock and drops the first switch.
+    @Test
+    fun `switch cancels a waiting refresh and changes accounts on the first request`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.complete { fixture.accounts.add() }
+        fixture.login(2)
+        val cancelled = fixture.holdRefresh()
+
+        fixture.accounts.switch(1)
+        runCurrent()
+
+        assertTrue(cancelled.isCompleted)
+        fixture.accounts.state.first { !it.busy && it.activeUid == 1L }
+        assertEquals(1L, fixture.vault.read().activeUid)
+        assertNull(fixture.accounts.state.value.failure)
+    }
+
+    @Test
+    fun `add cancels a waiting refresh and opens sign in on the first request`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        val cancelled = fixture.holdRefresh()
+
+        fixture.accounts.add()
+        runCurrent()
+
+        assertTrue(cancelled.isCompleted)
+        fixture.accounts.state.first { !it.busy && it.adding }
+        assertEquals(1L, fixture.vault.read().pending?.previousUid)
+        assertNull(fixture.accounts.state.value.failure)
+    }
+
+    @Test
+    fun `remove cancels a waiting refresh and removes the account on the first request`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        val cancelled = fixture.holdRefresh()
+
+        fixture.accounts.remove(1)
+        runCurrent()
+
+        assertTrue(cancelled.isCompleted)
+        fixture.accounts.state.first { !it.busy && it.accounts.isEmpty() }
+        assertFalse(fixture.session.peek().isSignedIn)
+        assertTrue(fixture.vault.read().accounts.isEmpty())
+        assertNull(fixture.accounts.state.value.failure)
+    }
+
+    @Test
+    fun `a switch waits for a background save that already holds the account lock`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.complete { fixture.accounts.add() }
+        fixture.login(2)
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        fixture.beforeCapture = {
+            entered.complete(Unit)
+            release.await()
+        }
+        val saving = async {
+            fixture.accounts.remember(UserProfile(2, "updated-2", ""), fixture.session.peek().fingerprint)
+        }
+        entered.await()
+
+        fixture.accounts.switch(1)
+        runCurrent()
+        assertEquals(2L, fixture.accounts.state.value.activeUid)
+        release.complete(Unit)
+        saving.await()
+        fixture.accounts.state.first { !it.busy && it.activeUid == 1L }
+
+        assertEquals(1L, fixture.vault.read().activeUid)
+        assertEquals("updated-2", fixture.vault.read().accounts.single { it.account.uid == 2L }.account.name)
+    }
+
+    @Test
+    fun `repeated switch requests during an active switch do not start another transition`() = runTest {
+        val fixture = Fixture(this)
+        fixture.login(1)
+        fixture.complete { fixture.accounts.add() }
+        fixture.login(2)
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val replacements = mutableListOf<String>()
+        val revision = fixture.accounts.state.value.revision
+        fixture.afterReplace = {
+            replacements += it
+            entered.complete(Unit)
+            release.await()
+        }
+        fixture.accounts.switch(1)
+        entered.await()
+
+        fixture.accounts.switch(1)
+        fixture.accounts.switch(2)
+        runCurrent()
+        release.complete(Unit)
+        fixture.accounts.state.first { !it.busy && it.revision > revision }
+        runCurrent()
+
+        assertEquals(listOf("session=1"), replacements)
+        assertFalse(fixture.accounts.state.value.busy)
+        assertEquals(revision + 1, fixture.accounts.state.value.revision)
+        assertEquals(1L, fixture.vault.read().activeUid)
+    }
+
+    @Test
+    fun `refresh can retry saving a signed in account while adding`() = runTest {
+        val fixture = Fixture(this)
+        fixture.complete { fixture.accounts.add() }
+        fixture.captureFailure = IllegalStateException("capture failed")
+        fixture.login(1)
+        assertTrue(fixture.accounts.state.value.adding)
+        assertEquals(AccountFailure.STORAGE, fixture.accounts.state.value.failure)
+        fixture.captureFailure = null
+
+        fixture.accounts.refresh()
+        fixture.accounts.state.first { !it.adding && it.activeUid == 1L }
+
+        assertEquals(1L, fixture.vault.read().activeUid)
+        assertNull(fixture.accounts.state.value.failure)
+    }
+
     // Bug: a failed fingerprint permanently suppresses saving a now-readable login.
     @Test
     fun `a failed cookie snapshot can be saved again under the same session`() = runTest {
@@ -722,6 +848,8 @@ class AccountRepositoryTest {
         var clearMail: suspend () -> Unit = {}
         var keepLoginOnClear = false
         var captureFailure: Exception? = null
+        var beforeCapture: suspend () -> Unit = {}
+        var beforeProfile: suspend (Boolean) -> Unit = {}
         val invalidSnapshots = mutableSetOf<String>()
         var replaceFailure: Exception? = null
         var afterReplace: suspend (String) -> Unit = {}
@@ -730,6 +858,7 @@ class AccountRepositoryTest {
         val cookies = object : AccountCookieStore {
             override suspend fun capture(): String {
                 captureFailure?.let { throw it }
+                beforeCapture()
                 return jar.cookieHeader(NodeSeekSite.BASE_URL).orEmpty()
             }
             override suspend fun replace(snapshot: String) {
@@ -771,11 +900,30 @@ class AccountRepositoryTest {
         )
         val accounts = repository()
 
-        fun repository() = AccountRepository(vault, cookies, session, AccountRequestGate(), local, currentProfile = {
+        fun repository() = AccountRepository(vault, cookies, session, AccountRequestGate(), local, currentProfile = { refresh ->
+            beforeProfile(refresh)
             val uid = cookies.capture().substringAfter("session=").toLong()
             if (uid == rejectedUid) throw SiteException(SiteError.LoginRequired)
             UserProfile(uid, "account-$uid", "")
         }, stopPlatformRequests = {}, scope = test, legacyAttendance = { settings.automaticAttendance.config.first() })
+
+        suspend fun holdRefresh(): CompletableDeferred<Unit> {
+            val entered = CompletableDeferred<Unit>()
+            val cancelled = CompletableDeferred<Unit>()
+            beforeProfile = { refresh ->
+                if (!refresh) {
+                    entered.complete(Unit)
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        cancelled.complete(Unit)
+                    }
+                }
+            }
+            accounts.refresh()
+            entered.await()
+            return cancelled
+        }
 
         fun attendanceRunner(): MultiAccountAttendance {
             val dispatcher = StandardTestDispatcher(test.testScheduler)

@@ -5,7 +5,13 @@ import androidx.webkit.CookieManagerCompat
 import androidx.webkit.WebViewFeature
 import io.github.nodyssey.data.session.AccountCookieStore
 import io.github.plaza.core.net.SiteConfig
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Cookie
@@ -14,52 +20,57 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 /** Uses WebKit's attribute-preserving API; getCookie() cannot preserve expiry or HttpOnly. */
-class AndroidAccountCookies(
+class AndroidAccountCookies internal constructor(
     config: SiteConfig,
-    private val manager: CookieManager = CookieManager.getInstance(),
-    private val nowMillis: () -> Long = System::currentTimeMillis,
+    private val browser: AccountCookieBrowser,
+    private val nowMillis: () -> Long,
 ) : AccountCookieStore {
+    constructor(
+        config: SiteConfig,
+        manager: CookieManager = CookieManager.getInstance(),
+        nowMillis: () -> Long = System::currentTimeMillis,
+    ) : this(config, WebViewAccountCookieBrowser(manager), nowMillis)
+
     private val urls = config.sessionUrls.flatMap { listOf(it, it.trimEnd('/') + "/api/") }.distinct()
     private val sessionNames = config.sessionCookieNames.toSet()
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun capture(): String {
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
-            throw UnsupportedOperationException("Account switching requires an updated Android System WebView")
-        }
-        val records = urls.flatMap { url ->
-            val headers = if (WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
-                CookieManagerCompat.getCookieInfo(manager, url)
-            } else {
-                throw UnsupportedOperationException("Account switching requires an updated Android System WebView")
-            }
-            headers.mapNotNull { header ->
-                normalizeAccountCookie(url, header)
-            }
+        checkSupported()
+        return json.encodeToString(existingCookies())
+    }
+
+    private fun existingCookies(): List<SavedCookie> =
+        urls.flatMap { url ->
+            browser.headers(url).mapNotNull { header -> normalizeAccountCookie(url, header) }
         }.distinctBy { record ->
             val parsed = checkNotNull(Cookie.parse(record.url.toHttpUrl(), record.header))
             Triple(parsed.name, parsed.domain, parsed.path) to parsed.hostOnly
         }
-        return json.encodeToString(records)
-    }
 
     override suspend fun replace(snapshot: String) {
-        if (snapshot.isEmpty() && !WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
-            // Basic sign-out must remain possible on old WebViews. Only getCookieInfo can safely
-            // round-trip attributes, so adding/switching accounts still requires that feature.
-            urls.forEach { url ->
-                manager.getCookie(url).orEmpty().split(';').map { it.trim().substringBefore('=') }.filter { it.isNotEmpty() }.forEach { name ->
+        if (snapshot.isEmpty() && !browser.supportsCookieInfo()) {
+            // Old WebViews expose names but not scope. Expire each possible path and domain.
+            val expired = buildList {
+                urls.forEach { url ->
                     val host = url.toHttpUrl().host.removePrefix("www.")
-                    listOf("/", "/api/").forEach { path ->
-                        write(url, "$name=; Max-Age=0; Path=$path; Secure", requireAccepted = false)
-                        write(url, "$name=; Max-Age=0; Path=$path; Domain=$host; Secure", requireAccepted = false)
+                    browser.cookie(url).orEmpty().split(';').map { it.trim().substringBefore('=') }.filter { it.isNotEmpty() }.forEach { name ->
+                        listOf("/", "/api/").forEach { path ->
+                            add(url to "$name=; Max-Age=0; Path=$path; Secure")
+                            add(url to "$name=; Max-Age=0; Path=$path; Domain=$host; Secure")
+                        }
                     }
                 }
             }
-            manager.flush()
-            checkSessionCleared()
+            withContext(NonCancellable) {
+                writeAll(expired, requireAccepted = false)
+                browser.flush()
+                checkSessionCleared()
+            }
+            currentCoroutineContext().ensureActive()
             return
         }
         checkSupported()
@@ -71,45 +82,71 @@ class AndroidAccountCookies(
                 checkNotNull(normalizeAccountCookie(record.url, record.header, record.hostOnly))
             }
         }
-        val existing = json.decodeFromString<List<SavedCookie>>(capture())
-        existing.forEach { record ->
+        val deletions = existingCookies().map { record ->
             val cookie = checkNotNull(Cookie.parse(record.url.toHttpUrl(), record.header))
             val expired = buildString {
                 append(cookie.name).append("=; Max-Age=0; Path=").append(cookie.path)
                 if (!cookie.hostOnly) append("; Domain=").append(cookie.domain)
                 if (cookie.secure) append("; Secure")
             }
-            write(record.url, expired)
+            record.url to expired
         }
-        // A successful setCookie callback only means the deletion was accepted, not that it
-        // targeted the original login. Never mix a surviving login with an incoming account.
-        checkSessionCleared()
-        incoming.filter { it.expiresAtMillis == null || it.expiresAtMillis > nowMillis() }.forEach { record ->
-            require(record.url in urls) { "Cookie belongs to another site" }
-            write(record.url, record.header)
+        withContext(NonCancellable) {
+            writeAll(deletions)
+            // Accepted deletions can still miss the original login if their scope differs.
+            checkSessionCleared()
+            val valid = incoming.filter { it.expiresAtMillis == null || it.expiresAtMillis > nowMillis() }
+            writeAll(valid.map { it.url to it.header })
+            browser.flush()
         }
-        manager.flush()
+        currentCoroutineContext().ensureActive()
     }
 
     private fun checkSessionCleared() {
         check(
             urls.none { url ->
-                manager.getCookie(url).orEmpty().split(';').any { pair ->
+                browser.cookie(url).orEmpty().split(';').any { pair ->
                     pair.trim().substringBefore('=').trim() in sessionNames && pair.substringAfter('=', "").isNotBlank()
                 }
             },
         ) { "WebView could not clear the active login" }
     }
 
-    private suspend fun write(url: String, header: String, requireAccepted: Boolean = true) = suspendCancellableCoroutine { continuation ->
-        manager.setCookie(url, header) { accepted -> continuation.resume(accepted) }
-    }.also { check(it || !requireAccepted) { "WebView refused a saved cookie" } }
+    private suspend fun writeAll(records: List<Pair<String, String>>, requireAccepted: Boolean = true) = coroutineScope {
+        // Wait for every issued callback, including siblings of a rejected write, before rollback.
+        val accepted = records.map { (url, header) -> async { browser.write(url, header) } }.awaitAll()
+        check(!requireAccepted || accepted.all { it }) { "WebView refused a saved cookie" }
+    }
 
     private fun checkSupported() {
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
-            throw UnsupportedOperationException("Account switching requires an updated Android System WebView")
+        if (!browser.supportsCookieInfo()) {
+            throw UnsupportedOperationException(UNSUPPORTED_WEBVIEW)
         }
     }
+}
+
+private const val UNSUPPORTED_WEBVIEW = "Account switching requires an updated Android System WebView"
+
+internal interface AccountCookieBrowser {
+    fun supportsCookieInfo(): Boolean
+    fun headers(url: String): List<String>
+    fun cookie(url: String): String?
+    suspend fun write(url: String, header: String): Boolean
+    fun flush()
+}
+
+private class WebViewAccountCookieBrowser(private val manager: CookieManager) : AccountCookieBrowser {
+    override fun supportsCookieInfo() = WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)
+    override fun headers(url: String): List<String> = if (WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
+        CookieManagerCompat.getCookieInfo(manager, url)
+    } else {
+        throw UnsupportedOperationException(UNSUPPORTED_WEBVIEW)
+    }
+    override fun cookie(url: String): String? = manager.getCookie(url)
+    override suspend fun write(url: String, header: String): Boolean = suspendCoroutine { continuation ->
+        manager.setCookie(url, header) { accepted -> continuation.resume(accepted) }
+    }
+    override fun flush() = manager.flush()
 }
 
 @Serializable
