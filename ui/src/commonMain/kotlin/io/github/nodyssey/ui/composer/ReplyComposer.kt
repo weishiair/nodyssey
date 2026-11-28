@@ -330,9 +330,7 @@ private fun ReplyEditorSheet(
     // than a phone's sheet rising from the bottom edge of one column under a scrim that greys out the
     // whole window. Height counts as well as width: a phone on its side is wide, but a centred card
     // over its keyboard would leave the editor a sliver.
-    // iOS keeps UIKit's sheet everywhere: on an iPad it is the centred page sheet Mail replies in,
-    // and UIKit, not an IME inset, keeps it clear of the keyboard — a floating keyboard included,
-    // which the card's inset mistook for a docked one and shoved the card under the tab bar.
+    // iOS uses UIKit's page sheet at every window size so the reply opens above both iPad panes.
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val nativeChrome = nativeControls
@@ -627,7 +625,7 @@ private fun ReplyEditorSheet(
             // another full-width background below the handle creates a second, square-edged panel.
             // UIKit's detent fixes the sheet height. Let the body take the remaining space so
             // the formatting strip stays against the keyboard instead of above unused sheet space.
-            editor(if (fillNativeSheet) Modifier.fillMaxSize().imePadding() else Modifier.imePadding())
+            editor(if (fillNativeSheet) Modifier.fillMaxSize().replySheetKeyboardPadding() else Modifier.imePadding())
         }
     }
 }
