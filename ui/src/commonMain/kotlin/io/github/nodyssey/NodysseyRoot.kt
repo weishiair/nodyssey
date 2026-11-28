@@ -63,9 +63,14 @@ import kotlinx.coroutines.launch
 @Composable
 fun NodysseySiteSwitchPlaceholder(container: AppContainer, initialSettings: UserSettings?) {
     NodysseyChrome(container, initialSettings) {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Box(contentAlignment = Alignment.Center) { PlazaSpinner() }
-        }
+        AccountSwitchPlaceholder()
+    }
+}
+
+@Composable
+internal fun AccountSwitchPlaceholder() {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Box(contentAlignment = Alignment.Center) { PlazaSpinner() }
     }
 }
 
@@ -100,7 +105,7 @@ fun NodysseyRoot(
         val openAppLinkSettings = rememberAppLinkSettingsLauncher()
         val scope = rememberCoroutineScope()
         Box {
-            AccountBoundary(container, initialSettings) {
+            AccountBoundary(container) {
                 MainNavigation(
                     container = container,
                     initialSettings = storedSettings ?: initialSettings,
